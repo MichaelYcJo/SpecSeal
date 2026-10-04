@@ -190,32 +190,39 @@ open on every runner the list misses. This one lists the few consumers that
 provably do not, and everything unlisted is read as before. A body is data
 when all of these hold:
 
-- its delimiter is quoted (`'EOF'`, `"EOF"`, `\EOF`, `E'O'F`, with no `$`
-  in the word), its terminator line arrived, and so is every other
-  delimiter on the line. The outer shell expands a body behind an unquoted
-  one, and anything it expands there can run a file another body was
-  written to. No test of that body's text is enough, because the shell
-  removes a backslash-newline before it expands, so a `$` at a line's end
-  and `(` on the next are a substitution;
+- its delimiter is quoted (`'EOF'`, `"EOF"`, `E'O'F`) and its terminator
+  line arrived;
+- every delimiter on the line is quoted. The outer shell expands a body
+  behind an unquoted one, and anything it expands there can run a file
+  another body was written to. No test of that body's text is enough,
+  because the shell removes a backslash-newline before it expands, so a `$`
+  at a line's end and `(` on the next are a substitution;
+- the reader reads every delimiter word with certainty: a word holding a
+  `$`, a backslash, a newline or a backtick counts as unquoted (#763). A
+  backslash-newline is removed before the shell reads the word, so where one
+  stands the parts the reader saw quoted need not be the parts the shell
+  does, and `\EOF` goes with it;
 - it is a top-level body, not one inside `$( … )`, a backtick pair, `<( … )`,
   an `eval` argument, a `-c` string or another body, because a
   substitution's value goes wherever the command around it sends it;
 - the line is plain, with comments and bodies dropped: every program a bare,
   unquoted word from the plain set of *The commit gate inside git*, `tee`,
   `gh pr|issue|release|api`, or a Python program; no `$( … )`, backtick,
-  `${ … }`, `$'…'`, subshell, group or `&` but `&&` and a descriptor's; no
-  word that steps around git's hooks, no `--output` option and no `printf`
-  option; and every `<<` on the line is one the reader opened a body for, in
-  order, on the default descriptor;
+  `${ … }`, `$'…'`, backslash-newline, subshell, group or `&` but `&&` and a
+  descriptor's; no word that steps around git's hooks, no `--output` option
+  and no `printf` option; and every `<<` on the line is one the reader opened
+  a body for, in order, on the default descriptor;
 - the command owning it is `cat` or `tee`, or `python3` or `python` whose
   first word, past redirections, is `-` or absent — a flag, a script or `$X`
   there makes the body input to some other program;
 - for `cat` and `tee`, when any stage of its pipeline writes a file, nothing
   on the line can run that file: no Python program, no `git` (a commit runs
   hooks, and `git add` runs `post-index-change`, and a file the line wrote
-  may be one), and no `gh` subcommand that runs local git (`pr create`,
-  `pr checkout`, `pr merge`, `pr close`, `issue develop`, `release create`,
-  read from `gh --help` at 2.100.0).
+  may be one), no `gh` but `pr ready` and a `pr edit` given a flag (every
+  other subcommand can run local git or a pager, browser or editor its
+  configuration names, read from `gh --help` at 2.100.0), and no file whose
+  name is a program the line runs from `PATH`, `git` included where `gh`
+  runs it (#763).
 
 A body that is data is not read at all, and every other body, and every
 segment outside the bodies, is read exactly as before: a real commit beside

@@ -30,7 +30,7 @@ This is the verifying round for round 2's fix, `903e5603..82e0680d`, and the pos
 
 | Axis | Who answers it |
 |---|---|
-| whether each `gh` subcommand in `GH_REMOTE` really runs no local git at runtime | the repository owner, or someone with network access and a scratch repository |
+| whether each `gh` subcommand in `GH_REMOTE` really runs no local git at runtime | the repository owner, or someone with network access and a scratch repository · NAME NOT IN TREE: #763's fix replaced `GH_REMOTE` with `GH_NOTHING_LOCAL` |
 
 ## Deferred
 

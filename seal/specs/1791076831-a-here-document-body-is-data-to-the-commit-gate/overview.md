@@ -22,7 +22,7 @@ The commit gate refused whole Bash calls whose only commit was text in a here-do
 
 | Item | Who must answer |
 |---|---|
-| That each `gh` subcommand in `GH_REMOTE` runs no local git at runtime — Q4 was answered from `gh … --help` at 2.100.0, and the enumeration ran `gh` as a stub | the reviewer (warden), or a person with a scratch repository and network access |
+| That the two `gh` subcommands in `GH_NOTHING_LOCAL` (`pr ready`, and `pr edit` given a flag) run nothing local at runtime — no hook-running git, pager, browser or editor; the set was read from `gh … --help` at 2.100.0 (Q4, narrowed by #763), and the enumeration ran `gh` as a stub | the reviewer (warden), or a person with a scratch repository and network access |
 | Windows and Linux shells — the enumeration ran macOS bash 3.2 and zsh 5.9 only | CI's `windows-latest` and `ubuntu-latest` jobs, for the cases; nobody for the enumeration |
 | The full suite, lint and typecheck | the sealer, after the review rounds settle |
 | ✅ `seal/releases/0.15.1.md`'s L1 reads DRIFTED on this branch and on its base, because `f19e2762` (#752) changed a test it cites; the strict ledger check in the broad gate refuses it, and this work item did not re-read a row it never moved | re-read into this work item's fragment by the orchestrator at `f75ef84b`; `evidence-check --strict` read 0 drifted there |

@@ -72,11 +72,22 @@ def decide(command, cwd):
 QUOTINGS = {
     "<<'EOF'": True,
     '<<"EOF"': True,
-    "<<\\EOF": True,
     "<<E'O'F": True,
     "<<EOF": False,
     "<<$'EOF'": False,
     '<<$"EOF"': False,
+    # A backslash fails closed wherever it stands (#763): the shell removes a
+    # backslash-newline before it reads the word, so the reader cannot be
+    # sure which parts of the word were quoted.
+    "<<\\EOF": False,
+    "<<E\\\nOF": False,
+    "<<'E\\\nOF'": False,
+    '<<"E\\\nOF"': False,
+    "<<'E'\\\n'OF'": False,
+    # A newline or a backtick inside the word is not one the reader can be
+    # sure of either.
+    "<<'E\nOF'": False,
+    "<<'E`x`OF'": False,
 }
 
 
@@ -201,7 +212,6 @@ def test_the_real_commit_after_a_python_body_is_judged_where_it_lands(tmp_path):
 QUOTED_OPENERS = {
     "<<-'EOF'": "\tEOF",
     '<<"EOF"': "EOF",
-    "<<\\EOF": "EOF",
     "<<E'O'F": "EOF",
 }
 
@@ -219,7 +229,7 @@ def test_every_quoting_of_the_delimiter_is_data(tmp_path, opener):
         assert got == "silent", (command, out)
 
 
-@pytest.mark.parametrize("opener", ["<<EOF", "<<$'EOF'", "<<-EOF"])
+@pytest.mark.parametrize("opener", ["<<EOF", "<<$'EOF'", "<<-EOF", "<<\\EOF"])
 def test_an_unquoted_delimiter_keeps_the_body_read(tmp_path, opener):
     """S5. The outer shell expands `$( … )` and backticks in such a body, and
     reading it for those alone needs a scanner this work does not build."""
@@ -307,6 +317,12 @@ FILE_RUNNERS = [
     "gh pr create --body-file f.sh",
     "gh pr checkout 1",
     "gh alias import f.sh",
+    # `gh` runs a program its configuration names -- a pager, a browser, an
+    # editor -- except in the two subcommands that provably run nothing
+    # local (#763).
+    "gh api repos/x/y --input f.sh",
+    "gh pr view 1 --web",
+    "gh pr edit 1",
     # A program the plain words hide: a process substitution, a backtick
     # pair, and a `$'…'` whose escaped quote `shlex` reads as two quotes, so
     # it sees one `echo` where bash runs `sh f.sh` between two.
@@ -360,10 +376,11 @@ def test_a_body_below_the_top_level_is_still_read(tmp_path, command):
 
 
 def test_a_written_file_nothing_on_the_line_runs_is_data(tmp_path):
-    """R2f's other side. A sink's file beside `gh` subcommands that run no
-    local git, beside `cd` and beside `echo`, is data; red at `101f9bd0`."""
+    """R2f's other side. A sink's file beside the `gh` subcommands that
+    provably run nothing local, beside `cd` and beside `echo`, is data; red at
+    `101f9bd0`."""
     session = make_repo(tmp_path / "session")
-    for after in (GH, "cd . && echo done", "gh api repos/x/y --input pr.md"):
+    for after in (GH, "cd . && echo done"):
         command = f"cat > pr.md <<'EOF'\n{PR_BODY}\nEOF\n{after}"
         got, out = decide(command, session)
         assert got == "silent", (command, out)
@@ -429,6 +446,17 @@ tokens = load_hook_module("tokens.py", "tokens_heredoc_data")
         # `<<- 'EOF'`, whose dash stands apart -- keeps every body read.
         ("cat <<- 'EOF'\nbody\nEOF", [False]),
         ("cat <<-'EOF'\nbody\nEOF", [True]),
+        # #763: where line continuation lets the reader's view of an opener
+        # differ from the shell's, every body on the line is read -- a
+        # backslash-newline inside a delimiter word, and one splitting the
+        # `<<` itself so the reader opens no body where the shell does.
+        ("cat <<'A'\nbody\nA\ncat <<E\\\nOF\nbody\nEOF", [False, False]),
+        ("cat <<'A'\nbody\nA\ncat <\\\n<cat\necho hi\ncat", [False]),
+        # R2f: a write over a program the line runs from `PATH`, `git`
+        # among them where `gh` runs it.
+        ("cat > bin/grep <<'A'\nbody\nA\ngrep x f", [False]),
+        ("cat > git <<'A'\nbody\nA\ngh pr ready 1", [False]),
+        ("cat > pr.md <<'A'\nbody\nA\ngh pr edit 1 --body-file pr.md", [True]),
     ],
 )
 def test_the_rule_answers_per_body(command, expected):

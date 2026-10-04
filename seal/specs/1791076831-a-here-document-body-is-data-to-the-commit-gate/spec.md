@@ -43,7 +43,7 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 
 **R2 — a body is DATA when all of a–f hold.** Where any fails, the body is read as commands exactly as today.
 
-- **a. Quoted delimiter.** The delimiter word as written contains `'`, `"` or `\`, and contains no `$`. `<<'EOF'`, `<<"EOF"`, `<<\EOF`, `<<E'O'F` and `<<-'EOF'` qualify. `<<EOF`, `<<-EOF`, `<<$'EOF'` and `<<$"EOF"` do not. The `$` exclusion is fail-closed: what bash makes of `$'…'` as a delimiter is not settled here, and an unsettled case keeps today's reading.
+- **a. Quoted delimiter, and every delimiter on the line quoted.** The delimiter word as written contains `'` or `"`, and contains no `$`, backslash, newline or backtick. `<<'EOF'`, `<<"EOF"`, `<<E'O'F` and `<<-'EOF'` qualify. `<<EOF`, `<<-EOF`, `<<\EOF`, `<<$'EOF'` and `<<$"EOF"` do not. Every other heredoc on the line must qualify too, or no body on the line is data: the outer shell expands a body behind an unquoted delimiter, and that body can run a file another body was written to (round 2, the owner's structural rule). The exclusions are fail-closed: what bash makes of `$'…'` as a delimiter is not settled here, and a backslash-newline is removed before the shell reads the word, so where a backslash stands the reader cannot be sure which parts the shell saw quoted (#763). *Rewritten 2026-10-04 by the build after rounds 2 and 3, to state the rule as built; the frame's version admitted `\` and judged each body alone.*
 - **b. Terminated.** The body's delimiter line arrived. An unterminated body keeps today's reading, so `test_a_heredoc_that_never_terminates_swallows_the_rest` stays as it is. A reader whose delimiter differs from bash's shows up as an unterminated body, which is round 3's `#`-glued family, so this clause also closes that family's direction.
 - **c. Line shape (positive, `is_plain`'s construction).** This clause reads the command with comments and bodies dropped. It must:
   - split cleanly;
@@ -61,7 +61,7 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 - **e. Consumer.** The simple command owning the body is one of:
   - a **sink**, `cat` or `tee`;
   - a **program read from stdin**, `python3` or `python`, where the words after the program name, with redirections skipped, are either none or begin with exactly `-`. Anything else in that first position means the body is input to some other program, which may run it. Examples: `-c`, `-Bc…`, `-m`, a script path, `$X`. That is the shape of round 2's `python3 <<'EOF' -c '…'` finding.
-- **f. Nothing on the line can run what a sink wrote.** A sink writes a file when it has an output redirection (`>`, `>>`, `>|`) to anything other than `/dev/null` or a descriptor, or when it is `tee` with an operand. Such a sink's body is data only when the line holds no `python3`/`python` consumer and no `git … commit` segment. A Python program can run that file. A commit runs hooks, and the file may be one. The rule names no file-name pattern, because a list of hook paths is the kind of enumeration that rots.
+- **f. Nothing on the line can run what a sink wrote.** A sink writes a file when it has an output redirection (`>`, `>>`, `>|`) to anything other than `/dev/null` or a descriptor, or when it is `tee` with an operand. Such a sink's body is data only when the line holds no `python3`/`python` consumer and no `git … commit` segment. A Python program can run that file. A commit runs hooks, and the file may be one. The rule names no file-name pattern, because a list of hook paths is the kind of enumeration that rots. *As built (2026-10-04, after rounds 1–3 and #763): any `git` and any `gh` but `pr ready` and a `pr edit` given a flag count as runners, any stage of the sink's pipeline that writes counts, and so does a written file whose name is a program the line runs from `PATH`, `git` included where `gh` runs it.*
 
 **R3 — what R changes, and nothing more.** A body R makes data is not read by `_hides_a_commit` at all. Every other body is read exactly as now, and so are the segments outside the bodies. A real commit before or after a data body is judged as today (#739's third row).
 
@@ -71,8 +71,8 @@ The axes are those of R. A cell is its verdict alone, and "stops" means a commit
 
 | Axis | Values, each a case | Verdict |
 |---|---|---|
-| Delimiter | `'D'` · `"D"` · `\D` · `D'x'` (partly quoted) | can be data |
-| | `D` · `$'D'` · `$"D"` | today's reading |
+| Delimiter | `'D'` · `"D"` · `D'x'` (partly quoted) | can be data |
+| | `D` · `\D` · `$'D'` · `$"D"` · a backslash-newline anywhere in the word | today's reading |
 | Operator | `<<` · `<<-` (tab-stripped body and terminator) | same verdict for both |
 | Terminator | arrives · never arrives | data possible · today's reading |
 | Consumer | `cat`, `tee` | data (subject to f) |
@@ -100,7 +100,7 @@ Every "silent" scenario is run through the gate's `main()`, in an opted-in repos
 | S1 — #739 row 2 | Given `cat > pr.md <<'EOF'` whose body quotes `` `git -C /x commit -m y` `` and a line `git commit -m x`, then `EOF; gh pr edit 1 --body-file pr.md; gh pr ready 1`. When the gate reads it, then it is silent. | new case in the gate's test module; red at `101f9bd0` |
 | S2 — #739 row 1 | Given `python3 - <<'EOF'` appending to a file, the body holding `` `git commit` `` in a string and a line `# then git commit -m x`. When read, then silent. | new case; red at `101f9bd0` |
 | S3 — #739 row 3 | Given `python3 - "$F" <<'EOF' … EOF && git -C <declared abs> add f && git -C <declared abs> commit -m x`, with the body mentioning a commit. When read, then the one real commit is judged against `<declared abs>` and is silent there. The same command with an undeclared `<abs>` stops for that repository and NOT with the unplaceable-construct text. | new case; `commit_invocations` returns exactly one invocation, based at `<abs>` |
-| S4 — `<<-` and the other quotings | Given S1's command with each of `<<-'EOF'` (tab-indented body and terminator), `<<"EOF"`, `<<\EOF`, `<<E'O'F`. Then silent. | parametrised case |
+| S4 — `<<-` and the other quotings | Given S1's command with each of `<<-'EOF'` (tab-indented body and terminator), `<<"EOF"`, `<<E'O'F`. Then silent. (`<<\EOF` was here and moved to S5's reading in #763.) | parametrised case |
 | S5 — unquoted stays read | Given S1 and S2 with `<<EOF` and `<<$'EOF'`. Then each stops as today. | parametrised case; green at `101f9bd0` and after |
 | S6 — a shell consumer stays read | Given each of `bash <<'EOF'`, `sh -s <<'EOF'`, `cat <<'EOF' \| sh`, `cat <<'EOF' \| bash -s`, `source /dev/stdin <<'EOF'`, `sudo bash <<'EOF'`, `env cat <<'EOF'`, `/bin/cat <<'EOF'`, `$SH <<'EOF'`, `perl - <<'EOF'`, each with body `git commit -m x`. Then each stops. | parametrised case; each green before and after |
 | S7 — a written file a line could run | Given `cat > f.sh <<'EOF'\ngit commit -m x\nEOF\n` followed by, in turn, `bash f.sh`, `sh f.sh`, `./f.sh`, `source f.sh`, `make`, `python3 - <<'P'\nimport os; os.system('sh f.sh')\nP`, `git commit -m y`. Then each stops. | parametrised case |

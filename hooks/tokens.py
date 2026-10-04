@@ -265,26 +265,14 @@ SINKS = frozenset({"cat", "tee"})
 # belongs to: the shell reading of one finds only shell-shaped text (R2e).
 STDIN_PROGRAMS = frozenset({"python3", "python"})
 
-# The `gh` subcommands that run no local git, read from `gh <group> <sub>
-# --help` at gh 2.100.0 (`questions.md` Q4). Left out, because each runs git
-# here and git runs hooks: `pr create` (pushes a branch that is not pushed),
-# `pr checkout`, `pr merge` and `pr close` (`--delete-branch` deletes and
-# switches the local branch), `issue develop` (`--checkout`), and `release
-# create` (it fetches a tag for `--notes-from-tag`). `api` has no subcommand.
-GH_REMOTE = {
-    "pr": frozenset(
-        {"checks", "comment", "diff", "edit", "list", "lock", "ready"}
-        | {"reopen", "revert", "review", "status", "unlock", "update-branch", "view"}
-    ),
-    "issue": frozenset(
-        {"close", "comment", "create", "delete", "edit", "list", "lock", "pin"}
-        | {"reopen", "status", "transfer", "unlock", "unpin", "view"}
-    ),
-    "release": frozenset(
-        {"delete", "delete-asset", "download", "edit", "list", "upload"}
-        | {"verify", "verify-asset", "view"}
-    ),
-}
+# The `gh` subcommands that provably run nothing local, read from `gh <group>
+# <sub> --help` at gh 2.100.0. Every other one can: six run local git, and git
+# runs hooks (`questions.md` Q4); and `gh` sends output to the pager its
+# configuration names, opens the browser for `--web` and the editor for
+# `--editor` or an interactive prompt (#763). `pr ready` takes no text and
+# offers no `--web`. `pr edit` offers no `--web` or `--editor`, and it prompts
+# only when no flag names what to edit, so it counts only with a flag.
+GH_NOTHING_LOCAL = frozenset({("pr", "ready"), ("pr", "edit")})
 
 # Marks a word that held quoting, which `shlex` would otherwise remove: a
 # quoted or escaped program word is no bare literal (R2c).
@@ -336,6 +324,11 @@ def _commands(line):
     """The simple commands of `line`, or None when it is not the plain line
     R2c and R2d describe. `line` has its comments and bodies dropped."""
     if _QUOTED in line or "`" in line or steps_around_hooks(line):
+        return None
+    # A backslash-newline is removed before the shell reads a word, so where
+    # one stands -- in a `<<`, a `<<-` or a delimiter -- the reader's openers
+    # need not be the shell's (#763).
+    if "\\\n" in line:
         return None
     # A `$` names a parameter and nothing else: `$(`, `${`, `$[`, `$((`,
     # `$'…'` and `$"…"` all fail here, inside quotes or out.
@@ -430,19 +423,28 @@ def _plain_on_a_data_line(command):
 
 def _runs_what_it_reaches(command):
     """True when `command` can run a file this line wrote (R2f): a Python
-    program can, and git runs hooks, which a file the line wrote may be."""
+    program can, git runs hooks, which a file the line wrote may be, and `gh`
+    runs git and the programs its configuration names, outside
+    `GH_NOTHING_LOCAL`."""
     if command.program in STDIN_PROGRAMS or command.program == "git":
         return True
-    if command.program != "gh" or command.args[:1] == ["api"]:
+    if command.program != "gh":
         return False
-    remote = GH_REMOTE.get(command.args[0] if command.args else "", ())
-    return len(command.args) < 2 or command.args[1] not in remote
+    pair = tuple(command.args[:2])
+    if pair not in GH_NOTHING_LOCAL:
+        return True
+    return pair == ("pr", "edit") and not any(
+        word.startswith("-") for word in command.args[2:]
+    )
 
 
 def _writes_a_file(command):
-    if command.program == "tee" and command.args:
-        return True
-    return any(op in _WRITES and t != "/dev/null" for op, t in command.redirections)
+    """The paths `command` writes: every operand of `tee`, and each output
+    redirection's target but `/dev/null`."""
+    written = list(command.args) if command.program == "tee" else []
+    return written + [
+        t for op, t in command.redirections if op in _WRITES and t != "/dev/null"
+    ]
 
 
 def heredoc_data(command):
@@ -451,17 +453,23 @@ def heredoc_data(command):
     not read it back as commands (#739, `spec.md` R2).
 
     A body is data when all of these hold, and is read as today otherwise:
-      * its delimiter is quoted and its terminator arrived (R2a, R2b);
+      * its delimiter is quoted and its terminator arrived, and EVERY
+        delimiter on the line is quoted, since the outer shell expands a body
+        behind an unquoted one (R2a, R2b); a delimiter the reader cannot read
+        with certainty is not quoted (`cmdline._quoted_delimiter`);
       * the line, with comments and bodies dropped, is plain in the sense
         above: every program a bare word in `DATA_PROGRAMS`, nothing a shell
-        parses again, no `&` but `&&` and a descriptor's, no subshell or
-        group, and `steps_around_hooks` finds nothing (R2c);
+        parses again, no backslash-newline, no `&` but `&&` and a
+        descriptor's, no subshell or group, and `steps_around_hooks` finds
+        nothing (R2c);
       * the line's openers are the bodies' openers, one for one, each on the
         default descriptor (R2d);
       * the command owning it is `cat` or `tee`, or `python3` or `python`
         whose first word is `-` or absent (R2e);
       * for a sink, when its pipeline writes a file, nothing on the line can
-        run that file (R2f).
+        run that file: no runner (`_runs_what_it_reaches`), and no file whose
+        name is a program the line runs from `PATH` -- `git` among them
+        where `gh` runs it (R2f).
     """
     from cmdline import drop_comments, drop_heredoc_bodies, heredocs
 
@@ -484,12 +492,17 @@ def heredoc_data(command):
     ):
         return unread
     runs = any(map(_runs_what_it_reaches, commands))
+    programs = {c.program for c in commands}
+    if "gh" in programs:
+        programs.add("git")
     answers = []
     for (owner, _word), record in zip(owners, records):  # noqa: B905
         data = record.quoted and record.terminated
         data = data and (owner.program in SINKS or owner.program in STDIN_PROGRAMS)
-        if data and owner.program in SINKS and runs:
+        if data and owner.program in SINKS:
             stages = [c for c in commands if c.pipeline == owner.pipeline]
-            data = not any(map(_writes_a_file, stages))
+            written = [path for c in stages for path in _writes_a_file(c)]
+            over = any(path.rsplit("/", 1)[-1] in programs for path in written)
+            data = not written or not (runs or over)
         answers.append(data)
     return answers

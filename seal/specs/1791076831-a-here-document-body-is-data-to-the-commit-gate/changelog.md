@@ -11,8 +11,12 @@
   line of plain commands where every delimiter is quoted and nothing can run
   a file it was written to. Every other body is read as before: any body on
   a line holding an unquoted delimiter, a shell or any other program fed the
-  body, a body inside `$( … )`, and a file written beside `git`, a Python
-  program or a `gh` subcommand that runs local git.
+  body, a body inside `$( … )`, a file written beside `git`, a Python
+  program or a `gh` subcommand that can run anything local, and a file
+  written over a program the line runs from `PATH` (#763). A delimiter word
+  holding a backslash counts as unquoted, and a line holding a
+  backslash-newline keeps every body read, because the shell removes it
+  before it reads the opener (#763).
   The paragraph of `docs/commit-review-gate-spec.md` opening **A
   here-document body nothing can run is data** states the rule, and the
   agent contract's §9 says it to every agent.

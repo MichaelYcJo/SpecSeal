@@ -410,11 +410,15 @@ def _quoted_delimiter(raw):
     """True when the delimiter word, as written, keeps its body unexpanded.
 
     bash expands nothing in a body whose delimiter has any part quoted:
-    `'EOF'`, `"EOF"`, `\\EOF`, `E'O'F`. A `$` anywhere in the word answers
-    False, because what bash makes of `$'EOF'` or `$"EOF"` there was never
-    measured, and the answer that keeps a body read is the one that stops.
+    `'EOF'`, `"EOF"`, `E'O'F`. Every word the reader cannot read with
+    certainty answers False, because the answer that keeps a body read is the
+    one that stops: a `$`, since what bash makes of `$'EOF'` or `$"EOF"` there
+    was never measured; a backslash anywhere, since the shell removes a
+    backslash-newline before it reads the word, so the parts the reader saw
+    quoted need not be the parts the shell does (#763); and a newline or a
+    backtick.
     """
-    return "$" not in raw and any(ch in raw for ch in "'\"\\")
+    return not any(ch in raw for ch in "$\\\n`") and any(ch in raw for ch in "'\"")
 
 
 def _heredoc_split(command: str):
