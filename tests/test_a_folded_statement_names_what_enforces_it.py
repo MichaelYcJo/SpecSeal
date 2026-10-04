@@ -112,7 +112,7 @@ OLD = "<!-- specs/1790154760-an-earlier-fold -->"
 def planted(tmp_path, body, marker=BOUND):
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_x.py").write_text(
-        "def test_here():\n    pass\n\n\nclass Holder:\n    pass\n"
+        "def test_here():\n    pass\n\n\nclass Holder:\n    pass\n", encoding="utf-8"
     )
     text = f"# D\n\n## S\n\n{marker}\n{body}"
     return shape_problems(str(tmp_path), "d.md", text)
@@ -202,7 +202,7 @@ def test_a_quoted_example_in_a_fence_is_not_a_statement(tmp_path):
 def test_a_target_that_is_not_a_file_in_the_repository_is_named(tmp_path):
     """Round 1, finding 2: the root, a directory and a path outside the root
     all exist, and none of them is a file the repository holds."""
-    (tmp_path / "outside.txt").write_text("x")
+    (tmp_path / "outside.txt").write_text("x", encoding="utf-8")
     for i, target in enumerate((".", "tests", "../outside.txt", "tests/../..")):
         sub = tmp_path / f"t{i}"
         sub.mkdir()
@@ -237,7 +237,7 @@ def test_a_symlink_inside_the_root_that_leaves_it_is_named(tmp_path):
     """Round 2, correction: the path is inside, and the file it opens is not."""
     from conftest import symlink_or_skip
 
-    (tmp_path / "outside.txt").write_text("x")
+    (tmp_path / "outside.txt").write_text("x", encoding="utf-8")
     sub = tmp_path / "repo"
     sub.mkdir()
     (sub / "docs").mkdir()

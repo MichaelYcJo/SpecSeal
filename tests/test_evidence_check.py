@@ -80,14 +80,14 @@ def step(args, cwd):
 def proj(tmp_path):
     d = tmp_path / "proj"
     (d / "src").mkdir(parents=True)
-    (d / "src" / "service.py").write_text(SERVICE)
+    (d / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     return d
 
 
 def ledger(proj, body, at="seal/ledger.md"):
     path = proj / at
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("# map\n\n" + body)
+    path.write_text("# map\n\n" + body, encoding="utf-8")
     return path
 
 
@@ -143,11 +143,11 @@ def test_duplicate_coordinates_are_counted_once(proj):
 def test_map_resolves_a_prefixed_cross_repo_path(proj, tmp_path):
     other = tmp_path / "legacy"
     (other / "src").mkdir(parents=True)
-    (other / "src" / "service.py").write_text(SERVICE)
+    (other / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     ledger(proj, f"| POL-1 | `legacy/src/service.py#handler@{GOOD}` |\n")
     # EXTERNAL needs declared cross-repo intent since round 4's 🔴 3; a
     # parity config is one of the three declarations.
-    (proj / "seal" / "parity.md").write_text("# parity\n")
+    (proj / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
     assert "1 external" in run(["."], proj).stdout
     r = run(["--map", f"legacy={other}", "."], proj)
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
@@ -170,10 +170,10 @@ def test_migrate_reads_map_and_default_repo(proj, tmp_path):
     those repositories (round 4, 🟡 9)."""
     other = tmp_path / "legacy"
     (other / "src").mkdir(parents=True)
-    (other / "src" / "old.py").write_text(SERVICE)
+    (other / "src" / "old.py").write_text(SERVICE, encoding="utf-8")
     orig = tmp_path / "orig"
     (orig / "apps").mkdir(parents=True)
-    (orig / "apps" / "svc.py").write_text(SERVICE)
+    (orig / "apps" / "svc.py").write_text(SERVICE, encoding="utf-8")
     ledger(
         proj,
         "| POL-1 | `legacy/src/old.py:1-2` | 2026-08-31 |\n"
@@ -184,7 +184,7 @@ def test_migrate_reads_map_and_default_repo(proj, tmp_path):
         proj,
     )
     assert "2 rows migrated" in r.stdout, r.stdout
-    text = (proj / "seal" / "ledger.md").read_text()
+    text = (proj / "seal" / "ledger.md").read_text(encoding="utf-8")
     assert f"legacy/src/old.py#handler@{GOOD}" in text, text
     assert f"apps/svc.py#handler@{GOOD}" in text, text
 
@@ -195,7 +195,7 @@ def test_default_repo_resolves_an_unprefixed_cross_repo_path(proj, tmp_path):
     reported EXTERNAL or BROKEN."""
     orig = tmp_path / "orig"
     (orig / "apps").mkdir(parents=True)
-    (orig / "apps" / "svc.py").write_text(SERVICE)
+    (orig / "apps" / "svc.py").write_text(SERVICE, encoding="utf-8")
     ledger(proj, f"| POL-9 | `apps/svc.py#handler@{GOOD}` |\n")
     r = run(["--default-repo", str(orig), "."], proj)
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
@@ -221,7 +221,9 @@ def test_the_checker_finds_the_ledger_with_no_arguments(proj, at):
 
 def test_a_custom_ledger_glob_is_read_instead(proj):
     ledger(proj, "| POL-1 | `src/service.py#gone@00000000` |\n")
-    (proj / "SPEC.md").write_text(f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    (proj / "SPEC.md").write_text(
+        f"| POL-1 | `src/service.py#handler@{GOOD}` |\n", encoding="utf-8"
+    )
     r = run(["--ledger", "SPEC.md", "."], proj)
     assert "SPEC.md" in r.stdout and "1 ok" in r.stdout and r.returncode == 0
 
@@ -238,7 +240,7 @@ def test_a_coordinate_in_a_dot_directory_resolves(proj):
     """A leading dot is allowed: `.github/...` was read as `github/...` and
     reported EXTERNAL, so the plugin could not cite its own directory."""
     (proj / ".github").mkdir()
-    (proj / ".github" / "svc.py").write_text(SERVICE)
+    (proj / ".github" / "svc.py").write_text(SERVICE, encoding="utf-8")
     ledger(proj, f"| POL-1 | `.github/svc.py#handler@{GOOD}` |\n")
     r = run(["."], proj)
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
@@ -317,7 +319,7 @@ def test_the_plugins_copy_reads_the_parity_config_under_the_resolved_root(proj):
     unplaceable prefixed row read EXTERNAL instead of BROKEN, and it was
     looked for under ROOT only."""
     local_root(proj)
-    (proj / ".git" / "seal" / "parity.md").write_text("# parity\n")
+    (proj / ".git" / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
     ledger(
         proj,
         "| POL-1 | `legacy/src/old.py#handler@00000000` |\n",
@@ -438,7 +440,9 @@ def test_the_ledger_flag_overrides_the_resolver_either_way(proj):
     ledger(
         proj, "| POL-1 | `src/service.py#gone@00000000` |\n", at=".git/seal/ledger.md"
     )
-    (proj / "SPEC.md").write_text(f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    (proj / "SPEC.md").write_text(
+        f"| POL-1 | `src/service.py#handler@{GOOD}` |\n", encoding="utf-8"
+    )
     r = run(["--ledger", "SPEC.md", "."], proj)
     assert "SPEC.md" in r.stdout and "1 ok" in r.stdout and r.returncode == 0
     assert "gone" not in r.stdout, "the resolved default was read beside --ledger"
@@ -482,11 +486,11 @@ def test_the_writers_leave_a_fenced_example_byte_for_byte(proj):
     fenced = FENCED_EXAMPLE
     r = run(["--reverify", "."], proj)
     assert r.returncode == 0, r.stdout
-    after = path.read_text()
+    after = path.read_text(encoding="utf-8")
     assert fenced in after, after
     assert f"`src/service.py#handler@{GOOD}` |\n| POL-2" in after, after
     r = run(["--migrate", "."], proj)
-    after = path.read_text()
+    after = path.read_text(encoding="utf-8")
     assert fenced in after, after
     assert "| POL-2 | old `src/service.py#handler@" in after, after
 

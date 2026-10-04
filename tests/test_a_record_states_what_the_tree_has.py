@@ -413,7 +413,9 @@ def test_the_gathered_ledger_is_in_the_corpus_in_local_mode_too(tmp_path):
     corpus by design, was dropped for no reason but where the root happens to
     sit.
     """
-    (tmp_path / "mod.py").write_text("def kept_helper():\n    return 1\n")
+    (tmp_path / "mod.py").write_text(
+        "def kept_helper():\n    return 1\n", encoding="utf-8"
+    )
     local = tmp_path / ".git" / "seal"
     (local / "specs").mkdir(parents=True)
     (local / "ledger").mkdir(parents=True)
@@ -979,7 +981,9 @@ def test_a_file_over_the_size_cap_supplies_no_name(tmp_path):
     every invocation, and the guard had no observer."""
     h = home(tmp_path)
     big = tmp_path / "bundle.min.js"
-    big.write_text("x" * (module().NAME_FILE_CAP + 1) + "\ngone_helper\n")
+    big.write_text(
+        "x" * (module().NAME_FILE_CAP + 1) + "\ngone_helper\n", encoding="utf-8"
+    )
     work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
     found, _read = refusals(tmp_path)
     assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found

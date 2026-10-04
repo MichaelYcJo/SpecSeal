@@ -348,7 +348,7 @@ def test_a_scratch_marker_under_the_common_directory_keeps_every_gate_silent(
     local, migrate
 ):
     repo, home = local
-    (repo / ".git" / "specseal-scratch").write_text("")
+    (repo / ".git" / "specseal-scratch").write_text("", encoding="utf-8")
     declare_smith(repo, home)
     write(home / "ledger.md", BROKEN_ROW)
     write(home / "ledger" / "f.md", OLD_ROW)

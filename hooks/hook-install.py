@@ -83,7 +83,7 @@ def say_once(common, session, kind):
         return False
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, "w").close()
+        open(path, "w", encoding="utf-8").close()
     except OSError:
         return False
     return True

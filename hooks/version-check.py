@@ -71,7 +71,9 @@ def running():
     if not root:
         return None, None
     try:
-        with open(os.path.join(root, ".claude-plugin", "plugin.json")) as f:
+        with open(
+            os.path.join(root, ".claude-plugin", "plugin.json"), encoding="utf-8"
+        ) as f:
             d = json.load(f)
     except (OSError, ValueError):
         return None, None
@@ -91,7 +93,7 @@ def due():
         pass
     try:
         os.makedirs(STATE_DIR, exist_ok=True)
-        with open(MARKER, "w") as f:
+        with open(MARKER, "w", encoding="utf-8") as f:
             f.write(str(int(time.time())))
     except OSError:
         return False

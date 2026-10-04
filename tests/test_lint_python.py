@@ -33,9 +33,9 @@ def test_non_python_file_never_reaches_the_formatter(monkeypatch, tmp_path):
 
 
 def test_python_file_runs_check_fix_then_format(monkeypatch, tmp_path):
-    (tmp_path / "ruff.toml").write_text("line-length = 88\n")
+    (tmp_path / "ruff.toml").write_text("line-length = 88\n", encoding="utf-8")
     f = tmp_path / "m.py"
-    f.write_text("x = 1\n")
+    f.write_text("x = 1\n", encoding="utf-8")
     invocations = []
     monkeypatch.setattr(lp, "resolve_runner", lambda: ["ruff"])
     monkeypatch.setattr(
@@ -49,7 +49,7 @@ def test_python_file_runs_check_fix_then_format(monkeypatch, tmp_path):
 
 def test_missing_runner_is_silent(monkeypatch, tmp_path):
     f = tmp_path / "m.py"
-    f.write_text("x = 1\n")
+    f.write_text("x = 1\n", encoding="utf-8")
     monkeypatch.setattr(lp, "resolve_runner", lambda: None)
     monkeypatch.setattr(
         lp.subprocess,
@@ -62,7 +62,7 @@ def test_missing_runner_is_silent(monkeypatch, tmp_path):
 
 def test_a_failing_formatter_never_blocks_the_edit(monkeypatch, tmp_path):
     f = tmp_path / "m.py"
-    f.write_text("x = 1\n")
+    f.write_text("x = 1\n", encoding="utf-8")
     monkeypatch.setattr(lp, "resolve_runner", lambda: ["ruff"])
     monkeypatch.setattr(
         lp.subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(OSError("boom"))
@@ -88,9 +88,9 @@ def test_malformed_payload_exits_zero(tmp_path):
 def _py_in(tmp_path, *, config=None, name="m.py"):
     if config:
         for filename, body in config.items():
-            (tmp_path / filename).write_text(body)
+            (tmp_path / filename).write_text(body, encoding="utf-8")
     f = tmp_path / name
-    f.write_text("import os\nx = 1\n")
+    f.write_text("import os\nx = 1\n", encoding="utf-8")
     return f
 
 
@@ -140,21 +140,21 @@ def test_a_project_with_no_formatter_is_left_alone(monkeypatch, tmp_path):
 
 
 def test_config_is_found_from_a_subdirectory(monkeypatch, tmp_path):
-    (tmp_path / "ruff.toml").write_text("line-length = 88\n")
+    (tmp_path / "ruff.toml").write_text("line-length = 88\n", encoding="utf-8")
     sub = tmp_path / "src" / "pkg"
     sub.mkdir(parents=True)
     f = sub / "m.py"
-    f.write_text("x = 1\n")
+    f.write_text("x = 1\n", encoding="utf-8")
     assert _ran(monkeypatch, tmp_path, f)
 
 
 def test_the_search_stops_at_a_repository_boundary(monkeypatch, tmp_path):
     """A parent checkout's settings must not speak for a nested one."""
-    (tmp_path / "ruff.toml").write_text("line-length = 88\n")
+    (tmp_path / "ruff.toml").write_text("line-length = 88\n", encoding="utf-8")
     nested = tmp_path / "vendor" / "other"
     (nested / ".git").mkdir(parents=True)
     f = nested / "m.py"
-    f.write_text("x = 1\n")
+    f.write_text("x = 1\n", encoding="utf-8")
     assert _ran(monkeypatch, tmp_path, f) == []
 
 

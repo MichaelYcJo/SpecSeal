@@ -104,13 +104,16 @@ to correct, for the same reason the ledger row is.
 ## Running the checks
 
 The suite needs `pytest`, one parser, `markdown-it-py`, pinned to one
-version in `MARKDOWN_IT` in `.github/scripts/run_tests.py`, and Pillow,
-pinned in `PILLOW` beside it. The parser is the CommonMark oracle the hook
-readers are checked against (#667). Pillow draws the release seal the tag
-push attaches to the GitHub Release, and the suite's pixel case decodes that
-drawing (#718). The parser is test-only and Pillow is test-and-release-only:
-the gates themselves are stdlib-only Python and import nothing the suite
-installs. `bin/test` acquires all three once: it builds a virtualenv at
+version in `MARKDOWN_IT` in `.github/scripts/run_tests.py`, Pillow, pinned
+in `PILLOW` beside it, and one renderer, `cmarkgfm`, pinned in `CMARKGFM`.
+The parser is the CommonMark oracle the hook readers are checked against
+(#667). Pillow draws the release seal the tag push attaches to the GitHub
+Release, and the suite's pixel case decodes that drawing (#718). The
+renderer is GitHub's own, cmark-gfm, and the table walker in
+`hooks/config.py` is checked against what it renders (#647). The parser and
+the renderer are test-only and Pillow is test-and-release-only: the gates
+themselves are stdlib-only Python and import nothing the suite installs.
+`bin/test` acquires all four once: it builds a virtualenv at
 `.venv` on the first call and reuses it afterwards, so only the first call
 pays for an environment.
 It works from any directory in the repository or a worktree of it, and it
@@ -125,9 +128,10 @@ python3 skills/evidence-check/scripts/evidence_check.py .
 
 Both forms run under `-n auto` unless you pass your own `-n`, `-p no:xdist`
 or `--pdb`, and the runner installs `pytest-xdist` into a `.venv` that lacks
-it (#337), and the pinned `markdown-it-py` and Pillow into one that lacks
-that version (#667, #718). What the whole run costs is a figure with a date
-and a machine, recorded in the work item that measured it, not here.
+it (#337), and the pinned `markdown-it-py`, Pillow and `cmarkgfm` into one
+that lacks that version (#667, #718, #647). What the whole run costs is a
+figure with a date and a machine, recorded in the work item that measured
+it, not here.
 
 **The last of those is the lenient reader.** `broad-gate` runs the same script
 with `--strict`, where drift is exit 2 and the branch comes back `NOT SEALED`;
@@ -157,8 +161,8 @@ it, since nothing here holds the floor for you: macOS ships 3.9 under that
 name, and a version manager points it wherever it was last told.
 
 ```bash
-uvx --with pytest --with markdown-it-py==4.2.0 --with pillow==12.3.0 python3 -m pytest tests/ -q
-# or: pip install pytest markdown-it-py==4.2.0 pillow==12.3.0 && python3 -m pytest tests/
+uvx --with pytest --with markdown-it-py==4.2.0 --with pillow==12.3.0 --with cmarkgfm==2025.10.22 python3 -m pytest tests/ -q
+# or: pip install pytest markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22 && python3 -m pytest tests/
 ```
 
 CI runs five jobs: lint (`ruff check` + `ruff format --check`), the suite on
@@ -261,6 +265,17 @@ when it arrives.
 - **No real identifiers.** Examples, fixtures, and docs use `example.com`
   and `/Users/x/` only. `tests/test_no_real_identifiers.py` enforces it in
   CI — extend its allowlist deliberately, never to make a test pass.
+- **Every file read or written names its encoding.** An `open`,
+  `read_text`, `write_text` or text-mode `subprocess` call with no
+  `encoding=` takes the locale's, which is cp1252 on the Windows leg and
+  UTF-8 everywhere else, so that leg is the only one that sees it. Name
+  `encoding="utf-8"`. Every hook entry point also opens its `__main__` with
+  `console.to_utf8()`.
+  `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py`
+  enforces the first over every tracked `.py` and the second over `hooks/`
+  — classify a unit in its `ALLOWED` deliberately, never to make a test
+  pass. A `python3 -c` line in a skill or a workflow is outside its reach,
+  so name the encoding there yourself.
 - **Functional files are English-only.** Skills, agents, hooks, and commands
   load into model context, where a translated mirror would drift. Korean
   belongs in human-facing docs (`README.ko.md`). The `writing-style` skill

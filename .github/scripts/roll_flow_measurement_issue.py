@@ -198,7 +198,7 @@ INDEX_NOTE = (
 
 
 def run(*args):
-    out = subprocess.run(args, capture_output=True, text=True)
+    out = subprocess.run(args, capture_output=True, encoding="utf-8")
     if out.returncode:
         sys.exit(f"{' '.join(args)} failed: {out.stderr.strip()}")
     return out.stdout
@@ -212,7 +212,7 @@ def try_run(*args):
     of them touches the exactly-one-open invariant, which is the thing worth
     failing a release over.
     """
-    out = subprocess.run(args, capture_output=True, text=True)
+    out = subprocess.run(args, capture_output=True, encoding="utf-8")
     return None if out.returncode else out.stdout
 
 

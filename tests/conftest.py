@@ -172,7 +172,7 @@ def _build_repo(d):
     git("init", "-q")
     git("config", "user.email", "t@t")
     git("config", "user.name", "t")
-    (d / "f.txt").write_text("one\ntwo\nthree\n")
+    (d / "f.txt").write_text("one\ntwo\nthree\n", encoding="utf-8")
     git("add", "-A")
     git("commit", "-qm", "base")
     git("branch", "feature/x")

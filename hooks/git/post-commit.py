@@ -13,6 +13,7 @@ HOOKS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HOOKS)
 
 import commitgate  # noqa: E402
+import console  # noqa: E402
 
 
 def main():
@@ -20,4 +21,5 @@ def main():
 
 
 if __name__ == "__main__":
+    console.to_utf8()
     sys.exit(main())
