@@ -3748,21 +3748,48 @@ NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
 # plugin's reader finds a stray pact row with, and
 # `tests/test_a_signatory_declares_its_pact.py` holds the two equal.
 NOTIFY_ROW_SHAPE = re.compile(
-    r"[\s>]*(?:\|[^\w|`]*|[^\w|`\s]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|\s*[^\s|]",
+    r"[ \t\n\x0b\x0c\r>]*(?:\|[^\w|`]*|[^\w|` \t\n\x0b\x0c\r]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|[ \t\n\x0b\x0c\r]*[^ \t\n\x0b\x0c\r|]",
     re.I,
 )
+
+# `hooks/config.py#RAW_HTML` and `#TAG_END`, copied for a copy with no
+# `hooks/`: inline raw HTML of the five kinds, by its opener, and a tag's end.
+RAW_HTML = re.compile(r"<!-{2}|<(?:(!\[CDATA\[)|(\?)|(![A-Za-z])|/?[A-Za-z])")
+TAG_END = re.compile(r"""(?:[^>"']|"[^"]*"|'[^']*')*>""")
 
 
 def shape_line(line):
     """`hooks/config.py#shape_line`, copied for a copy with no `hooks/`:
-    LINE close to what GFM shows -- inline HTML gone, references decoded,
-    format characters (Unicode category Cf) gone, a link's text kept, and
-    emphasis delimiters gone. That docstring says which way it errs (round
-    1 of PR #784, yellow 2; round 2, yellow 1)."""
-    shown = re.sub(r"<!--.*?-->|</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>", "", line)
-    shown = html.unescape(shown)
+    LINE close to what GFM shows -- inline raw HTML of all five kinds gone,
+    references decoded, format characters (Unicode category Cf) gone, an
+    image gone whole, a link's text kept, and emphasis delimiters gone. That
+    docstring says which way it errs (round 1 of PR #784, yellow 2; rounds 2
+    and 3, yellow 1 and 2)."""
+    kept, at = [], 0
+    while (found := RAW_HTML.search(line, at)) is not None:
+        cdata, instruction, declaration = found.groups()
+        if found.group(0).startswith("<!-"):
+            closer = "-->"
+        else:
+            closer = "]]>" if cdata else "?>" if instruction else None
+            closer = ">" if declaration else closer
+        if closer is not None:
+            stop = line.find(closer, found.end())
+            end = stop + len(closer) if stop != -1 else None
+        else:
+            name = re.match(
+                r"[A-Za-z0-9-]*(?=[ \t\n\x0b\x0c\r/>])", line[found.end() :]
+            )
+            tail = name and TAG_END.match(line, found.end() + name.end())
+            end = tail.end() if tail else None
+        kept.append(line[at : found.end() if end is None else found.start()])
+        at = found.end() if end is None else end
+    kept.append(line[at:])
+    shown = html.unescape("".join(kept))
     shown = "".join(ch for ch in shown if unicodedata.category(ch) != "Cf")
-    shown = re.sub(r"\]\([^)]*\)|\]\[[^\]]*\]|[\[\]]", "", shown)
+    title = r"""\((?:[^()"']|"[^"]*"|'[^']*'|\([^()]*\))*\)"""
+    shown = re.sub(r"!\[[^\]]*\]" + title, "", shown)
+    shown = re.sub(r"\]" + title + r"|\]\[[^\]]*\]|[\[\]]", "", shown)
     return re.sub(r"(?<=\S)[*_~]+|[*_~]+(?=\S)", "", shown)
 
 

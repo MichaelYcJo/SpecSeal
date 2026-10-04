@@ -268,6 +268,22 @@ STRAY_WAYS = [
         CONFIG + "(Pact notify) | always |\n",
         "(Pact notify) | always |",
     ),
+    # Round 3 of PR #784, yellow 2: GFM's list marker and heading need a
+    # space or a tab after them; any other space leaves the line a row.
+    *(
+        (
+            f"W8 no leading pipe, {mark!r} and U+{ord(space):04X} before the item",
+            CONFIG + f"{mark}{space}Pact notify | always |\n",
+            f"{mark}<U+{ord(space):04X}>Pact notify | always |",
+        )
+        for mark, space in (
+            ("-", "\u00a0"),
+            ("*", "\u00a0"),
+            ("#", "\u00a0"),
+            ("+", "\u00a0"),
+            ("-", "\u2003"),
+        )
+    ),
     (
         "W8 no pipe at either end, directly under the table",
         CONFIG + "Pact notify | always\n",
@@ -356,22 +372,41 @@ def test_s3_a_notify_row_spelled_with_a_format_character_is_refused(ch):
 # both directions: it refuses exactly where the rendered item is the pact
 # item's letters. A code span is the one construct left out, and it has a case
 # of its own below.
-WRAPS = [
-    "**{}**",
-    "*{}*",
-    "__{}__",
-    "_{}_",
-    "~~{}~~",
-    "~{}~",
-    "***{}***",
-    "[{}]()",
-    "[{}](https://example.com/x)",
-    "<b>{}</b>",
-    '<span title="a">{}</span>',
-    "<!-- a note -->{}",
-    "\\*{}\\*",
-    "({})",
-]
+# The CommonMark inline constructs (6.1-6.11) a cell can hold, each as a way
+# to wrap or split an item. Every construct is applied to the pact items and
+# to OTHERS, spellings GFM shows as some other word, so both directions run.
+WRAPS = {
+    "emphasis": ["**{}**", "*{}*", "__{}__", "_{}_", "***{}***"],
+    "strikethrough": ["~~{}~~", "~{}~"],
+    "a link": [
+        "[{}]()",
+        "[{}](https://example.com/x)",
+        '[{}](x "a)b")',
+        "[{}](x 'a)b')",
+    ],
+    "an image": ["![{}]()", '![{}](x "t")'],
+    "an autolink": ["<https://example.com/{}>", "<{}@example.com>"],
+    "raw HTML": [
+        "<b>{}</b>",
+        '<span title="a">{}</span>',
+        '<span title="a>b">{}</span>',
+        "<{}>",
+        "<!-- a note -->{}",
+        "<!-- {} -->",
+        "<?x?>{}",
+        "<![CDATA[]]>{}",
+        "<![CDATA[{}]]>",
+        "<!X y>{}",
+    ],
+    "a code span": ["`{}`", "**`{}`**", "`{}`.", "{}`", "&#96;{}&#96;"],
+    "a backslash escape": ["\\*{}\\*", "\\_{}\\_", "\\[{}\\]"],
+    "entity-encoded punctuation": [
+        "&ast;{}&ast;",
+        "&lowbar;{}&lowbar;",
+        "&#91;{}&#93;&#40;&#41;",
+    ],
+    "plain punctuation": ["({})"],
+}
 JOINS = [
     "&#32;",
     "&nbsp;",
@@ -379,10 +414,15 @@ JOINS = [
     "&#8203;",
     "\u200b",
     "<b></b>",
+    "<?x?>",
+    "<![CDATA[]]>",
+    "<!X y>",
     "* *",
     "_",
     "-",
     ".",
+    "\\ ",
+    "&ast;",
     "\u00a0",
 ]
 SPLITS = [
@@ -392,11 +432,20 @@ SPLITS = [
     "<i>Pact</i> notify",
     "Pact <i>notify</i>",
     "P&#97;ct notify",
+    "`Pact` notify",
+    "Pact `notify`",
 ]
+OTHERS = ["Pact notify 2", "Pact 2 notify", "Pacts notify", "Pact notifyx"]
 MARKUP = sorted(
-    {w.format(item) for w in WRAPS for item in ("Pact notify", "Pact")}
+    {
+        wrap.format(item)
+        for wraps in WRAPS.values()
+        for wrap in wraps
+        for item in ("Pact notify", "Pact", *OTHERS)
+    }
     | {f"Pact{j}notify" for j in JOINS}
     | set(SPLITS)
+    | set(OTHERS)
 )
 
 
@@ -406,15 +455,21 @@ def rendered_item(text):
 
 
 def letters(text):
-    return "".join(ch for ch in text.lower() if ch.isalpha())
+    """TEXT reduced to what names an item: its letters and its digits, so
+    `Pact 2 notify` is not the item to this criterion (round 3 of PR #784,
+    white 3)."""
+    return "".join(ch for ch in text.lower() if ch.isalnum())
 
 
 @pytest.mark.parametrize("item", MARKUP)
 def test_s3_an_item_is_refused_exactly_where_gfm_shows_a_pact_item(item):
-    """S3, W9, round 2 of PR #784, yellow 1. The reader refuses the row
-    exactly where cmark-gfm renders the item as `Pact notify` or `Pact`,
-    reduced to its letters, so no spelling a person reads as the item is
-    read as the default."""
+    """S3, W9, rounds 2 and 3 of PR #784. Over the corpus, the reader
+    refuses the row exactly where cmark-gfm renders the item as `Pact
+    notify` or `Pact`, reduced to its letters and digits, and refuses
+    nothing where it renders another word. So no spelling a person reads as
+    the item is read as the default. "Exactly" is a claim about this corpus:
+    the reader also refuses a few spellings GFM shows otherwise, such as an
+    undefined reference label, which is the loud direction."""
     value = "always" if "notify" in item else "https://example.com/org/other"
     row = f"| {item} | {value} |"
     text = CONFIG + row + "\n"
@@ -438,8 +493,23 @@ def test_s3_an_item_is_refused_exactly_where_gfm_shows_a_pact_item(item):
         ("| ` Pact notify ` | always |", "Pact notify"),
         ("| `Pact  notify` | always |", "Pact notify"),
         ("| `Pact` | https://example.com/org/other |", "Pact"),
+        ("| `Pact` notify | always |", "Pact notify"),
+        ("| **`Pact notify`** | always |", "Pact notify"),
+        ("| `Pact notify`. | always |", "Pact notify"),
+        ("| Pact notify` | always |", "Pact notify"),
+        ("| &#96;Pact notify&#96; | always |", "Pact notify"),
     ],
-    ids=["a code span", "padded", "a doubled space", "a code-spanned Pact"],
+    ids=[
+        "a code span",
+        "padded",
+        "a doubled space",
+        "a code-spanned Pact",
+        "part of the item",
+        "in bold",
+        "a mark after it",
+        "a lone backtick",
+        "a backtick reference",
+    ],
 )
 def test_s3_a_pact_item_in_a_code_span_is_refused_on_the_walks_rows(row, item):
     """Round 2 of PR #784, yellow 2. GFM renders `<code>Pact notify</code>`
@@ -563,6 +633,12 @@ def test_s14_the_reader_and_the_vendored_copy_share_one_grammar():
     spec.loader.exec_module(ec)
     ours, theirs = config.PACT_ROW_SHAPE, ec.NOTIFY_ROW_SHAPE
     assert (ours.pattern, ours.flags) == (theirs.pattern, theirs.flags)
+    # Inline raw HTML is read by one reader: the copy's patterns are the
+    # plugin's, which are `hooks/blocks.py`'s (round 3 of PR #784, yellow 2).
+    assert (config.RAW_HTML.pattern, config.TAG_END.pattern) == (
+        ec.RAW_HTML.pattern,
+        ec.TAG_END.pattern,
+    )
     # The line each reads the shape through is one rule too (round 1 of PR
     # #784, yellow 2): every format character removed, nothing else.
     for ch in [*FORMAT_CHARACTERS, "\u00a0", "\u2028"]:
@@ -620,7 +696,7 @@ def test_the_template_and_the_config_skill_carry_both_rows_and_the_vocabulary():
             "It looks for both rows on every line, as `str.splitlines` and as "
             "GFM cut the file, so it leaves a row wherever the plugin's reader "
             "refuses a notify row it does not reach, with one exception: it does "
-            "not read an item in a code span",
+            "not read an item holding a backtick, a code span included",
         ),
         (
             ("templates", "config.md"),

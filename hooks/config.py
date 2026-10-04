@@ -659,15 +659,26 @@ PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
 # leading pipe is optional because GFM's is: a line directly under the table
 # with none is still one of its rows (round 1 of PR #784, yellow 1).
 PACT_ROW_SHAPE = re.compile(
-    r"[\s>]*(?:\|[^\w|`]*|[^\w|`\s]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|\s*[^\s|]",
+    r"[ \t\n\x0b\x0c\r>]*(?:\|[^\w|`]*|[^\w|` \t\n\x0b\x0c\r]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|[ \t\n\x0b\x0c\r]*[^ \t\n\x0b\x0c\r|]",
     re.I,
 )
+
+# Inline raw HTML of the five kinds CommonMark 6.6 names, by its opener: a
+# comment, then the four `hooks/blocks.py#INLINE_HTML` reads -- CDATA, a
+# processing instruction, a declaration, a tag. `blocks.TAG_END` ends a tag
+# at the first `>` outside a quoted value. One reader of inline HTML for the
+# walk and for this shape (round 3 of PR #784, yellow 2).
+# `evidence_check.py#RAW_HTML` and `#TAG_END` are the copies, held equal by
+# `tests/test_a_signatory_declares_its_pact.py`.
+RAW_HTML = re.compile(r"<!-{2}|" + blocks.INLINE_HTML.pattern)
+TAG_END = blocks.TAG_END
 
 
 def shape_line(line):
     """LINE as `PACT_ROW_SHAPE` reads it: close to what GFM shows a person.
-    Inline HTML tags and comments go, character references are decoded,
-    format characters (Unicode category Cf) go, a link keeps its text, and
+    Inline raw HTML of all five kinds goes (`RAW_HTML`), character
+    references are decoded, format characters (Unicode category Cf) go, an
+    image goes whole, a link keeps its text whatever its title holds, and
     emphasis and strikethrough delimiters go -- a run of `*`, `_` or `~`
     standing between two spaces stays, because that is a list marker or a
     literal. The shape then reads the item by its letters alone (round 1 of
@@ -680,17 +691,39 @@ def shape_line(line):
     beside the item is refused where a person may not read it as the item.
     A backslash-escaped or unmatched delimiter is removed too. Each of these
     refuses, never reads a row as the default, which is the safe direction
-    (round 2 of PR #784, white 3). A code span is left alone: the template's
-    `| Row | Value | Absent |` table names both items in one, so
-    `stray_pact_rows` reads a code span on the walk's own rows instead.
+    (round 2 of PR #784, white 3). A backtick is left alone: the template's
+    `| Row | Value | Absent |` table names both items in code spans, so
+    `stray_pact_rows` reads the walk's own rows with their backticks removed
+    instead (round 3, yellow 1).
 
     `evidence_check.py#shape_line` is its copy, held equal by
     `tests/test_a_signatory_declares_its_pact.py`, which also holds this
     reading to cmark-gfm's rendered cell."""
-    shown = re.sub(r"<!--.*?-->|</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>", "", line)
-    shown = html.unescape(shown)
+    kept, at = [], 0
+    while (found := RAW_HTML.search(line, at)) is not None:
+        cdata, instruction, declaration = found.groups()
+        if found.group(0).startswith("<!-"):
+            closer = "-->"
+        else:
+            closer = "]]>" if cdata else "?>" if instruction else None
+            closer = ">" if declaration else closer
+        if closer is not None:
+            stop = line.find(closer, found.end())
+            end = stop + len(closer) if stop != -1 else None
+        else:
+            name = re.match(
+                r"[A-Za-z0-9-]*(?=[ \t\n\x0b\x0c\r/>])", line[found.end() :]
+            )
+            tail = name and TAG_END.match(line, found.end() + name.end())
+            end = tail.end() if tail else None
+        kept.append(line[at : found.end() if end is None else found.start()])
+        at = found.end() if end is None else end
+    kept.append(line[at:])
+    shown = html.unescape("".join(kept))
     shown = "".join(ch for ch in shown if unicodedata.category(ch) != "Cf")
-    shown = re.sub(r"\]\([^)]*\)|\]\[[^\]]*\]|[\[\]]", "", shown)
+    title = r"""\((?:[^()"']|"[^"]*"|'[^']*'|\([^()]*\))*\)"""
+    shown = re.sub(r"!\[[^\]]*\]" + title, "", shown)
+    shown = re.sub(r"\]" + title + r"|\]\[[^\]]*\]|[\[\]]", "", shown)
     return re.sub(r"(?<=\S)[*_~]+|[*_~]+(?=\S)", "", shown)
 
 
@@ -920,15 +953,18 @@ def stray_pact_rows(text, rows):
     taken = {i for i, item, _v in rows if item in (PACT_ROW, PACT_NOTIFY_ROW)}
     shown = dict(unfenced(text.splitlines(), text))
     strays = {}
-    # A row the walk took whose item is a pact item in a code span renders
-    # as that item and is read as neither (round 2 of PR #784, yellow 2).
-    # The shape cannot read past a code span, because the template's
-    # `| Row | Value | Absent |` table names both items in one; the walk
-    # never reads that table, so only its own rows are read this way.
-    for index, item, value in rows:
-        spanned = len(item) > 1 and item[0] == item[-1] == "`"
-        if spanned and value and _letters(item) in PACT_ITEMS:
-            strays[index] = (PACT_ITEMS[_letters(item)], shown[index])
+    # A row the walk took whose item holds a backtick -- a code span, part
+    # of one, or a backtick GFM shows as itself -- renders as the item
+    # without it, and the walk reads it as neither (round 2 of PR #784,
+    # yellow 2; round 3, yellow 1). The shape cannot read past a backtick,
+    # because the template's `| Row | Value | Absent |` table names both
+    # items in code spans; the walk never reads that table, so only its own
+    # rows are read with their backticks removed.
+    for index, _item, _value in rows:
+        line = shape_line(shown[index]).replace("`", "")
+        match = PACT_ROW_SHAPE.match(line)
+        if match and index not in taken:
+            strays[index] = (_shaped_item(match), shown[index])
     for index, line in shown.items():
         match = PACT_ROW_SHAPE.match(shape_line(line))
         if match and index not in taken and index not in strays:

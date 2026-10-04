@@ -956,12 +956,16 @@ def stray_refusal(line, item):
         ("Pact notify | always |\n", "Pact notify | always |"),
         ("| **Pact notify** | always |\n", "| **Pact notify** | always |"),
         ("| `Pact notify` | always |\n", "| `Pact notify` | always |"),
+        ("| `Pact` notify | always |\n", "| `Pact` notify | always |"),
+        ("| Pact<?x?>notify | always |\n", "| Pact<?x?>notify | always |"),
     ],
     ids=[
         "below a blank line",
         "no leading pipe, directly under the table",
         "in bold, in the table",
         "in a code span, in the table",
+        "part of the item in a code span, in the table",
+        "with a processing instruction, in the table",
     ],
 )
 def test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause(
@@ -1564,6 +1568,8 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "| Pact&#32;notify | always |\n",
         "| [Pact notify]() | always |\n",
         "| Pact-notify | always |\n",
+        "| Pact<?x?>notify | always |\n",
+        '| [Pact notify](x "a)b") | always |\n',
     ],
     ids=[
         "S12 below the table",
@@ -1575,6 +1581,8 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "with a character reference",
         "as a link",
         "with a hyphen",
+        "with a processing instruction",
+        "as a link whose title holds a parenthesis",
     ],
 )
 def test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify(
@@ -1601,17 +1609,21 @@ def test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify(
     assert not (repo / "seal" / "pact-changes").exists(), out
 
 
-def test_a_vendored_copy_reads_no_code_spanned_item(repo, tmp_path):
+@pytest.mark.parametrize(
+    "item",
+    ["`Pact notify`", "`Pact` notify", "Pact notify`"],
+    ids=["a code span", "part of the item in one", "a lone backtick"],
+)
+def test_a_vendored_copy_reads_no_code_spanned_item(repo, tmp_path, item):
     """The one place the vendored copy is less cautious than the plugin
-    (round 2 of PR #784, yellow 2), stated rather than left silent. The
-    plugin refuses `` `Pact notify` `` on the walk's own rows; the copy has
-    no walk, and reading past a code span on every line would make it blind
-    on every config built from the template, whose documentation table names
-    both items in code spans. So it re-stamps here, and `docs/the-pact.md`
-    names the limit."""
+    (rounds 2 and 3 of PR #784, yellow 2 and yellow 1), stated rather than
+    left silent. The plugin refuses an item holding a backtick on the walk's
+    own rows; the copy has no walk, and reading past a backtick on every
+    line would make it blind on every config built from the template, whose
+    documentation table names both items in code spans. So it re-stamps for
+    any backtick in the item, and `docs/the-pact.md` names the limit."""
     (repo / "seal" / "config.md").write_text(
-        config_text(("Mode", "shared"), ("Pact", PACT_URL))
-        + "| `Pact notify` | always |\n",
+        config_text(("Mode", "shared"), ("Pact", PACT_URL)) + f"| {item} | always |\n",
         encoding="utf-8",
     )
     old = unit_hash(repo, "src/orders.py", "serialize")

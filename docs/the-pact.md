@@ -88,11 +88,11 @@ format character such as U+200B, or with any mark between its letters.
 item by its letters alone, then compares every line shaped as one of the two
 rows with a value against the lines the reader took, as `str.splitlines` cuts
 the file and as GFM does, and refuses each such line in a sentence naming it;
-`Pact notify` then has no value. An item in a code span is refused on the
-table's own rows only, because a documentation table names both items in
-code spans. A `Pact` row there always refuses. A `Pact notify` row there
-refuses only where a `Pact` value stands, because one with no pact is
-ignored wherever it is written. A row in
+`Pact notify` then has no value. An item holding a backtick, in a code span
+or not, is refused on the table's own rows only, because a documentation
+table names both items in code spans. A `Pact` row there always refuses. A
+`Pact notify` row there refuses only where a `Pact` value stands, because
+one with no pact is ignored wherever it is written. A row in
 a closed code fence or a closed HTML comment is an example and is not
 refused. Under `always`, a notify row read as the default let `evidence-check
 --reverify` re-stamp a moved row citing no clause, and that re-stamp cleared
@@ -333,11 +333,12 @@ recorded nothing, and re-stamps nothing, so the plugin's own checker records
 the change where the signatory is checked out. It looks for both rows on
 every line, as `str.splitlines` and as GFM cut the file, so it leaves a row
 wherever the plugin's reader refuses a notify row it does not reach, with
-one exception: it does not read an item in a code span, because it has no
-walk to tell the live table from a documentation table that names both items
-in code spans. A pact under local mode keeps `seal/pact-reviews/` under the
-git directory, so another clone of the pact's repository reads the same
-changes as `NOT TAKEN`, which is loud in the right direction.
+one exception: it does not read an item holding a backtick, a code span
+included, because it has no walk to tell the live table from a documentation
+table that names both items in code spans. A pact under local mode keeps
+`seal/pact-reviews/` under the git directory, so another clone of the pact's
+repository reads the same changes as `NOT TAKEN`, which is loud in the right
+direction.
 Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_whose_config_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_reads_no_code_spanned_item
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
