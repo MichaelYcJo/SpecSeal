@@ -4,6 +4,8 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
+Approved 2026-10-04 by the orchestrator under the owner's `automation` routing, when `smith` was spawned.
+
 ## Summary
 
 Close round 3's two yellows of #741 for their classes, not their instances,
