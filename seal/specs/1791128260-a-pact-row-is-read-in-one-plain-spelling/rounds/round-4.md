@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #793 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `b9aa4a14f65ae86e6dedbf7e5ccc80abd62d9012..b9aa4a14f65ae86e6dedbf7e5ccc80abd62d9012`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 4 of the #759 redesign (PR #793), the verifying round after the round cap 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | `DELIMITERS` re-scans all of Unicode for each of its 60 outer combinations, which is 2.43 s of the module's 2.76 s import, paid by every xdist worker; the oracle renders cost 0.11 s, so the cost is not the oracle's and need not move into the test bodies | `tests/test_a_signatory_declares_its_pact.py:241` | open | executed: hoisting the padding tuple gives the same 1,680 rows, the import drops to 0.41 s, and the module still passes 2646; no reader changes |
-| ⬜ 2 | The oracle-kept `STRAY_WAYS` rows have no floor: emptied, S2 and S9 pass over nothing; round 3's `shown > 20` guard was not landed | `tests/test_a_signatory_declares_its_pact.py:490` | open | executed: with `rows_under` given a header no row has, the module passed 1852 with no failure; the proposed per-container floor fails alone there and passes at the target |
-| ⬜ 3 | The template says a line of dashes and colons under a pact sentence refuses; a line of dashes alone does not, and `\|---\|` does without being named | `templates/config.md:436` | open | executed: `---` under the sentence is silent in both readers; `:-` and `\|---\|` refuse; the error is in the safe direction |
+| ⬜ 1 | `DELIMITERS` re-scans all of Unicode for each of its 60 outer combinations, which is 2.43 s of the module's 2.76 s import, paid by every xdist worker; the oracle renders cost 0.11 s, so the cost is not the oracle's and need not move into the test bodies | `tests/test_a_signatory_declares_its_pact.py:241` | deferred #794 | #794 — Round 4 is the run's last; the import cost goes to #794 in milestone 54, closed by a post-review fix on this pull request; executed: hoisting the padding tuple gives the same 1,680 rows, the import drops to 0.41 s, and the module still passes 2646; no reader changes |
+| ⬜ 2 | The oracle-kept `STRAY_WAYS` rows have no floor: emptied, S2 and S9 pass over nothing; round 3's `shown > 20` guard was not landed | `tests/test_a_signatory_declares_its_pact.py:490` | deferred #794 | #794 — The missing floor on the oracle-filtered rows goes to #794, closed by a post-review fix on this pull request; executed: with `rows_under` given a header no row has, the module passed 1852 with no failure; the proposed per-container floor fails alone there and passes at the target |
+| ⬜ 3 | The template says a line of dashes and colons under a pact sentence refuses; a line of dashes alone does not, and `\|---\|` does without being named | `templates/config.md:436` | deferred #794 | #794 — The template sentence goes to #794, closed by a post-review fix on this pull request; executed: `---` under the sentence is silent in both readers; `:-` and `\|---\|` refuse; the error is in the safe direction |
 | 🟢 | round 3's yellow 1 is closed — a vertical tab or form feed in the delimiter row and a header continuing a block quote are headers to the copy, and the plugin refuses them | `skills/evidence-check/scripts/evidence_check.py:3809` | confirmed | executed: 793 oracle-kept rows pass; the three vendored-writer rows pass; narrowing the block-quote class fails 20 cases and narrowing `\s` to `[ \t]` fails 12 |
 | 🟢 | round 3's yellow 2 is closed — a pipe-less line over a delimiter row is a header to both readers, and the pact and template say so | `hooks/config.py:956` | confirmed | executed: putting the pipe condition back on a header line fails 45 cases; `evidence-check --strict` exit 0; read: C1, O1 and O3 state `UNDER_A_HEADER` |
 | 🟢 | The predicate is complete over every axis the prompt named and more: escaped pipes, wider delimiter rows, header trailing spaces and backslashes, nested containers, list markers, a paragraph line above | `hooks/config.py:677` | confirmed | executed: 112,530 constructed configs, 36,424 rendered `always`, 0 misses in either reader; at 72b290c6, 7,087 and 7,408 |
