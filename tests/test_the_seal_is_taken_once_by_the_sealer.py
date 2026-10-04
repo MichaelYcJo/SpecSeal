@@ -4060,6 +4060,7 @@ SUMMARY_LINES = [
     ("no tests ran in 0.00s", False),
     ("Found 2 errors.", False),
     ("Ran 3 tests in 0.001s", False),
+    ("4 checks in 12", False),
     ("1 passed in 0.01s, and a linter went on talking", False),
     ("\x1b[31m1 failed\x1b[0m, \x1b[32m1 passed\x1b[0m\x1b[31m in 0.02s\x1b[0m", False),
 ]
