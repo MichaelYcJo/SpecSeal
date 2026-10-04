@@ -314,6 +314,9 @@ FILE_RUNNERS = [
     "echo >(sh f.sh)",
     "echo `sh f.sh`",
     "echo $'\\'' ; sh f.sh ; echo \\'",
+    # A body behind an unquoted delimiter: the outer shell runs its
+    # substitution, which runs the file the first body was written to.
+    "cat <<B\n$(sh f.sh)\nB",
 ]
 
 
@@ -400,6 +403,18 @@ tokens = load_hook_module("tokens.py", "tokens_heredoc_data")
         # R2c: a `git -c` sets only a key `is_plain` allows.
         ("git -c alias.x=y status; cat <<'EOF'\nbody\nEOF", [False]),
         ("git -c user.name=y status; cat <<'EOF'\nbody\nEOF", [True]),
+        # R2c carries every word guard of `is_plain`: an `--output` option
+        # writes a file no redirection names, `printf -v` assigns a variable,
+        # and a body behind an unquoted delimiter runs its substitutions in
+        # the outer shell -- here the file another body was written to.
+        (
+            "cat <<'EOF' | git diff --no-index --output=h - /dev/null\nbody\nEOF",
+            [False],
+        ),
+        ("printf -v PATH %s .; cat <<'EOF'\nbody\nEOF", [False]),
+        ("cat > f.sh <<'A'\nbody\nA\ncat <<B\n$(sh f.sh)\nB", [False, False]),
+        ("cat > f.sh <<'A'\nbody\nA\ncat <<B\n`sh f.sh`\nB", [False, False]),
+        ("cat <<'A'\nbody\nA\ncat <<'B'\n$(sh f.sh)\nB", [True, True]),
         # R2d: an opener the line reads differently from the reader -- here
         # `<<- 'EOF'`, whose dash stands apart -- keeps every body read.
         ("cat <<- 'EOF'\nbody\nEOF", [False]),

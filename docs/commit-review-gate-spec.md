@@ -199,8 +199,11 @@ when all of these hold:
   unquoted word from the plain set of *The commit gate inside git*, `tee`,
   `gh pr|issue|release|api`, or a Python program; no `$( … )`, backtick,
   `${ … }`, `$'…'`, subshell, group or `&` but `&&` and a descriptor's; no
-  word that steps around git's hooks; and every `<<` on the line is one the
-  reader opened a body for, in order, on the default descriptor;
+  word that steps around git's hooks, no `--output` option and no `printf`
+  option; no body behind an unquoted delimiter that holds `$( … )` or a
+  backtick, since the outer shell runs it and it can run a file another body
+  was written to; and every `<<` on the line is one the reader opened a body
+  for, in order, on the default descriptor;
 - the command owning it is `cat` or `tee`, or `python3` or `python` whose
   first word, past redirections, is `-` or absent — a flag, a script or `$X`
   there makes the body input to some other program;

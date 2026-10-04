@@ -394,8 +394,18 @@ def _commands(line):
 
 
 def _plain_on_a_data_line(command):
-    """R2c for one simple command, past the program word itself."""
+    """R2c for one simple command, past the program word itself.
+
+    It carries every word guard of `is_plain`, so the line stays that
+    construction (round 1 of #739): an `--output` option writes a file no
+    redirection names (`git diff --no-index --output=<f> -` puts a body
+    there), and `printf -v` assigns a variable, `PATH` included.
+    """
     program, args = command.program, command.args
+    if any(word.startswith("--output") for word in args):
+        return False
+    if program == "printf" and args and args[0].startswith("-"):
+        return False
     if program == "git":
         k = 0
         while k < len(args):
@@ -459,7 +469,12 @@ def heredoc_data(command):
     records = heredocs(text)
     unread = [False] * len(records)
     commands = _commands(drop_heredoc_bodies(text)) if records else None
-    if commands is None:
+    # `is_plain`'s last word guard: a body behind an unquoted delimiter runs
+    # its substitutions in the outer shell, and `cat <<B` holding `$(sh f.sh)`
+    # runs the file another body on the line was written to (round 1 of #739).
+    if commands is None or any(
+        not r.quoted and ("$(" in r.text or "`" in r.text) for r in records
+    ):
         return unread
     owners = [(c, word) for c in commands for word in c.openers]
     if len(owners) != len(records) or any(
