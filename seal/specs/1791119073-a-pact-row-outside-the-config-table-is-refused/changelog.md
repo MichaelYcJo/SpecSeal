@@ -14,14 +14,18 @@
   2, and a signatory's CI prints a notice without moving its exit. A row
   with no leading pipe directly under the table, which GFM shows as one of
   its rows, is refused too. So is an item spelled with an invisible format
-  character such as U+200B, which the sentence shows as its code point. A
+  character such as U+200B, which the sentence shows as its code point, and
+  so is any item that shows as `Pact notify` or `Pact` once GFM renders it:
+  in emphasis, a link, inline HTML or a code span, or with a character
+  reference. A
   `Pact` row the reader does not reach always refuses. A `Pact notify` row
   it does not reach refuses only where a `Pact` value stands. A row inside a closed code fence or a closed HTML
   comment is an example and is not refused.
 
 - A vendored copy of `evidence_check.py` looks for the two rows as GFM cuts
   the file as well as line by line, with or without a leading pipe and with
-  format characters removed, so it leaves a moved row wherever the
-  plugin's reader now refuses a notify row (#759). Before, a `Pact notify`
+  markup and format characters removed, so it leaves a moved row wherever the
+  plugin's reader now refuses a notify row (#759), except an item in a code
+  span, which it cannot tell from the template's documentation table. Before, a `Pact notify`
   row holding a character only `str.splitlines` ends a line at was missed,
   and the copy re-stamped the row unrecorded.
