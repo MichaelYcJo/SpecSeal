@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #758 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `88b8c632b85a00e167d6ab1aa5c0d0a390c6fe57..457f773e103efd22d7cca1cb84011cfa6b18cfd5`, 3 commits |
 | Contract changes | none |
 | New units | PYTEST_SUMMARY_RE (depth 1); SUMMARY_LINES (depth 1); test_only_pytests_own_summary_line_says_pytest_ran (depth 1); test_the_one_counterfeit_the_gate_cannot_see_is_named (depth 1); test_a_part_that_is_not_pytest_is_passed_over_though_it_prints_counts (depth 1); test_a_file_named_below_a_cd_is_run_at_the_base_and_not_called_new (depth 1) |
