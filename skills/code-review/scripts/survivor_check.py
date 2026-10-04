@@ -341,6 +341,13 @@ stands: an in-flight work item's `handoff.md` that still carries a corrected
 sentence is reported, as it always was. Removing the file is not a correction
 of its wording.
 
+What it costs, measured in #729's round 1: such a file moved into one that
+stays, with a sentence reworded on the way, no longer has the reworded
+sentence's other copies reported. A round or phase record moved the same way
+has had that exemption since #365 and #460, and so has a retired directory.
+The file has to stand at the range's left end, so it is one an earlier pull
+request merged, never the branch's own in-flight record.
+
 ## What it does not answer
 
 It reads the tip of the range, so a survivor introduced AFTER the range is
