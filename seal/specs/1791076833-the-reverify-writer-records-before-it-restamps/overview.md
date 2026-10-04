@@ -26,7 +26,7 @@ decode, and names a ledger it cannot write instead of ending in a traceback.
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the typecheck on this branch | the sealer, once, after the review rounds settle |
-| The W10 and `--into` apply-step cases on Windows and as root: both skip there, under the module's `UNREADABLE` mark, because a directory's mode is not expected to refuse a write on Windows and refuses nothing as root | nobody on this machine; CI's Windows leg runs the module with both cases skipped, so the platform half is a stated gap rather than a pass |
+| The W10 and `--into` apply-step cases on Windows and as root: both skip there, under the module's `UNREADABLE` mark, because a directory's mode is not expected to refuse a write on Windows and refuses nothing as root | the repository owner, who decides whether a Windows case that refuses the replace some other way is worth building; CI's Windows leg runs the module with both cases skipped, so until then the platform half is a stated gap rather than a pass |
 | #741's encoding check over the carry set (Q7): its check had not landed on `release/v0.18.1` when this branch was built | the smith or the orchestrator, at the merge of `release/v0.18.1` after #741 squashes |
 
 ## Not done
