@@ -9,7 +9,10 @@
   `always` also records every other row whose code moved, and `never` records
   nothing. The work item is the `--into` fragment's, or the one the branch's
   `routing.md` declares; with neither, the row is named and the run exits 1.
-  The ledger is written exactly as before.
+  The run records first and re-stamps after: where a change is owed and
+  cannot be recorded, it writes no ledger file at all, so the drift stays for
+  the run that can record it. Where the record is written, the ledger is
+  written exactly as before.
 
 - `pact-check` reads every signatory's pact changes (#647, step D). A change
   citing a clause of the pact is `NOT TAKEN`, exit 1, until a pact review at
@@ -23,6 +26,16 @@
   exit 2. `skills/implement/orchestration.md` describes the act.
 
 ### Fixed
+
+- `evidence-check --reverify` no longer rewrites a ledger byte it could not
+  decode. A ledger file holding a byte that is not UTF-8 was re-stamped with
+  the replacement character written over that byte; it is now named on a
+  `LEFT` line and left byte for byte. A ledger file the run cannot write is
+  a `LEFT` line naming the cause, the others are still written, and the exit
+  is 1, where the run used to end in a traceback. Every line saying a ledger
+  was written, from the hash lines to `citing rows written`, now prints
+  after that file is written. This is every `--reverify` user's, with a pact
+  or without one.
 
 - The pact's `| Signatory |` table is read the way GitHub renders it. A
   signatory written as an autolink, `<https://…>`, used to end the table and

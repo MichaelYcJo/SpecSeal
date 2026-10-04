@@ -140,6 +140,26 @@ that is there and will not read is refused before anything is written.
 Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_s7_a_drifted_row_citing_a_clause_is_recorded, tests/test_a_signatory_records_a_pact_change.py::test_s8_a_released_row_drifted_is_recorded_beside_its_reread, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_declared_branch_names_the_record, tests/test_a_signatory_records_a_pact_change.py::test_s9_with_no_work_item_nothing_is_recorded_and_the_row_is_left, tests/test_a_signatory_records_a_pact_change.py::test_s7_the_ledger_is_written_exactly_as_before, tests/test_a_signatory_records_a_pact_change.py::test_a_change_left_is_recorded_by_the_remedy_it_names, tests/test_a_signatory_records_a_pact_change.py::test_a_pact_row_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_always_a_declaration_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_the_freeze_the_reread_row_is_never_written, tests/test_a_signatory_records_a_pact_change.py::test_a_run_killed_after_its_record_is_finished_by_the_next, tests/test_a_signatory_records_a_pact_change.py::test_an_into_that_will_not_read_is_refused_before_anything_is_written
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
+**A line saying the run wrote a ledger file prints only once that file is
+written, so a run that writes none claims none.** The hash lines, `rows
+re-verified`, the dated list, `wrote` and `citing rows written` used to
+print while the run planned, before anything was written; a run that then
+could not record printed them and, below them, that nothing was re-stamped.
+They now follow the record step and name only the files that landed, and a
+run that writes no ledger file has its `LEFT` lines and its closing line as
+its whole account. A file the run writes, a ledger it re-stamps or the
+record, is read strictly: one holding a byte that is not UTF-8 is named
+(`ledger unreadable`, or `the record could not be read`) and left byte for
+byte, because a lenient read replaced the byte and the write put the
+replacement back, which for a record also moved the content hash a pact
+review took it at. A file the run only reads, the code under a coordinate,
+keeps the lenient read. A ledger file that cannot be written once the
+record is written is named on a `LEFT` line with the cause, the others are
+written, and the exit is 1; it is as it was, and the record holds its moves,
+so the next run re-stamps it and records nothing twice.
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_run_that_writes_no_ledger_claims_no_write, tests/test_a_signatory_records_a_pact_change.py::test_a_line_that_says_a_write_happened_follows_the_record, tests/test_a_signatory_records_a_pact_change.py::test_a_ledger_that_will_not_decode_is_left_byte_for_byte, tests/test_a_signatory_records_a_pact_change.py::test_a_record_that_will_not_decode_is_left_byte_for_byte, tests/test_a_signatory_records_a_pact_change.py::test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written, tests/test_a_signatory_records_a_pact_change.py::test_a_run_killed_before_its_record_has_written_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_run_killed_between_two_ledger_files_is_finished_by_the_next
+
+<!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **The record is `seal/pact-changes/<work-item-id>.md` directly under the
 signatory's `seal/`, permanent, one file per work item, never folded and
 never edited by hand.** It outlives its work item, so it cannot sit in
@@ -283,6 +303,17 @@ local mode keeps `seal/pact-reviews/` under the git directory, so another
 clone of the pact's repository reads the same changes as `NOT TAKEN`, which
 is loud in the right direction.
 Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing
+
+<!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
+**The record-first order holds against the process dying, and not against
+the machine losing power.** Each file is written to a temporary sibling and
+renamed over the old one, with no `fsync`, as every writer in this plugin
+writes. After a power loss the rename of a ledger can survive while the
+record's data did not, and the change is then re-stamped with no record of
+it. Two `--reverify` runs at once over one `seal/` root are not serialised
+either. A run that dies keeps the order, whatever the signal, and a run that
+loses its machine is outside it.
+Enforced by: nothing — no test can cut the power; Q3 of this item says why
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **A pact review row naming a signatory the pact has since taken out of its

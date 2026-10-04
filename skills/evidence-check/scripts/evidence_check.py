@@ -1062,13 +1062,26 @@ def planned_key(path):
     return os.path.normcase(os.path.abspath(path))
 
 
-def read(path):
+def read(path, strict=False):
+    """PATH's text: what the open plan will write there, else the file's, or
+    None where it will not read.
+
+    **STRICT for a file the run writes** -- a ledger it re-stamps, the
+    record of pact changes (the writer's contract, W9, #647 C and D). A lenient
+    read answers U+FFFD for a byte that is not UTF-8, and writing that text
+    back destroys a byte the run never meant to touch; for a record it also
+    moves the content hash a pact review took it at. So under STRICT a file
+    that will not decode will not read, and its caller leaves it. A file the
+    run only reads -- code under a coordinate, a released ledger -- keeps the
+    lenient read, because nothing is written back to it."""
     if PLANNED is not None and planned_key(path) in PLANNED:
         return PLANNED[planned_key(path)][1]
     try:
-        with open(path, encoding="utf-8", errors="replace") as f:
+        with open(
+            path, encoding="utf-8", errors="strict" if strict else "replace"
+        ) as f:
             return f.read()
-    except OSError:
+    except (OSError, ValueError):
         return None
 
 
@@ -1082,10 +1095,44 @@ def put(path, text):
 
 
 def apply_plan(plan):
-    """Write every file PLAN holds, in the order it was planned."""
-    for path, text in plan.values():
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        write_atomic(path, text)
+    """Write every file PLAN holds, in the order it was planned; return the
+    keys that landed and `(path, OSError)` for each file that did not.
+
+    A file that cannot be written does not stop the others (the writer's
+    contract, W10, #647 C and D). `write_atomic` replaces or leaves, so the
+    file is as it was, and the record already holds every move the plan
+    owed: the next run plans that file's writes again and records nothing
+    twice. The caller names each one rather than ending in a traceback."""
+    landed, failed = set(), []
+    for key, (path, text) in plan.items():
+        try:
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            write_atomic(path, text)
+        except OSError as problem:
+            failed.append((path, problem))
+            continue
+        landed.add(key)
+    return landed, failed
+
+
+def told_now(told, report):
+    """Print the lines REPORT gives, which say a ledger write happened, once
+    they are true (the writer's contract, W8, #647 C and D). With TOLD None
+    nothing is planned, `put` has written already, and they print now. Else
+    REPORT waits in TOLD for `main`, which calls it with the planned keys
+    that landed, after the record step and the writes: a run that writes no
+    ledger file prints none of them."""
+    if told is None:
+        for line in report(None):
+            print(line)
+    else:
+        told.append(report)
+
+
+def landed_at(landed, path):
+    """True where PATH was written: always with LANDED None (nothing was
+    planned), else where its planned key landed."""
+    return landed is None or planned_key(path) in landed
 
 
 def write_atomic(path, text):
@@ -2913,8 +2960,16 @@ def row_label(cells):
     return label if len(label) <= LABEL_WIDTH else label[: LABEL_WIDTH - 1] + "…"
 
 
-def reverify(ledgers, root, maps, default_repo=None, checked=None, moves=None):
+def reverify(
+    ledgers, root, maps, default_repo=None, checked=None, moves=None, told=None
+):
     """Rewrite the hash of every row whose anchor resolves. Explicit, by hand.
+
+    **TOLD, where given, holds back every line that says a ledger was
+    written** -- a per-coordinate hash line, `N rows re-verified`, the
+    dated and undated lists -- until that ledger lands (`told_now`). A ledger
+    is read strictly, because this writes it back (`read`); one that will
+    not decode is `ledger unreadable`, as one that will not open is.
 
     **MOVES, where given, is a list this appends to** (#647, step C): one
     `(ledger, row number, coordinate, recorded hash, new hash or None)` per
@@ -2938,14 +2993,15 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None, moves=None):
     did not move is never dated and never named; one whose file moved whole
     is re-pointed, and one that still resolves is not touched.
     """
-    changed = 0
     unreadable = []
     malformed = []
     overflow = []
-    dated, undated, undatable = [], [], []
+    undatable = []
+    # `(ledger, hash lines, dated, undated)` for every ledger this writes.
+    written = []
     scan_cache = {}
     for ledger in ledgers:
-        text = read(ledger)
+        text = read(ledger, strict=True)
         if text is None:
             unreadable.append(display_name(ledger, root))
             continue
@@ -3121,6 +3177,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None, moves=None):
         for line in lines:
             starts.append(starts[-1] + len(line))
         rows = {n: (header, cells) for n, header, cells in ledger_table_rows(text)}
+        dated, undated = [], []
         by_row = {}
         for edit in edits:
             by_row.setdefault(bisect.bisect_right(starts, edit[0]), []).append(edit)
@@ -3162,39 +3219,51 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None, moves=None):
                 number = bisect.bisect_right(starts, offset)
                 if new is None or number not in left_whole:
                     moves.append((ledger, number, coord, old, new))
-        out, at = [], 0
+        out, at, said_here = [], 0, []
         for start, end, replacement, said in sorted(kept):
             out.append(text[at:start])
             out.append(replacement)
             at = end
             if said is not None:
-                changed += 1
-                print(said)
+                said_here.append(said)
         if out:
             out.append(text[at:])
             put(ledger, "".join(out))
-    print(f"{changed} row{'' if changed == 1 else 's'} re-verified")
-    if dated:
-        one = len(dated) == 1
-        print(
-            f"  dated {checked} — {len(dated)} row{'' if one else 's'} whose "
-            f"hash moved, each once:"
-        )
-        for where, label in dated:
-            print(f"    {where}  {label}")
-    if undated:
-        one = len(undated) == 1
-        print(
-            f"  {len(undated)} row{'' if one else 's'} took a new hash and "
-            f"kept {'its' if one else 'their'} date — a new hash says somebody "
-            "re-read the row, and nothing here says when:"
-        )
-        for where, label, date in undated:
-            print(f"    {where}  {label}  ({date})")
-        print(
-            "  date each row you re-read in its own cell; `--reverify --checked "
-            "YYYY-MM-DD` writes that date on every row whose hash it moves"
-        )
+            written.append((ledger, said_here, dated, undated))
+
+    def report(landed):
+        lines, dated, undated = [], [], []
+        for ledger, said_here, dated_here, undated_here in written:
+            if landed_at(landed, ledger):
+                lines.extend(said_here)
+                dated.extend(dated_here)
+                undated.extend(undated_here)
+        changed = len(lines)
+        lines.append(f"{changed} row{'' if changed == 1 else 's'} re-verified")
+        if dated:
+            one = len(dated) == 1
+            lines.append(
+                f"  dated {checked} — {len(dated)} row{'' if one else 's'} whose "
+                f"hash moved, each once:"
+            )
+            lines.extend(f"    {where}  {label}" for where, label in dated)
+        if undated:
+            one = len(undated) == 1
+            lines.append(
+                f"  {len(undated)} row{'' if one else 's'} took a new hash and "
+                f"kept {'its' if one else 'their'} date — a new hash says somebody "
+                "re-read the row, and nothing here says when:"
+            )
+            lines.extend(
+                f"    {where}  {label}  ({date})" for where, label, date in undated
+            )
+            lines.append(
+                "  date each row you re-read in its own cell; `--reverify --checked "
+                "YYYY-MM-DD` writes that date on every row whose hash it moves"
+            )
+        return lines
+
+    told_now(told, report)
     for path in unreadable:
         print(f"  LEFT  {path}  ledger unreadable")
     for coord, why in malformed:
@@ -3415,7 +3484,15 @@ def spanned(text):
 
 
 def reverify_into(
-    ledgers, view_paths, into, root, maps, default_repo, checked, moves=None
+    ledgers,
+    view_paths,
+    into,
+    root,
+    maps,
+    default_repo,
+    checked,
+    moves=None,
+    told=None,
 ):
     """Write one `Re-read ·` row into INTO for every released row a re-read
     owes (`released_drift`): one outside every family in a released file of
@@ -3431,7 +3508,10 @@ def reverify_into(
     one per coordinate (spec D4). Exit 1 where a row was left, else 0.
 
     MOVES is `reverify`'s: each coordinate a written row re-reads, and each
-    BROKEN one, is appended against the released row it belongs to.
+    BROKEN one, is appended against the released row it belongs to. TOLD is
+    `reverify`'s too: the `wrote` lines and the count of rows written wait
+    until INTO lands, and the `LEFT` lines, which say nothing was written,
+    print now.
     """
     view, drifted, broken = released_drift(
         ledgers, view_paths, root, maps, default_repo
@@ -3499,19 +3579,26 @@ def reverify_into(
                 "coordinate it leaves out is not checked again",
             )
         )
+    start = 0
     if rows:
-        text = read(into) or ""
+        text = read(into, strict=True) or ""
         if text and not text.endswith("\n"):
             text += "\n"
         start = len(gfm_lines(text)) + 1
         put(into, text + "".join(row + "\n" for _, _, row in rows))
-        name = built_name(into, root)
-        for offset, (where, label, _) in enumerate(rows):
-            print(f"  wrote {name}:{start + offset}  Re-read · {label}  citing {where}")
-    print(
-        f"{len(rows)} citing row{'' if len(rows) == 1 else 's'} written · "
-        f"{len(left)} released row{'' if len(left) == 1 else 's'} left"
-    )
+
+    def report(landed):
+        wrote = rows if rows and landed_at(landed, into) else []
+        name = built_name(into, root) if wrote else ""
+        return [
+            f"  wrote {name}:{start + offset}  Re-read · {label}  citing {where}"
+            for offset, (where, label, _) in enumerate(wrote)
+        ] + [
+            f"{len(wrote)} citing row{'' if len(wrote) == 1 else 's'} written · "
+            f"{len(left)} released row{'' if len(left) == 1 else 's'} left"
+        ]
+
+    told_now(told, report)
     for where, why in left:
         print(f"  LEFT  {where}  {why}")
     return 1 if left else 0
@@ -3599,13 +3686,14 @@ def record_pact_changes(moves, root, into, checked):
     revert is recorded, because the record's last word for it was the revert.
 
     Exit 1, recording nothing, where a row is owed and no work item names the
-    file, where the file is there and will not read or parse, where the
-    `Pact` rows will not read, and where this copy has no `hooks/` to read
-    them with. **Every return of 1 is an owed change left**, and `main` puts
-    the ledger back on it (`restore`): the re-stamp is what clears the drift,
-    so a re-stamp without its record would lose the trigger for good (round
-    1 of PR #749, red 1). Where the record is written, the ledger is
-    written exactly as it would be without it.
+    file, where the file is there and will not read, decode or parse, where
+    the `Pact` rows will not read, and where this copy has no `hooks/` to
+    read them with. **Every return of 1 is an owed change left**, and `main`
+    then writes no ledger file: the re-stamp is what clears the drift, so a
+    re-stamp without its record would lose the trigger for good (round 1 of
+    PR #749, red 1). Where the record is written, `main` writes the ledger
+    files the run planned, which are the bytes a run with no `Pact` row
+    writes.
     """
     if not moves:
         return 0
@@ -3689,7 +3777,7 @@ def record_pact_changes(moves, root, into, checked):
     path = os.path.join(seal_home(root), config.PACT_CHANGES, item + ".md")
     shown = built_name(path, root)
     if os.path.lexists(path):
-        text = read(path)
+        text = read(path, strict=True)
         if text is None:
             print(f"  LEFT  {shown}  the record could not be read — {NOT_RESTAMPED}")
             return 1
@@ -4891,8 +4979,13 @@ def main():
         # plans the same move, finds it is the record's last word already,
         # records nothing twice, and re-stamps. Nothing is ever put back, so
         # no signal handler is needed and no file is ever removed.
+        # What the run says it wrote waits in TOLD until the write it names
+        # landed, so a run that writes nothing claims nothing (the writer's
+        # contract, W8, #647 C and D), and a file the apply step cannot
+        # write is named rather than a traceback (W10).
         global PLANNED
         plan = PLANNED = {}
+        told = []
 
         def recorded_then_applied(code):
             global PLANNED
@@ -4901,12 +4994,23 @@ def main():
             if recorded:
                 print(PACT_CHANGE_UNDONE)
                 return max(code, recorded)
-            apply_plan(plan)
-            return code
+            landed, failed = apply_plan(plan)
+            for report in told:
+                for line in report(landed):
+                    print(line)
+            for path, problem in failed:
+                print(
+                    f"  LEFT  {built_name(path, root)}  could not be written "
+                    f"({problem.strerror or problem}) — it is as it was, and the "
+                    "next run plans its writes again"
+                )
+            return max(code, 1 if failed else 0)
 
         try:
             if into is None and cutoff is None:
-                code = reverify(ledgers, root, maps, default_repo, args.checked, moves)
+                code = reverify(
+                    ledgers, root, maps, default_repo, args.checked, moves, told
+                )
                 # Re-stamping in place cannot clear a family whose newest reading
                 # sits in a file the narrowing left out, so the run names, by its
                 # root row, each family a file it read holds a member of that is
@@ -4937,7 +5041,9 @@ def main():
             # re-stamp, so a fragment's own re-read is counted before a new row
             # is written for the family it belongs to.
             writable = [p for p in ledgers if ledger_kind(root, p) != "released"]
-            code = reverify(writable, root, maps, default_repo, args.checked, moves)
+            code = reverify(
+                writable, root, maps, default_repo, args.checked, moves, told
+            )
             view = list(ledgers)
             known = {file_identity(p) for p in view}
             for extra in resolve_patterns(default_patterns(root)) + (
@@ -4950,7 +5056,15 @@ def main():
             # to answer for wherever a file it read holds a member, and
             # `reverify_into` writes no file but INTO either way (round 3, 🟡 16).
             written = reverify_into(
-                ledgers, view, into, root, maps, default_repo, args.checked, moves
+                ledgers,
+                view,
+                into,
+                root,
+                maps,
+                default_repo,
+                args.checked,
+                moves,
+                told,
             )
             return recorded_then_applied(max(code, written))
         finally:

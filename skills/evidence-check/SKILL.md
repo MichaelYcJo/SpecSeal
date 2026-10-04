@@ -343,6 +343,20 @@ finds the drift. A run killed after recording leaves the ledger unstamped,
 and the next run re-stamps without recording twice. An `--into` that is
 there and will not read is refused before anything is written.
 
+**A line saying a ledger was written prints after it was.** Every
+`--reverify` run, in a signatory or not, holds the hash lines, the count
+line, the dated list, `wrote` and `citing rows written` until the record
+step is done and the file each names is written, so a run that writes no
+ledger file prints none of them. A ledger it would write, and the record,
+are read strictly: one holding a byte that is not UTF-8 is a `LEFT` line,
+left byte for byte, where a lenient read used to write the replacement
+character back over it. Code under a coordinate keeps the lenient read. A
+ledger file that cannot be written after the record is a `LEFT` line naming
+the cause, not a traceback; the rest are written, the exit is 1, and the
+next run re-stamps it. The order holds against the process dying, not
+against a power loss: nothing is `fsync`ed (`docs/the-pact.md` §*What this
+does not see*).
+
 ## A row inside a fence is an example, not a claim
 
 A ledger that explains its own row format shows an example row in a fenced
