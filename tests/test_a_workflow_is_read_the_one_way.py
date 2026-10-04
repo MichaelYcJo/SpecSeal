@@ -28,7 +28,7 @@ from conftest import code_line, step_running, workflow_step, workflow_steps
 
 # A comment naming the script above an unrelated step, the real step below
 # it, a step with no name, a quoted name and a second job. Neutral values
-# only (`CLAUDE.md`, no real identifiers).
+# only (`CONTRIBUTING.md` §*House rules*, *No real identifiers*).
 WORKFLOW = """\
 jobs:
   release:

@@ -74,7 +74,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 # The two directory repositories, and the one form that submits to either.
 # They live here rather than in a document because they are real
-# organisations: `CLAUDE.md` §*no real identifiers in examples or fixtures*
+# organisations: `CONTRIBUTING.md` §*House rules*, *No real identifiers*,
 # keeps them out of prose and fixtures, and the script that reads them is
 # where a reader can check what was actually read.
 DIRECTORIES = (

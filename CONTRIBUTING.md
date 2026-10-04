@@ -260,7 +260,10 @@ when it arrives.
   one commit on the release branch.
 - **No real identifiers.** Examples, fixtures, and docs use `example.com`
   and `/Users/x/` only. `tests/test_no_real_identifiers.py` enforces it in
-  CI — extend its allowlist deliberately, never to make a test pass.
+  CI — extend its allowlist deliberately, never to make a test pass. The rule
+  is held this hard because both incidents that forced a rewrite of this
+  repository's history entered exactly this way, as a real domain, path or
+  organisation name inlined into an example.
 - **Functional files are English-only.** Skills, agents, hooks, and commands
   load into model context, where a translated mirror would drift. Korean
   belongs in human-facing docs (`README.ko.md`). The `writing-style` skill
