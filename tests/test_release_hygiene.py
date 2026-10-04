@@ -581,7 +581,8 @@ def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
     Three exemptions, each argued where it is declared rather than here:
 
     - `RECORDS_OF_A_MOMENT` — files whose whole job is to name a moment.
-      `seal/specs/` and `CHANGELOG.md` are outside the scanned set entirely.
+      `seal/specs/`, `CHANGELOG.md` and `changelog/` are outside the scanned
+      set entirely.
       `docs/one-root-by-lifetime.md` is the 0.4.0 design and says so in every
       other paragraph, and `docs/experiments/` holds dated measurements whose
       numbers are the reading.

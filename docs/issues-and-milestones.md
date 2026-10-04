@@ -47,11 +47,11 @@ at or above the running version when this was written, and
 `test_no_loaded_file_names_a_version_at_or_above_the_running_one` refused a
 loaded file that named either — the same rule that keeps the number
 illustrative in **A rolling log is titled after the version it rolled from**
-below. `CHANGELOG.md` turns either description back into a number in one
-grep. Since #363 a version this repository has tagged is history to that
-rule, so the one that had shipped could be numbered now; the citations stay
-prose because a description reads the same on every release and a number
-here would be one more line to re-read at each.
+below. The release files under `changelog/` turn either description back
+into a number in one grep. Since #363 a version this repository has tagged
+is history to that rule, so the one that had shipped could be numbered now;
+the citations stay prose because a description reads the same on every
+release and a number here would be one more line to re-read at each.
 
 **What the criterion does not change.** It decides a release's size and nothing
 else. A `release:` milestone is still the pool a release is cut from rather than

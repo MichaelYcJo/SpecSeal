@@ -385,7 +385,7 @@ SEGMENT_OWNER = ("skills", "verify", "SKILL.md")
 
 # The files that carried the loose sentence, all three of them shipped and
 # all three read together by anyone working on the meter. Records are not
-# brought to a new wording — `seal/` and `CHANGELOG.md` hold what was true
+# brought to a new wording — `seal/` and the changelog hold what was true
 # when they were written — which is the same boundary the seal sweep draws.
 SEGMENT_SWEPT = (
     ("skills", "verify", "SKILL.md"),

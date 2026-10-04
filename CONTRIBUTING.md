@@ -243,9 +243,11 @@ when it arrives.
   in the terminal where the rename just happened, and CI prints the same line
   at the pull request.
 
-  **One branch does edit `CHANGELOG.md`, and it is the one based on `main`.**
+  **One branch does write the changelog, and it is the one based on `main`.**
   A pull request into `main` is a release, so the entries are due there and
   the hygiene workflow fails it while a fragment is still ungathered. The
+  gather writes the release's own file, `changelog/X.Y.Z.md`, and its heading
+  in the index `CHANGELOG.md`, and no other branch writes either. The
   gather and the fold are the commands in `docs/release-checklist.md` §*2.
   Gather, fold, bump*, run in that order. This is the rule above being
   satisfied rather than broken: the branch is not adding an entry to a shared

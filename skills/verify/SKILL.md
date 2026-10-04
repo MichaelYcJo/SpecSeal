@@ -805,8 +805,8 @@ finished, not as a follow-up someone might do later:
 
    **A `git` call counts as `git` wherever it runs on the line, and that is
    worth knowing because it used to count only at the start (#377).** The
-   release that carries #377 is the one `CHANGELOG.md` lists it under, and
-   `--segments` prints the same warning on the page.
+   release that carries #377 is the one whose file under `changelog/` lists
+   it, and `--segments` prints the same warning on the page.
    The family was read by position, so `cd /x && git status` — the shape
    nearly every worktree session writes — was charged to `other`, and so was
    a `gh` call inside a loop or after a leading assignment. It is now read
@@ -825,8 +825,8 @@ finished, not as a follow-up someone might do later:
 
    **A call that only reads counts as `read`, and that is worth knowing
    because it used to count as `other` (#642).** The release that carries
-   #642 is the one `CHANGELOG.md` lists it under, and `--segments` prints
-   the same warning on the page. A call is `read` when every command on it
+   #642 is the one whose file under `changelog/` lists it, and `--segments`
+   prints the same warning on the page. A call is `read` when every command on it
    is a read word (`sed`, `grep`, `rg`, `cat`, `head`, `tail`, `ls`, `find`,
    `wc`, `awk`, `nl`, `sort`, `diff`) or a word that touches no file (for
    example `cd`, `echo`, `test`, `[[` and the words that close a loop or an

@@ -438,7 +438,7 @@ def test_a_moved_repository_is_stamped_so_an_old_branch_is_not_moved_again(hook,
 def test_a_marker_already_carrying_the_root_keeps_the_hook_silent(hook, repo):
     """Q8 (a): the ledger hook's rule. A refused-then-never-committed
     repository is not re-nagged every morning; the silent gates are the
-    backstop, and the CHANGELOG entry carries the by-hand sequence."""
+    backstop, and the changelog entry carries the by-hand sequence."""
     hook.stamp(str(repo))
     assert start(hook, repo) == ""
     assert (repo / ".specseal").is_dir()

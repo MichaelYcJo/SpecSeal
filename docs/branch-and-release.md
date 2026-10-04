@@ -55,13 +55,13 @@ created and spent before any tag exists. The tag push, the maintainer's last
 act, fires the note, because a note has to name a tag.
 
 - **The release note publishes itself.** `.github/workflows/publish-release.yml`
-  fires on the `v*` tag push and publishes the `CHANGELOG.md` section the
-  preparation commit already gathered, titled from the tagged commit's
+  fires on the `v*` tag push and publishes the release's own file,
+  `changelog/X.Y.Z.md`, which the preparation commit already gathered, titled from the tagged commit's
   `release: X.Y.Z — <symptoms>` line (`docs/release-checklist.md` §5). It never
   republishes a release that exists, and falls back to the tag name when that
   line is missing or carries no symptoms. The red it exists to raise is a
-  changelog with no section for the tag, which is the release shipping
-  unexplained. The note opens with a summary read from the pull requests
+  tag with no release file, or one with no section for the tag, which is the
+  release shipping unexplained. The note opens with a summary read from the pull requests
   merged into `release/vX.Y.Z` — counts, one line per pull request under its
   conventional-commit type with the issues it closed, a `### 🙌 Thanks to`
   line for every author other than the repository owner and bots, how to
@@ -225,20 +225,21 @@ else about the sequence below changes.
   which is the only place the reason it was not merged is written down.
 - **The release branch merges into `main` as a merge commit**, carrying one
   commit of its own: the one that gathers the changelog fragments into
-  `## X.Y.Z — <date>`, folds the ledger fragments into
+  `changelog/X.Y.Z.md` under `## X.Y.Z — <date>` and heads the index
+  `CHANGELOG.md` with that line, folds the ledger fragments into
   `seal/releases/X.Y.Z.md`, and
   moves `plugin.json`. Then the tag. It is also the moment every
   issue this release closes gets closed, by a workflow rather than by
   anybody's hand — the paragraphs below say how, and what to keep writing in
   a feature pull request so it has something to read.
 - Feature PRs write their entry to `seal/specs/<work-item-id>/changelog.md` and
-  leave both `CHANGELOG.md` and `plugin.json` alone. The hygiene workflow asks
+  leave `CHANGELOG.md`, `changelog/` and `plugin.json` alone. The hygiene workflow asks
   for the bump only when the base is `main`, which is what makes that
   enforceable instead of habitual.
 
 **The changelog entries arrive as fragments, and the release gathers them.**
 Three branches ran in parallel on 2026-09-01 and touched 34 files. They shared
-exactly one, in all three pairs, and it was `CHANGELOG.md` — nothing else
+exactly one, in all three pairs, and it was the changelog — nothing else
 overlapped at all. The conflict is three lines and always resolvable; what it
 costs is when it arrives. Nothing may be edited between the broad gate and the
 pull request, so resolving one buys a second run of the whole broad gate.
@@ -251,13 +252,16 @@ an id. Release preparation runs:
 python3 .github/scripts/gather_changelog.py --version X.Y.Z
 ```
 
-which concatenates every fragment that is not in the file yet into a dated
-section at the top. Each entry is written under an HTML comment naming its work
+which concatenates every fragment that no release file carries yet into
+`changelog/X.Y.Z.md`, a file of the release's own that opens with its dated
+`## X.Y.Z — <date>` line, and heads the index `CHANGELOG.md` with that same
+line and a link to the file (#728). A second gather for the same version
+appends into the file and keeps its date. Each entry is written under an HTML comment naming its work
 item — invisible to a reader, and the only link from a released entry back to
 the work that produced it. `--check` reports fragments that never arrived, and
 the hygiene workflow runs it on every pull request into `main`, so a release
 cannot go out with a change that ships unexplained. `--dry-run` prints the
-section and writes nothing.
+section and writes nothing, in either file.
 
 A fragment carries no line starting `## ` (#586). The released section ends
 at the next such line, for the gather and for the release note alike, so
@@ -265,8 +269,8 @@ every entry after it would ship under no version and the note would stop
 short. The gather refuses such a fragment, with or without `--dry-run`,
 before it writes or prints a section, and names the fragment, the line
 number and the line. Demote the line to `###` or lower in a pull request
-into the release branch, then gather again. A fragment already in the file
-is not read again.
+into the release branch, then gather again. A fragment already in a release
+file is not read again.
 
 A fragment also closes every fenced block and HTML comment it opens (#584).
 The gather writes the next work item's marker below it, and a block left open

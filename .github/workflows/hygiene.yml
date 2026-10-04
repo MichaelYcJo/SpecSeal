@@ -98,18 +98,19 @@ jobs:
           fi
 
       # A change writes `seal/specs/<work-item-id>/changelog.md` instead of
-      # appending to `CHANGELOG.md` — three parallel branches shared that one
+      # appending to the changelog — three parallel branches shared that one
       # file and nothing else, and the conflict arrived after the broad gate
       # had run, where nothing may be edited.
       #
       # Gathering them is a step somebody has to remember, and the release
       # pull request is the last moment anyone is looking. A fragment that
-      # never reached the file is a change that ships with no entry: the user
-      # `hooks/version-check.py` tells about a new release has nothing to read.
+      # reached no release file under `changelog/` ships with no entry: the
+      # user `hooks/version-check.py` tells about a new release has nothing
+      # to read.
       #
       # It runs only for a release, because that is the only moment the
-      # fragments are meant to be in the file. On a feature pull request every
-      # fragment on the branch is legitimately ungathered.
+      # fragments are meant to be in a release file. On a feature pull
+      # request every fragment on the branch is legitimately ungathered.
       - name: every changelog fragment reached the released file
         shell: bash
         run: |
