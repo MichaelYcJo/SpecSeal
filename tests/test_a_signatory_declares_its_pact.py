@@ -619,7 +619,8 @@ def test_the_template_and_the_config_skill_carry_both_rows_and_the_vocabulary():
             ("docs", "the-pact.md"),
             "It looks for both rows on every line, as `str.splitlines` and as "
             "GFM cut the file, so it leaves a row wherever the plugin's reader "
-            "refuses a notify row it does not reach.",
+            "refuses a notify row it does not reach, with one exception: it does "
+            "not read an item in a code span",
         ),
         (
             ("templates", "config.md"),
@@ -632,16 +633,16 @@ def test_the_template_and_the_config_skill_carry_both_rows_and_the_vocabulary():
         ),
         (
             ("docs", "the-pact.md"),
-            "indented, block-quoted, with no leading pipe, with a third cell, or "
-            "with its item spelled another way is passed by. A format character "
-            "inside the item, such as U+200B, is another spelling a renderer "
-            "shows as nothing.",
+            "An item is spelled another way when it shows as `Pact` or `Pact "
+            "notify` once GFM renders it and is not written so: in emphasis, a "
+            "link or inline HTML, with a character reference, with a format "
+            "character such as U+200B, or with any mark between its letters.",
         ),
         (
             ("templates", "config.md"),
-            "indented or block-quoted, with no leading pipe, with a third cell, "
-            "or with its item spelled another way, an invisible format character "
-            "included.",
+            "with its item spelled another way: anything that shows as `Pact "
+            "notify` once rendered, emphasis, a link, a code span or an invisible "
+            "format character around it included.",
         ),
     ],
     ids=[

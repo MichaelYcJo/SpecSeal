@@ -417,7 +417,9 @@ pact's repository reads that record until a pact review there takes it:
 **So is a `Pact` or `Pact notify` row written where the table's reader does
 not reach it**, never read as the default: below the line that ended the
 table, indented or block-quoted, with no leading pipe, with a third cell, or
-with its item spelled another way, an invisible format character included.
+with its item spelled another way: anything that shows as `Pact notify` once
+rendered, emphasis, a link, a code span or an invisible format character
+around it included.
 Write both rows inside the one `| Item | Value |` table. A
 `Pact notify` row with no `Pact` value anywhere is ignored, there as in the
 table. At this repository's pull request `chain-check` prints the sentence and its

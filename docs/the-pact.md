@@ -80,20 +80,24 @@ refused, never read as the default.** The reader takes the rows of the first
 `| Item | Value |` table and stops at the first line that is not one of its
 rows, so a row written below a blank line, below prose or another table,
 indented, block-quoted, with no leading pipe, with a third cell, or with its
-item spelled another way is passed by. A format character inside the item,
-such as U+200B, is another spelling a renderer shows as nothing.
-`hooks/config.py#pact_declaration` removes every format character, then
-compares every line shaped as one of the two rows with a value against the
-lines the reader took, as `str.splitlines` cuts the file and as GFM does, and
-refuses each such line in a sentence naming it; `Pact notify` then has no
-value. A `Pact` row there
-always refuses. A `Pact notify` row there refuses only where a `Pact` value
-stands, because one with no pact is ignored wherever it is written. A row in
+item spelled another way is passed by. An item is spelled another way when
+it shows as `Pact` or `Pact notify` once GFM renders it and is not written
+so: in emphasis, a link or inline HTML, with a character reference, with a
+format character such as U+200B, or with any mark between its letters.
+`hooks/config.py#pact_declaration` reads each line as GFM shows it and the
+item by its letters alone, then compares every line shaped as one of the two
+rows with a value against the lines the reader took, as `str.splitlines` cuts
+the file and as GFM does, and refuses each such line in a sentence naming it;
+`Pact notify` then has no value. An item in a code span is refused on the
+table's own rows only, because a documentation table names both items in
+code spans. A `Pact` row there always refuses. A `Pact notify` row there
+refuses only where a `Pact` value stands, because one with no pact is
+ignored wherever it is written. A row in
 a closed code fence or a closed HTML comment is an example and is not
 refused. Under `always`, a notify row read as the default let `evidence-check
 --reverify` re-stamp a moved row citing no clause, and that re-stamp cleared
 the drift that was the only trigger for its record.
-Enforced by: tests/test_a_signatory_declares_its_pact.py::test_s1_a_notify_row_below_a_blank_line_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s2_every_way_the_walk_passes_a_notify_row_by_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s3_a_notify_row_spelled_another_way_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s4_a_notify_row_the_reader_cuts_in_two_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s5_a_pact_row_below_the_table_is_refused_with_no_pact_in_it, tests/test_a_signatory_declares_its_pact.py::test_s6_a_stray_notify_row_with_no_pact_anywhere_is_ignored, tests/test_a_signatory_declares_its_pact.py::test_s7_a_pact_row_that_is_not_a_stray_is_not_refused, tests/test_a_signatory_declares_its_pact.py::test_s8_a_line_whose_pieces_the_reader_reads_is_read_as_today, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause, tests/test_pact_check.py::test_s10_a_notify_row_below_the_signatorys_table_is_exit_2, tests/test_a_signatorys_ci_prints_its_pact.py::test_s11_a_notify_row_below_the_table_is_a_notice_naming_it
+Enforced by: tests/test_a_signatory_declares_its_pact.py::test_s1_a_notify_row_below_a_blank_line_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s2_every_way_the_walk_passes_a_notify_row_by_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s3_a_notify_row_spelled_another_way_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s3_an_item_is_refused_exactly_where_gfm_shows_a_pact_item, tests/test_a_signatory_declares_its_pact.py::test_s3_a_pact_item_in_a_code_span_is_refused_on_the_walks_rows, tests/test_a_signatory_declares_its_pact.py::test_s4_a_notify_row_the_reader_cuts_in_two_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s5_a_pact_row_below_the_table_is_refused_with_no_pact_in_it, tests/test_a_signatory_declares_its_pact.py::test_s6_a_stray_notify_row_with_no_pact_anywhere_is_ignored, tests/test_a_signatory_declares_its_pact.py::test_s7_a_pact_row_that_is_not_a_stray_is_not_refused, tests/test_a_signatory_declares_its_pact.py::test_s8_a_line_whose_pieces_the_reader_reads_is_read_as_today, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause, tests/test_pact_check.py::test_s10_a_notify_row_below_the_signatorys_table_is_exit_2, tests/test_a_signatorys_ci_prints_its_pact.py::test_s11_a_notify_row_below_the_table_is_a_notice_naming_it
 
 ## The pact anchor
 
@@ -328,11 +332,13 @@ a `Pact notify` row that both carry a value, or will not read, says it
 recorded nothing, and re-stamps nothing, so the plugin's own checker records
 the change where the signatory is checked out. It looks for both rows on
 every line, as `str.splitlines` and as GFM cut the file, so it leaves a row
-wherever the plugin's reader refuses a notify row it does not reach. A pact
-under local mode keeps `seal/pact-reviews/` under the git directory, so another
-clone of the pact's repository reads the same changes as `NOT TAKEN`, which
-is loud in the right direction.
-Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_whose_config_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify
+wherever the plugin's reader refuses a notify row it does not reach, with
+one exception: it does not read an item in a code span, because it has no
+walk to tell the live table from a documentation table that names both items
+in code spans. A pact under local mode keeps `seal/pact-reviews/` under the
+git directory, so another clone of the pact's repository reads the same
+changes as `NOT TAKEN`, which is loud in the right direction.
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_whose_config_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_reads_no_code_spanned_item
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **The record-first order holds against the process dying, and not against
