@@ -772,14 +772,15 @@ def test_the_gather_and_the_survivor_check_read_one_set_of_markers(
         "specseal_survivor_check",
     )
     monkeypatch.setattr(
-        survivor, "read_blobs", lambda root, rev, paths: {survivor.CHANGELOG: text}
+        survivor, "read_blobs", lambda root, rev, paths: {p: text for p in paths}
     )
     frags = gather_mod.fragments(str(tree))
     missing = {
         i for i, _ in gather_mod.ungathered(gather_mod.live_markers(text), frags)
     }
     gathered = {i for i, _ in frags} - missing
-    assert gathered == survivor.gathered_fragments(str(tree), "HEAD")
+    paths = ["changelog/0.1.0.md"]
+    assert gathered == survivor.gathered_fragments(str(tree), "HEAD", paths)
     assert gathered == {"1700000000-earlier"}
 
 

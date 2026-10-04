@@ -1101,8 +1101,15 @@ FILTERS_ITS_OWN_LIST = {"corrected"}
 # gathered fragments alone (#564): `a_gathered_fragment` keeps only
 # `<x>/specs/<id>/changelog.md`, which `records_a_past_state` can never name,
 # and the text read there is held, never a source and never written.
+# `gathered_fragments` lists the tree where its caller has not, and reads
+# only the paths `a_changelog` names, for their markers (#728): no sentence
+# of the list reaches the pool or the range.
 FILTERED_BY_ITS_CALLERS = {
-    "tracked": {"corpus": PREDICATE, "corrected": "a_gathered_fragment"},
+    "tracked": {
+        "corpus": PREDICATE,
+        "corrected": "a_gathered_fragment",
+        "gathered_fragments": "a_changelog",
+    },
 }
 NAMED_EXCEPTION = {
     "whole_range": (
@@ -3350,6 +3357,175 @@ def test_a_marker_quoted_in_a_fence_gathers_nothing(tmp_path):
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 1, f"a quoted marker excused the fragment; exit {code}\n{text}"
     assert FRAGMENT in text, text
+
+
+# --- #728: a release's own file is a changelog too ---------------------------
+#
+# The released sections moved out of the root `CHANGELOG.md`, one file per
+# release under `changelog/`, each opening with its `## X.Y.Z — <date>` line.
+# `a_changelog` names both shapes, so every reader above reads a release file
+# by the region rule the root file is read by. Each case below was run
+# against the sweep with that predicate spelled `path == CHANGELOG` again, and
+# was red there.
+
+RELEASE_FILE = "changelog/1.0.0.md"
+
+
+def release_file(body, marker=None):
+    """A release's own file: the section alone, heading first."""
+    return changelog(RELEASED_HEADINGS[0], body, marker).split("\n\n", 1)[1]
+
+
+def test_a_release_file_is_not_a_carrier(tmp_path):
+    """S10 of #728, the pool side. The claim corrected in `docs/a.md` stands
+    in a release's own file, and the range is clean, as it is for a released
+    section of the root file."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {"docs/a.md": f"# a\n\n{FOUND}\n", RELEASE_FILE: release_file(FOUND), **FILLER},
+        "the claim, and the release file that recorded it",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"a release file was reported as a survivor; exit {code}\n{text}"
+    assert RELEASE_FILE not in text.split("examined", 1)[-1], text
+
+
+def test_a_range_that_edits_only_a_release_file_removes_no_sentence(tmp_path):
+    """S10 of #728, the range side. A line changed in a release file is not
+    a correction anybody has to chase into `docs/`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {"docs/a.md": f"# a\n\n{FOUND}\n", RELEASE_FILE: release_file(FOUND), **FILLER},
+        "the claim, and the release file that recorded it",
+    )
+    head = build(
+        repo, {RELEASE_FILE: release_file(REPAIRED)}, "reflowed a released entry"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "a range that touched only a release file was read as a correction "
+        f"somebody has to chase into docs/a.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), text
+
+
+def test_a_fragment_a_release_file_gathered_is_not_a_survivor(tmp_path):
+    """S10 of #728. The fragment's marker stands in a release file at the
+    tip, so the fragment is the released entry one file over: out of the
+    pool, as it is when the marker stands in the root file."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            RELEASE_FILE: release_file("An unrelated entry.", marker=True),
+            **FILLER,
+        },
+        "the claim, its fragment, and the release file that gathered it",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        f"a fragment a release file gathered was reported; exit {code}\n{text}"
+    )
+    assert FRAGMENT not in text, text
+
+
+def test_a_fragment_a_release_file_gathered_is_not_a_source(tmp_path):
+    """S10 of #728, the range side of the same rule."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            RELEASE_FILE: release_file(FOUND, marker=True),
+            **FILLER,
+        },
+        "the claim, its fragment, and the release file that gathered it",
+    )
+    head = build(
+        repo, {FRAGMENT: f"### Fixed\n\n- {REPAIRED}\n"}, "reflowed the fragment"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "a range that edited a gathered fragment and nothing else was read as "
+        f"a correction to chase into docs/a.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), text
+
+
+def test_the_migration_writes_no_released_sentence_as_its_own(tmp_path):
+    """S10 of #728, a range across the migration: its base has the one-file
+    changelog and its tip the index and a release file. The released text
+    the release file holds is not wording this range wrote, so it subtracts
+    no survivor of a correction the same range made: `docs/b.md` still
+    carries the corrected claim and is reported, and neither changelog is."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\n{FOUND}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND),
+            **FILLER,
+        },
+        "the claim twice, and the one-file changelog that recorded it",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": (
+                "# Changelog\n\nThe index.\n\n"
+                f"{RELEASED_HEADINGS[0]}\n\n[{RELEASE_FILE}]({RELEASE_FILE})\n"
+            ),
+            RELEASE_FILE: release_file(FOUND),
+        },
+        "migrated the changelog, and corrected docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the released text the migration moved was written as the range's "
+        f"own and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    found = text.split("examined", 1)[-1]
+    assert "docs/b.md" in found, text
+    assert RELEASE_FILE not in found and "CHANGELOG.md:" not in found, text
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["changelog/1.0.0.md", "changelog/v1.2.md", "CHANGELOG.md"],
+)
+def test_a_changelog_is_the_root_file_or_a_release_file(path):
+    """The one predicate every reader asks (D5 of #728), on its paths."""
+    assert module().a_changelog(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "changelog/README.md",
+        "docs/changelog/1.0.0.md",
+        "changelog/1.0.0.txt",
+        "changelog/next.md",
+        "changelog.md",
+    ],
+)
+def test_a_changelog_is_nothing_else(path):
+    """A file beside the release files, one deeper than the root, or under
+    another name is read as every other document is."""
+    assert not module().a_changelog(path)
 
 
 # --- #551: a file moved and reworded in one commit is a rename to git ------
