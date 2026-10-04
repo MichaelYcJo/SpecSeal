@@ -136,6 +136,12 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
     ("docs/the-commit-gate-inside-git.md", "2.39.5"): "git's, a build #692 measured",
     ("docs/the-commit-gate-inside-git.md", "2.43.0"): "git's, a build #692 measured",
     ("docs/the-commit-gate-inside-git.md", "2.50.1"): "git's, a build #692 measured",
+    ("docs/worktree-guard-spec.md", "2.54.0"): (
+        "git's, the build whose `git checkout -h` and `git switch -h` the "
+        "guard's option table was taken from, named in §*Known limits* "
+        "(#764). A table read off an unnamed git is not a measurement, and "
+        "no release of SpecSeal makes the number wrong"
+    ),
     ("skills/implement/scripts/seal.py", "4.4.17"): (
         "bash's, named in a comment about the glob behaviour of that release"
     ),
