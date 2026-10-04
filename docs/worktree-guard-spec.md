@@ -590,7 +590,16 @@ tells the user to work in a separate worktree, so the session stays where it
 was while the commands do not. The whole command is read the way the release
 base `86256492` read it, and not the way the commit gate reads it since #674
 (#689): which segments are git, the `-C` values each names, where every `cd`
-lands. This guard and the consent writer read it through
+lands. One rule is read past the base, since #764 and #738 on the owner's
+answer of 2026-10-04: a `checkout`'s and a `switch`'s own words are read as
+git's option parser sees them once bash has taken the redirections off. So a
+creating option counts in any spelling git accepts (`-bNAME`, `-qb NAME`,
+`--orphan=NAME`, `--cre NAME`), an option's value is not a name (`git
+checkout --conflict merge feature/x` names `feature/x`), and a redirection is
+no word (`git checkout 2>/dev/null feature/x`, `git checkout
+feature/x>/dev/null`). Which segments are git, the `-C` values each names and
+where every `cd` lands stay the base's, and `hooks/cmdline_base.py` is
+unchanged. This guard and the consent writer read it through
 `hooks/cmdline_base.py`, which is that commit's `hooks/cmdline.py` copied byte
 for byte. Neither chooses a segment or a tree through `hooks/cmdline.py`; the
 guard asks that module one question, below, and its answer never names a tree.
@@ -625,12 +634,16 @@ and ask the frozen reading earns still decides first. A creation reads consent
 first and stays silent under it, as at the base. Each view the wider reading
 makes is read as git is handed it: a redirection glued to a word's end is cut
 off and then every redirection is taken out before the kind is read, so a
-redirection's word is never read as a branch name (#737). The question then
+redirection's word is never read as a branch name (#737), and the frozen
+segments it is compared with are read the same way (#738). The question then
 follows one rule: the guard asks wherever a view's words hold a switch or a
 creation that none of the frozen segments the view was made from holds. Each
-side is read by its words alone: a `switch` naming a word or `-`, a `checkout`
-carrying `-b` or `-B`, a `checkout` with no `--` among its words that names
-`-` or a word other than `.`, or a `worktree add`. The reading looks up no
+side is read by its words alone, as git is handed them: a `switch` naming a
+word or `-` or carrying a creating option, a `checkout` carrying a creating
+option (`-b`, `-B` or `--orphan`, in any spelling git's option parser
+accepts), a `checkout` with no `--` among its words that names `-` or a word
+other than `.`, or a `worktree add`; an option's value is not a name, and a
+redirection is no word. The reading looks up no
 tree (#689), so it asks whether or not
 the command moves the tree, and a restore or a detach whose words read as a
 switch is asked as one when the frozen reading misses it. For example,
@@ -716,6 +729,27 @@ at one prompt against a wrong allow breaking another session's tree.
   `git -C <dir> switch …`, or a plain `cd <dir>` of its own, is the spelling
   the guard reads. `test_a_switch_tree_the_guard_cannot_place_is_judged_as_its_own`
   in `tests/test_guard_resolves_the_tree_it_judges.py` pins it.
+- A `checkout`'s and a `switch`'s options are read from a static table, taken
+  from git 2.54.0's `git checkout -h` and `git switch -h` (§*Which tree*).
+  An option a later git adds reads as one that takes nothing until the table
+  lists it, so its separate value reads as a name, which is how every
+  value-taking option read before #764.
+  `test_the_option_table_binds_the_installed_git` fails on the first machine
+  whose git lists one. Three shapes stay outside the reading. Each was
+  counted over the command and directory pairs recorded before 2026-10-03
+  that were still on disk on 2026-10-04, 25,741 of the 27,351 above (work
+  item 1791119071, `phases/phase-1.md` and `phases/phase-3.md`):
+  - a `<` or `>` inside a quoted name (`git checkout 'a>b'`) is cut like an
+    unquoted one, because the frozen splitter has taken the quotes off before
+    the word is read. A cut name that is a ref is asked, and one that is not
+    reads as a restore. No pair held one;
+  - a switch behind an `&`- or `|`-led redirection (`git checkout 2>&1
+    feature/x`) reaches only the wider reading, which looks up no tree, so a
+    file behind the same operator (`git checkout 2>&1 README.md`) is asked
+    too. In no pair did such an operator stand where only that reading held
+    the switch;
+  - `git checkout -U 3 feature/x` reads `feature/x` as the name, although git
+    refuses `-U` without `-p`, so a command git refuses is asked.
 - On Windows the count of other sessions is always unusable. It walks the
   process table with `ps -o` and `ps -axo`, and Git for Windows' `ps` takes
   neither, so every tree state there reads as *detection unusable* and takes
