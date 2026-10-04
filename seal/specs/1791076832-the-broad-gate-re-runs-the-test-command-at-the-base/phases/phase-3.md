@@ -41,7 +41,7 @@ is written here. The per-attempt `run(..., shell=True)` stays in
 - **The early stop is read as the `!` rule, not as the two texts.** Read in
   the installed `_pytest/terminal.py`: a `!` separator is written for
   `session.shouldfail` (maxfail), for `session.shouldstop` (stepwise, xdist)
-  and for an interrupt (`_report_keyboardinterrupt`, which collection errors
+  and for an interrupt (`_report_keyboardinterrupt` · NAME NOT IN TREE, which collection errors
   and `pytest.exit` reach), and otherwise only under `--collect-only`, which
   runs no test. So `STOPPED_EARLY_RE` is `^!{3,} .+ !{3,}$`. This narrows
   `plan.md`'s six-month risk: a reworded banner still reads as a stop, and

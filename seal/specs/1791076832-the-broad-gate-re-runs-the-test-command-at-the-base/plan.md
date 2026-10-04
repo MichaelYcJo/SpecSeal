@@ -19,7 +19,7 @@ order and the choices.
 Coordinates are read at e141980a (the branch is cut from it, plus the routing
 commit d617e78f).
 
-- `skills/verify/scripts/broad_gate.py#first_command` (line 1820) —
+- `skills/verify/scripts/broad_gate.py#first_command` (line 1820) · NAME NOT IN TREE —
   `command.split("&&", 1)[0].strip()`: a raw split that ignores quotes and
   knows one operator. Removed by this work.
 - `skills/verify/scripts/broad_gate.py#compare_at_base` (1826–1900) — the
@@ -74,7 +74,7 @@ table in `spec.md` and rule 3's rewrite are where they learn why.
 | B. Try each part ALONE (not a prefix) | `export PYTHONPATH=src && pytest`: the part alone loses the export, the base cannot import, every file `ERROR`s and reads `failing on base too` — a measured-looking word that is false, in the lenient direction | Rejected: fakes a word, which is the defect being fixed |
 | C. Pick the part whose command name looks like a test runner (`pytest`, `tox`, `bin/test`…) | `bin/test` names no runner; a list of names is the enumeration-by-example the prompt forbids, and it rots | Rejected |
 | D. A new `config.md` row naming the base runner | A question added to every repository for something a run can answer; a wrong value is silent | Rejected on `CLAUDE.md`'s first goal |
-| E. Run the WHOLE row at the base with the files in `PYTEST_ADDOPTS` | The variable is inherited by every pytest the suite starts — this repository's own sealer cases run pytest in fixture repositories — so the base run's results are polluted; and the whole row (lint, typecheck) runs at the base | Rejected |
+| E. Run the WHOLE row at the base with the files in `PYTEST_ADDOPTS` · NAME NOT IN TREE | The variable is inherited by every pytest the suite starts — this repository's own sealer cases run pytest in fixture repositories — so the base run's results are polluted; and the whole row (lint, typecheck) runs at the base | Rejected |
 | F. Reorder this repository's row runner-first and change nothing else | Every repository whose row is lint-first still gets `new` on every failure; the owner's #634 reason is undone | Rejected; not even as a companion change |
 | G. Split with `hooks/cmdline.py#split_segments_with_separators` | It returns de-quoted tokens; re-rendering them loses `$VAR`, quoting and `cmd.exe` semantics, and it models POSIX only | Rejected; the cut keeps the row's own substrings |
 | H (#748). Poll the loop shell's PID until gone, as `gone_within` does | Needs the loop to write its PID; a shell slow to start under load has written none when the bound falls, which is a new load-sensitive branch | Rejected for the marker poll in `spec.md` Scope 7, which needs nothing from the loop |
