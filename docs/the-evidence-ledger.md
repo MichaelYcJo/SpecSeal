@@ -199,9 +199,10 @@ correction, which a person makes.
   `correction-check` refuses at the pull request. Without the freeze it is
   not among them: one run over every ledger re-stamps a released row and every
   citation of it that it moves, because it walks a cited file before every
-  file citing it (#772). A run narrowed with `--ledger` that moves a line
-  cited from a file it left out names the citing row on a `LEFT` line and
-  exits 1.
+  file citing it (#772). A release file citing a row of itself, which a
+  second fold writes, is walked again until it settles. A run narrowed with
+  `--ledger` that moves a line cited from a file it left out names the citing
+  row on a `LEFT` line and exits 1.
 
 A `Re-read ·` row with a `--checked` older than the newest reading is not
 among them: `--into` names it and exits 1, as its paragraph above says.

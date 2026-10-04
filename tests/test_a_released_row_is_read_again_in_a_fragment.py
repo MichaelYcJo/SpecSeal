@@ -2471,7 +2471,13 @@ LEAVINGS = "a file citing itself, beside what the run leaves"
 
 
 @pytest.mark.parametrize(
-    "shape", ["a file citing itself", "two files citing each other", LEAVINGS]
+    "shape",
+    [
+        "a file citing itself",
+        "a file citing itself, undated",
+        "two files citing each other",
+        LEAVINGS,
+    ],
 )
 def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
     """#772, round 1, yellow 1. A second fold of the newest release joins its
@@ -2504,6 +2510,7 @@ def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
                 # Four cells: no date cell, so `--checked` leaves it whole.
                 f"| R2 · four cells | `src/service.py#handler@{h}` | read | 2026-01-01 |",
                 f"| R3 · a gone unit | `src/service.py#gone@{h}` | read | 2026-01-01 | |",
+                "| R4 · a bare hash | `src/service.py@abcdef12` | read | 2026-01-01 | |",
             ]
         # The citing row quotes R1's first cell, so the citation is taken with
         # it in place: a literal R1's line alone holds would match both lines.
@@ -2513,9 +2520,9 @@ def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
         if shape == LEAVINGS:
             (repo / "seal" / "ledger").mkdir(parents=True)
             (repo / "seal" / "ledger" / "2000000004-bytes.md").write_bytes(
-                (reread(cite).replace("| read |", "| caf\xe9 |") + "\n").encode(
-                    "latin-1"
-                )
+                (reread(cite) + "\n")
+                .encode("utf-8")
+                .replace(b"| read |", b"| caf\xe9 |")
             )
             with pytest.raises(UnicodeDecodeError):
                 (repo / "seal" / "ledger" / "2000000004-bytes.md").read_text(
@@ -2528,6 +2535,7 @@ def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
                 "ledger unreadable",
                 "its hash moved and the row has no date cell",
                 "src/service.py#gone",
+                "MALFORMED",
             ):
                 assert fix.stdout.count(said) == 1, (said, fix.stdout)
             return
@@ -2540,7 +2548,8 @@ def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
         released(repo, [r(1), reread(to_3)], version="0.4.0")
     assert run(["--strict", "."], repo).returncode == 0
     edit_handler(repo)
-    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    dated = [] if shape.endswith("undated") else ["--checked", "2026-03-01"]
+    fix = run(["--reverify", *dated, "."], repo)
     assert fix.returncode == 0, fix.stdout
     named = [line for line in fix.stdout.splitlines() if line.startswith("    seal/")]
     assert named and len(named) == len(set(named)), fix.stdout
@@ -2602,6 +2611,8 @@ def test_the_walk_order_places_what_it_can_and_walks_the_rest_again(repo):
         "Without the freeze it is not among them: one run over every ledger "
         "re-stamps a released row and every citation of it that it moves, "
         "because it walks a cited file before every file citing it (#772).",
+        "A release file citing a row of itself, which a second fold writes, is "
+        "walked again until it settles.",
         "A run narrowed with `--ledger` that moves a line cited from a file it "
         "left out names the citing row on a `LEFT` line and exits 1.",
         "Each repair is an edit or a correction, which a person makes.",
@@ -2614,6 +2625,7 @@ def test_the_walk_order_places_what_it_can_and_walks_the_rest_again(repo):
         "malformed",
         "citation",
         "one unfrozen run",
+        "a file citing itself",
         "a narrowed unfrozen run",
         "the lead: a person repairs each",
     ],
