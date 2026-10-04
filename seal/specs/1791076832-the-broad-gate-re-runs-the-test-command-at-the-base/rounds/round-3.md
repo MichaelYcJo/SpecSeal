@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #758 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `ae3e5232a170e905cc834c414c30418ea8ab163a..b9bb12cc3dc893f8db97a3c5923fb345345343b2`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,8 +30,8 @@ No unit was added: the changes are rows on `SUMMARY_LINES` and asserts inside ex
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | the comment over the summary regex gives "pytest lists its own categories first" as the reason the first label is one word, where pytest 9.1.1's own list holds three two-word categories; the reason is that the one-word ones come first and every test that ran is counted under one | `skills/verify/scripts/broad_gate.py:1861` | open | read: pytest 9.1.1's terminal and subtests modules; the behaviour is right and pinned, the stated reason is not the one that holds |
-| ⬜ 2 | ledger row B3's claim cell still says `NO_RUNNER` is given where no prefix printed a summary, the wording round 2's finding 2 retired everywhere else | `seal/ledger/1791076832-the-broad-gate-re-runs-the-test-command-at-the-base.md:9` | open | read; a correction to the run's paperwork, not to the tool |
+| ⬜ 1 | the comment over the summary regex gives "pytest lists its own categories first" as the reason the first label is one word, where pytest 9.1.1's own list holds three two-word categories; the reason is that the one-word ones come first and every test that ran is counted under one | `skills/verify/scripts/broad_gate.py:1861` | answered | no change. The behaviour is right and pinned: three regex mutations each turned exactly one rejection row red, and this round re-derived the comment's missing step from pytest 9.1.1's `KNOWN_TYPES`. The comment names that order as its ground. Editing it after the run's last round would commission a change that no round reads; read: pytest 9.1.1's terminal and subtests modules; the behaviour is right and pinned, the stated reason is not the one that holds |
+| ⬜ 2 | ledger row B3's claim cell still says `NO_RUNNER` is given where no prefix printed a summary, the wording round 2's finding 2 retired everywhere else | `seal/ledger/1791076832-the-broad-gate-re-runs-the-test-command-at-the-base.md:9` | answered | corrected at `b9bb12cc`: ledger row B3's claim now says `NO_RUNNER` is given where no prefix printed a line the gate reads as pytest's summary; read; a correction to the run's paperwork, not to the tool |
 | 🟢 | round 2's finding 1 is closed — pytest 9's subtests summary is read as pytest's | `skills/verify/scripts/broad_gate.py:1867` | confirmed | executed: the subtests fixture end to end at the target gave `failing on base too` where the base fails the file and `new` where it passes, runner-first and lint-first; round 2's gate gave the `NO_RUNNER` reason in all four; the narrower first label is grounded in pytest 9.1.1's summary order |
 | 🟢 | round 2's finding 2 is closed — the unmeasured reason says the gate did not read a summary | `skills/verify/scripts/broad_gate.py:1875` | confirmed | read: the reason, the docstring, the skill's bullet, rule 3 and the changelog fragment agree; executed: the pin passes at the target |
 | 🟢 | round 1's findings 1 to 8 stay closed | `skills/verify/scripts/broad_gate.py:2006` | confirmed | executed: the cargo, `cd`, runner-first, lint-first, ending and counterfeit cases pass at the target; carried from round 2 for the rest, since this round's diff touches only the summary regex |
