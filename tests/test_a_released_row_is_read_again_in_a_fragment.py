@@ -2603,7 +2603,15 @@ def test_one_unfrozen_run_names_each_coordinate_it_restamps_once(repo, depth, ch
         rows.append(reread(cite, label))
     released(repo, rows)
     last = ec.citation_for(str(repo), str(repo / R_FILE), 4 + len(rows))
-    fragment(repo, [reread(last, "the fragment's")])
+    # The fragment's first row moves only by its citation, so it is dated on
+    # the walk that re-stamps it, and every offset after that date moves
+    # before the second row's citation is re-stamped again: what names a
+    # coordinate across walks cannot be its offset.
+    o = unit_hash(repo, "src/service.py", "other")
+    first = reread(last, "the fragment's first").replace(
+        f"src/service.py#handler@{h}", f"src/service.py#other@{o}"
+    )
+    fragment(repo, [first, reread(last, "the fragment's")])
     assert run(["--strict", "."], repo).returncode == 0
     before = ledger_texts(repo)
     edit_handler(repo)
@@ -2612,18 +2620,39 @@ def test_one_unfrozen_run_names_each_coordinate_it_restamps_once(repo, depth, ch
     assert fix.returncode == 0, fix.stdout
     after = ledger_texts(repo)
     named = [line for line in fix.stdout.splitlines() if line.startswith("    seal/")]
-    assert len(named) == len(set(named)) == depth + 2, fix.stdout
+    assert len(named) == len(set(named)) == depth + 3, fix.stdout
     said = [HASH_LINE.match(line) for line in fix.stdout.splitlines()]
     said = [m for m in said if m]
-    # R1's code, and each citing row's code and citation, the fragment's too.
-    assert len(said) == 1 + 2 * (depth + 1), fix.stdout
+    # R1's code, each citing row's code and citation, the fragment's second
+    # row's too, and the fragment's first row's citation.
+    assert len(said) == 1 + 2 * (depth + 1) + 1, fix.stdout
     assert f"{len(said)} rows re-verified" in fix.stdout, fix.stdout
     for m in said:
         assert f"@{m.group(2)}`" in before, (m.group(0), fix.stdout)
         assert f"@{m.group(3)}`" in after, (m.group(0), fix.stdout)
+    # The fragment's two rows cite one line, so two lines name one citation.
     cited = [m.group(1) for m in said if m.group(1).startswith("seal/")]
-    assert len(cited) == len(set(cited)) == depth + 1, fix.stdout
+    assert len(cited) == depth + 2 and len(set(cited)) == depth + 1, fix.stdout
     assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_a_row_naming_one_coordinate_twice_is_named_twice(repo):
+    """What names a coordinate across walks keeps a row's two spellings of
+    one coordinate apart (round 2, yellow 1): each is re-stamped and named,
+    as before the walk was repeated."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    fragment(
+        repo,
+        [
+            f"| F1 · handler, twice | `src/service.py#handler@{h}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    said = [line for line in fix.stdout.splitlines() if HASH_LINE.match(line)]
+    assert len(said) == 2 and "2 rows re-verified" in fix.stdout, fix.stdout
 
 
 def test_one_unfrozen_run_names_a_citing_row_it_left_whole_once(repo):
