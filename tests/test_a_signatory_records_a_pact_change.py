@@ -1859,3 +1859,66 @@ def test_a_coordinate_left_under_a_newer_reading_names_the_newest_hash(repo):
     assert record_rows(repo) == [
         f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | `{h2}` BROKEN | 2026-09-12 |"
     ], out
+
+
+# --- #772 and D3: a citation re-stamp is not a pact change -------------------
+
+
+def test_a_citation_restamp_is_not_a_pact_change(repo):
+    """S7 (D3). No freeze, `Pact notify | always`, a declared branch: R in a
+    release file and M re-reading it in another item's fragment both record
+    `serialize`, and the code moves. The in-place run re-stamps R, which
+    moves the line M cites, and re-stamps M's citation in the same walk
+    (#772). M's record row carries its code move and nothing for its
+    citation, which is a ledger line rather than code under a clause; R's
+    row is recorded as before. A second run adds nothing. The base recorded
+    the citation as a part of M's row on its second run."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), ("Pact", PACT_URL), ("Pact notify", "always")),
+        encoding="utf-8",
+    )
+    git(repo, "init", "-q", "-b", "feat/x")
+    (repo / "seal" / "specs" / ITEM).mkdir(parents=True)
+    (repo / "seal" / "specs" / ITEM / "routing.md").write_text(
+        "| Axis | Answer |\n|---|---|\n| Review | straight to the PR |\n"
+        "| Destination | open the pull request |\n| Branch | feat/x |\n",
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("R1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}"),
+        encoding="utf-8",
+    )
+    citation = ec.citation_for(str(repo), str(released), 5)
+    (repo / OTHER_ITEM).parent.mkdir(parents=True, exist_ok=True)
+    (repo / OTHER_ITEM).write_text(
+        f"| Re-read · R1 · the field list | `{citation}`, "
+        f"`src/orders.py#serialize@{old}` | read | 2026-09-02 | Re-read 2026-09-02 |\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", "-A")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "commit",
+        "-qm",
+        "x",
+    )
+    new = move_serialize(repo)
+    for _ in range(2):
+        code, out = run(repo, "--checked", "2026-09-04")
+        assert code == 0, out
+    assert sorted(record_rows(repo)) == sorted(
+        [
+            f"| — | {OTHER_ITEM} · Re-read | `src/orders.py#serialize@{old}` → "
+            f"`@{new}` | 2026-09-04 |",
+            f"| {CLAUSE} | seal/releases/0.1.0.md · R1 | "
+            f"`src/orders.py#serialize@{old}` → `@{new}` | 2026-09-04 |",
+        ]
+    ), out

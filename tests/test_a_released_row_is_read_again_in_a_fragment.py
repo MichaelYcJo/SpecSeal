@@ -2283,14 +2283,12 @@ def test_a_folded_citation_whose_released_line_changed_is_left_at_exit_0(
     assert (fix, check) == (0, 2), out
 
 
-def test_an_unfrozen_restamp_of_a_released_row_moves_the_line_its_re_read_cites(
-    repo,
-):
-    """Without the freeze, R and its fragment re-read M both record `handler`
-    as it was, and the code moves. One run re-stamps both in place, which
-    moves R's line, so M's citation of R reads DRIFTED: the run exits 0 and
-    `--strict` exits 2. A second run re-stamps the citation, and the tree
-    checks clean."""
+M_ITEM = "2000000002-m"
+
+
+def unfrozen_r_and_m(repo):
+    """S4's tree (#772), no freeze: R and its fragment re-read M both record
+    `handler` as it was, and the code moves. Returns M's row as written."""
     h = unit_hash(repo, "src/service.py", "handler")
     (r,) = released(
         repo,
@@ -2298,23 +2296,108 @@ def test_an_unfrozen_restamp_of_a_released_row_moves_the_line_its_re_read_cites(
             f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
         ],
     )
-    fragment(
+    m = (
+        f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+        f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+    )
+    fragment(repo, [m], name=M_ITEM)
+    edit_handler(repo)
+    return m
+
+
+def test_one_unfrozen_run_restamps_the_citation_its_restamp_moves(repo):
+    """S4 (#772). One run re-stamps R in place, which moves the line M cites,
+    and re-stamps M's citation against the line it moved R to, because the
+    walk reads a cited file before every file citing it: exit 0, and
+    `--strict` exits 0 with no second run. The fragment sorts first, so the
+    walk in file order hashed M's citation against R's old line."""
+    unfrozen_r_and_m(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
+
+
+def test_one_unfrozen_run_walks_an_older_release_before_the_newer_citing_it(repo):
+    """S5 (#772). A citing row folded into `seal/releases/0.10.0.md` cites a
+    row of `seal/releases/0.9.0.md`. File order puts `0.10.0.md` first, so
+    a kind order (released files, then fragments) walks the citing file
+    before the cited one too; the dependency order does not."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
         repo,
         [
-            f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+        version="0.9.0",
+    )
+    released(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | "
+            f"`{citation(r, 'R1 · handler adds one', version='0.9.0')}`, "
             f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
         ],
-        name="2000000002-m",
+        version="0.10.0",
+        section="### 2000000002-m",
     )
     edit_handler(repo)
-    first = run(["--reverify", "--checked", "2026-03-01", "."], repo)
-    assert first.returncode == 0, first.stdout
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
     check = run(["--strict", "."], repo)
-    assert check.returncode == 2, check.stdout
-    assert "the released file changed under the row it cites" in check.stdout
-    second = run(["--reverify", "--checked", "2026-03-01", "."], repo)
-    assert second.returncode == 0, second.stdout
-    assert run(["--strict", "."], repo).returncode == 0
+    assert check.returncode == 0, check.stdout
+
+
+def test_a_narrowed_unfrozen_run_names_the_citation_it_moved_and_left(repo):
+    """S6 (#772). Narrowed to R's file, the run moves the line M cites and
+    cannot re-stamp M, whose file the narrowing left out. It names M's row on
+    a `LEFT` line with the repair, and exits 1 rather than 0."""
+    unfrozen_r_and_m(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "--ledger", R_FILE, "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    left = [line for line in fix.stdout.splitlines() if line.startswith("  LEFT")]
+    assert left == [
+        f"  LEFT  seal/ledger/{M_ITEM}.md:1  Re-read · R1 · handler adds one — its "
+        f"citation of {R_FILE}:5 is DRIFTED: this run re-stamps the line it cites, "
+        "and the narrowing left this row's file out; run it without `--ledger`"
+    ], fix.stdout
+
+
+@pytest.mark.parametrize("shape", ["drifted before the run", "another file moved"])
+def test_a_narrowed_unfrozen_run_names_no_citation_it_did_not_move(repo, shape):
+    """S6's other side. A citation already DRIFTED before the run is not
+    this run's to name, and neither is one whose cited line the run does not
+    move: narrowed to another release file, R's line stays where M cites it."""
+    unfrozen_r_and_m(repo)
+    narrowed = R_FILE
+    if shape == "drifted before the run":
+        path = repo / R_FILE
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "| 2026-01-01 | |", "| 2026-01-01 | x |"
+            ),
+            encoding="utf-8",
+        )
+    else:
+        h = unit_hash(repo, "src/service.py", "other")
+        released(
+            repo,
+            [
+                f"| R2 · other doubles | `src/service.py#other@{h}` | read | 2026-01-01 | |"
+            ],
+            version="0.2.0",
+        )
+        (repo / "src" / "service.py").write_text(
+            (repo / "src" / "service.py")
+            .read_text(encoding="utf-8")
+            .replace("x * 2", "x * 3"),
+            encoding="utf-8",
+        )
+        narrowed = "seal/releases/0.2.0.md"
+    fix = run(
+        ["--reverify", "--checked", "2026-03-01", "--ledger", narrowed, "."], repo
+    )
+    assert "its citation of" not in fix.stdout, fix.stdout
 
 
 @pytest.mark.parametrize(
@@ -2329,7 +2412,12 @@ def test_an_unfrozen_restamp_of_a_released_row_moves_the_line_its_re_read_cites(
         "A citing row refused `MALFORMED`: one without its marker, or one whose "
         "citation names a fragment row.",
         "A citation whose released line changed under it.",
-        "and a second run re-stamps those citations.",
+        "Without the freeze it is not among them: one run over every ledger "
+        "re-stamps a released row and every citation of it that it moves, "
+        "because it walks a cited file before every file citing it (#772).",
+        "A run narrowed with `--ledger` that moves a line cited from a file it "
+        "left out names the citing row on a `LEFT` line and exits 1.",
+        "Each repair is an edit or a correction, which a person makes.",
     ],
     ids=[
         "the five",
@@ -2338,7 +2426,9 @@ def test_an_unfrozen_restamp_of_a_released_row_moves_the_line_its_re_read_cites(
         "statement gone",
         "malformed",
         "citation",
-        "second run",
+        "one unfrozen run",
+        "a narrowed unfrozen run",
+        "the lead: a person repairs each",
     ],
 )
 def test_the_home_names_each_thing_no_re_read_clears(sentence):

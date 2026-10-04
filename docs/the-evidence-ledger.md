@@ -181,8 +181,7 @@ narrowing left its file out, because the root is the row a `Re-read ·` cites.
 holds without the freeze, under it, and under it with `--into`, over every
 ledger or narrowed with `--ledger` to the file holding a row `--strict`
 names, unless a sentence below says otherwise. Each repair is an edit or a
-correction, which a person makes, except where the last item says a second
-run clears it.
+correction, which a person makes.
 
 - A released row corrected by two `Corrected ·` rows. Each correcting row is
   DRIFTED and names the others, and which claim stays is a person's choice.
@@ -197,9 +196,12 @@ run clears it.
   citation names a fragment row.
 - A citation whose released line changed under it. Under the freeze that is a
   folded citing row whose cited release file was edited, which
-  `correction-check` refuses at the pull request. Without the freeze, a run
-  over every ledger that re-stamps a released row in place moves the line its
-  fragment's citing rows cite, and a second run re-stamps those citations.
+  `correction-check` refuses at the pull request. Without the freeze it is
+  not among them: one run over every ledger re-stamps a released row and every
+  citation of it that it moves, because it walks a cited file before every
+  file citing it (#772). A run narrowed with `--ledger` that moves a line
+  cited from a file it left out names the citing row on a `LEFT` line and
+  exits 1.
 
 A `Re-read ·` row with a `--checked` older than the newest reading is not
 among them: `--into` names it and exits 1, as its paragraph above says.

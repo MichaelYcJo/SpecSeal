@@ -2978,6 +2978,69 @@ def row_label(cells):
     return label if len(label) <= LABEL_WIDTH else label[: LABEL_WIDTH - 1] + "…"
 
 
+def row_citation(line, header, cells):
+    """The citation of a citing row -- the first coordinate of its `Code
+    grounds` cell -- as an `ANCHOR_RE` match on LINE, or None where the row
+    cites nothing or is not a citing row. The match is found on the line,
+    escapes and all, as `family_view` finds it, so its offset is the line's."""
+    if not citing_verb(cells):
+        return None
+    grounds = cell_index(header, cells, CODE_GROUNDS)
+    cited = ANCHOR_RE.search(cells[grounds]) if grounds >= 0 else None
+    if cited is None:
+        return None
+    return next(
+        (
+            m
+            for m in ANCHOR_RE.finditer(line)
+            if m.group(0).replace("\\|", "|") == cited.group(0)
+        ),
+        None,
+    )
+
+
+def cited_first(ledgers, root, maps, default_repo):
+    """LEDGERS in the order `reverify` walks them: each file after every
+    other file of LEDGERS a citing row in it cites, ties kept in the given
+    order (#772).
+
+    `reverify` hashes a citation by `read`, which answers from the open plan,
+    so a citation is hashed against the line the plan writes only where the
+    file it cites was walked first. File order put a fragment before the
+    release it cites, and `seal/releases/0.10.0.md` before the `0.9.0.md` it
+    cites, and one run left those citations DRIFTED. A cycle cannot be
+    written legally -- a citation into a fragment is `MALFORMED`, and a fold
+    cites only older releases -- and where one is written anyway the files
+    on it keep the given order, which `--strict` still reports."""
+    index = {file_identity(path): n for n, path in enumerate(ledgers)}
+    needs = [set() for _ in ledgers]
+    for n, path in enumerate(ledgers):
+        text = read(path)
+        if text is None:
+            continue
+        lines = gfm_lines(text)
+        for number, header, cells in ledger_table_rows(text):
+            cite = row_citation(lines[number - 1], header, cells)
+            if cite is None:
+                continue
+            target, _ = citation_target(root, maps, default_repo, cite.group("path"))
+            cited = index.get(file_identity(target)) if target else None
+            if cited is not None and cited != n:
+                needs[n].add(cited)
+    order, done = [], set()
+    while len(order) < len(ledgers):
+        ready = next(
+            (n for n in range(len(ledgers)) if n not in done and needs[n] <= done),
+            None,
+        )
+        if ready is None:
+            order.extend(n for n in range(len(ledgers)) if n not in done)
+            break
+        done.add(ready)
+        order.append(ready)
+    return [ledgers[n] for n in order]
+
+
 def reverify(
     ledgers, root, maps, default_repo=None, checked=None, moves=None, told=None
 ):
@@ -3010,6 +3073,12 @@ def reverify(
     whose hash moved is named, with its date as it stands. A row whose hash
     did not move is never dated and never named; one whose file moved whole
     is re-pointed, and one that still resolves is not touched.
+
+    **A file is walked after every file of LEDGERS it cites** (`cited_first`,
+    #772), so a citation of a released line this run re-stamps is hashed
+    against the line the run writes, and one run leaves no citation it moved
+    DRIFTED. A citing row's citation, re-stamped, appends no move: it is a
+    ledger line, not code under the row (D3).
     """
     unreadable = []
     malformed = []
@@ -3018,7 +3087,7 @@ def reverify(
     # `(ledger, hash lines, dated, undated)` for every ledger this writes.
     written = []
     scan_cache = {}
-    for ledger in ledgers:
+    for ledger in cited_first(ledgers, root, maps, default_repo):
         text = read(ledger, strict=True)
         if text is None:
             # `/` on every platform, as every path the writer prints.
@@ -3234,7 +3303,17 @@ def reverify(
                 )
             kept.extend(spliced)
         if moves is not None:
+            # A citing row's citation is a ledger line, not code under the
+            # row: re-stamping it is not a pact change (D3, #772), and the
+            # released row it cites records its own code move on its own row.
+            citations = set()
+            for number, (header, cells) in rows.items():
+                cite = row_citation(lines[number - 1], header, cells)
+                if cite is not None:
+                    citations.add(starts[number - 1] + cite.start())
             for offset, coord, old, new in pending:
+                if offset in citations:
+                    continue
                 number = bisect.bisect_right(starts, offset)
                 if new is None or number not in left_whole:
                     moves.append((ledger, number, coord, old, new))
@@ -3414,6 +3493,79 @@ def newest_hash(view, key, coord, m):
             if reading[0] == at[1]:
                 return reading[1].group("hash")
     return m.group("hash")
+
+
+def citations_left(ledgers, view_paths, root, maps, default_repo):
+    """`[(where, label, cited)]` for each citing row in a file of VIEW_PATHS
+    that LEDGERS leave out whose citation this run made DRIFTED: OK against
+    the released file on disk, DRIFTED against what the open plan writes
+    there (#772). Read while the plan is open, after the in-place walk.
+
+    One unnarrowed run re-stamps every such citation (`cited_first`). A run
+    narrowed with `--ledger` can re-stamp a released line that a citing row
+    in a file it does not write quotes, and that row is left DRIFTED; it is
+    named, the way a family the narrowing could not clear is. A citation
+    already DRIFTED before the run is not this run's to name."""
+    global PLANNED
+    held = PLANNED
+    if not held:
+        return []
+    read_here = {file_identity(p) for p in ledgers}
+
+    def loader():
+        files = {}
+
+        def load(path):
+            ident = file_identity(path)
+            if ident not in files:
+                body = read(path)
+                files[ident] = (
+                    None
+                    if body is None
+                    else (
+                        path,
+                        body,
+                        gfm_lines(unquoted(body)),
+                        {n: (h, c) for n, h, c in ledger_table_rows(body)},
+                    )
+                )
+            return ident, files[ident]
+
+        return load
+
+    now, before, found = loader(), loader(), []
+    for path in view_paths:
+        if file_identity(path) in read_here:
+            continue
+        body = read(path)
+        if body is None:
+            continue
+        lines = gfm_lines(body)
+        for number, header, cells in ledger_table_rows(body):
+            cite = row_citation(lines[number - 1], header, cells)
+            if cite is None:
+                continue
+            target, _ = citation_target(root, maps, default_repo, cite.group("path"))
+            if target is None or planned_key(target) not in held:
+                continue
+            verb = citing_verb(cells)
+            status, _, at = cited_row(cite, verb, root, maps, default_repo, now)
+            if status != "DRIFTED":
+                continue
+            PLANNED = None
+            try:
+                was = cited_row(cite, verb, root, maps, default_repo, before)[0]
+            finally:
+                PLANNED = held
+            if was == "OK":
+                found.append(
+                    (
+                        f"{built_name(path, root)}:{number}",
+                        row_label(cells),
+                        f"{built_name(target, root)}:{at[1]}",
+                    )
+                )
+    return found
 
 
 def released_drift(ledgers, view_paths, root, maps, default_repo):
@@ -5199,7 +5351,18 @@ def main():
                         f"reading of {', '.join(owed[key])} in its family sits in a "
                         "file this run did not write; run it without `--ledger`"
                     )
-                return recorded_then_applied(max(code, 1 if owed else 0))
+                # A citation of a line this run re-stamped, in a file the
+                # narrowing left out, is left DRIFTED: named, never silent
+                # (#772). Read before the plan is applied, against it.
+                left = citations_left(ledgers, view, root, maps, default_repo)
+                for where, label, cited in left:
+                    print(
+                        f"  LEFT  {where}  {label} — its citation of {cited} is "
+                        "DRIFTED: this run re-stamps the line it cites, and the "
+                        "narrowing left this row's file out; run it without "
+                        "`--ledger`"
+                    )
+                return recorded_then_applied(max(code, 1 if owed or left else 0))
             # A released file is not written: the fragments are re-stamped in
             # place as before, and then the released rows are re-read into INTO,
             # or named where there is no INTO. The view is read after the
