@@ -13,22 +13,46 @@ not see `read_text` / `write_text` called on a variable, which is most of
 this class: measured 2026-10-04 on ruff 0.16.10, it reported
 `Path("x").read_text()` and passed `p.read_text()` beside it. A regex over source text misses an `encoding=`
 on a later line, and a reformat moves the blind spot. What the walk sees is
-the table below, so **a spelling the walk misses is a row to add to K1**, not
-a row for `ALLOWED`.
+the table below, so **a call the walk does not know is a row to add to K1**,
+not a row for `ALLOWED`.
 
-**K1 -- the calls that take the locale's encoding when none is named:**
+**K1 -- the calls that take the locale's encoding when none is named.** The
+standard library's half was found by construction (round 1 of #741, on
+3.14): every public callable whose signature carries `encoding=None`, each
+then read for whether `None` means the locale. It does not for
+`TextIOWrapper.reconfigure` (keep the current one), `tarfile` (file names),
+`urllib.parse`, the `xml` writers, `xmlrpc`, `calendar` (each a fixed
+default), or `asyncio`'s subprocesses (which refuse text). An opener with no
+`encoding` parameter at all, like `os.popen`, is not in that construction
+and is listed here by reading.
 
 - builtin `open`, `io.open`, `codecs.open`, `os.fdopen`, in a text mode;
-- `<expr>.open(...)` on any receiver except the modules `os` and
-  `webbrowser`, judged as `Path.open`;
-- `<expr>.read_text(...)` and `<expr>.write_text(...)`;
+- `<expr>.open(...)` judged as `Path.open`, except on `os`, `webbrowser`,
+  `tarfile`, `shelve`, `dbm`, `wave`, PIL's `Image` and a `ZipFile(...)` or
+  `TarFile(...)` instance, which open no text; called on the class
+  (`Path.open(p)`), every position moves one to the right;
+- `<expr>.read_text(...)` and `<expr>.write_text(...)`, the same way;
 - `subprocess.run` / `Popen` / `call` / `check_call` / `check_output` with
   `text=`, `universal_newlines=` or `errors=` and no `encoding`, the module
   resolved from the file's own imports;
-- `subprocess.getoutput`, `subprocess.getstatusoutput`, `os.popen`, always;
+- `subprocess.getoutput`, `subprocess.getstatusoutput`, `os.popen`;
 - `tempfile.NamedTemporaryFile` / `TemporaryFile` / `SpooledTemporaryFile` in
   a literal text mode;
-- `io.TextIOWrapper(...)` and `fileinput.input(...)`.
+- `gzip`, `bz2`, `lzma` and `compression.*`'s `open` in a mode carrying `t`;
+- `logging.FileHandler`, the file handlers of `logging.handlers`,
+  `logging.basicConfig(filename=...)`, `logging.config.fileConfig`;
+- `io.TextIOWrapper`, `fileinput.input` / `FileInput` / `hook_compressed`,
+  `argparse.FileType`, `doctest.testfile` / `DocFileTest` / `DocFileSuite`,
+  `xml.etree.ElementInclude.default_loader` unless it parses `"xml"`, and
+  the methods `.makefile()` and `.write_results_file()`.
+
+**What no row can hold.** A static walk follows names, not values, so these
+pass and no K1 row could catch them: a name rebound to an opener
+(`f = open; f(p)`), a star import, `functools.partial(open, ...)`, an opener
+passed by reference (`map(Path.read_text, ps)`), `getattr`, `__import__` and
+a module loaded through `importlib`, `universal_newlines` given by position,
+and `configparser`'s `.read`, whose name is too common to match without
+types. Write the call plainly instead.
 
 **K2 -- what the walk cannot prove counts as unnamed:** a mode that is not a
 literal, `encoding=None` written out, and a `*` or `**` splat on a K1 call
@@ -67,13 +91,7 @@ REPAIR = 'name `encoding="utf-8"`, or classify the unit in `ALLOWED` with its gr
 # covers every unnamed site in its unit. A row is a classification and not a
 # permission: add one only where naming the encoding cannot serve, never to
 # turn this module green.
-ALLOWED = {
-    "tests/test_the_release_seal_is_drawn.py#"
-    "test_the_png_carries_the_colours_and_is_clear_where_nothing_is_painted": (
-        "`Image.open(path)` is PIL's, which reads an image as bytes and has no "
-        "text mode and no encoding to name; K1's receiver rule names it anyway"
-    ),
-}
+ALLOWED = {}
 
 # Hook entry points that do not open `__main__` with `console.to_utf8()`, by
 # path, with the grounds.
@@ -88,7 +106,8 @@ ENTRY_POINTS_CLASSIFIED = {
 # --- the walker ------------------------------------------------------------
 
 SUBPROCESS_TEXT = {"run", "Popen", "call", "check_call", "check_output"}
-# Calls with no `encoding` parameter at all, so every call is unnamed.
+# Calls that always read text: unnamed unless an `encoding` keyword is given,
+# which `os.popen` has no parameter for and the other two gained in 3.11.
 ALWAYS_UNNAMED = {"subprocess.getoutput", "subprocess.getstatusoutput", "os.popen"}
 TEMPFILES = {
     # name: (the mode's position, the encoding's position)
@@ -96,8 +115,61 @@ TEMPFILES = {
     "TemporaryFile": (0, 2),
     "SpooledTemporaryFile": (1, 3),
 }
-# `<module>.open` receivers that are not a file opener at all.
-NOT_A_FILE_OPENER = {"os", "webbrowser"}
+# `.open` receivers that open no text file: a module, or a class whose
+# instance's `.open` reads bytes (`zipfile.ZipFile(z).open(name)`).
+NOT_A_FILE_OPENER = {
+    "os",
+    "webbrowser",
+    "tarfile",
+    "tarfile.TarFile",
+    "zipfile.ZipFile",
+    "shelve",
+    "dbm",
+    "wave",
+    "PIL.Image",
+}
+# Classes whose methods, called on the class, take the path first, so the
+# encoding's position moves one to the right: `Path.read_text(p, "utf-8")`.
+UNBOUND_RECEIVERS = {
+    "pathlib.Path",
+    "pathlib.PurePath",
+    "pathlib.PosixPath",
+    "pathlib.WindowsPath",
+    "zipfile.Path",
+}
+# Openers that are binary unless the mode carries `t`: (the mode's position,
+# the encoding's position or None where it is keyword-only).
+BINARY_BY_DEFAULT = {
+    "gzip.open": (1, 3),
+    "bz2.open": (1, 3),
+    "lzma.open": (1, None),
+    "compression.gzip.open": (1, 3),
+    "compression.bz2.open": (1, 3),
+    "compression.lzma.open": (1, None),
+    "compression.zstd.open": (1, None),
+}
+# Calls that open a text file whatever their mode, with the encoding's
+# position (None where it is keyword-only or reached through `**kwargs`).
+TEXT_ALWAYS = {
+    "logging.FileHandler": 2,
+    "logging.handlers.BaseRotatingHandler": 2,
+    "logging.handlers.WatchedFileHandler": 2,
+    "logging.handlers.RotatingFileHandler": 4,
+    "logging.handlers.TimedRotatingFileHandler": 4,
+    "logging.config.fileConfig": 3,
+    "doctest.testfile": 11,
+    "doctest.DocFileTest": 5,
+    "doctest.DocFileSuite": None,
+}
+# Calls that open text unless a literal mode carries `b`, by the dotted name
+# or, for a method, by its attribute: `(the mode's position, the encoding's)`.
+TEXT_UNLESS_BINARY = {
+    "fileinput.input": (None, None),
+    "fileinput.FileInput": (None, None),
+    "fileinput.hook_compressed": (1, None),
+    "argparse.FileType": (0, 2),
+}
+METHODS_TEXT_UNLESS_BINARY = {"makefile": (0, None), "write_results_file": (None, 4)}
 # The position of `mode` and of `encoding` in each opener's signature.
 OPENERS = {
     "builtins.open": (1, 3),
@@ -136,16 +208,21 @@ def target_of(func, bound):
     """The dotted name a call's function resolves to, or None.
 
     A bare name resolves through the file's imports, and `open` unbound is the
-    builtin. An attribute on a bare name resolves its receiver the same way.
+    builtin. An attribute chain resolves its head the same way, so
+    `logging.handlers.RotatingFileHandler` is seen whole.
     """
-    if isinstance(func, ast.Name):
-        if func.id in bound:
-            return bound[func.id]
+    if isinstance(func, ast.Name) and func.id not in bound:
         return "builtins.open" if func.id == "open" else None
-    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-        receiver = bound.get(func.value.id)
-        if receiver:
-            return f"{receiver}.{func.attr}"
+    return dotted(func, bound)
+
+
+def dotted(node, bound):
+    """`a.b.c` with its head resolved through the file's imports, or None."""
+    if isinstance(node, ast.Name):
+        return bound.get(node.id)
+    if isinstance(node, ast.Attribute):
+        head = dotted(node.value, bound)
+        return f"{head}.{node.attr}" if head else None
     return None
 
 
@@ -182,10 +259,7 @@ def names_encoding(call, position=None):
 def mode_of(call, position):
     """`"text"`, `"binary"` or `"unproven"` for the call's mode, with
     `"absent"` where none is given."""
-    kw = keyword(call, "mode")
-    node = kw.value if kw is not None else None
-    if node is None and len(call.args) > position:
-        node = call.args[position]
+    node = mode_node(call, position)
     if node is None:
         return "absent"
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -193,10 +267,22 @@ def mode_of(call, position):
     return "unproven"
 
 
-def judge_opener(call, opener):
+def mode_node(call, position):
+    """The node given as `mode`, by keyword or at `position` (None where the
+    parameter is keyword-only), or None."""
+    kw = keyword(call, "mode")
+    if kw is not None:
+        return kw.value
+    if position is not None and len(call.args) > position:
+        return call.args[position]
+    return None
+
+
+def judge_opener(call, opener, shift=0):
     """The kind to report for an opener call, or None if it names its
-    encoding or opens in binary."""
-    mode_at, encoding_at = OPENERS[opener]
+    encoding or opens in binary. `shift` is 1 where the call is a method
+    called on its class, whose first argument is the path."""
+    mode_at, encoding_at = (at + shift for at in OPENERS[opener])
     if names_encoding(call, encoding_at):
         return None
     mode = mode_of(call, mode_at)
@@ -218,7 +304,39 @@ def judge(call, bound):
     if target in OPENERS:
         return judge_opener(call, target)
     if target in ALWAYS_UNNAMED:
-        return f"{target}()"
+        return None if names_encoding(call) else f"{target}()"
+    if target in BINARY_BY_DEFAULT:
+        mode_at, encoding_at = BINARY_BY_DEFAULT[target]
+        if names_encoding(call, encoding_at):
+            return None
+        node = mode_node(call, mode_at)
+        if node is None:
+            return f"{target}(), splat" if splatted(call) else None
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return f"{target}()" if "t" in node.value else None
+        return f"{target}(), mode not a literal"
+    if target in TEXT_ALWAYS:
+        if names_encoding(call, TEXT_ALWAYS[target]):
+            return None
+        return f"{target}(), splat" if splatted(call) else f"{target}()"
+    if target in TEXT_UNLESS_BINARY:
+        return judge_text(call, f"{target}()", *TEXT_UNLESS_BINARY[target])
+    if target == "logging.basicConfig":
+        if names_encoding(call):
+            return None
+        if splatted(call):
+            return "logging.basicConfig(), splat"
+        return "logging.basicConfig(filename=)" if keyword(call, "filename") else None
+    if target == "xml.etree.ElementInclude.default_loader":
+        kw = keyword(call, "parse")
+        parse = (
+            kw.value
+            if kw is not None
+            else (call.args[1] if len(call.args) > 1 else None)
+        )
+        if isinstance(parse, ast.Constant) and parse.value == "xml":
+            return None
+        return None if names_encoding(call, 2) else f"{target}()"
     if target and target.startswith("subprocess."):
         name = target.split(".", 1)[1]
         if name not in SUBPROCESS_TEXT or names_encoding(call):
@@ -252,29 +370,51 @@ def judge(call, bound):
         return None
     if target == "io.TextIOWrapper":
         return None if names_encoding(call, 1) else "io.TextIOWrapper()"
-    if target == "fileinput.input":
-        if names_encoding(call) or mode_of(call, 99) == "binary":
-            return None
-        return "fileinput.input()"
 
     if not isinstance(func, ast.Attribute):
         return None
+    shift = 1 if dotted(func.value, bound) in UNBOUND_RECEIVERS else 0
     if func.attr == "open":
-        receiver = func.value
-        if isinstance(receiver, ast.Name):
-            module = bound.get(receiver.id, receiver.id)
-            if module in NOT_A_FILE_OPENER:
-                return None
-        return judge_opener(call, "<expr>.open")
+        if owner(func.value, bound) in NOT_A_FILE_OPENER:
+            return None
+        return judge_opener(call, "<expr>.open", shift)
     if func.attr == "read_text":
-        if names_encoding(call, 0):
+        if names_encoding(call, shift):
             return None
         return ".read_text(), splat" if splatted(call) else ".read_text()"
     if func.attr == "write_text":
-        if names_encoding(call, 1):
+        if names_encoding(call, 1 + shift):
             return None
         return ".write_text(), splat" if splatted(call) else ".write_text()"
+    if func.attr in METHODS_TEXT_UNLESS_BINARY:
+        return judge_text(
+            call, f".{func.attr}()", *METHODS_TEXT_UNLESS_BINARY[func.attr]
+        )
     return None
+
+
+def owner(receiver, bound):
+    """What a `.open` is called on: the dotted name of a receiver, or of the
+    class a receiver call constructs (`zipfile.ZipFile(z)`), or a bare name
+    the file never imported."""
+    if isinstance(receiver, ast.Call):
+        return dotted(receiver.func, bound)
+    if isinstance(receiver, ast.Name) and receiver.id not in bound:
+        return receiver.id
+    return dotted(receiver, bound)
+
+
+def judge_text(call, kind, mode_at, encoding_at):
+    """`kind` for a call that opens text unless a literal mode carries `b`,
+    or None where it names its encoding or opens in binary."""
+    if names_encoding(call, encoding_at):
+        return None
+    mode = mode_of(call, mode_at)
+    if mode == "binary":
+        return None
+    if mode == "unproven":
+        return f"{kind}, mode not a literal"
+    return f"{kind}, splat" if splatted(call) else kind
 
 
 class _Walk(ast.NodeVisitor):
@@ -470,6 +610,88 @@ UNNAMED = {
     ),
     "TextIOWrapper": ("import io\nio.TextIOWrapper(b)", "io.TextIOWrapper()"),
     "fileinput": ("import fileinput\nfileinput.input(fs)", "fileinput.input()"),
+    # Round 1 of #741: a method called on its class takes the path first.
+    "Path.read_text, unbound": (
+        "from pathlib import Path\nPath.read_text(p)",
+        ".read_text()",
+    ),
+    "pathlib.Path.write_text, unbound": (
+        "import pathlib\npathlib.Path.write_text(p, s)",
+        ".write_text()",
+    ),
+    "Path.open, unbound": (
+        'from pathlib import Path\nPath.open(p, "r", -1)',
+        "<expr>.open()",
+    ),
+    # Round 1 of #741: the standard library's other text openers, found by
+    # every public callable whose signature carries `encoding=None`.
+    "gzip.open text": ('import gzip\ngzip.open("x.gz", "rt")', "gzip.open()"),
+    "bz2.open text, a b in the path": (
+        'import bz2\nbz2.open("x.bz2", "rt")',
+        "bz2.open()",
+    ),
+    "lzma.open text, imported by name": (
+        'from lzma import open\nopen(p, "rt")',
+        "lzma.open()",
+    ),
+    "compression.zstd.open text": (
+        'from compression import zstd\nzstd.open(p, "rt")',
+        "compression.zstd.open()",
+    ),
+    "logging.FileHandler": (
+        "import logging\nlogging.FileHandler(p)",
+        "logging.FileHandler()",
+    ),
+    "RotatingFileHandler": (
+        "import logging.handlers\nlogging.handlers.RotatingFileHandler(p)",
+        "logging.handlers.RotatingFileHandler()",
+    ),
+    "TimedRotatingFileHandler, imported by name": (
+        "from logging.handlers import TimedRotatingFileHandler\nTimedRotatingFileHandler(p)",
+        "logging.handlers.TimedRotatingFileHandler()",
+    ),
+    "WatchedFileHandler": (
+        "import logging.handlers\nlogging.handlers.WatchedFileHandler(p)",
+        "logging.handlers.WatchedFileHandler()",
+    ),
+    "logging.basicConfig with a file": (
+        "import logging\nlogging.basicConfig(filename=p)",
+        "logging.basicConfig(filename=)",
+    ),
+    "logging.config.fileConfig": (
+        "import logging.config\nlogging.config.fileConfig(p)",
+        "logging.config.fileConfig()",
+    ),
+    "fileinput.FileInput": (
+        "import fileinput\nfileinput.FileInput(fs)",
+        "fileinput.FileInput()",
+    ),
+    "fileinput.hook_compressed": (
+        'import fileinput\nfileinput.hook_compressed(p, "r")',
+        "fileinput.hook_compressed()",
+    ),
+    "argparse.FileType": (
+        'import argparse\nargparse.FileType("w")',
+        "argparse.FileType()",
+    ),
+    "doctest.testfile": ("import doctest\ndoctest.testfile(p)", "doctest.testfile()"),
+    "doctest.DocFileSuite": (
+        "import doctest\ndoctest.DocFileSuite(p)",
+        "doctest.DocFileSuite()",
+    ),
+    "socket makefile": ("s.makefile()", ".makefile()"),
+    "ElementInclude.default_loader, text": (
+        'from xml.etree import ElementInclude\nElementInclude.default_loader(h, "text")',
+        "xml.etree.ElementInclude.default_loader()",
+    ),
+    "trace write_results_file": (
+        "r.write_results_file(p, l, n, h)",
+        ".write_results_file()",
+    ),
+    "zipfile.Path open is still judged": (
+        "import zipfile\nzipfile.Path(z).open()",
+        "<expr>.open()",
+    ),
 }
 
 # The same calls with the encoding named (by keyword, or positionally where
@@ -503,6 +725,34 @@ NAMED = {
     "fileinput, binary": 'import fileinput\nfileinput.input(fs, mode="rb")',
     "os.open is not a file opener": "import os\nos.open(p, os.O_RDONLY)",
     "webbrowser.open is not a file opener": "import webbrowser\nwebbrowser.open(u)",
+    "Path.read_text, unbound, positional": 'from pathlib import Path\nPath.read_text(p, "utf-8")',
+    "Path.write_text, unbound, positional": (
+        'from pathlib import Path\nPath.write_text(p, s, "utf-8")'
+    ),
+    "gzip.open, binary by default": "import gzip\ngzip.open(p)",
+    "gzip.open text, keyword": 'import gzip\ngzip.open(p, "rt", encoding="utf-8")',
+    "lzma.open text, keyword": 'import lzma\nlzma.open(p, "rt", encoding="utf-8")',
+    "logging.FileHandler, positional": 'import logging\nlogging.FileHandler(p, "a", "utf-8")',
+    "RotatingFileHandler, 5th positional": (
+        'import logging.handlers\nlogging.handlers.RotatingFileHandler(p, "a", 0, 0, "utf-8")'
+    ),
+    "logging.basicConfig, no file": "import logging\nlogging.basicConfig(level=1)",
+    "logging.basicConfig, file and encoding": (
+        'import logging\nlogging.basicConfig(filename=p, encoding="utf-8")'
+    ),
+    "argparse.FileType, binary": 'import argparse\nargparse.FileType("rb")',
+    "fileinput.FileInput, binary": 'import fileinput\nfileinput.FileInput(fs, mode="rb")',
+    "socket makefile, binary": 's.makefile("rb")',
+    "ElementInclude.default_loader, xml": (
+        'from xml.etree import ElementInclude\nElementInclude.default_loader(h, "xml")'
+    ),
+    "getoutput, keyword": 'import subprocess\nsubprocess.getoutput(c, encoding="utf-8")',
+    "tarfile.open is binary": "import tarfile\ntarfile.open(p)",
+    "ZipFile(...).open is binary": "import zipfile\nzipfile.ZipFile(z).open(n)",
+    "PIL Image.open is binary": "from PIL import Image\nImage.open(p)",
+    "shelve.open is not a text file": "import shelve\nshelve.open(p)",
+    "dbm.open is not a text file": "import dbm\ndbm.open(p)",
+    "wave.open is binary": "import wave\nwave.open(p)",
 }
 
 
