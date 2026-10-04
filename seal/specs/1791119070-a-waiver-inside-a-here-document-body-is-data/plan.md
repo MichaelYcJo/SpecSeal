@@ -111,13 +111,16 @@ from.
   `seal/releases/0.18.1.md`. Editing the comment in `commit_invocations` moves
   `hooks/commit-review-gate.py#commit_invocations`, cited at `@1cf73673` by
   `seal/ledger.md`, five rows of `seal/releases/0.16.0.md` and one of
-  `seal/releases/0.18.1.md`. Changing `given` moves
-  `hooks/tokens.py#given@e436fefe`, cited by G6 in `seal/releases/0.17.0.md`.
+  `seal/releases/0.18.1.md`. Changing `given` moves the
+  `hooks/tokens.py#given` anchor, cited at `@e436fefe` by G6 in
+  `seal/releases/0.17.0.md`.
   The two policy paragraphs may move the anchors of their own headings. `judge`
   is not edited, so its rows stay. `evidence-check` names the complete set, and
   the list above is what reading found, not that set.
 - **Sibling items.** D edits `hooks/worktree-guard.py#switch_kind` and
-  `hooks/cmdline_base.py#classify`. This item edits neither file and calls only
+  `classify`, which phase 2 found at `hooks/worktree-guard.py#classify` and not
+  in `hooks/cmdline_base.py`, where this line first put it
+  (`phases/phase-2.md`). This item edits neither file and calls only
   the live `hooks/cmdline.py`, so no tokenizer is shared between the two
   edits. If Q1 is answered "join this item", `has_token` sits in D's file and
   the two branches meet there. E rewrites the `--reverify` writer that phase 2
