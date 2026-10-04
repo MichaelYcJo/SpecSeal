@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #769 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `dd5550383069ca336519e4311632b28b83473c70..bcf841ee688b098cf1527fb335a5e31270fe0e52`, 5 commits |
 | Contract changes | none |
 | New units | test_three_measured_shapes_are_refused_under_the_press (depth 1); PROGRAM_HEADS (depth 1); SUFFIXES (depth 1); program_corpus (depth 1); suffix_markers (depth 1); test_the_program_corpus_is_admitted_and_its_suffix_kept (depth 1); test_the_shell_runs_a_programs_suffix_and_no_line_of_its_body (depth 1) |
