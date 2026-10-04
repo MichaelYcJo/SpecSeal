@@ -55,9 +55,9 @@ unscoped for drift.
   case now finds a folded section's heading as a whole line and still reads
   the release files. The claim holds, and the row's Notes name #752.
 - **The records arm refused three names in this work item's own records:**
-  `first_command` in `plan.md`, which this work removed; `PYTEST_ADDOPTS` in
+  `first_command` in `plan.md`, which this work removed; `PYTEST_ADDOPTS` · NAME NOT IN TREE in
   `plan.md`'s rejected alternative E; and pytest's
-  `_report_keyboardinterrupt` in `phases/phase-3.md`. Each line now carries
+  `_report_keyboardinterrupt` · NAME NOT IN TREE in `phases/phase-3.md`. Each line now carries
   ` · NAME NOT IN TREE`.
 - **`survivor-check --range 836fd7b2..HEAD` reported one place**, this
   work item's own `spec.md` quoting the fixture comment it asked to be
