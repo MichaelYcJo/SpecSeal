@@ -711,3 +711,16 @@ the same shape.
 |---|---|---|
 | What *still on the 0.3.x layout* means | a repository holding `.specseal/`, or a `specs/` entry named `<unix-seconds>-<slug>` where git tracks a `routing.md`, or a file under `rounds/`, directly under it — an empty or ignored `rounds/` is not a mark, because the move's units are what git tracks. A `specs/` with no such entry is the project's own: the bootstrap asks it the shared/local question like any repository with no root, and the session-start hook moves nothing out of it. Measured at tag `v0.3.0`: every one of the 13 work items carried `routing.md` | the row *The first-setup question's shape*, whose "still on the 0.3.x layout" the bootstrap read as any top-level `specs/`, and §*What happens to the existing directories at the switch*, whose move the hook made by a directory's name alone, so a team directory of that shape was taken |
 | Whose a `specs/` outside the root is | the project's. The plugin writes only to its own root and reads every other directory named `specs` as history — a reference root, which the checks that read a record leave out. `seal/config.md`'s `Reference specs` row names them, and with no row every directory named `specs` outside the root is one | §*The change in four lines*, whose "`specs/` stops being SpecSeal's directory" said what the plugin stopped owning and not what it does with a directory it never owned |
+
+## Decided when the process record stopped waiting for the fold (2026-10-04)
+
+The sections above are records of 2026-09-02, 2026-09-22, 2026-09-23 and
+2026-10-01 and are not rewritten. This is what #729 settled about when each
+part of a work item's directory leaves, in the same shape.
+`docs/the-record-layout.md` §*seal/specs/<work-item-id>/* states the result.
+
+| Decision | Answer | What it corrects above |
+|---|---|---|
+| When the process record leaves | after the release that ships its work item, whether or not the fold has run. `settle --retire-process` removes it from every work item already on `main`, as the first act of the release checklist's step 2b, and writes no prose. It does not wait for the fold because it needs no judgment, and nothing reads it once its release has merged to `main` | §*Retention*, which removed the process record only with the whole directory, after a fold. The fold had not run since 2026-09-24, and on 2026-10-04 the process record was 525 of the 841 files under `seal/specs/` and 67% of the bytes, kept for nobody |
+| What the process record is | `rounds/`, `phases/`, `survivors.md`, the two todo files, `broad-gate.md`, `handoff.md` and `pr.*.md`. `routing.md` is not in it: it stays with the SDD set until the fold, because `chain_check`, the release seal and the session-start migration all find a work item by it | §*Where the line between the SDD set and the process record runs* and the table in §*Retention*, which counted `routing` in the process record |
+| Whether the two halves move apart on disk | no. The paths stay as they are, and *one file per run* is rejected, because 41 of 53 runs' round records together exceed the 64 KB a reader takes whole. Only the moment each half leaves differs | §*Out of scope*, whose "They move together" still holds while a work item is in development and stops holding after its release |

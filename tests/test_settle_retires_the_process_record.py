@@ -365,3 +365,66 @@ def test_the_skill_quotes_every_line_the_arm_prints():
     ):
         line = flat(getattr(settle, name))
         assert line in text, f"skills/settle/SKILL.md does not quote {name}: {line}"
+
+
+# --- S11: every document that says how long a record stays says this -------
+
+
+def document(*parts):
+    with open(os.path.join(ROOT, *parts), encoding="utf-8") as f:
+        return flat(f.read())
+
+
+@pytest.mark.parametrize(
+    "parts, standing, gone",
+    [
+        (
+            ("docs", "the-record-layout.md"),
+            "Built by #729.",
+            "is decided in principle and not built (F3)",
+        ),
+        (
+            ("docs", "release-checklist.md"),
+            "First, the process record. This part is never skipped.",
+            "the honest answer on a busy release is to skip this step",
+        ),
+        (
+            ("docs", "review-handoff-protocol.md"),
+            "The round records leave first, with the rest of the process record",
+            "and the whole directory, round records included, is then removed",
+        ),
+        (
+            ("skills", "implement", "SKILL.md"),
+            "`settle --retire-process` removes them after the release",
+            "closed at merge and kept",
+        ),
+        (
+            ("agents", "framer.md"),
+            "a released work item's round records leave the tree at the next release",
+            "Their round records included. A decision",
+        ),
+        (
+            ("seal", "README.md"),
+            "removed by `settle --retire-process` at the next release",
+            "each work item whole under `seal/specs/<work-item-id>/`, where it "
+            "waits until `settle` folds it. **That step exists now**: `settle` "
+            "names the released work items whose `spec.md` no `docs/` policy has "
+            "absorbed yet, a session writes one standing statement per segment, "
+            "and `settle --retire` then removes the directories that statement "
+            "covers, along with every released one that wrote no `spec.md` and "
+            "holds nothing open, which states no rule to fold. A fold is",
+        ),
+        (
+            ("skills", "code-review", "scripts", "survivor_check.py"),
+            "stands until `settle --retire-process` takes it",
+            "lives until the release that ships it",
+        ),
+    ],
+)
+def test_each_carrier_says_when_the_process_record_leaves(parts, standing, gone):
+    """Spec D6's carriers, each found by a phrase that stated a lifetime.
+    `standing` is the new wording and `gone` the sentence it replaced, which
+    said the process record waited for the fold or stayed for good."""
+    text = document(*parts)
+    assert standing in text, f"{'/'.join(parts)} does not say {standing!r}"
+    assert gone not in text, f"{'/'.join(parts)} still says {gone!r}"

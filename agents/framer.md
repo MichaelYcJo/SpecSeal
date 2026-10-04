@@ -144,9 +144,11 @@ delegated build.
 - **`seal/follow-up.md`.** Items whose answer exists and which waited on
   prerequisite work. This work may be that prerequisite; where it is, the
   item belongs inside your scope and you say so.
-- **`seal/specs/`, the earlier work items.** Their round records included. A
-  decision already argued through three rounds does not get re-argued in
-  your `plan.md`.
+- **`seal/specs/`, the earlier work items.** Their round records included,
+  where they still stand: a released work item's round records leave the
+  tree at the next release, and are read at the release tag after that
+  (`git show v<X.Y.Z>:<path>`). A decision already argued through three
+  rounds does not get re-argued in your `plan.md`.
 - **The reference roots, where the work touches what they describe.** A
   project's own `specs/` — every directory of that name outside `seal/`, or
   what `seal/config.md`'s row names instead, as

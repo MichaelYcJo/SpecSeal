@@ -1450,6 +1450,11 @@ DATED_SECTIONS = (
         "## Decided when the fold stopped being a work item",
         "## fold 가 작업 항목이 아니게 되면서 정해진 것",
     ),
+    # #729: the process record leaves after its release, without the fold.
+    (
+        "## Decided when the process record stopped waiting for the fold",
+        "## 과정의 기록이 fold 를 기다리지 않게 되면서 정해진 것",
+    ),
 )
 
 

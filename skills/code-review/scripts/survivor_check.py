@@ -268,9 +268,10 @@ RESOLVED rather than string-matched, because CI spells the range
 same range. Resolving is what makes the range alone insufficient: that spelling
 is not a range, it is a RELATION, and it re-resolves to whatever range the
 checkout it is read on is over. Every `seal/specs/*/survivors.md` in the tree
-is handed to every run, and a `survivors.md` lives until the release that ships
-it, so one merged row in that spelling matched every later branch cut from the
-same base and excused its whole run. So the second anchor is the directory the
+is handed to every run, and a `survivors.md` stands until
+`settle --retire-process` takes it, after the release that ships it, so one
+merged row in that spelling matched every later branch cut from the same base
+and excused its whole run. So the second anchor is the directory the
 row lives in: a declaration holds only over a range that touches its own work
 item, which a work item's own range always does. In local mode nothing under
 the root is committed, so no range touches it, and the `Branch` row of the
@@ -1957,7 +1958,8 @@ def whole_range(root, ranges, a, b):
     `origin/<base>...HEAD` is not a range, it is a RELATION, and it resolves to
     whatever range the checkout it is read on is over. `hygiene.yml` hands
     every `seal/specs/*/survivors.md` in the tree to every run, and a
-    `survivors.md` lives until the release that ships it -- so one merged
+    `survivors.md` stands until `settle --retire-process` takes it, after the
+    release that ships it -- so one merged
     declaration in that spelling matched every later branch cut from the same
     base, excused every one of its survivors and turned the step off for the
     rest of the release. That is the outcome the escape exists to prevent,
