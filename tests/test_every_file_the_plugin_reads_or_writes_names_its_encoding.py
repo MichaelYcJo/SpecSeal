@@ -38,7 +38,9 @@ and is listed here by reading.
   `zipfile.Path`, called on the class or built in the receiver, is judged as
   `zipfile.Path.open`, whose encoding comes one place earlier; one reached by
   `/`, `.joinpath` or a name is not traced, so it is judged as `Path.open`,
-  and `encoding=` written as a keyword passes it. A receiver no import binds
+  and `encoding=` written as a keyword passes it. `importlib.resources`'s
+  `Traversable`, `ResourceHandle` and `ResourceContainer` take theirs in the
+  same place, and `pipes.Template.open(file, rw)` takes none. A receiver no import binds
   is excused under no spelling, so `os.open(p, 0)` on a parameter named `os`
   is judged. Called on the class (`Path.open(p)`), every position moves one
   to the right;
@@ -144,7 +146,9 @@ TEMPFILES = {
 # imports on macOS was found by importing it on 3.12 to 3.14. Each one that
 # does not was read in its documentation instead: `dbm.gnu`, `nt` and
 # `ossaudiodev` carry an `open`, and `nis`, `spwd`, `msilib`, `msvcrt`,
-# `winreg` and `winsound` carry none.
+# `winreg`, `winsound` and the Windows-only submodules
+# `asyncio.windows_events`, `asyncio.windows_utils`, `encodings.mbcs`,
+# `encodings.oem` and `multiprocessing.popen_spawn_win32` carry none.
 NOT_A_FILE_OPENER = {
     "os",
     "webbrowser",
@@ -169,12 +173,22 @@ NOT_A_FILE_OPENER = {
 }
 # Classes whose methods, called on the class, take the path first, so the
 # encoding's position moves one to the right: `Path.read_text(p, "utf-8")`.
-# Every public standard-library class defining `open`, `read_text` or
-# `write_text` was read on 3.12 to 3.14 (#762), and these are the ones whose
-# method, called on the class, reads text in the locale with its encoding in
-# a slot the shift decides. `Traversable.read_text(self, encoding=None)`
-# hands `None` on to the concrete path's `open`; `importlib.abc.Traversable`
-# is the same class on 3.12 and 3.13.
+#
+# How the list was settled (#762, review rounds 1 and 2). On 3.12, 3.13 and
+# 3.14, every public class reachable from every importable public module and
+# submodule was listed with each `open`, `read_text` or `write_text` it has,
+# defined in its own body or inherited through its MRO. A class counts under
+# its home module, an `__all__` re-export, or a module `__getattr__` alias;
+# a name a module merely imported for itself (`json.tool.Path`,
+# `compileall.Path`, `importlib.metadata.SimplePath`) is left out. These are
+# the classes whose method, called on the class, reads text in the locale,
+# itself or by handing `encoding=None` on to the receiver's `open`:
+# `Traversable.read_text`, which `ResourceHandle` and `ResourceContainer`
+# inherit, does that. Left out: methods that open no text file (`imaplib`,
+# `telnetlib`, `tkinter.tix`, `urllib.request`, `webbrowser`, `ZipFile`,
+# `TarFile`), that read a fixed encoding (`importlib.metadata`), that raise
+# (`MultiplexedPath`), and protocol stubs. The modules that do not import on
+# macOS were read in CPython's 3.12 source and hold no such class.
 UNBOUND_RECEIVERS = {
     "pathlib.Path",
     "pathlib.PurePath",
@@ -182,7 +196,15 @@ UNBOUND_RECEIVERS = {
     "pathlib.WindowsPath",
     "zipfile.Path",
     "importlib.resources.abc.Traversable",
+    # The same class on 3.12 and 3.13, through `importlib.abc.__getattr__`.
     "importlib.abc.Traversable",
+    "importlib.resources.simple.ResourceHandle",
+    "importlib.resources.simple.ResourceContainer",
+    # `importlib.simple` re-exports both in its `__all__`.
+    "importlib.simple.ResourceHandle",
+    "importlib.simple.ResourceContainer",
+    # 3.12 only, removed in 3.13.
+    "pipes.Template",
 }
 # Openers that are binary unless the mode carries `t`: (the mode's position,
 # the encoding's position or None where it is keyword-only).
@@ -237,6 +259,19 @@ OPEN_METHODS = {
     # `zipfile.Path.open(mode, *args)` hands `args[0]` to `TextIOWrapper` as
     # the encoding, one place earlier than `pathlib.Path.open`.
     "zipfile.Path": (0, 1),
+    # `open(mode='r', *args)` the same way: `Traversable`'s is abstract,
+    # `ResourceHandle`'s wraps the stream in `TextIOWrapper(stream, *args)`,
+    # and `ResourceContainer`'s raises. Each is listed so that a class in
+    # UNBOUND_RECEIVERS for its `read_text` keeps its encoding slot for `open`.
+    "importlib.resources.abc.Traversable": (0, 1),
+    "importlib.abc.Traversable": (0, 1),
+    "importlib.resources.simple.ResourceHandle": (0, 1),
+    "importlib.resources.simple.ResourceContainer": (0, 1),
+    "importlib.simple.ResourceHandle": (0, 1),
+    "importlib.simple.ResourceContainer": (0, 1),
+    # `Template.open(file, rw)` takes no encoding: slot 2 lies past its last
+    # parameter, so no position can name one, and a keyword is a TypeError.
+    "pipes.Template": (1, 2),
 }
 
 
@@ -764,6 +799,31 @@ UNNAMED = {
         "import importlib.abc\nimportlib.abc.Traversable.read_text(t)",
         ".read_text()",
     ),
+    # #762 round 2: both classes inherit `Traversable.read_text`.
+    "ResourceHandle.read_text unbound, inherited from Traversable": (
+        "from importlib.resources.simple import ResourceHandle\n"
+        "ResourceHandle.read_text(h)",
+        ".read_text()",
+    ),
+    "ResourceHandle.read_text unbound, the importlib.simple spelling": (
+        "import importlib.simple\nimportlib.simple.ResourceHandle.read_text(h)",
+        ".read_text()",
+    ),
+    "ResourceContainer.read_text unbound, inherited from Traversable": (
+        "from importlib.resources.simple import ResourceContainer\n"
+        "ResourceContainer.read_text(c)",
+        ".read_text()",
+    ),
+    "ResourceContainer.read_text unbound, the importlib.simple spelling": (
+        "import importlib.simple\nimportlib.simple.ResourceContainer.read_text(c)",
+        ".read_text()",
+    ),
+    # `Template.open(file, rw)` opens `file` with `open(file, rw)` or a pipe
+    # with `os.popen`, both in the locale, and takes no encoding.
+    "pipes.Template.open unbound": (
+        'import pipes\npipes.Template.open(t, f, "r")',
+        "pipes.Template.open()",
+    ),
 }
 
 # The same calls with the encoding named (by keyword, or positionally where
@@ -850,6 +910,30 @@ NAMED = {
     "posix.open is os.open": "import posix\nposix.open(p, 0)",
     "nt.open is os.open": "import nt\nnt.open(p, 0)",
     "ossaudiodev.open is an audio device": 'import ossaudiodev\nossaudiodev.open("w")',
+    # #762 round 2: `open(mode='r', *args)` hands `args[0]` to `TextIOWrapper`
+    # as the encoding, so called on the class it sits right after the mode.
+    "Traversable.open unbound, encoding after the mode": (
+        "from importlib.resources.abc import Traversable\n"
+        'Traversable.open(t, "r", "utf-8")'
+    ),
+    "Traversable.open unbound, the importlib.abc spelling": (
+        'import importlib.abc\nimportlib.abc.Traversable.open(t, "r", "utf-8")'
+    ),
+    "ResourceHandle.open unbound, encoding after the mode": (
+        "from importlib.resources.simple import ResourceHandle\n"
+        'ResourceHandle.open(h, "r", "utf-8")'
+    ),
+    "ResourceHandle.open unbound, the importlib.simple spelling": (
+        'import importlib.simple\nimportlib.simple.ResourceHandle.open(h, "r", "utf-8")'
+    ),
+    "ResourceContainer.open unbound, encoding after the mode": (
+        "from importlib.resources.simple import ResourceContainer\n"
+        'ResourceContainer.open(c, "r", "utf-8")'
+    ),
+    "ResourceContainer.open unbound, the importlib.simple spelling": (
+        "import importlib.simple\n"
+        'importlib.simple.ResourceContainer.open(c, "r", "utf-8")'
+    ),
 }
 
 
