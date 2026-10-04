@@ -164,9 +164,9 @@ What the SDD set still cites of it resolves at the tag of that release.
 ## What is decided and not built yet
 
 Four parts of this layout were decided here, each to be built by its own
-issue. F1 and F2 are built; the other two are not yet. Each says when, by the
-release it lands in relative to #716's; the issue's milestone names the
-version, so no number here goes stale when it ships.
+issue. All four are built, each by the issue its paragraph names. Each says
+when, by the release it lands in relative to #716's; the issue's milestone
+names the version, so no number here goes stale when it ships.
 
 **F1 — `docs/commit-review-gate-spec.md` is cut in three (#727, in the
 release #716 ships in, after #716 lands). Built by #727.** The table below

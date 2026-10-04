@@ -162,10 +162,10 @@ a `<x>/specs/<id>/changelog.md` -- `seal/specs/<id>/` or the pre-0.4.0
 `specs/<id>/` -- whose `<!-- specs/<id> -->` marker stands in a changelog at
 the range's tip, because a gathered fragment is that released entry one file
 over (#307). A range across the migration reads both shapes, the one-file
-changelog at its base and the release files at its tip, by the same rule. A released section records what a past
-release did, in that release's words, and a released entry is not rewritten
-(`docs/the-record-layout.md` §*A change writes fragments, never a shared
-file*): reported against one, the branch that changed the behaviour it
+changelog at its base and the release files at its tip, by the same rule.
+A released section records what a past release did, in that release's
+words, and a released entry is not rewritten (`docs/the-record-layout.md`
+§*A change writes fragments, never a shared file*): reported against one, the branch that changed the behaviour it
 describes could correct nothing, and two of the four ranges the 0.15.0
 release was measured on carried exactly that report. The region is read off
 the heading rather than the file being left out by path, so an
