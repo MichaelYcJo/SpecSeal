@@ -60,10 +60,12 @@ every check that failed, which is what a reader acts on.
 **On a failing test the comparison against the base is reactive and
 mechanical** (`skills/verify/SKILL.md` §*The broad gate*). Only when the
 repository's command fails AND its output names failing test files does the
-gate add a scratch worktree at `<base>`, run the row's first command on those
-files there, remove the worktree, and label each file `new` or `failing on
-base too`. It decides nothing about either word: both go in the report and
-the reader acts.
+gate add a scratch worktree at `<base>`, run the part of the row that runs
+pytest on those files there, remove the worktree, and label each file `new`,
+`failing on base too`, or `new?` with the reason no run measured it. That
+part is found by running each prefix of the row until one prints pytest's
+summary, never by its name or its place (#747). It decides nothing about any
+of the words: they go in the report and the reader acts.
 
 **Drawn on success only, and only where a person is looking** (#400). The
 stamp — the disc and a panel carrying the tree and its branch, the base and
@@ -1422,7 +1424,7 @@ def run(name, command, root, keep, shell=False, env=None, windows=None, comspec=
 
     **A shell string is handed over through `handed_to_shell`**, which is the
     one place this module's shell sites meet: `gate`'s `SUITE` and
-    `compare_at_base`'s `suite-at-base` both arrive here, so neither needed a
+    `compare_at_base`'s `suite-at-base-<k>` both arrive here, so neither needed a
     change of its own (#448). Where what the shell is handed differs from what
     the row says, one stderr line says so before the run, and the kept file
     carries both lines above the exit code — the row as written first, because
@@ -1516,6 +1518,27 @@ def as_cmd_expands(part, here):
     return CMD_VARIABLE.sub(value, part)
 
 
+def cmd_exe_reads(windows=None, comspec=None):
+    """Whether `subprocess.run(..., shell=True)` hands its string to
+    `cmd.exe`: Windows, where `COMSPEC` names `cmd.exe` or is unset, which
+    Python answers with `cmd.exe` too.
+
+    The one answer two readers share (#747): `handed_to_shell` rewrites a
+    command name only for `cmd.exe`, and `row_prefixes` cuts the row by the
+    grammar of the shell that reads it. `windows` and `comspec` default to
+    this machine's, for the reason `handed_to_shell`'s docstring gives.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    if not windows:
+        return False
+    if comspec is None:
+        comspec = os.environ.get("COMSPEC")
+    # `ntpath` whatever this machine is: `C:\Windows\System32\cmd.exe` has no
+    # `/` in it for `posixpath.basename` to split at.
+    return not comspec or ntpath.basename(comspec.strip().strip('"')).lower() == CMD_EXE
+
+
 def handed_to_shell(command, windows=None, comspec=None, root=None):
     """The string `subprocess.run(command, shell=True)` should be given.
 
@@ -1546,15 +1569,7 @@ def handed_to_shell(command, windows=None, comspec=None, root=None):
     either platform — `quote`'s docstring says what reading `os.name` in the
     body cost the last time.
     """
-    if windows is None:
-        windows = os.name == "nt"
-    if not windows:
-        return command
-    if comspec is None:
-        comspec = os.environ.get("COMSPEC")
-    # `ntpath` whatever this machine is: `C:\Windows\System32\cmd.exe` has no
-    # `/` in it for `posixpath.basename` to split at.
-    if comspec and ntpath.basename(comspec.strip().strip('"')).lower() != CMD_EXE:
+    if not cmd_exe_reads(windows, comspec):
         return command
     here = os.curdir if root is None else root
     # `cmd.exe` expands `%VAR%` before it reads the name, so the part is
@@ -1817,20 +1832,209 @@ def quote(path, windows=None):
     return f'"{path}"' if windows else shlex.quote(path)
 
 
-def first_command(command):
-    """The row's first `&&`-joined command — the suite runner, by the shape
-    every row this plugin has seen takes (`bin/test -q && uvx ruff …`)."""
-    return command.split("&&", 1)[0].strip()
+# pytest's short-summary line for a file or test that errored, printed under
+# `-q` too, measured against pytest 9.1.1: `ERROR tests/x.py` where the file
+# could not be collected, `ERROR tests/x.py - ImportError…` beside xdist, and
+# `ERROR tests/x.py::test_d - RuntimeError: x` where a fixture failed in setup.
+# A `FAILED` line is read alongside it, through `FAILED_RE`. The file ends at
+# `::`, at a blank, or at the newline the summary line always follows.
+ERROR_RE = re.compile(r"^ERROR\s+(\S+?)(?:::|\s)", re.M)
+# The rule of `!` pytest writes when a run stops before every collected test
+# has run. Measured against pytest 9.1.1: `!!! Interrupted: 1 error during
+# collection !!!`, `!!! stopping after 1 failures !!!`, and under xdist `!!!
+# xdist.dsession.Interrupted: stopping after 1 failures !!!`. Read as the rule
+# rather than as those texts because the rule is what every early stop shares:
+# `_pytest/terminal.py` writes a `!` separator for `shouldfail`, for
+# `shouldstop` and for an interrupt, and for nothing else in a run that
+# executes tests. It pads the rule to the terminal's width with at least one
+# `!` each side, so at 40 columns, the narrowest pytest honours, it reads
+# `! Interrupted: 1 error during collection !` (round 1's 🟡 4).
+STOPPED_EARLY_RE = re.compile(r"^!+ .+ !+$", re.M)
+# The line that says pytest ran: its counts and its wall clock alone on a
+# line, bare under `-q` or between `=` rules — `1 failed, 1 passed in 0.02s`,
+# `== 768 passed in 612.34s (0:10:12) ==`. `suite_counts` takes any count
+# followed by a clock, which is right for the panel and wrong for choosing the
+# run at the base: `cargo test` prints `test result: ok. 0 passed; …; finished
+# in 0.00s`, and read as pytest's it gave `new` for a file the base fails
+# (round 1's 🟡 1). A label is the category pytest or a plugin reports, and
+# one of pytest 9's own is two words — `2 failed, 1 subtests passed in
+# 0.01s` (round 2's 🟡 1). pytest lists its own categories first
+# (`KNOWN_TYPES` in `_pytest/terminal.py`) and a plugin's after them, and
+# every test reports one of its own, so the first label is one word and a
+# later one is one lowercase word or two. A run whose line carries colour
+# codes, a longer label, or no line at all (`-qq`) is not read as pytest's,
+# and its files read `new?`.
+PYTEST_SUMMARY_RE = re.compile(
+    r"^=*\s*\d+ [a-z]+(?:, \d+ [a-z]+(?: [a-z]+)?)* in \d+(?:\.\d+)?s"
+    r"(?: \(\d+:\d\d:\d\d\))?\s*=*$",
+    re.M,
+)
+# What a file reads where no run measured it (#747). Each starts `new?`, so it
+# is never read as `new`, and says the comparison was not measured.
+NOT_MEASURED = f"{NEW}? not measured"
+NO_RUNNER = (
+    f"{NOT_MEASURED}: no part of the row printed a line the gate reads as "
+    "pytest's summary at the base (each part tried is kept as "
+    "suite-at-base-<k>.txt)"
+)
+STOPPED_EARLY = (
+    f"{NOT_MEASURED}: the run at the base stopped before every test ran, "
+    "and it does not name this file"
+)
+
+
+def verdicts_at_base(text, files):
+    """{file: word} for `files`, read off one run at the base, or off none.
+
+    `text` is the output of the run that printed pytest's summary, or `None`
+    where no run did. **A word is given only where that run measured it**:
+
+      - `failing on base too` where a `FAILED` or `ERROR` line names the file
+        — a file the base cannot collect fails there (`questions.md` Q1);
+      - `new` where no such line names it AND the run did not stop early, so
+        every test it collected ran — which is not proof the files appended
+        to it were among them (`compare_at_base` names the one shape);
+      - `NO_RUNNER` or `STOPPED_EARLY` otherwise, both reading `new?`.
+
+    The second condition is round 1's 🟡 4 of 0.10.0 in a new shape: one
+    file's collection error interrupts the run, and every other file it was
+    asked about would read `new` for having never run.
+    """
+    if text is None:
+        return {f: NO_RUNNER for f in files}
+    named = set(FAILED_RE.findall(text)) | set(ERROR_RE.findall(text))
+    unnamed = STOPPED_EARLY if STOPPED_EARLY_RE.search(text) else NEW
+    return {f: (ON_BASE if f in named else unnamed) for f in files}
+
+
+# The operators that end one part of a row and begin the next, in each
+# grammar a row can be handed to, longest first so `&&` is never read as two
+# `&`. `;` separates nothing in `cmd.exe`. Under `/bin/sh` a lone `&` ends a
+# part and no prefix (`row_prefixes`).
+POSIX_CUTS = ("&&", "||", ";", "|", "&")
+CMD_CUTS = ("&&", "||", "&", "|")
+
+
+def row_prefixes(command, cmd_exe=False):
+    """Every prefix of `command` that ends where one of its top-level parts
+    ends, shortest first and the whole row last, each with its trailing
+    blanks dropped (#747).
+
+    **A prefix is a substring of the row as written**, never a re-rendered
+    list of tokens, for the reason `command_names_backslashed` gives: that is
+    how quoting gets lost. A prefix keeps every part before it — a `cd`, an
+    `export`, a lint — so the part it ends with runs in the context the row
+    gave it.
+
+    A cut falls at a TOP-LEVEL operator of the grammar of the shell the row
+    is handed to: `&&`, `||`, `;` and `|` for `/bin/sh`, and `&&`, `||`, `&`
+    and `|` for `cmd.exe`, which `cmd_exe` selects. **Under `/bin/sh` a lone
+    `&` ends a part and no prefix** (round 1's 🟡 3): it runs the part before
+    it in the background, so a prefix ending there would run that part in the
+    foreground, which the row never does, and a server or a `tail -f` there
+    never ends. `cmd.exe` runs the two in turn, so there it is a cut as `;`
+    is in `/bin/sh`. Top-level means outside every one of these:
+
+      - `/bin/sh`: single quotes, which nothing escapes inside; double
+        quotes; a backslash escape, outside single quotes; a backtick pair; a
+        `$(…)`; and a `( … )` group, all nested;
+      - `cmd.exe`: double quotes, which nothing escapes inside; a `^` escape
+        outside them; and a `( … )` group.
+
+    In both grammars an `&` written straight after `>` or `<` (`2>&1`,
+    `>&2`) is a redirection and not a cut.
+
+    **Not modelled, and named rather than claimed:** a `{ …; }` brace group,
+    a compound command (`if`, `for`, `while`, `case`), a `${…}` holding an
+    operator, a `>|` redirection, and a `#` comment, each of which can put a
+    cut where the shell has none. A cut in the wrong place makes a prefix
+    that is not valid shell or runs no test, so it costs the comparison a
+    measurement and never fakes one: `compare_at_base` gives a word only
+    from a run whose output carries pytest's summary. An unclosed quote or
+    group leaves nothing after it top-level, so the row ends in one part.
+    A prefix ending before a `|` runs the producer without its consumer,
+    which is the point where the runner comes first (`pytest -q | tee x`),
+    and which ends only where the producer ends on its own.
+    """
+    cuts = CMD_CUTS if cmd_exe else POSIX_CUTS
+    prefixes = []
+    stack = []  # the open quotes and groups, innermost last
+    i, n = 0, len(command)
+    while i < n:
+        c = command[i]
+        top = stack[-1] if stack else None
+        if top in ('"', "'") and c == top:
+            stack.pop()
+            i += 1
+            continue
+        if top == "'" or (cmd_exe and top == '"'):
+            i += 1
+            continue
+        if c == ("^" if cmd_exe else "\\"):
+            i += 2
+            continue
+        if not cmd_exe and command.startswith("$(", i):
+            stack.append("$(")
+            i += 2
+            continue
+        if not cmd_exe and c == "`":
+            if top == "`":
+                stack.pop()
+            else:
+                stack.append(c)
+        elif top == '"':
+            pass
+        elif c == '"' or (c == "'" and not cmd_exe) or c == "(":
+            stack.append(c)
+        elif c == ")" and top in ("(", "$("):
+            stack.pop()
+        elif not stack:
+            op = next((op for op in cuts if command.startswith(op, i)), None)
+            if op and not (op == "&" and command[i - 1 : i] in ("<", ">")):
+                # An operator before any command leaves nothing to run, and a
+                # lone `&` under `/bin/sh` ends no prefix (the docstring).
+                if command[:i].strip() and (cmd_exe or op != "&"):
+                    prefixes.append(command[:i].rstrip())
+                i += len(op)
+                continue
+        i += 1
+    # A prefix ends before its operator and the whole row runs past it, so
+    # the whole row is never one of the prefixes already kept.
+    return [*prefixes, command.rstrip()]
 
 
 def compare_at_base(root, base, command, files, keep):
-    """{file: `new` | `failing on base too`}, measured — never inferred.
+    """{file: `new` | `failing on base too` | `new? …`}, measured — never
+    inferred.
 
-    A scratch worktree at `base`, the row's first command run there on the
-    failing files the base actually carries, the worktree removed whatever
-    happened. A file the base does not carry cannot fail there, so it reads
-    `new` without a run -- which is the truth: the test arrived with this
-    branch.
+    A scratch worktree at `base`, the part of the row that runs pytest run
+    there on the failing files the base actually carries, the worktree
+    removed whatever happened. A file the base does not carry cannot fail
+    there, so it reads `new` without a run -- which is the truth: the test
+    arrived with this branch.
+
+    **The part that runs pytest is found by running, not by its name or its
+    place** (#747). The row used to be cut at its first `&&`, and a
+    lint-first row's first part is the linter: no `FAILED` line could
+    appear, and every file read `new` whatever the base did. Now each prefix
+    `row_prefixes` returns is run in turn, the failing files appended to
+    it, until one prints pytest's summary line (`PYTEST_SUMMARY_RE`); that
+    run is the measurement, and `verdicts_at_base` reads it. A prefix keeps
+    every part before it, so a `cd` or an `export` still applies, and the
+    parts before the runner run once per prefix tried. Each run is kept as
+    `suite-at-base-<k>.txt`. Where no prefix prints a line read as that
+    summary, every present file reads `new?`, never `new`.
+
+    **The one thing a summary does not prove is that the appended files
+    ran.** A part that drops its arguments — a `sh -c '…'`, a `make` target —
+    prints a summary over something else, and every file reads `new`. pytest
+    under `-q` names no passing file, so nothing here can tell;
+    `templates/config.md` rule 3 names it for the row's author (round 1's
+    🟡 5). A `failing on base too` is never this shape: it comes from a line
+    that names the file.
+
+    The `run` call stays in this function's own body: the shell sites are
+    `gate` and this function, and a case holds that.
 
     **The absent ones are separated before the run rather than after it**
     (round 1's 🟡 4). pytest handed a path that does not exist exits 4 with
@@ -1854,16 +2058,32 @@ def compare_at_base(root, base, command, files, keep):
         # back `new`. Asked of the base tree first, and the absent ones are
         # `new` without a run — which is the truth: they arrived with this
         # branch.
+        #
+        # Absent only where this branch's own root carries the path. pytest
+        # names a file from the directory it ran in, and a `cd` part moves
+        # that, so a path the root does not carry says nothing about the base
+        # and is run with the others (round 1's 🟡 2). Where the base lacks it
+        # there too, pytest finds no such file, prints no summary, and every
+        # file of that run reads `new?`.
         absent = [
-            f for f in files if git(scratch, "cat-file", "-e", f"HEAD:{f}") is None
+            f
+            for f in files
+            if os.path.isfile(os.path.join(root, f))
+            and git(scratch, "cat-file", "-e", f"HEAD:{f}") is None
         ]
         present = [f for f in files if f not in absent]
         verdicts = {f: NEW for f in absent}
         if present:
-            runner = f"{first_command(command)} {' '.join(quote(f) for f in present)}"
-            check = run("suite-at-base", runner, scratch, keep, shell=True)
-            at_base = set(failing_files(check.text))
-            verdicts.update({f: (ON_BASE if f in at_base else NEW) for f in present})
+            paths = " ".join(quote(f) for f in present)
+            measured = None
+            for k, prefix in enumerate(row_prefixes(command, cmd_exe_reads()), 1):
+                tried = run(
+                    f"suite-at-base-{k}", f"{prefix} {paths}", scratch, keep, shell=True
+                )
+                if PYTEST_SUMMARY_RE.search(tried.text):
+                    measured = tried.text
+                    break
+            verdicts.update(verdicts_at_base(measured, present))
         return verdicts
     finally:
         subprocess.run(
@@ -2848,10 +3068,13 @@ def gate(args, console_wants_letters, terminal=False):
         raise Refused(missing_row(home))
     # The one place the value is looked at before a shell is handed it, and
     # the only one there needs to be: the other surface that runs the row
-    # (`compare_at_base` → `first_command`) is reached only after the run
-    # below, so this refusal closes it by reachability rather than by a
-    # second guard in a second place (`spec.md` §*The class, enumerated by
-    # construction*).
+    # (`compare_at_base`, over the prefixes `row_prefixes` cuts) is reached
+    # only after the run below, so this refusal closes it by reachability
+    # rather than by a second guard in a second place (`spec.md`
+    # §*The class, enumerated by construction*). Every prefix is a substring
+    # of the row this refusal passed, cut before an operator, so none ends in
+    # the `&` the refusal is for, and each part it runs is a part the row
+    # itself runs (#747).
     unrunnable = not_as_written(home, command)
     if unrunnable:
         raise Refused(unrunnable)

@@ -72,7 +72,7 @@ def grant(repo, session="me"):
     """Write the record by hand — the reader's tests do not need the writer."""
     d = consent_dir(repo)
     d.mkdir(parents=True, exist_ok=True)
-    (d / session).write_text("")
+    (d / session).write_text("", encoding="utf-8")
     return d / session
 
 
@@ -611,7 +611,7 @@ def test_a_dirty_tree_does_not_decide_whether_the_creation_is_questioned(
     The three rows above it keep their precedence, because those ARE the
     concurrency protections -- `test_the_switch_ladder_keeps_every_verdict_it_had`
     is the other half of this."""
-    (repo / "f.txt").write_text("changed on purpose\n")
+    (repo / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     decision, reason = decide(
         monkeypatch, capsys, repo, "git switch feature/x && git worktree add ../wt f"
     )
@@ -732,7 +732,7 @@ STRICTNESS = {"allow": 0, "silent": 1, "ask": 2, "deny": 3}
 def make_dirty(repo, dirty):
     """Tracked changes on or off, in the fixture's one committed file."""
     (repo / "f.txt").write_text(
-        "changed on purpose\n" if dirty else "one\ntwo\nthree\n"
+        "changed on purpose\n" if dirty else "one\ntwo\nthree\n", encoding="utf-8"
     )
 
 
@@ -980,7 +980,7 @@ def test_an_unrecordable_consent_asks_rather_than_crashing(
     The exit status and stderr are what tell them apart, so both are read."""
     blocked = consent_dir(repo)
     blocked.parent.mkdir(parents=True, exist_ok=True)
-    blocked.write_text("not a directory")
+    blocked.write_text("not a directory", encoding="utf-8")
     assert wc.record(str(repo), "me") is False
     r = subprocess.run(
         [sys.executable, os.path.join(HOOKS, "worktree_consent.py")],
@@ -1344,7 +1344,7 @@ def test_a_subagents_own_path_falls_back_to_the_parents_transcript(projects, rep
     write_transcript(projects, "me", ask_entries(repo))
     sub = projects / "-Users-x-repo" / "me" / "subagents" / "agent-a1.jsonl"
     sub.parent.mkdir(parents=True)
-    sub.write_text("")
+    sub.write_text("", encoding="utf-8")
     assert wc.automation_answered(str(repo), "me", str(sub))
 
 

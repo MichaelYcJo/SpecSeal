@@ -88,7 +88,7 @@ def test_it_fires_in_a_linked_worktree(repo, tmp_path):
     opt_in(repo)
     # git tracks files, not directories, so the opt-in needs one to ride on --
     # and it has to be committed, or the worktree does not see it at all.
-    (repo / "seal" / "ledger.md").write_text("# ledger\n")
+    (repo / "seal" / "ledger.md").write_text("# ledger\n", encoding="utf-8")
     git = lambda *a: subprocess.run(
         ["git", "-C", str(repo), *a],
         check=True,

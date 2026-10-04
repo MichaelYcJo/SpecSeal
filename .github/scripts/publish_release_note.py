@@ -136,7 +136,7 @@ def section_heading_re(version):
 
 
 def run(*args):
-    out = subprocess.run(args, capture_output=True, text=True)
+    out = subprocess.run(args, capture_output=True, encoding="utf-8")
     if out.returncode:
         sys.exit(f"{' '.join(args)} failed: {out.stderr.strip()}")
     return out.stdout
@@ -203,7 +203,7 @@ def release_exists(repo, tag):
     out = subprocess.run(
         ["gh", "api", f"repos/{repo}/releases/tags/{tag}"],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if out.returncode:
         if "Not Found" in out.stderr or "404" in out.stderr:
@@ -272,7 +272,7 @@ def merged_pulls(repo, version):
             "number,title,author,body,labels,headRefName",
         ],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if out.returncode:
         print(

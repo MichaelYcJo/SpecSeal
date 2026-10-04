@@ -66,10 +66,10 @@ def make_repo(path, declared=False):
         ["git", "-C", str(path), *a], check=True, capture_output=True
     )
     run("init", "-q")
-    (path / "f").write_text("1\n")
+    (path / "f").write_text("1\n", encoding="utf-8")
     run("add", "f")
     run("-c", "user.email=e@example.com", "-c", "user.name=e", "commit", "-qm", "b")
-    (path / "f").write_text("2\n")
+    (path / "f").write_text("2\n", encoding="utf-8")
     run("add", "f")
     (path / "seal").mkdir()
     if declared:
@@ -232,8 +232,8 @@ def test_a_parity_arm_is_not_waived_by_a_newly_read_commit(
     not answer. A commit the #670 reading found in a substitution or a shell
     string used to take that fallback away."""
     session = make_repo(tmp_path / "session", declared=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     for command in (
         f": '[no-review]'; echo $({BODY}) $'it\\'s'",
@@ -358,8 +358,8 @@ def test_w1_keeps_the_directory_the_base_judged_under_a_waiver(
     session's directory went silent, while bash commits there."""
     session = make_repo(tmp_path / "session", declared=True)
     (session / "sub").mkdir(exist_ok=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     command = f": '[no-review]'; {prefix} {BODY}"
     for which, got in with_and_without_the_press(
@@ -379,8 +379,8 @@ def test_w1_keeps_the_directory_a_parked_failure_came_from(
     waived it whole. No segment stands in front, because one would park the
     session's directory with itself as the previous one and hide the loss."""
     session = make_repo(tmp_path / "session", declared=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     command = f"cd .. && 2>/dev/null cd nosuch || cd - && {BODY}  # [no-review]"
     for which, got in with_and_without_the_press(
@@ -474,8 +474,8 @@ def test_a_cd_with_a_redirection_among_its_words_lands(
     assert "silent" not in got, (command, got)
     session = make_repo(tmp_path / "session", declared=True)
     (session / "sub").mkdir()
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     command = f": '[no-review]'; {cd.format(d='sub')} && {BODY}"
     for which, got in with_and_without_the_press(
@@ -529,8 +529,8 @@ def test_a_cd_landed_past_a_redirection_keeps_the_directory_the_base_judged(
     were left, and the waiver took the refusal whole. bash commits nothing
     here; the case pins the invariant, not a commit."""
     session = make_repo(tmp_path / "session", declared=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     plain = tmp_path / "plain"
     plain.mkdir()
@@ -550,8 +550,8 @@ def test_a_second_reading_that_unplaces_keeps_the_base_directory(
     2>/x/git commit -m git`, a commit to the base's reading, stopped on the
     parity arm at `86256492` and was silent at #674's head."""
     session = make_repo(tmp_path / "session", declared=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     for shape in ("nice 2>/x/git commit -m git", "env </x/git commit -m git"):
         command = f": '[no-review]'; {shape}"
@@ -585,8 +585,8 @@ def test_a_chain_past_the_cap_keeps_the_directories_the_base_reached(
     never a directory the base reached."""
     session = make_repo(tmp_path / "session", declared=True)
     (session / "sub").mkdir()
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     command = f": '[no-review]'; {CAP_CHAINS[name]}{BODY}"
     for which, got in with_and_without_the_press(

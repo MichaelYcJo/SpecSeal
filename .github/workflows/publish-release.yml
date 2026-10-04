@@ -95,9 +95,10 @@ jobs:
           python-version: '3.12'
       # The suite's packages and Pillow, at the versions
       # `.github/scripts/run_tests.py` pins; a case holds this line to them.
+      # cmarkgfm is among them since #647: the table walker's case imports it.
       - name: install the suite's packages and Pillow
         continue-on-error: true
-        run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0
+        run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22
       # `test.yml`'s ubuntu leg, plus the JUnit file the counts are read from.
       # No token is in this step's environment, and the checkout left none in
       # `.git/config`.

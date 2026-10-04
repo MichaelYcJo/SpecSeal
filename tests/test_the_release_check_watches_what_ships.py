@@ -87,7 +87,7 @@ def ships_pattern():
 
 def tracked_top_level_entries():
     out = subprocess.run(
-        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, encoding="utf-8", check=True
     ).stdout
     return {line.split("/", 1)[0] for line in out.splitlines() if line}
 

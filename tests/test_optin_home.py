@@ -37,7 +37,7 @@ def home(repo):
 
 def legacy(repo):
     (repo / ".specseal").mkdir(exist_ok=True)
-    (repo / ".specseal" / "map.md").write_text("# map\n")
+    (repo / ".specseal" / "map.md").write_text("# map\n", encoding="utf-8")
 
 
 # --- the signal itself -----------------------------------------------------
@@ -207,7 +207,7 @@ def test_gits_common_dir_answer_is_joined_whichever_shape_it_has(
 def test_a_file_named_seal_under_the_git_directory_is_not_a_root(optin, repo):
     """The signal is a DIRECTORY at either place. A file of that name under
     the common directory is not a home, and nothing raises over it."""
-    (repo / ".git" / "seal").write_text("")
+    (repo / ".git" / "seal").write_text("", encoding="utf-8")
     assert not optin.opted_in(str(repo))
     assert optin.home(str(repo)) == ""
 
@@ -222,7 +222,9 @@ def test_the_local_root_is_never_a_commit_candidate_and_needs_no_gitignore(repo)
     (item / "routing.md").write_text("# routing\n", encoding="utf-8")
     (item / "rounds" / "round-1.md").write_text("# round 1\n", encoding="utf-8")
     (home / "ledger").mkdir()
-    (home / "ledger" / "1788000000-a-work-item.md").write_text("# rows\n")
+    (home / "ledger" / "1788000000-a-work-item.md").write_text(
+        "# rows\n", encoding="utf-8"
+    )
     git = lambda *a: (
         subprocess.run(
             ["git", "-C", str(repo), *a],
@@ -289,7 +291,7 @@ def test_home_paths_costs_no_second_git_call_when_common_is_passed(optin, repo):
 
 
 def scratch(repo):
-    (repo / ".git" / "specseal-scratch").write_text("")
+    (repo / ".git" / "specseal-scratch").write_text("", encoding="utf-8")
 
 
 def test_a_scratch_marker_takes_the_opt_in_back(optin, repo):
@@ -334,9 +336,9 @@ def test_the_old_scratch_file_is_read_by_nothing(optin, repo):
     `hooks/root-migrate.py` is the one reader that still looks for the old
     one, and it looks in order to refuse the move."""
     home(repo)
-    (repo / "seal" / "scratch").write_text("")
+    (repo / "seal" / "scratch").write_text("", encoding="utf-8")
     (repo / ".specseal").mkdir()
-    (repo / ".specseal" / "scratch").write_text("")
+    (repo / ".specseal" / "scratch").write_text("", encoding="utf-8")
     assert optin.opted_in(str(repo))
 
 
@@ -368,7 +370,9 @@ def test_a_scratch_repository_declares_no_migration_config(optin, repo):
     under review has nothing to compare against an original either."""
     home(repo)
     scratch(repo)
-    (repo / "seal" / "parity.md").write_text("| Original repo | org/legacy |\n")
+    (repo / "seal" / "parity.md").write_text(
+        "| Original repo | org/legacy |\n", encoding="utf-8"
+    )
     assert optin.parity_config(str(repo)) == ""
 
 
@@ -377,7 +381,9 @@ def test_a_scratch_repository_declares_no_migration_config(optin, repo):
 
 def test_the_migration_config_is_found_at_the_one_address(optin, repo):
     home(repo)
-    (repo / "seal" / "parity.md").write_text("| Original repo | org/legacy |\n")
+    (repo / "seal" / "parity.md").write_text(
+        "| Original repo | org/legacy |\n", encoding="utf-8"
+    )
     # The address, not one platform's spelling of it: `parity_config`
     # builds this with `os.path.join`, and a literal `/` here asserted
     # that the module answers in POSIX on a platform where nothing else
@@ -391,9 +397,13 @@ def test_the_legacy_migration_config_is_not_an_address(optin, repo):
     describing one address while the code accepted two."""
     home(repo)
     (repo / "docs").mkdir(exist_ok=True)
-    (repo / "docs" / "parity.md").write_text("| Original repo | org/legacy |\n")
+    (repo / "docs" / "parity.md").write_text(
+        "| Original repo | org/legacy |\n", encoding="utf-8"
+    )
     (repo / ".specseal").mkdir(exist_ok=True)
-    (repo / ".specseal" / "parity.md").write_text("| Original repo | org/legacy |\n")
+    (repo / ".specseal" / "parity.md").write_text(
+        "| Original repo | org/legacy |\n", encoding="utf-8"
+    )
     assert optin.parity_config(str(repo)) == ""
 
 
@@ -464,7 +474,7 @@ def test_the_home_directory_counts_as_documents_not_code(repo):
     more than the check is worth."""
     gate = load_hook_module("commit-review-gate.py", "commit_review_gate")
     (repo / "seal").mkdir()
-    (repo / "seal" / "ledger.md").write_text("# ledger\n")
+    (repo / "seal" / "ledger.md").write_text("# ledger\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True
     )
@@ -476,8 +486,8 @@ def test_the_home_directory_counts_as_documents_not_code(repo):
 def test_a_code_change_alongside_it_still_counts(repo):
     gate = load_hook_module("commit-review-gate.py", "commit_review_gate")
     (repo / "seal").mkdir()
-    (repo / "seal" / "ledger.md").write_text("# ledger\n")
-    (repo / "app.py").write_text("x = 1\n")
+    (repo / "seal" / "ledger.md").write_text("# ledger\n", encoding="utf-8")
+    (repo / "app.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True
     )

@@ -42,7 +42,7 @@ which is correct; it is the installed copy that is stale. Read the one path
 the installer records and compare:
 
 ```bash
-p=$(python3 -c "import json,os;d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json')));print(d['plugins']['specseal@specseal'][0]['installPath'])")
+p=$(python3 -c "import json,os;d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'),encoding='utf-8'));print(d['plugins']['specseal@specseal'][0]['installPath'])")
 grep -m1 '^## ' "$p/CHANGELOG.md"        # must name the version step 2 reported
 ```
 

@@ -100,7 +100,7 @@ class Clone:
         return subprocess.run(
             ["git", "-C", str(self.top), *args],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             env=env(self.home, session=""),
             stdin=subprocess.DEVNULL,
             timeout=60,
@@ -155,7 +155,7 @@ class Clone:
                 [str(self.claude()), "-c", f"{hook} {name}; exit $?"],
                 input=json.dumps(payload),
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
                 env=env(self.home),
                 timeout=60,
             ).stdout
@@ -172,7 +172,7 @@ class Clone:
             [BASH, "-c", command],
             cwd=str(self.top),
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             env=env(self.home),
             stdin=subprocess.DEVNULL,
             timeout=60,

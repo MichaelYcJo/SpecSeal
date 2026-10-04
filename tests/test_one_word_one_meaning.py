@@ -569,6 +569,8 @@ def test_flat_is_what_folds_the_seam_and_it_folds_python_only():
 PACT_SWEPT = (
     ("templates", "pact.md"),
     ("docs", "the-pact.md"),
+    # #647 C and D: the record a pact review begins from.
+    ("templates", "pact-review.md"),
 )
 # The two sections that carry the words inside larger documents, read alone.
 PACT_SECTIONS = (
@@ -582,6 +584,16 @@ PACT_SECTIONS = (
     ),
     # Round 1's white 11: the words ship here too.
     (("templates", "config.md"), "## Pact"),
+    # #647 C and D: the act a pact review is, and the re-read that records a
+    # pact change.
+    (
+        ("skills", "implement", "orchestration.md"),
+        "### A pact review at the pact's repository",
+    ),
+    (
+        ("skills", "evidence-check", "SKILL.md"),
+        "## Re-verifying is recomputing the hash",
+    ),
 )
 # Files where only the lines naming a pact are the pact's text: the cheat
 # sheets' row and the config skill's rows and bullet.
@@ -598,11 +610,31 @@ PACT_PRINTED = (
     (("hooks", "config.py"), "remote_entries"),
     (("hooks", "config.py"), "pact_signatories"),
     (("hooks", "config.py"), "_stops_at"),
+    # The walker every pact table is read through, and the words the
+    # `Signatory` table's refusals are put in (#647, steps C and D).
+    (("hooks", "config.py"), "gfm_table"),
+    # The two records' readers, and what the signatory's re-read prints when
+    # it records a pact change (#647, steps C and D).
+    (("hooks", "config.py"), "pact_changes"),
+    (("hooks", "config.py"), "pact_reviews"),
+    (
+        ("skills", "evidence-check", "scripts", "evidence_check.py"),
+        "record_pact_changes",
+    ),
+    (("skills", "evidence-check", "scripts", "evidence_check.py"), "PACT_CHANGE_INTRO"),
+    (
+        ("skills", "evidence-check", "scripts", "evidence_check.py"),
+        "PACT_CHANGE_REPAIR",
+    ),
+    (("hooks", "config.py"), "_signatory"),
 )
 # The thread's working words, and the noun the owner withheld from the
-# repository holding the pact: each would give one thing a second name.
+# repository holding the pact: each would give one thing a second name. The
+# last two are the thread's names for a pact change and a pact review
+# (#647 C and D, PR #749's `questions.md` Q2).
 PACT_LOOSE = re.compile(
-    r"\b(?:home|member|keeper)s?\b|\bpact repo(?:sitory|sitories|s)?\b",
+    r"\b(?:home|member|keeper)s?\b|\bpact repo(?:sitory|sitories|s)?\b"
+    r"|\bcontract-changes?\b|\bcontract reviews?\b",
     re.IGNORECASE,
 )
 

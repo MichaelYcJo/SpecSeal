@@ -330,7 +330,7 @@ written in three places is three places for it to disagree with itself.
 |---|---|---|
 | 1 | A check that is red repository-wide for reasons unrelated to any branch does not belong in the row | It would block every future work item for something none of them caused, and a gate that always fails is read as noise and then ignored |
 | 2 | A command that **fixes** the tree — `--fix`, `--write`, a formatter in write mode — is not a gate command | A gate asks what is wrong. One that changes the answer while reading it can only come back green, which is the counterfeit `skills/verify/SKILL.md` §*The Seal Test* names |
-| 3 | The suite runner comes first | On a failing test the gate re-runs the row's first command on the failing files alone, at the base, in a scratch worktree it removes afterwards, and labels each `new` or `failing on base too`. That first command is what stands before the row's first `&&`, so a row whose suite runner comes first is a row the comparison can use |
+| 3 | The suite runner is a part of the row a cut can stop after | On a failing test the gate re-runs the failing files alone at the base, in a scratch worktree it removes afterwards, and finds the runner by running rather than by its name or its place (#747). It cuts the row at its top-level operators — `&&`, `\|\|`, `;` and `\|` under `/bin/sh`, where a lone `&` is never a cut because the part before it runs in the background, and `&&`, `\|\|`, `&` and `\|` under `cmd.exe`, where `;` separates nothing — and runs each prefix with the files appended until one prints pytest's summary line. A file that run's `FAILED` or `ERROR` line names reads `failing on base too`, and one it does not name reads `new`. Where no prefix prints a line the gate reads as that summary, or the run stopped before every test ran, each file reads `new?` with the reason, never `new`. So the runner may come first or last, and the order is the repository's trade: runner first costs one run at the base, and lint first re-runs the parts before the runner once per prefix tried. A runner inside a `( … )` group or behind a part that fails at the base is never reached, and one whose output goes to a file, or whose summary line the gate does not read (none under `-qq`, colour codes when colour is forced on), is run but not read: each reads `new?`. One shape the gate cannot see through: a part that prints pytest's summary without running the files appended to it — a `sh -c '…'`, a `make` target, a wrapper that drops its arguments — reads `new` for a file it never ran, because pytest under `-q` names no file that passed. Where the runner is such a part, write it so it passes its arguments on, or read its `new` as the row's claim rather than a measurement |
 
 Rules 1 and 2 were derived under pressure by the session that met the gate's
 refusal after its review rounds had settled, and were written nowhere until
@@ -401,10 +401,17 @@ and `https://example.com/org/orders-api` name one repository. Its last path
 segment is the name a pact anchor carries, `pact:orders-api/"## A"@1a2b3c4d`,
 so two pacts whose URLs end in the same segment are refused as ambiguous.
 
-**Nothing acts on `Pact notify` yet.** It says what this signatory asks to be
-told about a change to the pact, and the record that tells it is #647's next
-step. It is read and validated now, so the row has a reader from the first
-day.
+**`Pact notify` decides which of this signatory's changes the pact's
+repository hears about.** When `evidence-check --reverify` moves the hash of
+a ledger row here — or leaves a coordinate of one BROKEN — it records a pact
+change in `seal/pact-changes/<work-item-id>.md`, and `pact-check` at the
+pact's repository reads that record until a pact review there takes it:
+
+| Value | Recorded here | Read there |
+|---|---|---|
+| `when the pact is touched` | a row citing a clause of a pact the `Pact` row names | as `NOT TAKEN`, exit 1, until a pact review takes it |
+| `always` | that, and every other row whose code moved, with `—` for its clause | a `—` row as `NOTED`, which moves no exit |
+| `never` | nothing | nothing, whatever an earlier value recorded |
 
 **A row that will not parse is refused in a sentence**, never read as absent.
 At this repository's pull request `chain-check` prints the sentence and its

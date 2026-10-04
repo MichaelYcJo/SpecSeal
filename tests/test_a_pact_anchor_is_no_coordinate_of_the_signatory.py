@@ -172,6 +172,9 @@ def test_every_layout_tree_that_draws_parity_draws_the_pact():
             lines = handle.read().splitlines()
         trees = [ln for ln in lines if ln.lstrip().startswith(TREE_LINE)]
         assert any("pact.md" in ln for ln in trees), rel
+        # #647 C and D: both permanent records sit beside the pact.
+        for record in ("pact-changes/", "pact-reviews/"):
+            assert any(record in ln for ln in trees), (rel, record)
 
 
 def test_a_name_quoted_in_a_pact_clause_heading_is_not_a_claim_here():

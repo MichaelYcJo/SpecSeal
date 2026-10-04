@@ -94,6 +94,8 @@ seal/
 │                        one is filled in from where the root is
 ├── parity.md            migration config, only where one is declared
 ├── pact.md              the pact, only in the repository that holds one
+├── pact-changes/        a signatory's pact changes, a file per work item. Permanent
+├── pact-reviews/        the pact's repository's pact reviews, a file per work item. Permanent
 ├── follow-up.md         schedulable items in a repository with no tracker
 └── specs/<work-item-id>/  one work item, whole
     ├── routing.md         which way it was routed, written before the first edit

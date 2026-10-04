@@ -747,9 +747,10 @@ def config(row=True):
     string for a row under test, or False for a file with no such row."""
     text = "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
     if row:
-        # The suite runner first, so the base comparison can re-run it on
-        # the failing files alone. `-p no:cacheprovider` keeps pytest from
-        # writing `.pytest_cache` into a tree the gate later diffs.
+        # The suite runner alone, so the base comparison's first prefix is
+        # the runner and it re-runs only the failing files (#747).
+        # `-p no:cacheprovider` keeps pytest from writing `.pytest_cache`
+        # into a tree the gate later diffs.
         runner = row if isinstance(row, str) else SUITE_ROW
         text += f"| {ROW} | {runner} |\n"
     return text
@@ -3695,7 +3696,7 @@ def test_a_failing_test_is_not_sealed_and_is_new_when_the_base_passes(repo):
     assert not any(c in out.stdout for c in HALF_BLOCKS)
     assert re.search(r"^\s+suite\s", out.stdout, re.M), "the failing check is unnamed"
     gate = gate_module()
-    assert re.search(rf"tests/test_two\.py\s+{gate.NEW}\b", out.stdout), (
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NEW, (
         f"the failing file is not labelled `{gate.NEW}`:\n{out.stdout}"
     )
     assert gate.ON_BASE not in out.stdout
@@ -3712,10 +3713,9 @@ def test_a_failure_the_base_shares_is_labelled_failing_on_base_too(tmp_path):
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert re.search(rf"tests/test_two\.py\s+{gate.ON_BASE}", out.stdout), (
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.ON_BASE, (
         f"the failing file is not labelled `{gate.ON_BASE}`:\n{out.stdout}"
     )
-    assert not re.search(rf"tests/test_two\.py\s+{gate.NEW}\b", out.stdout)
     assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
 
 
@@ -3823,12 +3823,511 @@ def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tm
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert re.search(rf"tests/test_two\.py\s+{gate.ON_BASE}", out.stdout), (
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.ON_BASE, (
         "one absent file cost the base-carried file its measured verdict:\n"
         f"{out.stdout}"
     )
-    assert re.search(rf"tests/test_three\.py\s+{gate.NEW}\b", out.stdout), out.stdout
+    assert verdict_of(out.stdout, "tests/test_three.py") == gate.NEW, out.stdout
     assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
+
+
+# --- 1791076832: the base re-run finds the part of the row that ran pytest ----
+#
+# #747. The comparison re-ran the row's first `&&` part, and a lint-first row's
+# first part is the linter: no `FAILED` line could appear, and every failing
+# file read `new` whatever the base did. The row is now cut where its shell
+# cuts it, and each prefix is tried until one prints pytest's summary.
+
+
+@pytest.mark.parametrize(
+    "row, prefixes",
+    [
+        ("pytest -q", ["pytest -q"]),
+        (
+            "lint && fmt && pytest -q",
+            ["lint", "lint && fmt", "lint && fmt && pytest -q"],
+        ),
+        ("a || b", ["a", "a || b"]),
+        ("a; b", ["a", "a; b"]),
+        # A lone `&` backgrounds the part before it, so it ends no prefix
+        # (round 1's 🟡 3): a prefix ending there would run that part in the
+        # foreground, which the row never does.
+        ("a & b", ["a & b"]),
+        ("a & b && c", ["a & b", "a & b && c"]),
+        ("a |& b", ["a", "a |& b"]),
+        ("pytest -q | tee out.txt", ["pytest -q", "pytest -q | tee out.txt"]),
+        ("pytest 2>&1 && lint", ["pytest 2>&1", "pytest 2>&1 && lint"]),
+        ("pytest >&2 && lint", ["pytest >&2", "pytest >&2 && lint"]),
+        ("lint <&0 && pytest", ["lint <&0", "lint <&0 && pytest"]),
+        ("echo 'a && b' && pytest", ["echo 'a && b'", "echo 'a && b' && pytest"]),
+        ('echo "a; b" && pytest', ['echo "a; b"', 'echo "a; b" && pytest']),
+        ("echo a\\&\\&b && pytest", ["echo a\\&\\&b", "echo a\\&\\&b && pytest"]),
+        (
+            "echo $(true && true) && pytest",
+            ["echo $(true && true)", "echo $(true && true) && pytest"],
+        ),
+        (
+            "echo $(echo ')') && pytest",
+            ["echo $(echo ')')", "echo $(echo ')') && pytest"],
+        ),
+        (
+            "echo `true && true` && pytest",
+            ["echo `true && true`", "echo `true && true` && pytest"],
+        ),
+        (
+            'echo "$(echo "a;b")" && pytest',
+            ['echo "$(echo "a;b")"', 'echo "$(echo "a;b")" && pytest'],
+        ),
+        ('echo "`echo ;`" && pytest', ['echo "`echo ;`"', 'echo "`echo ;`" && pytest']),
+        (
+            "(cd sub && pytest) && lint",
+            ["(cd sub && pytest)", "(cd sub && pytest) && lint"],
+        ),
+        ("echo 'unclosed && pytest", ["echo 'unclosed && pytest"]),
+        # Nothing escapes inside single quotes, and `"` means nothing there.
+        ("echo 'a\\' && pytest", ["echo 'a\\'", "echo 'a\\' && pytest"]),
+        ("echo '\"' && pytest", ["echo '\"'", "echo '\"' && pytest"]),
+        # `'` and `(` mean nothing inside double quotes.
+        ('echo "it\'s (" && pytest', ['echo "it\'s ("', 'echo "it\'s (" && pytest']),
+        ("; pytest", ["; pytest"]),
+        ("lint   &&   pytest  ", ["lint", "lint   &&   pytest"]),
+    ],
+)
+def test_a_row_is_cut_where_sh_cuts_it(row, prefixes):
+    """A7, `/bin/sh`. Every top-level operator is a cut, and nothing inside
+    a quote, an escape, a `$(…)`, a backtick pair or a group is; an `&`
+    straight after `>` or `<` is a redirection. Each prefix is the row's own
+    text up to the cut, and the whole row comes last."""
+    assert gate_module().row_prefixes(row, cmd_exe=False) == prefixes
+
+
+@pytest.mark.parametrize(
+    "row, prefixes",
+    [
+        ("bin\\test -q && lint", ["bin\\test -q", "bin\\test -q && lint"]),
+        ("lint & pytest", ["lint", "lint & pytest"]),
+        ("a || b", ["a", "a || b"]),
+        ("pytest | more", ["pytest", "pytest | more"]),
+        ("a; b", ["a; b"]),
+        ('echo "a && b" && pytest', ['echo "a && b"', 'echo "a && b" && pytest']),
+        ("echo a^&^&b && pytest", ["echo a^&^&b", "echo a^&^&b && pytest"]),
+        (
+            "(cd sub && pytest) && lint",
+            ["(cd sub && pytest)", "(cd sub && pytest) && lint"],
+        ),
+        ("pytest 2>&1 && lint", ["pytest 2>&1", "pytest 2>&1 && lint"]),
+        ("echo 'a && b'", ["echo 'a", "echo 'a && b'"]),
+        ("echo a\\&& b", ["echo a\\", "echo a\\&& b"]),
+        ('echo "unclosed && pytest', ['echo "unclosed && pytest']),
+    ],
+)
+def test_a_row_is_cut_where_cmd_exe_cuts_it(row, prefixes):
+    """A7, `cmd.exe`, driven from any machine. `;` separates nothing there,
+    `'` and `\\` are ordinary characters, and `^` is the escape."""
+    assert gate_module().row_prefixes(row, cmd_exe=True) == prefixes
+
+
+@pytest.mark.parametrize(
+    "windows, comspec, reads",
+    [
+        (False, r"C:\Windows\System32\cmd.exe", False),
+        (True, r"C:\Windows\System32\cmd.exe", True),
+        (True, '"C:\\Windows\\System32\\CMD.EXE"', True),
+        (True, "", True),
+        (True, r"C:\Program Files\Git\bin\bash.exe", False),
+    ],
+)
+def test_the_shell_a_row_is_cut_for_is_the_one_it_is_handed_to(windows, comspec, reads):
+    """The grammar `row_prefixes` cuts by and the rewrite `handed_to_shell`
+    makes read one answer, `cmd_exe_reads`, driven here from either machine."""
+    assert gate_module().cmd_exe_reads(windows=windows, comspec=comspec) is reads
+
+
+def verdict_of(text, path):
+    """The whole word the failure form gives `path` under *compared at the
+    base*, or None. Whole, so `new` and `new? …` are told apart: a `new\\b`
+    search matches both."""
+    found = re.search(rf"^\s+{re.escape(path)}  (.+)$", text, re.M)
+    return found and found.group(1).rstrip()
+
+
+# Two stand-ins that print what a linter and a formatter print and exit 0, so
+# a row can be lint-first without a linter installed. `LINT_FAILS_HERE` is a
+# file whose presence makes the lint stand-in exit 1.
+LINT_FAILS_HERE = "lint.fails"
+LINT = f"{sys.executable} -c \"import os, sys; print('All checks passed!'); sys.exit(os.path.exists('{LINT_FAILS_HERE}'))\""
+FORMAT = f"{sys.executable} -c \"print('2 files already formatted')\""
+LINT_FIRST_ROW = f"{LINT} && {FORMAT} && {SUITE_ROW}"
+PASSING_TWO = "def test_two():\n    assert True\n"
+# The feature's failing `test_two`, worded apart from the base's so a commit
+# replacing one with the other always has something to commit.
+FAILING_TWO = FAILING_TEST.replace("planted", "planted on the feature")
+UNCOLLECTABLE = "import a_module_nobody_has\n\n\ndef test_three():\n    pass\n"
+FAILING_THREE = FAILING_TEST.replace("test_two", "test_three")
+
+
+def base_then_feature(d, row, at_base, on_feature):
+    """A fixture repository under `row` whose `base` branch gains the files
+    `at_base`, and whose `feature` branch then takes `on_feature` over them,
+    where `None` deletes the file."""
+    repo = build_repo(d, row=row)
+    git(repo, "switch", "-q", "base")
+    for rel, text in at_base.items():
+        write(repo, rel, text)
+    commit(repo, "the base")
+    git(repo, "switch", "-q", "feature")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "merge",
+        "-q",
+        "--no-edit",
+        "base",
+    )
+    for rel, text in on_feature.items():
+        if text is None:
+            (repo / rel).unlink()
+        else:
+            write(repo, rel, text)
+    commit(repo, "the feature")
+    return repo
+
+
+# What pytest 9.1.1 printed at the end of a run, measured for `questions.md`
+# Q3 in a scratch directory: a collection error with and without xdist, a
+# fixture error in setup, and `-x` with and without xdist. Each is
+# `(output, files asked about, the words expected)`.
+MEASURED_ENDINGS = [
+    (
+        "ERROR tests/b.py\n"
+        "!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n"
+        "1 error in 0.06s\n",
+        ["tests/b.py", "tests/f.py"],
+        ["failing on base too", "STOPPED_EARLY"],
+    ),
+    (
+        "FAILED tests/f.py::test_b - assert False\n"
+        "ERROR tests/b.py - ImportError while importing test module '/pr...\n"
+        "ERROR tests/s.py::test_d - RuntimeError: x\n"
+        "2 failed, 1 passed, 2 errors in 0.22s\n",
+        ["tests/b.py", "tests/s.py", "tests/f.py", "tests/ok.py"],
+        ["failing on base too", "failing on base too", "failing on base too", "new"],
+    ),
+    (
+        "FAILED tests/f.py::test_b - assert False\n"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+        "1 failed in 0.01s\n",
+        ["tests/f.py", "tests/ok.py"],
+        ["failing on base too", "STOPPED_EARLY"],
+    ),
+    (
+        "FAILED tests/f.py::test_b - assert False\n"
+        "!!!!!!!!!!!! xdist.dsession.Interrupted: stopping after 1 failures !!!!!!!!!!!!!\n"
+        "1 failed, 1 passed, 1 error in 0.30s\n",
+        ["tests/ok.py"],
+        ["STOPPED_EARLY"],
+    ),
+    # Round 1's 🟡 4: at `COLUMNS=40`, the narrowest width pytest honours, the
+    # rule is one `!` each side.
+    (
+        "ERROR tests/b.py\n"
+        "! Interrupted: 1 error during collection !\n"
+        "1 error in 0.06s\n",
+        ["tests/b.py", "tests/f.py"],
+        ["failing on base too", "STOPPED_EARLY"],
+    ),
+    (None, ["tests/f.py"], ["NO_RUNNER"]),
+]
+
+
+# What decides that a run at the base was pytest's: its counts and its clock
+# alone on a line. Each is `(line, whether it is pytest's)`. The pytest lines
+# are pytest 9.1.1's, bare under `-q` and between `=` rules; the others print
+# a count and a clock too, measured in round 1 (cargo) and here.
+SUMMARY_LINES = [
+    ("1 failed, 1 passed in 0.02s", True),
+    ("1 error in 0.06s", True),
+    ("2 failed, 1 passed, 2 errors in 0.22s", True),
+    ("==== 768 passed, 1 skipped, 3 warnings in 612.34s (0:10:12) ====", True),
+    # pytest 9.1.1 with the built-in `subtests` fixture (round 2's 🟡 1).
+    ("2 failed, 1 subtests passed in 0.01s", True),
+    ("1 passed, 2 subtests passed in 0.00s", True),
+    (
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; "
+        "1 filtered out; finished in 0.00s",
+        False,
+    ),
+    ("no tests ran in 0.00s", False),
+    ("Found 2 errors.", False),
+    ("Ran 3 tests in 0.001s", False),
+    ("Resolved 12 packages in 3ms", False),
+    ("3 files would be reformatted in 0.5s", False),
+    ("4 checks in 12", False),
+    # Constructed, not measured: each holds one edge of the label's shape --
+    # a later label of three words, a first label of two, and counts that
+    # no comma separates (round 2).
+    ("1 passed, 3 files would reformat in 0.5s", False),
+    ("2 subtests passed in 0.01s", False),
+    ("3 tests 2 suites in 1.2s", False),
+    ("1 passed in 0.01s, and a linter went on talking", False),
+    ("\x1b[31m1 failed\x1b[0m, \x1b[32m1 passed\x1b[0m\x1b[31m in 0.02s\x1b[0m", False),
+]
+
+
+@pytest.mark.parametrize("line, pytests", SUMMARY_LINES)
+def test_only_pytests_own_summary_line_says_pytest_ran(line, pytests):
+    """Round 1's 🟡 1. `suite_counts` takes any count followed by a clock,
+    which is right for the panel and wrong for choosing the run at the base:
+    `cargo test` prints one, and read as pytest's it gave `new` for a file
+    the base fails. A coloured line is not read either, and a run that
+    prints only that reads `new?`, which costs a measurement and fakes none."""
+    found = gate_module().PYTEST_SUMMARY_RE.search(f"F.\n{line}\n")
+    assert bool(found) is pytests, line
+
+
+@pytest.mark.parametrize("text, files, words", MEASURED_ENDINGS)
+def test_the_base_run_is_read_off_what_pytest_printed(text, files, words):
+    """`verdicts_at_base` over pytest's own endings (#747, `questions.md` Q1
+    and Q3): a `FAILED` or `ERROR` line in any of its three measured shapes
+    names a file, a `!` rule means the run stopped early, and no run means
+    nothing was measured. A word in capitals is the module's constant."""
+    gate = gate_module()
+    expected = [getattr(gate, w) if w.isupper() else w for w in words]
+    assert list(gate.verdicts_at_base(text, files).values()) == expected
+
+
+def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
+    """A9 (#747, contract §14). The two reasons are text a person reads and
+    acts on, so they are pinned whole, and each starts with the word that
+    marks it unmeasured. Every document that tells a reader what the gate's
+    words mean names `new?` beside the other two, so a sealer handing it on
+    and a smith reading it are both told it is not `new`."""
+    gate = gate_module()
+    assert gate.NO_RUNNER == (
+        "new? not measured: no part of the row printed a line the gate reads as "
+        "pytest's summary at the base (each part tried is kept as "
+        "suite-at-base-<k>.txt)"
+    )
+    assert gate.STOPPED_EARLY == (
+        "new? not measured: the run at the base stopped before every test ran, "
+        "and it does not name this file"
+    )
+    readers = {
+        ("agents", "sealer.md"): "`new?`",
+        ("agents", "smith.md"): "`new?` is neither",
+        ("skills", "verify", "SKILL.md"): "**New?**",
+        ("README.md",): "new? → not measured at the base",
+        ("README.ko.md",): "new? → base 에서 재지 못했다",
+        ("templates", "config.md"): "each file reads `new?` with the reason",
+    }
+    for parts, phrase in readers.items():
+        with open(os.path.join(ROOT, *parts), encoding="utf-8") as handle:
+            assert phrase in handle.read(), f"{'/'.join(parts)} does not name `new?`"
+    # Round 2's ⬜ 2: the reason a reader acts on says the summary was not
+    # READ, since with colour forced on pytest prints one the gate does not.
+    with open(
+        os.path.join(ROOT, "skills", "verify", "SKILL.md"), encoding="utf-8"
+    ) as handle:
+        assert "printed a line the gate reads as pytest's summary" in handle.read()
+    with open(GATE, encoding="utf-8") as handle:
+        docstring = ast.get_docstring(ast.parse(handle.read()))
+    assert "`new?` with the reason no run measured it" in docstring
+
+
+def test_the_one_counterfeit_the_gate_cannot_see_is_named():
+    """Round 1's 🟡 5. A part that prints pytest's summary without running the
+    files appended to it gives `new` for a file it never ran, and pytest
+    under `-q` names no file that passed, so nothing mechanical tells. The
+    row's author is told in rule 3, and `compare_at_base` says it rather than
+    claiming every `new` measured."""
+    with open(os.path.join(ROOT, "templates", "config.md"), encoding="utf-8") as handle:
+        assert "a wrapper that drops its arguments" in handle.read()
+    gate = gate_module()
+    assert "part that drops its arguments" in gate.compare_at_base.__doc__
+
+
+def test_a_part_that_is_not_pytest_is_passed_over_though_it_prints_counts(tmp_path):
+    """Round 1's 🟡 1, end to end. The first part prints what `cargo test`
+    prints for a filter that matched nothing; it is not pytest, so the
+    comparison goes on to the part that is, and the base's failure is found."""
+    cargo = next(line for line, _ in SUMMARY_LINES if line.startswith("test result:"))
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{sys.executable} -c \"print('{cargo}')\" && {SUITE_ROW}",
+        {"tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE, (
+        out.stdout
+    )
+
+
+def test_a_file_named_below_a_cd_is_run_at_the_base_and_not_called_new(tmp_path):
+    """Round 1's 🟡 2. The row runs pytest from `sub`, so the failing file is
+    named `tests/test_two.py` and neither tree carries that path at the root.
+    It used to read `new` with no run at the base, which fails it. A path the
+    branch's own root does not carry says nothing about the base, so it is
+    run there with the others."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"cd sub && {SUITE_ROW}",
+        {"sub/tests/test_two.py": FAILING_TEST},
+        {"sub/tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE, (
+        out.stdout
+    )
+
+
+def test_a_runner_first_row_runs_once_at_the_base(tmp_path):
+    """A3 (#747). Where the runner is the row's first part, the first prefix
+    prints pytest's summary and is the only one run: the parts after it cost
+    the base comparison nothing."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{SUITE_ROW} && {LINT}",
+        {"tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE
+    kept = sorted(p.name for p in (tmp_path / "out").glob("suite-at-base-*.txt"))
+    assert kept == ["suite-at-base-1.txt"], kept
+
+
+def test_a_row_is_cut_at_the_semicolon_its_shell_reads(tmp_path):
+    """The comparison cuts by the grammar of the shell it hands the row to:
+    under `/bin/sh` a `;` ends a part, so the format stand-in is tried alone
+    first and pytest is reached by the second prefix."""
+    posix_row_shell_or_skip()
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{FORMAT}; {SUITE_ROW}",
+        {"tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE
+    kept = sorted(p.name for p in (tmp_path / "out").glob("suite-at-base-*.txt"))
+    assert kept == ["suite-at-base-1.txt", "suite-at-base-2.txt"], kept
+
+
+def test_a_lint_first_row_finds_a_failure_the_base_shares(tmp_path):
+    """A1 (#747). The row runs a linter and a formatter before pytest, and
+    the base fails the same file. The comparison used to re-run the first
+    `&&` part — the linter — so no `FAILED` line could appear and the file
+    read `new`. The prefix that reaches pytest is found by running it."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        LINT_FIRST_ROW,
+        {"tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.ON_BASE, out.stdout
+    # The three prefixes, the last one the run that printed pytest's summary.
+    kept = sorted(p.name for p in (tmp_path / "out").glob("suite-at-base-*.txt"))
+    assert kept == [f"suite-at-base-{k}.txt" for k in (1, 2, 3)], kept
+    assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
+
+
+def test_a_lint_first_row_finds_a_failure_the_branch_introduced(tmp_path):
+    """A2 (#747). As A1, and the base passes the file: it reads exactly
+    `new`, measured, and not `new?`."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        LINT_FIRST_ROW,
+        {"tests/test_two.py": PASSING_TWO},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().NEW, out.stdout
+
+
+def test_a_row_that_runs_no_pytest_gives_no_measured_word(tmp_path):
+    """A4 (#747). The row prints a line in pytest's `FAILED` shape and exits
+    1, and prints no summary. No part of it runs pytest, so nothing at the
+    base is a measurement: the file reads `new?` with the reason, never
+    `new` or `failing on base too`."""
+    script = (
+        f"{sys.executable} -c \"print('FAILED tests/test_two.py::test_two - x'); "
+        'raise SystemExit(1)"'
+    )
+    repo = base_then_feature(
+        tmp_path / "repo",
+        script,
+        {"tests/test_two.py": PASSING_TWO},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RUNNER, out.stdout
+
+
+def test_a_part_that_fails_at_the_base_before_the_runner_measures_nothing(tmp_path):
+    """A5 (#747). The lint stand-in fails at the base only, so `&&` stops
+    every prefix before pytest runs there, and the file reads `new?`."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        LINT_FIRST_ROW,
+        {"tests/test_two.py": PASSING_TWO, LINT_FAILS_HERE: ""},
+        {"tests/test_two.py": FAILING_TWO, LINT_FAILS_HERE: None},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RUNNER, out.stdout
+
+
+def test_a_base_run_stopped_by_a_collection_error_names_only_what_it_ran(tmp_path):
+    """A6 (#747), with `questions.md` Q1. The base cannot collect
+    `test_three`, which pytest reports as an `ERROR` line and an interrupted
+    run, so `test_three` reads `failing on base too`. `test_two` fails at the
+    base as well, but the interrupted run never reached it: it reads `new?`,
+    because a file the run did not name was not shown passing."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        True,
+        {"tests/test_two.py": FAILING_TEST, "tests/test_three.py": UNCOLLECTABLE},
+        {"tests/test_two.py": FAILING_TWO, "tests/test_three.py": FAILING_THREE},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_three.py") == gate.ON_BASE, out.stdout
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.STOPPED_EARLY, out.stdout
+
+
+def test_a_base_run_stopped_at_its_first_failure_names_only_what_it_ran(tmp_path):
+    """The maxfail half of A6 (#747). The row stops at the first failure,
+    and at the base that is `test_one`, which the branch passes. The base
+    run never reached `test_two`, so it reads `new?` and not `new`."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        SUITE_ROW.replace(" tests", " -x tests"),
+        {
+            "tests/test_one.py": FAILING_TEST.replace("test_two", "test_one"),
+            "tests/test_two.py": FAILING_TEST,
+        },
+        {"tests/test_one.py": PASSING_TEST, "tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.STOPPED_EARLY, out.stdout
 
 
 def test_a_plugin_check_that_fails_is_named_and_the_suite_is_not_compared(repo):
