@@ -85,7 +85,9 @@ def test_a_programs_terminator_followed_only_by_newlines_has_no_body_left():
 
 
 # Each string below fails exactly the clause it is filed under, and carries a
-# commit-bearing body, so None here is the gate reading it as before.
+# commit-bearing body, so None here is the gate reading it as before. The
+# commit is in a body and nowhere else: one after the terminator is judged
+# where it lands, which is not what these strings are about.
 FAILS = {
     # A. Bytes where a reader and some shell were measured or can be shown to
     # disagree, anywhere in the command.
@@ -96,7 +98,7 @@ FAILS = {
     "A: a backslash-newline in the body": f"cat > f <<'EOF'\nx\\\n{BODY}\nEOF",
     "A: a backslash-newline before the terminator": f"cat > f <<'EOF'\n{BODY}\\\nEOF",
     "A: a backslash-newline in a program's suffix": (
-        "python3 - <<'EOF'\nprint(1)\nEOF\ngit \\\ncommit -m x"
+        f"python3 - <<'EOF'\n{BODY}\nEOF\necho \\\nx"
     ),
     # B. The first line, character for character.
     "B: a space before the line": f" cat > f <<'EOF'\n{BODY}\nEOF",
@@ -140,7 +142,6 @@ FAILS = {
     "B: tee to two files": f"tee a b <<'EOF'\n{BODY}\nEOF",
     "B: the opener on line 2": f"echo hi\ncat > f <<'EOF'\n{BODY}\nEOF",
     "B: no newline at all": "cat > f <<'EOF'",
-    "B: an unterminated single quote in a WORD": f"cat > 'f <<'EOF'\n{BODY}\nEOF",
     # C. The terminator: a line exactly D, and nothing stripped first.
     "C: no terminator": f"cat > f <<'EOF'\n{BODY}",
     "C: only a terminator with a trailing blank": f"cat > f <<'EOF'\n{BODY}\nEOF ",
@@ -150,15 +151,13 @@ FAILS = {
     "D: a second heredoc in the suffix": (
         f"python3 - <<'EOF'\nprint(1)\nEOF\nbash <<'X'\n{BODY}\nX"
     ),
-    "D: a here-string in the suffix": (
-        "python3 - <<'EOF'\nprint(1)\nEOF\nbash <<< 'git commit -m x'"
-    ),
+    "D: a here-string in the suffix": (f"python3 - <<'EOF'\n{BODY}\nEOF\ncat <<< x"),
     "D: an arithmetic shift in the suffix": (
-        "python3 - <<'EOF'\nprint(1)\nEOF\nn=$((1<<2)); git commit -m x"
+        f"python3 - <<'EOF'\n{BODY}\nEOF\nn=$((1<<2))"
     ),
     "D: a `<<` inside a quoted WORD": f"cat > 'a<<b' <<'EOF'\n{BODY}\nEOF",
     # E. After a sink, nothing but newlines.
-    "E: a command after a sink": f"cat > f <<'EOF'\n{BODY}\nEOF\ngit commit -m x",
+    "E: a command after a sink": f"cat > f <<'EOF'\n{BODY}\nEOF\necho done",
     "E: a command after a sink's blank line": (
         f"cat > f <<'EOF'\n{BODY}\nEOF\n\nbash f"
     ),

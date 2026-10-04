@@ -168,11 +168,10 @@ def corpus(w, m, h):
             "measured: ; after cd, no heredoc",
             f"cd {q(w)} && true ; git add f && {BODY}",
         ),
-        (
-            "measured: a patch whose body loops over a commit string",
-            f"cd {q(w)} && python3 - <<'EOF'\ns = 'don\\'t'\n"
-            f"for c in ['cd {w}; {BODY}']:\n    print(c)\nEOF",
-        ),
+        # "measured: a patch whose body loops over a commit string" left this
+        # corpus with work item 1791089603 (#739), on the owner's answer to
+        # its Q1: it is the one heredoc shape that work makes data, and
+        # `moved_row` below pins it silent.
         (
             "measured: a body line equal to the delimiter ends it early",
             f"cat > note.md <<'EOF'\nquoted:\nEOF\n{BODY}\nEOF",
@@ -204,6 +203,29 @@ def corpus(w, m, h):
             f"{BODY}; echo " + "$(" * 500 + "true" + ")" * 500,
         ),
     ]
+
+
+def moved_row(w):
+    """The one row that left the corpus (work item 1791089603, Q1). A LEAD
+    `cd`, a Python program on stdin and a quoted delimiter, with no suffix:
+    exactly the one shape `hooks/one_heredoc.py` admits, so its body is a
+    program's text and not a command. The owner answered #760's Q1 to move
+    it, and the redesign carried that answer."""
+    return (
+        f"cd {q(w)} && python3 - <<'EOF'\ns = 'don\\'t'\n"
+        f"for c in ['cd {w}; {BODY}']:\n    print(c)\nEOF"
+    )
+
+
+def test_the_moved_row_reads_silent(monkeypatch, capsys, projects, tmp_path):
+    """Q1 of 1791089603. The base stopped this row; it is silent now, with
+    the press and without it, and nothing else in the corpus moved."""
+    session = make_repo(tmp_path / "session")
+    w = make_repo(tmp_path / "w", declared=True)
+    for which, answers in with_and_without_the_press(
+        monkeypatch, capsys, projects, moved_row(w), session
+    ).items():
+        assert answers == ["silent", "silent"], (which, answers)
 
 
 def test_no_shape_the_base_stops_reads_silent(monkeypatch, capsys, projects, tmp_path):
