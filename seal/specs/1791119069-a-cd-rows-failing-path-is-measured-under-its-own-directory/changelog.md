@@ -16,10 +16,18 @@
   `no tests ran` line, or a count of warnings alone, with exit code 4 or 5,
   the base has no test in that file, and the file reads `new`. A run that
   collected nothing is never read as a summary, so a warning at the base no
-  longer turns a file the base fails into `new`. This holds under `pytest-xdist` too, which
-  prints no "file not found" message for a missing path. Any other output
-  gives `new?`. Every other failing file is compared as before. Each run of a
-  file on its own is kept as `suite-at-base-<k>-<n>.txt`.
+  longer turns a file the base fails into `new`. This holds under
+  `pytest-xdist` too, which prints no "file not found" message for a missing
+  path. Any other output gives `new?`. Every other failing file is compared
+  as before. Each run of a file on its own is kept as
+  `suite-at-base-<k>-<n>.txt`.
+
+  The run at the base is read from pytest's own last lines only: its final
+  summary line, and the `FAILED` and `ERROR` lines under its last `short test
+  summary info` rule. A failing test that runs pytest itself, as a suite that
+  tests a pytest plugin does, prints that inner run's lines above them. Read
+  anywhere, an inner `FAILED` line gave `failing on base too` to a file the
+  base passes, and an inner `no tests ran` hid a failure the base shares.
 
   `templates/config.md` rule 3 states what this costs: one more run of the
   row's parts up to the runner for each such file, only when the broad gate

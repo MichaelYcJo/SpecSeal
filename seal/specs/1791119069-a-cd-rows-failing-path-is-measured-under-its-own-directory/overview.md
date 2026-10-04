@@ -31,6 +31,11 @@ The direction the root's tree never nominates (a `cd` row whose base carries
 a same-named file at the root and not below the `cd`) still reads `new?`.
 That is `plan.md` Alternatives row G, not taken, and `spec.md` §*Out* names it.
 
+Two members of round 2's class stay as they were, on purpose:
+
+- `failing_files` reads every `FAILED` line in the branch's own run of the whole row. Reading only after the last `short test summary info` rule, as the base reading now does, would drop the first runner's files from a row whose two runners are joined by `;`, so a line a test printed can still add a file to the comparison. The gate fails the suite either way, so it is an extra line in the report, never a seal.
+- Under `-s` a test's output is written live, and what it writes to stderr lands after pytest's own lines, because the gate joins stdout and then stderr. An inner run written there can still decide. Telling the two streams apart needs `run` to keep them apart, which a fix pass may not add.
+
 ## Fed back into the spec
 
 none — the rule-3 sentences are the spec's Scope 7 text, adapted ("run

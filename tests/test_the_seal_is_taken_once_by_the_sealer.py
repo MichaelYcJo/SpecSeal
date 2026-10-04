@@ -4002,9 +4002,13 @@ def base_then_feature(d, row, at_base, on_feature):
 # What pytest 9.1.1 printed at the end of a run, measured for `questions.md`
 # Q3 in a scratch directory: a collection error with and without xdist, a
 # fixture error in setup, and `-x` with and without xdist. Each is
-# `(output, files asked about, the words expected)`.
+# `(output, files asked about, the words expected)`. pytest writes its
+# `FAILED` and `ERROR` lines only under its `short test summary info` rule,
+# after every test's captured output, and its `!` rules after them (#761
+# round 2), so each ending carries the rule.
 MEASURED_ENDINGS = [
     (
+        "=========================== short test summary info ============================\n"
         "ERROR tests/b.py\n"
         "!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n"
         "1 error in 0.06s\n",
@@ -4012,6 +4016,7 @@ MEASURED_ENDINGS = [
         ["failing on base too", "STOPPED_EARLY"],
     ),
     (
+        "=========================== short test summary info ============================\n"
         "FAILED tests/f.py::test_b - assert False\n"
         "ERROR tests/b.py - ImportError while importing test module '/pr...\n"
         "ERROR tests/s.py::test_d - RuntimeError: x\n"
@@ -4020,6 +4025,7 @@ MEASURED_ENDINGS = [
         ["failing on base too", "failing on base too", "failing on base too", "new"],
     ),
     (
+        "=========================== short test summary info ============================\n"
         "FAILED tests/f.py::test_b - assert False\n"
         "!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
         "1 failed in 0.01s\n",
@@ -4027,6 +4033,7 @@ MEASURED_ENDINGS = [
         ["failing on base too", "STOPPED_EARLY"],
     ),
     (
+        "=========================== short test summary info ============================\n"
         "FAILED tests/f.py::test_b - assert False\n"
         "!!!!!!!!!!!! xdist.dsession.Interrupted: stopping after 1 failures !!!!!!!!!!!!!\n"
         "1 failed, 1 passed, 1 error in 0.30s\n",
@@ -4036,11 +4043,36 @@ MEASURED_ENDINGS = [
     # Round 1's 🟡 4: at `COLUMNS=40`, the narrowest width pytest honours, the
     # rule is one `!` each side.
     (
+        "=========================== short test summary info ============================\n"
         "ERROR tests/b.py\n"
         "! Interrupted: 1 error during collection !\n"
         "1 error in 0.06s\n",
         ["tests/b.py", "tests/f.py"],
         ["failing on base too", "STOPPED_EARLY"],
+    ),
+    # #761 round 2: a failing test's captured output, printed above pytest's
+    # own rule, carries lines an inner pytest run printed. Only what follows
+    # the last `short test summary info` rule is this run's own.
+    (
+        "___________________________________ test_f ___________________________________\n"
+        "----------------------------- Captured stdout call -----------------------------\n"
+        "FAILED tests/g.py::test_g - inner\n"
+        "ERROR tests/h.py - inner\n"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+        "=========================== short test summary info ============================\n"
+        "FAILED tests/f.py::test_f - assert False\n"
+        "1 failed, 2 passed in 0.03s\n",
+        ["tests/f.py", "tests/g.py", "tests/h.py"],
+        ["failing on base too", "new", "new"],
+    ),
+    # No rule at all: pytest printed no `FAILED` line of its own (`-rN`), so
+    # one in a test's captured output names nothing.
+    (
+        "----------------------------- Captured stdout call -----------------------------\n"
+        "FAILED tests/g.py::test_g - inner\n"
+        "1 failed, 1 passed in 0.02s\n",
+        ["tests/g.py"],
+        ["new"],
     ),
     (None, ["tests/f.py"], ["NO_RUNNER"]),
 ]
@@ -4516,17 +4548,75 @@ def test_a_run_of_several_that_counted_only_warnings_is_not_measured(tmp_path, x
     assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RUNNER, out.stdout
 
 
+# A base test that fails after printing what an inner pytest run printed: a
+# suite that tests a pytest plugin, or runs pytest in a subprocess, does this.
+PRINTS_AN_EMPTY_RUN = (
+    "import subprocess\nimport sys\n\n\n"
+    "def test_two(tmp_path):\n"
+    "    inner = subprocess.run(\n"
+    "        [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', str(tmp_path)],\n"
+    "        capture_output=True, text=True,\n"
+    "    )\n"
+    "    print(inner.stdout)\n"
+    "    assert False, 'planted'\n"
+)
+PRINTS_A_FAILED_LINE = (
+    "def test_one():\n"
+    "    print('FAILED tests/test_two.py::test_two - an inner run')\n"
+    "    assert False, 'planted'\n"
+)
+INNER_OUTPUT = [
+    # The base fails `tests/test_two.py` after printing an inner run's
+    # `no tests ran`: measured, `failing on base too`.
+    pytest.param(
+        {"tests/test_two.py": PRINTS_AN_EMPTY_RUN},
+        {"tests/test_two.py": FAILING_TWO},
+        "ON_BASE",
+        id="an-inner-empty-run",
+    ),
+    # The base passes `tests/test_two.py`, and its failing `test_one` prints
+    # a `FAILED` line naming it: measured, `new`.
+    pytest.param(
+        {"tests/test_one.py": PRINTS_A_FAILED_LINE, "tests/test_two.py": PASSING_TWO},
+        {"tests/test_one.py": PASSING_TEST, "tests/test_two.py": FAILING_TWO},
+        "NEW",
+        id="an-inner-failed-line",
+    ),
+]
+
+
+@pytest.mark.parametrize("xdist", UNDER)
+@pytest.mark.parametrize("at_base, on_feature, word", INNER_OUTPUT)
+def test_what_a_test_printed_is_not_read_as_pytests_own_lines(
+    tmp_path, at_base, on_feature, word, xdist
+):
+    """#761 round 2's 🟡 1, and its class. A failing test's captured output
+    is printed above pytest's own lines, and a test that ran pytest itself
+    carries that run's lines there. Read anywhere, an inner `no tests ran`
+    turned a run that measured the file into `new?` with a false reason, and
+    an inner `FAILED` line named a file the base passes `failing on base
+    too`. Only pytest's own last summary line, and what follows its last
+    `short test summary info` rule, are this run's."""
+    repo = base_then_feature(tmp_path / "repo", suite_row(xdist), at_base, on_feature)
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    expected = getattr(gate_module(), word)
+    assert verdict_of(out.stdout, "tests/test_two.py") == expected, out.stdout
+
+
 # The last line of a pytest 9.1.1 run, and whether it is the summary of a run
 # that collected something. `_pytest/terminal.py`'s
 # `_build_normal_summary_stats_line` joins one `<count> <type>` per type
 # counted, in `KNOWN_TYPES` order — failed, passed, skipped, deselected,
-# xfailed, xpassed, warnings, error, subtests passed, then a plugin's own —
-# and writes `no tests ran` where nothing was counted. A run that collected
-# nothing counts no test outcome, so its line is `no tests ran` or a count of
-# warnings alone (#761 round 1). `summary_stats` writes it between `=` rules,
-# bare under `-q`, and not at all under `-qq`. A run whose tests were all
-# deselected collected them, and its line is a summary: it measured that the
-# base has no selected test there.
+# xfailed, xpassed, warnings, error, then the three subtests types — and a
+# plugin's own after them, and writes `no tests ran` where nothing was
+# counted. A run that collected nothing counts no test outcome, so its line
+# is `no tests ran` or a count of warnings alone (#761 round 1).
+# `summary_stats` writes it between `=` rules, bare under `-q`, and not at
+# all under `-qq`. A run whose tests were all deselected collected them, and
+# plain its line is a summary; under pytest-xdist 3.8.0 the controller
+# prints no deselected count, so the same run ends `no tests ran` or a
+# warning count and reads as one that collected nothing (#761 round 2).
 SUMMARIES = [
     ("1 failed, 1 passed in 0.02s", True),
     ("1 passed, 1 warning in 0.01s", True),
@@ -4542,6 +4632,13 @@ SUMMARIES = [
         False,
     ),
     ("2 warnings in 65.00s (0:01:05)", False),
+    # #761 round 2: pytest writes its own line after everything a test
+    # printed, so an inner run's line in a failing test's captured output,
+    # above the real one, does not decide; a later one does.
+    ("=== no tests ran in 0.01s ===\n1 failed in 0.18s", True),
+    ("1 warning in 0.00s\n1 failed in 0.01s", True),
+    ("1 passed in 0.10s\nno tests ran in 0.00s", False),
+    ("1 passed in 0.10s\n1 warning in 0.00s", False),
 ]
 
 
@@ -4640,8 +4737,12 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "A row that runs pytest in more than one directory — `pytest -q && "
         "cd sub && pytest -q` — is asked about every failing file by the first "
         "runner a prefix reaches, in that runner's directory: a file a later "
-        "runner named reads `new` where that directory has no such file, and "
-        "`failing on base too` where a same-named file there fails at the base.",
+        "runner named reads `new` where that directory has no such file or a "
+        "same-named file there passes at the base, and `failing on base too` where "
+        "a same-named file there fails at the base.",
+        # #761 round 2's ⬜ 3: the clause round 1's survivor-check corrected.
+        "each file reads `new?` with the reason, and never `new` unless it "
+        "ran alone and that run collected nothing (below).",
     ):
         assert sentence in text, f"rule 3 does not carry: {sentence}"
     # #761 round 1's ⬜ 8: the reader sent to the base by hand is told to open

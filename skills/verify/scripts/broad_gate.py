@@ -1850,6 +1850,10 @@ ERROR_RE = re.compile(r"^ERROR\s+(\S+?)(?:::|\s)", re.M)
 # `!` each side, so at 40 columns, the narrowest pytest honours, it reads
 # `! Interrupted: 1 error during collection !` (round 1's 🟡 4).
 STOPPED_EARLY_RE = re.compile(r"^!+ .+ !+$", re.M)
+# The rule pytest writes above its own `FAILED` and `ERROR` lines, padded
+# with `=` to the terminal's width (#761 round 2). Everything a test printed
+# stands above it, so a run's own lines are the ones after the last one.
+SHORT_SUMMARY_RE = re.compile(r"^=+ short test summary info =+$", re.M)
 # The line that says pytest ran: its counts and its wall clock alone on a
 # line, bare under `-q` or between `=` rules — `1 failed, 1 passed in 0.02s`,
 # `== 768 passed in 612.34s (0:10:12) ==`. `suite_counts` takes any count
@@ -1924,11 +1928,24 @@ def verdicts_at_base(text, files):
     The second condition is round 1's 🟡 4 of 0.10.0 in a new shape: one
     file's collection error interrupts the run, and every other file it was
     asked about would read `new` for having never run.
+
+    **Only pytest's own lines are read** (#761 round 2). pytest prints every
+    test's captured output first, then its `short test summary info` rule
+    with the `FAILED` and `ERROR` lines under it, then its `!` rules, then
+    the summary (`_pytest/terminal.py`, `pytest_sessionfinish`). A failing
+    test that ran pytest itself carries that run's lines in its captured
+    output, and read anywhere an inner `FAILED` line gave `failing on base
+    too` to a file the base passes. So the lines are read after the last
+    rule. Where there is no rule, pytest printed no such line (`-rN`), and
+    a `!` rule is still looked for everywhere, which can only cost a word.
     """
     if text is None:
         return {f: NO_RUNNER for f in files}
-    named = set(FAILED_RE.findall(text)) | set(ERROR_RE.findall(text))
-    unnamed = STOPPED_EARLY if STOPPED_EARLY_RE.search(text) else NEW
+    rules = list(SHORT_SUMMARY_RE.finditer(text))
+    own = text[rules[-1].end() :] if rules else ""
+    named = set(FAILED_RE.findall(own)) | set(ERROR_RE.findall(own))
+    stopped = STOPPED_EARLY_RE.search(own if rules else text)
+    unnamed = STOPPED_EARLY if stopped else NEW
     return {f: (ON_BASE if f in named else unnamed) for f in files}
 
 
@@ -1956,10 +1973,20 @@ def measured_summary(text):
     That run measured no file, so a line `NOTHING_COLLECTED_RE` reads is
     never a summary, whatever the exit code: read as one, a run of several
     files that the base lacks one of gave `new` for a file the base fails.
+
+    **Only the last such line decides** (#761 round 2). pytest writes its own
+    line after everything a test printed, and a failing test that runs
+    pytest itself carries that inner run's `no tests ran` line in its
+    captured output, above the real `1 failed in …`. Read anywhere, that
+    line turned a run that measured the file into `new?`.
     """
-    if NOTHING_COLLECTED_RE.search(text):
+    found = list(PYTEST_SUMMARY_RE.finditer(text))
+    if not found:
         return None
-    return PYTEST_SUMMARY_RE.search(text)
+    nothing = list(NOTHING_COLLECTED_RE.finditer(text))
+    if nothing and nothing[-1].start() >= found[-1].start():
+        return None
+    return found[-1]
 
 
 # The operators that end one part of a row and begin the next, in each
