@@ -1749,7 +1749,8 @@ def test_a_checked_date_the_calendar_does_not_have_is_named_as_written(
 # reading of a coordinate it carries sits out of the run's reach -- in a
 # fragment the narrowing left out, or in a released file -- that newer reading
 # outranks the new row and the family stays DRIFTED. The row is left whole,
-# named, and nothing of it is written or recorded.
+# named, and no `Re-read ·` row is written for it; the moves under it are
+# still recorded where a pact clause is cited (round 1 of #746, yellow 2).
 
 N_PLACE = {
     "fragment": "seal/ledger/3000000003-the-newer-re-read.md:1",
@@ -1798,7 +1799,7 @@ def test_into_refuses_a_row_its_checked_date_cannot_make_count(
         "`--checked 2026-02-15` is older than the newest reading of "
         f"src/service.py#{unit}, 2026-03-01 at {N_PLACE[n_at]}, so a "
         "`Re-read ·` row dated 2026-02-15 would not outrank it and the row "
-        "would stay DRIFTED; nothing was written or recorded for this row — "
+        "would stay DRIFTED; no `Re-read ·` row was written for this row — "
         "read the code again and run it with the date of that reading"
     ], out.stdout
 
@@ -1898,7 +1899,7 @@ def test_a_reading_dated_after_today_is_named_with_a_correction(repo):
     ), left[0]
     assert left[0].endswith(
         "and `--checked` takes no date after today, so no `Re-read ·` row can "
-        "outrank it; nothing was written or recorded for this row — a "
+        "outrank it; no `Re-read ·` row was written for this row — a "
         "`Corrected ·` row in your own fragment supersedes the row and every "
         "reading of it"
     ), left[0]
@@ -1983,8 +1984,9 @@ def test_a_refusal_names_the_newest_of_the_readings_that_outrank_the_row(repo):
     [
         (
             "docs/the-evidence-ledger.md",
-            "the run writes and records nothing for that row, names it with both "
-            "dates and the place of the later reading, and exits 1. Read the code "
+            "the run writes no row for it, still records the pact changes its "
+            "moved coordinates owe, names it with both dates and the place of the "
+            "later reading, and exits 1. Read the code "
             "again and date that reading; a date equal to the newest ties and is "
             "written",
         ),

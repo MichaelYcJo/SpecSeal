@@ -1585,41 +1585,95 @@ def test_a_left_line_names_its_ledger_in_posix_form(repo, monkeypatch, capsys, s
 # --- #746: a row `--into` refuses for a stale date records nothing -----------
 
 
-def test_a_row_refused_for_a_stale_date_records_nothing(repo):
-    """A5 (#746 spec S6). The released row was read on 2026-09-10, after the
-    run's `--checked 2026-09-04`, so a `Re-read ·` row dated 2026-09-04 would
-    not outrank it. The row is refused in the plan, before its moves are
-    held: the record gains no row for it, no `Re-read ·` row is written, and
-    a second identical run refuses it again and leaves the record byte for
-    byte."""
+def _frozen_released_o1(repo, read_on, grounds):
+    """The freeze, a released row O1 read on READ_ON whose Code grounds are
+    GROUNDS, and an empty `--into` fragment, which it returns."""
     (repo / "seal" / "config.md").write_text(
         config_text(
             ("Mode", "shared"), ("Pact", PACT_URL), ("Ledger frozen from", "0")
         ),
         encoding="utf-8",
     )
-    old = unit_hash(repo, "src/orders.py", "serialize")
     released = repo / "seal" / "releases" / "0.1.0.md"
     released.parent.mkdir(parents=True)
     released.write_text(
         "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
-        + row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}", "2026-09-10"),
+        f"| O1 · the field list | {grounds} | read | {read_on} | |\n",
         encoding="utf-8",
     )
-    fragment = cite(repo, [])
-    move_serialize(repo)
+    return cite(repo, [])
+
+
+def test_a_row_refused_for_a_stale_date_records_its_move_once(repo):
+    """A5, revised by round 1 of #746 (yellow 2). The released row was read
+    on 2026-09-10, after the run's `--checked 2026-09-04`, so a `Re-read ·`
+    row dated 2026-09-04 would not outrank it and none is written. The code
+    under the clause moved all the same, so the move is recorded, before
+    anything else is written; a second identical run refuses the row again,
+    appends nothing, and leaves the record byte for byte."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    fragment = _frozen_released_o1(
+        repo, "2026-09-10", f"`{CLAUSE}`, `src/orders.py#serialize@{old}`"
+    )
+    new = move_serialize(repo)
     states = []
     for _ in range(2):
         code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
         assert code == 1, out
-        assert record_rows(repo) == [], out
         assert "Re-read · O1" not in fragment.read_text(encoding="utf-8"), out
         assert (
             "  LEFT  seal/releases/0.1.0.md:5  O1 · the field list — "
             "`--checked 2026-09-04` is older than the newest reading of "
             "src/orders.py#serialize, 2026-09-10 at seal/releases/0.1.0.md:5"
         ) in out, out
-        assert "nothing was written or recorded for this row" in out, out
-        record = repo / RECORD
-        states.append(record.read_bytes() if record.exists() else None)
+        assert "no `Re-read ·` row was written for this row" in out, out
+        assert record_rows(repo) == [
+            f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | "
+            f"`src/orders.py#serialize@{old}` → `@{new}` | 2026-09-04 |"
+        ], out
+        states.append((repo / RECORD).read_bytes())
     assert states[0] == states[1]
+
+
+def test_a_row_dated_after_today_has_its_move_recorded_before_its_correction(repo):
+    """Round 1 of #746, yellow 2 (the round's P2). The line sends a reading
+    dated after today to a `Corrected ·` row, which supersedes the row, so no
+    later re-read reaches it: the move under the clause is recorded by the
+    run that refused the row, or never."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    _frozen_released_o1(
+        repo, "2999-01-01", f"`{CLAUSE}`, `src/orders.py#serialize@{old}`"
+    )
+    new = move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1 and "a `Corrected ·` row" in out, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | "
+        f"`src/orders.py#serialize@{old}` → `@{new}` | 2026-09-04 |"
+    ], out
+
+
+def test_a_stale_row_with_a_broken_coordinate_says_what_was_recorded(repo):
+    """Round 1 of #746, yellow 1 (the round's P1). A refused row's BROKEN
+    coordinate comes from `released_drift`'s BROKEN list and is recorded
+    beside its moved one, so the refusal's line says no `Re-read ·` row was
+    written, never that nothing was recorded."""
+    s = unit_hash(repo, "src/orders.py", "serialize")
+    e = unit_hash(repo, "src/orders.py", "evict")
+    _frozen_released_o1(
+        repo,
+        "2026-09-10",
+        f"`{CLAUSE}`, `src/orders.py#serialize@{s}`, `src/orders.py#evict@{e}`",
+    )
+    src = SOURCE.replace("'id': order.id", "'id': order.id, 'tax': 0")
+    (repo / "src" / "orders.py").write_text(
+        src.split("\n\n\ndef evict")[0] + "\n", encoding="utf-8"
+    )
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1, out
+    assert "is older than the newest reading" in out, out
+    assert "no `Re-read ·` row was written for this row" in out, out
+    assert "nothing was written or recorded" not in out, out
+    rows = record_rows(repo)
+    assert any(f"`src/orders.py#evict@{e}` BROKEN" in r for r in rows), rows
+    assert any(f"`src/orders.py#serialize@{s}` → " in r for r in rows), rows

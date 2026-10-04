@@ -3493,7 +3493,7 @@ INTO_REPAIR = (
     "YYYY-MM-DD` writes a `Re-read ·` row for it into your own fragment"
 )
 
-STALE_NOTHING = "nothing was written or recorded for this row"
+STALE_NOTHING = "no `Re-read ·` row was written for this row"
 
 
 def spanned(text):
@@ -3549,12 +3549,13 @@ def reverify_into(
     date in `Checked`, and `Re-read <date>` in Notes. One row per row, never
     one per coordinate (spec D4). Exit 1 where a row was left, else 0.
 
-    A row CHECKED cannot make count is left whole (`later_reading`): where a
-    coordinate it would carry has a reading dated after CHECKED, that newer
-    reading outranks the new row and the family stays DRIFTED. A tie is not
-    stale, because readings on the newest date are a union. TODAY, the local
-    date by default, tells a reading no `--checked` can reach, whose repair is
-    a `Corrected ·` row (#746).
+    A row CHECKED cannot make count gets no `Re-read ·` row (`later_reading`):
+    where a coordinate it would carry has a reading dated after CHECKED, that
+    newer reading outranks the new row and the family stays DRIFTED. Its
+    moves still go to MOVES, because the code under it moved all the same. A
+    tie is not stale, because readings on the newest date are a union. TODAY,
+    the local date by default, tells a reading no `--checked` can reach, whose
+    repair is a `Corrected ·` row (#746).
 
     MOVES is `reverify`'s: each coordinate a written row re-reads, and each
     BROKEN one, is appended against the released row it belongs to. TOLD is
@@ -3590,9 +3591,25 @@ def reverify_into(
             continue
         stale = later_reading(view, key, drifted[key], checked)
         if stale is not None:
-            # Refused in the plan, before the row or a move of it is held, so
-            # nothing of it is written or recorded at any step (#746; #756's
-            # spec W9, its second option).
+            # No `Re-read ·` row: dated CHECKED it would clear nothing (#746).
+            # The code under the row moved whatever the reading's date, and
+            # the repair the line names -- a reading dated again, or a
+            # `Corrected ·` row, which no later re-read reaches -- may never
+            # come back through here, so the moves are held for the record
+            # step now, as the loop below holds them. A pact change is never
+            # lost (#756), and a second run finds each the record's last word
+            # and appends nothing (W4). Round 1 of #746, yellow 2.
+            if moves is not None:
+                for coord, m in drifted[key].items():
+                    moves.append(
+                        (
+                            path,
+                            key[1],
+                            coord,
+                            m.group("hash"),
+                            current_hash(m, root, maps, default_repo),
+                        )
+                    )
             date, coord, at = stale
             said = (
                 f"{label} — `--checked {checked}` is older than the newest "
