@@ -185,6 +185,41 @@ def test_an_index_with_no_release_yet_takes_the_first_entry_below_its_text():
     )
 
 
+def test_the_first_gather_creates_the_directory_and_the_first_entry(tmp_path):
+    """A root with an index and no `changelog/` yet: the gather makes the
+    directory, writes the release's file, and gives the index its first
+    entry below the index's own text."""
+    (tmp_path / "CHANGELOG.md").write_text(INDEX_HEAD, encoding="utf-8")
+    d = tmp_path / "seal" / "specs" / "1700000000-earlier"
+    d.mkdir(parents=True)
+    (d / "changelog.md").write_text("- the earlier one\n", encoding="utf-8")
+    r = run("--version", "0.1.0", "--date", "2026-09-01", root=tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert changelog(tmp_path, "0.1.0") == (
+        "## 0.1.0 — 2026-09-01\n\n<!-- specs/1700000000-earlier -->\n"
+        "- the earlier one\n"
+    )
+    assert index(tmp_path) == INDEX_HEAD + entry("## 0.1.0 — 2026-09-01", "0.1.0")
+
+
+def test_a_release_the_index_heads_without_its_file_keeps_the_index_date(tree):
+    """A release file deleted by hand, or never staged, while the index kept
+    its heading: the gather writes the file under the index's date, so the
+    two copies of the heading stay one line, and the index is left as it is."""
+    tree.joinpath("CHANGELOG.md").write_text(
+        INDEX_HEAD
+        + entry("## 0.2.0 — 2026-09-15", "0.2.0")
+        + "\n"
+        + entry("## 0.1.0 — 2026-09-01", "0.1.0"),
+        encoding="utf-8",
+    )
+    listed = index(tree)
+    r = run("--version", "0.2.0", "--date", "2026-09-16", root=tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert changelog(tree).startswith("## 0.2.0 — 2026-09-15\n\n"), changelog(tree)
+    assert index(tree) == listed, index(tree)
+
+
 def test_the_entries_are_in_work_item_order(tree):
     """The id is unix seconds, so ordering by it is chronological — and, more
     to the point, deterministic. A section whose order depends on the
@@ -577,6 +612,12 @@ def test_the_check_reads_the_markers_of_every_release_file(tmp_path):
         "<!-- specs/1788229500-latest -->\n- latest\n",
         "## 0.1.0 — 2026-09-01\n\n<!-- specs/1700000000-earlier -->\n- earlier\n",
     )
+    (tmp_path / "changelog" / "README.md").write_text(
+        "<!-- specs/1600000000-not-a-release -->\n", encoding="utf-8"
+    )
+    gather_mod = load(SCRIPT, "specseal_gather_release_files")
+    listed = [v for v, _ in gather_mod.release_files(str(tmp_path))]
+    assert listed == ["0.2.0", "0.1.0"], listed
     r = run("--check", root=tmp_path)
     assert r.returncode == 0, r.stdout
     out = " ".join(r.stdout.split())
