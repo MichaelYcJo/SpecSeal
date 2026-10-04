@@ -26,7 +26,7 @@ being reported.
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the typecheck at this branch's head | the sealer, spawned by the orchestrator after the review rounds settle |
-| That `dbm.gnu.open` and `nt.open` take no locale encoding. Neither is importable on the three local builds, so both are in the set by reading, as the frame had them | the review chain, by reading the standard library's documentation for `dbm.gnu.open` and `os.open` |
+| ✅ That `dbm.gnu.open` and `nt.open` take no locale encoding. Neither is importable on the three local builds, so both are in the set by reading, as the frame had them | read by round 1 of review in the standard library's documentation for `dbm`, `os.open` and `ossaudiodev`, which also added `ossaudiodev` to the set by reading (`rounds/round-1-report.md`) |
 
 ## Not done
 
