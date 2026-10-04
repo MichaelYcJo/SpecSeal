@@ -68,6 +68,11 @@ Usage:
                                           `--into` writes no released file and
                                           names each row it left
 
+In a signatory -- a `Pact` row in seal/config.md -- every form of `--reverify`
+also appends one row per re-read ledger row citing a clause of a declared pact
+to seal/pact-changes/<work-item-id>.md, and prints a `recorded` line
+(`record_pact_changes`, #647).
+
 --map resolves cross-repo coordinates (e.g. a migration's original repo):
   a coordinate `legacy-api/src/service.py#handler@a1b2c3d` with
   --map legacy-api=~/work/legacy-api is checked inside that checkout.
@@ -1042,12 +1047,92 @@ def content_matches(repo, rel, locator, want, cache):
     return hash_matches, name_matches, capped
 
 
-def read(path):
+# The ledger writes a `--reverify` run has planned and not yet made, keyed by
+# the file's absolute path, or None where writes go to disk at once (round 2
+# of PR #749, red 10 and yellow 11). While a plan is open, `put` adds to
+# it and `read` answers from it, so every later step of the plan reads what
+# the run will write. `main` records the pact changes the plan owes, and only
+# then writes the plan with `apply_plan`: a run that cannot record writes no
+# ledger file, and one killed after recording leaves the ledger unstamped for
+# the next run, which finds the change recorded already and re-stamps.
+PLANNED = None
+
+
+def planned_key(path):
+    return os.path.normcase(os.path.abspath(path))
+
+
+def read(path, strict=False):
+    """PATH's text: what the open plan will write there, else the file's, or
+    None where it will not read.
+
+    **STRICT for a file the run writes** -- a ledger it re-stamps, the
+    record of pact changes (the writer's contract, W9, #647 C and D). A lenient
+    read answers U+FFFD for a byte that is not UTF-8, and writing that text
+    back destroys a byte the run never meant to touch; for a record it also
+    moves the content hash a pact review took it at. So under STRICT a file
+    that will not decode will not read, and its caller leaves it. A file the
+    run only reads -- code under a coordinate, a released ledger -- keeps the
+    lenient read, because nothing is written back to it."""
+    if PLANNED is not None and planned_key(path) in PLANNED:
+        return PLANNED[planned_key(path)][1]
     try:
-        with open(path, encoding="utf-8", errors="replace") as f:
+        with open(
+            path, encoding="utf-8", errors="strict" if strict else "replace"
+        ) as f:
             return f.read()
-    except OSError:
+    except (OSError, ValueError):
         return None
+
+
+def put(path, text):
+    """Write TEXT to PATH, or add it to the open plan."""
+    if PLANNED is None:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        write_atomic(path, text)
+    else:
+        PLANNED[planned_key(path)] = (path, text)
+
+
+def apply_plan(plan):
+    """Write every file PLAN holds, in the order it was planned; return the
+    keys that landed and `(path, OSError)` for each file that did not.
+
+    A file that cannot be written does not stop the others (the writer's
+    contract, W10, #647 C and D). `write_atomic` replaces or leaves, so the
+    file is as it was, and the record already holds every move the plan
+    owed: the next run plans that file's writes again and records nothing
+    twice. The caller names each one rather than ending in a traceback."""
+    landed, failed = set(), []
+    for key, (path, text) in plan.items():
+        try:
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            write_atomic(path, text)
+        except OSError as problem:
+            failed.append((path, problem))
+            continue
+        landed.add(key)
+    return landed, failed
+
+
+def told_now(told, report):
+    """Print the lines REPORT gives, which say a ledger write happened, once
+    they are true (the writer's contract, W8, #647 C and D). With TOLD None
+    nothing is planned, `put` has written already, and they print now. Else
+    REPORT waits in TOLD for `main`, which calls it with the planned keys
+    that landed, after the record step and the writes: a run that writes no
+    ledger file prints none of them."""
+    if told is None:
+        for line in report(None):
+            print(line)
+    else:
+        told.append(report)
+
+
+def landed_at(landed, path):
+    """True where PATH was written: always with LANDED None (nothing was
+    planned), else where its planned key landed."""
+    return landed is None or planned_key(path) in landed
 
 
 def write_atomic(path, text):
@@ -2875,8 +2960,24 @@ def row_label(cells):
     return label if len(label) <= LABEL_WIDTH else label[: LABEL_WIDTH - 1] + "…"
 
 
-def reverify(ledgers, root, maps, default_repo=None, checked=None):
+def reverify(
+    ledgers, root, maps, default_repo=None, checked=None, moves=None, told=None
+):
     """Rewrite the hash of every row whose anchor resolves. Explicit, by hand.
+
+    **TOLD, where given, holds back every line that says a ledger was
+    written** -- a per-coordinate hash line, `N rows re-verified`, the
+    dated and undated lists -- until that ledger lands (`told_now`). A ledger
+    is read strictly, because this writes it back (`read`); one that will
+    not decode is `ledger unreadable`, as one that will not open is.
+
+    **MOVES, where given, is a list this appends to** (#647, step C): one
+    `(ledger, row number, coordinate, recorded hash, new hash or None)` per
+    coordinate whose hash this rewrites, and per coordinate it leaves because
+    no one place holds it (None, a BROKEN a re-read cannot clear). A row left
+    whole under `--checked` moved nothing and appends nothing. It is what
+    `record_pact_changes` writes a signatory's pact changes from, before the
+    hash it read is gone.
 
     Re-verifying is recomputing the hash, which is a person saying they have
     re-read the code. It is deliberately a separate command: a check that
@@ -2892,16 +2993,18 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
     did not move is never dated and never named; one whose file moved whole
     is re-pointed, and one that still resolves is not touched.
     """
-    changed = 0
     unreadable = []
     malformed = []
     overflow = []
-    dated, undated, undatable = [], [], []
+    undatable = []
+    # `(ledger, hash lines, dated, undated)` for every ledger this writes.
+    written = []
     scan_cache = {}
     for ledger in ledgers:
-        text = read(ledger)
+        text = read(ledger, strict=True)
         if text is None:
-            unreadable.append(display_name(ledger, root))
+            # `/` on every platform, as every path the writer prints.
+            unreadable.append(built_name(ledger, root))
             continue
         # Named and left, never healed (#299): which reading of a coordinate
         # the parser refused was meant is not this command's call, and the
@@ -2916,6 +3019,9 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
             (f"{built_name(ledger, root)} {coord}", why)
             for _, coord, why in overflow_rows(text)
         )
+        # `(offset, coordinate, recorded hash, new hash or None)` for every
+        # coordinate whose hash moves or which no one place holds (MOVES).
+        pending = []
         # `(start, end, replacement, what to print)` for every hash this
         # ledger's rows would take. Collected rather than spliced as found,
         # because under `--checked` a row with no date cell is left WHOLE, and
@@ -2996,6 +3102,8 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                     # history is the reader's to judge from the diff
                     # (round 4, 🟡 7).
                     new_hash = content_hash(gfm_lines(target)[a - 1 : b])
+                    if new_hash != m.group("hash"):
+                        pending.append((m.start(), left_as, m.group("hash"), new_hash))
                     edits.append(
                         (
                             m.start("path"),
@@ -3017,15 +3125,20 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                         f"  {left_as}  {left_because(places, resurrected)}, and "
                         "no destination is provable — left"
                     )
+                    pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if body is None:
                 print(f"  {left_as}  the file could not be read — left")
+                # Recorded as BROKEN, as a coordinate no one place holds is
+                # (round 2 of PR #749, yellow 14).
+                pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if len(places) != 1:
                 # Never silence. The check calls this row BROKEN and tells the
                 # reader to look; running the heal command and getting nothing
                 # back reads as a heal that happened (round 6, 🟢).
                 print(f"  {left_as}  {left_because(places, resurrected)} — left")
+                pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if claim:
                 inside = minor_region(rel, body, places[0], claim)
@@ -3037,6 +3150,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                         f"  {left_as}  the anchored statement is gone from "
                         f"{locator} — the check calls this DRIFTED; left"
                     )
+                    pending.append((m.start(), left_as, m.group("hash"), None))
                     continue
                 places = inside
             start, end = places[0]
@@ -3044,6 +3158,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
             if got == m.group("hash"):
                 continue
             shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
+            pending.append((m.start(), shown, m.group("hash"), got))
             edits.append(
                 (
                     m.start("hash"),
@@ -3053,7 +3168,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                     True,
                 )
             )
-        if not edits:
+        if not edits and not pending:
             continue
         # `<ledger>:<line>` is a coordinate this run built, so it takes `/`
         # on every platform, as the records arm's do (`built_name`).
@@ -3063,9 +3178,11 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
         for line in lines:
             starts.append(starts[-1] + len(line))
         rows = {n: (header, cells) for n, header, cells in ledger_table_rows(text)}
+        dated, undated = [], []
         by_row = {}
         for edit in edits:
             by_row.setdefault(bisect.bisect_right(starts, edit[0]), []).append(edit)
+        left_whole = set()
         kept = []
         for number, row_edits in sorted(by_row.items()):
             header, cells = rows.get(number, (None, []))
@@ -3080,6 +3197,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
             if checked is not None:
                 if column is None:
                     undatable.append(where)
+                    left_whole.add(number)
                     continue
                 cell = dated_cell(lines[number - 1], column[0], checked)
                 if cell is not None:
@@ -3097,39 +3215,56 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                     )
                 )
             kept.extend(spliced)
-        out, at = [], 0
+        if moves is not None:
+            for offset, coord, old, new in pending:
+                number = bisect.bisect_right(starts, offset)
+                if new is None or number not in left_whole:
+                    moves.append((ledger, number, coord, old, new))
+        out, at, said_here = [], 0, []
         for start, end, replacement, said in sorted(kept):
             out.append(text[at:start])
             out.append(replacement)
             at = end
             if said is not None:
-                changed += 1
-                print(said)
+                said_here.append(said)
         if out:
             out.append(text[at:])
-            write_atomic(ledger, "".join(out))
-    print(f"{changed} row{'' if changed == 1 else 's'} re-verified")
-    if dated:
-        one = len(dated) == 1
-        print(
-            f"  dated {checked} — {len(dated)} row{'' if one else 's'} whose "
-            f"hash moved, each once:"
-        )
-        for where, label in dated:
-            print(f"    {where}  {label}")
-    if undated:
-        one = len(undated) == 1
-        print(
-            f"  {len(undated)} row{'' if one else 's'} took a new hash and "
-            f"kept {'its' if one else 'their'} date — a new hash says somebody "
-            "re-read the row, and nothing here says when:"
-        )
-        for where, label, date in undated:
-            print(f"    {where}  {label}  ({date})")
-        print(
-            "  date each row you re-read in its own cell; `--reverify --checked "
-            "YYYY-MM-DD` writes that date on every row whose hash it moves"
-        )
+            put(ledger, "".join(out))
+            written.append((ledger, said_here, dated, undated))
+
+    def report(landed):
+        lines, dated, undated = [], [], []
+        for ledger, said_here, dated_here, undated_here in written:
+            if landed_at(landed, ledger):
+                lines.extend(said_here)
+                dated.extend(dated_here)
+                undated.extend(undated_here)
+        changed = len(lines)
+        lines.append(f"{changed} row{'' if changed == 1 else 's'} re-verified")
+        if dated:
+            one = len(dated) == 1
+            lines.append(
+                f"  dated {checked} — {len(dated)} row{'' if one else 's'} whose "
+                f"hash moved, each once:"
+            )
+            lines.extend(f"    {where}  {label}" for where, label in dated)
+        if undated:
+            one = len(undated) == 1
+            lines.append(
+                f"  {len(undated)} row{'' if one else 's'} took a new hash and "
+                f"kept {'its' if one else 'their'} date — a new hash says somebody "
+                "re-read the row, and nothing here says when:"
+            )
+            lines.extend(
+                f"    {where}  {label}  ({date})" for where, label, date in undated
+            )
+            lines.append(
+                "  date each row you re-read in its own cell; `--reverify --checked "
+                "YYYY-MM-DD` writes that date on every row whose hash it moves"
+            )
+        return lines
+
+    told_now(told, report)
     for path in unreadable:
         print(f"  LEFT  {path}  ledger unreadable")
     for coord, why in malformed:
@@ -3260,8 +3395,10 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
     drifted or is outranked by a newer reading holding other content. The
     root is named even where LEDGERS left its file out, because a
     `Re-read ·` row cites the root.
-    BROKEN is `[(where, coordinate, detail)]` for the released coordinates a
-    re-read cannot clear, which take a `Corrected ·` row instead.
+    BROKEN is `[(where, coordinate, detail, row, hash)]` for the released
+    coordinates a re-read cannot clear, which take a `Corrected ·` row
+    instead; `row` is the `(file identity, line)` key `view.files` reads and
+    `hash` the one the row recorded.
     """
     view = family_view(view_paths, root, maps, default_repo)
     wanted = {file_identity(p) for p in ledgers if ledger_kind(root, p) == "released"}
@@ -3288,7 +3425,9 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
                 if status == "DRIFTED":
                     drifted.setdefault((ident, n), {}).setdefault(coord, m)
                 elif status == "BROKEN":
-                    broken.append((where((ident, n)), coord, detail))
+                    broken.append(
+                        (where((ident, n)), coord, detail, (ident, n), m.group("hash"))
+                    )
     for top, by_coord in view.readings.items():
         if not any(member[0] in read_here for member in view.families[top]):
             continue
@@ -3318,7 +3457,7 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
                     continue
             key, m, status, detail = pick
             if status == "BROKEN":
-                broken.append((where(key), coord, detail))
+                broken.append((where(key), coord, detail, key, m.group("hash")))
                 continue
             # DRIFTED, or OK and outranked by a newer reading holding other
             # content: the family owes a re-read either way. That newer
@@ -3345,7 +3484,17 @@ def spanned(text):
     return f"{fence}{pad}{text}{pad}{fence}"
 
 
-def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
+def reverify_into(
+    ledgers,
+    view_paths,
+    into,
+    root,
+    maps,
+    default_repo,
+    checked,
+    moves=None,
+    told=None,
+):
     """Write one `Re-read ·` row into INTO for every released row a re-read
     owes (`released_drift`): one outside every family in a released file of
     LEDGERS, and the root of every family a file of LEDGERS holds a member
@@ -3358,6 +3507,12 @@ def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
     family -- and carries each drifted coordinate at its current hash, the
     date in `Checked`, and `Re-read <date>` in Notes. One row per row, never
     one per coordinate (spec D4). Exit 1 where a row was left, else 0.
+
+    MOVES is `reverify`'s: each coordinate a written row re-reads, and each
+    BROKEN one, is appended against the released row it belongs to. TOLD is
+    `reverify`'s too: the `wrote` lines and the count of rows written wait
+    until INTO lands, and the `LEFT` lines, which say nothing was written,
+    print now.
     """
     view, drifted, broken = released_drift(
         ledgers, view_paths, root, maps, default_repo
@@ -3389,11 +3544,17 @@ def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
             new = current_hash(m, root, maps, default_repo)
             if new is None:
                 left.append((where, f"{coord} — no one place to hash, so not re-read"))
+                # Recorded BROKEN through the same record step (round 2 of
+                # PR #749, yellow 14).
+                if moves is not None:
+                    moves.append((path, key[1], coord, m.group("hash"), None))
                 continue
             # M may come from any released member of the family, not from
             # KEY's own line (`released_drift`): slice the line it was matched
             # on, which is the string the match carries.
             stamped.append(spanned(m.string[m.start() : m.start("hash")] + new))
+            if moves is not None:
+                moves.append((path, key[1], coord, m.group("hash"), new))
         if not stamped:
             continue
         rows.append(
@@ -3406,7 +3567,9 @@ def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
                 f"{item} (`evidence-check --reverify --into`) |",
             )
         )
-    for at, coord, detail in broken:
+    for at, coord, detail, key, recorded in broken:
+        if moves is not None:
+            moves.append((view.files[key[0]][0], key[1], coord, recorded, None))
         left.append(
             (
                 at,
@@ -3417,23 +3580,320 @@ def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
                 "coordinate it leaves out is not checked again",
             )
         )
+    start = 0
     if rows:
+        # Read leniently here because `main` already refused an INTO that is
+        # there and will not decode, before anything was planned.
         text = read(into) or ""
         if text and not text.endswith("\n"):
             text += "\n"
         start = len(gfm_lines(text)) + 1
-        os.makedirs(os.path.dirname(into), exist_ok=True)
-        write_atomic(into, text + "".join(row + "\n" for _, _, row in rows))
-        name = built_name(into, root)
-        for offset, (where, label, _) in enumerate(rows):
-            print(f"  wrote {name}:{start + offset}  Re-read · {label}  citing {where}")
-    print(
-        f"{len(rows)} citing row{'' if len(rows) == 1 else 's'} written · "
-        f"{len(left)} released row{'' if len(left) == 1 else 's'} left"
-    )
+        put(into, text + "".join(row + "\n" for _, _, row in rows))
+
+    def report(landed):
+        wrote = rows if rows and landed_at(landed, into) else []
+        name = built_name(into, root) if wrote else ""
+        return [
+            f"  wrote {name}:{start + offset}  Re-read · {label}  citing {where}"
+            for offset, (where, label, _) in enumerate(wrote)
+        ] + [
+            f"{len(wrote)} citing row{'' if len(wrote) == 1 else 's'} written · "
+            f"{len(left)} released row{'' if len(left) == 1 else 's'} left"
+        ]
+
+    told_now(told, report)
     for where, why in left:
         print(f"  LEFT  {where}  {why}")
     return 1 if left else 0
+
+
+# --- the record of a pact change, written inside the re-read (#647, C) ------
+#
+# A signatory names the pact it signs in a `Pact` row of `seal/config.md` and
+# cites clauses as pact anchors in its ledger rows. When `--reverify` moves
+# the hash of a row citing a clause of a declared pact -- in place, or into a
+# `Re-read ·` row -- or leaves a coordinate of one BROKEN, the code a clause
+# binds moved, and the pact's repository is owed a look. The record is
+# written here, by the same command, because the re-read is the one act at
+# which a session acknowledges that code under a row moved: a step somebody
+# must remember is a step that gets skipped (`docs/the-pact.md`).
+
+ROUTING_READER = os.path.join(HERE, "..", "..", "..", "hooks", "routing.py")
+PACT_CHANGE_INTRO = (
+    "<!-- Written by `evidence-check --reverify` (#647): one row per ledger row "
+    "whose code moved under a pact clause it cites, or, under `Pact notify | "
+    "always`, any ledger row whose code moved. Permanent and never edited by "
+    "hand; a pact review at the pact's repository takes it by this file's "
+    "content hash, which `pact-check` prints. -->"
+)
+PACT_CHANGE_REPAIR = (
+    "name the work item with `--into seal/ledger/<work-item-id>.md`, or run it "
+    "on a branch a `seal/specs/<work-item-id>/routing.md` declares"
+)
+# One coordinate of a record's `Code` cell, as `record_pact_changes` writes
+# it: moved to a new hash, or BROKEN (round 1 of PR #749, yellow 2).
+CODE_PART = re.compile(
+    r"`(?P<coord>[^`]*)@(?P<old>[0-9a-f]{6,12})`"
+    r"(?: → `@(?P<new>[0-9a-f]{6,12})`| BROKEN)"
+)
+# How every line ends that names an owed pact change left unrecorded: the run
+# writes its ledger only after recording, so it writes none, and the drift is
+# still there for the run that can record it (round 1 of PR #749, red 1;
+# round 2, red 10 and yellow 11).
+NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
+# Anything shaped like a `Pact` or a `Pact notify` row with a value, for a
+# copy with no `hooks/` to read either with: any case, any indentation,
+# quoted or fenced or not. It is matched line by line as `str.splitlines`
+# cuts a file, with `\s` as Python reads it, because those are the plugin
+# reader's own rules (round 2 of PR #756, yellow 1). An empty value is the
+# default, and a notify row with no `Pact` value is ignored, so neither can
+# mean `always` (round 2 of PR #756, yellow 2).
+NOTIFY_ROW_SHAPE = re.compile(r"[\s>]*\|\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
+PACT_CHANGE_UNDONE = (
+    "  a pact change is owed and was not recorded, so this run wrote no ledger "
+    "file: nothing was re-stamped"
+)
+
+
+@functools.cache
+def plugin_module(path, name):
+    """The plugin's own module at PATH, or None for a vendored copy, told
+    apart as `config_reader` tells it: the module and this skill's `SKILL.md`
+    both beside this script, where the plugin ships them."""
+    skill = os.path.join(HERE, "..", "SKILL.md")
+    if not (os.path.isfile(path) and os.path.isfile(skill)):
+        return None
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def pact_change_item(root, into):
+    """The work item a record is named for: the `--into` fragment's, else the
+    one a `routing.md` declares for the checked-out branch, else ""."""
+    if into:
+        return os.path.splitext(os.path.basename(into))[0]
+    routing = plugin_module(ROUTING_READER, "specseal_routing_for_pact")
+    if routing is None:
+        return ""
+    repo = routing.optin.repo_root(root) or root
+    found = routing.item_dir(repo, routing.current_branch(root))
+    return os.path.basename(found) if found else ""
+
+
+def record_pact_changes(moves, root, into, checked):
+    """Write the pact changes MOVES owe into `seal/pact-changes/<item>.md` and
+    print a `recorded` line for each; return the exit this adds.
+
+    MOVES is what `reverify` and `reverify_into` appended. A ledger row is
+    recorded once however many of its coordinates moved, and `Pact notify`
+    decides which: `when the pact is touched` (the default) records a row
+    citing a clause of a pact the `Pact` row declares, `always` also records
+    every other row with `—` for its clause, and `never` records nothing. A
+    coordinate whose last recorded row for the same clause and ledger row says
+    the same move or the same BROKEN is not recorded again, whatever its date,
+    so a second run records nothing twice; a change that comes back after its
+    revert is recorded, because the record's last word for it was the revert.
+
+    Exit 1, recording nothing, where a row is owed and no work item names the
+    file, where the file is there and will not read, decode or parse, where
+    the `Pact` rows will not read, and where this copy has no `hooks/` to
+    read them with. **Every return of 1 is an owed change left**, and `main`
+    then writes no ledger file: the re-stamp is what clears the drift, so a
+    re-stamp without its record would lose the trigger for good (round 1 of
+    PR #749, red 1). Where the record is written, `main` writes the ledger
+    files the run planned, which are the bytes a run with no `Pact` row
+    writes.
+    """
+    if not moves:
+        return 0
+    grouped = {}
+    for ledger, number, coord, old, new in moves:
+        grouped.setdefault((ledger, number), []).append((coord, old, new))
+    entries = []
+    for (ledger, number), coords in grouped.items():
+        text = read(ledger) or ""
+        lines = gfm_lines(text)
+        line = lines[number - 1] if 0 < number <= len(lines) else ""
+        cells = dict((n, c) for n, _h, c in ledger_table_rows(text)).get(number, [])
+        label = (cells[0] if cells else "").split(" · ", 1)[0].strip()
+        parts = list(dict.fromkeys(coords))
+        where = f"{built_name(ledger, root)}:{number}"
+        row = f"{built_name(ledger, root)} · {label or number}".replace("|", "\\|")
+        entries.append((where, row, parts, list(PACT_ANCHOR_RE.finditer(line))))
+    config = plugin_module(CONFIG_READER, "specseal_config_for_pact_changes")
+    if config is None:
+        # This copy reads no `Pact notify` value either, so where the config
+        # holds a `Pact` row and a `Pact notify` row that both carry a value,
+        # or will not read, a moved row citing no clause may be owed under
+        # `always` and is left with the rows citing one (round 1 of PR #756,
+        # yellow 1). The shape is looser than the plugin's reader, so it
+        # leaves too much rather than too little; without both rows nothing
+        # can mean `always` (round 2 of PR #756, yellow 2). It is read
+        # strictly, as `declared_pacts` reads it: a lenient read turns a byte
+        # that is not UTF-8 into U+FFFD, which can hide the row the plugin
+        # refuses to rule out (round 3 of PR #756, yellow 1).
+        declaration = os.path.join(seal_home(root), "config.md")
+        said = read(declaration, strict=True) if os.path.lexists(declaration) else ""
+        named = {
+            " ".join(m.group(1).lower().split())
+            for m in map(NOTIFY_ROW_SHAPE.match, (said or "").splitlines())
+            if m
+        }
+        blind = said is None or named >= {"pact", "pact notify"}
+        left = 0
+        for where, _row, _parts, anchors in entries:
+            if anchors:
+                print(
+                    f"  LEFT  {where}  cites a pact clause, and this copy of "
+                    "evidence_check.py has no hooks/ beside it to read the "
+                    f"`Pact` row with — {NOT_RESTAMPED}; run the plugin's "
+                    "`evidence-check --reverify` where the signatory is "
+                    "checked out"
+                )
+            elif blind:
+                print(
+                    f"  LEFT  {where}  moved, and `Pact notify` may be `always`, "
+                    "and this copy of evidence_check.py has no hooks/ beside it "
+                    f"to read the `Pact notify` row with — {NOT_RESTAMPED}; run "
+                    "the plugin's `evidence-check --reverify` where the "
+                    "signatory is checked out"
+                )
+            else:
+                continue
+            left += 1
+        return 1 if left else 0
+    declared = config.declared_pacts(seal_home(root))
+    refused = (
+        [f"{SEAL_PREFIX}config.md could not be read"]
+        if declared is None
+        else declared[2]
+    )
+    # A row citing a pact is owed under any `Pact notify`; a row citing none
+    # is owed under `always`, and a declaration that will not read cannot say
+    # it is not `always`, so such a row is unknown (round 2 of PR #749,
+    # yellow 13).
+    blind = declared is None or declared[1] in (None, config.NOTIFY_ALWAYS)
+    unknown = [e for e in entries if e[3] or blind]
+    if refused and unknown:
+        # Silent before: a row that will not read reads as no pact declared,
+        # and the drift went unrecorded at exit 0.
+        for where, _row, _parts, anchors in unknown:
+            why = (
+                "cites a pact clause"
+                if anchors
+                else "moved, and `Pact notify` may be `always`"
+            )
+            print(
+                f"  LEFT  {where}  {why}, and the `Pact` rows will not read: "
+                f"{refused[0]} — {NOT_RESTAMPED}; fix the row and run it again"
+            )
+        return 1
+    declared = declared or ([], None, [])
+    pacts, notify = declared[0], declared[1] or config.NOTIFY_DEFAULT
+    names = {name for _w, _n, name in pacts}
+    if not names or notify == config.NOTIFY_NEVER:
+        return 0
+    owed = []
+    for where, row, parts, anchors in entries:
+        clauses = list(
+            dict.fromkeys(
+                a.group(0) for a in anchors if a.group("name").lower() in names
+            )
+        )
+        if clauses:
+            owed.append((where, ", ".join(clauses), row, parts))
+        elif notify == config.NOTIFY_ALWAYS:
+            owed.append((where, config.NO_CLAUSE, row, parts))
+    if not owed:
+        return 0
+    item = pact_change_item(root, into)
+    if not item:
+        for where, clause, _row, _parts in owed:
+            print(
+                f"  LEFT  {where}  {clause} — a pact change is owed and no work "
+                f"item names its record: {PACT_CHANGE_REPAIR} — {NOT_RESTAMPED}"
+            )
+        return 1
+    path = os.path.join(seal_home(root), config.PACT_CHANGES, item + ".md")
+    shown = built_name(path, root)
+    if os.path.lexists(path):
+        text = read(path, strict=True)
+        if text is None:
+            print(f"  LEFT  {shown}  the record could not be read — {NOT_RESTAMPED}")
+            return 1
+        rows, refusals = config.pact_changes(text)
+        if refusals:
+            print(
+                f"  LEFT  {shown}  the record {refusals[0]} — {NOT_RESTAMPED}; "
+                "the record is written by this command alone, so restore it "
+                "from its history"
+            )
+            return 1
+    else:
+        text = (
+            f"# Pact changes — {item}\n\n{PACT_CHANGE_INTRO}\n\n| "
+            + " | ".join(config.PACT_CHANGE_HEADER)
+            + " |\n|"
+            + "---|" * len(config.PACT_CHANGE_HEADER)
+            + "\n"
+        )
+        rows = []
+    # The last thing recorded for each coordinate of each clause and row, in
+    # the form the record's reader reads a cell in (`\\|` a pipe). A
+    # coordinate is recorded again only where what it did now is not what it
+    # was last recorded doing: a second identical run adds nothing, a change
+    # re-landed after its revert is recorded (round 2 of PR #749, yellow
+    # 12), and a run killed after recording is finished by the next, which
+    # finds its move the record's last word already.
+    last = {}
+    for _l, clause, row, code, _c in rows:
+        for part in CODE_PART.finditer(code):
+            last[(clause, row, part.group("coord"))] = part.group("old", "new")
+    date = checked or datetime.date.today().isoformat()
+    new = []
+    for where, clause, row, parts in owed:
+        key = (config.unescaped(clause), config.unescaped(row))
+        fresh = [
+            (coord, old, nw)
+            for coord, old, nw in parts
+            if last.get((*key, config.unescaped(coord))) != (old, nw)
+        ]
+        if not fresh:
+            continue
+        last.update(((*key, config.unescaped(c)), (o, n)) for c, o, n in fresh)
+        code = ", ".join(
+            f"`{coord}@{old}` → `@{nw}`" if nw else f"`{coord}@{old}` BROKEN"
+            for coord, old, nw in fresh
+        )
+        new.append((where, f"| {clause} | {row} | {code} | {date} |"))
+    if not new:
+        return 0
+    lines = gfm_lines(text, keepends=True)
+    if lines and not lines[-1].endswith(("\n", "\r")):
+        lines[-1] += "\n"
+    # Under the last row, or under the delimiter of a table with none: the
+    # header is the table `pact_changes` read, the line after it its delimiter.
+    head = next(
+        n
+        for n, ln in enumerate(lines, 1)
+        if config.table_cells(ln.rstrip("\r\n")) == config.PACT_CHANGE_HEADER
+    )
+    at = rows[-1][0] if rows else head + 1
+    lines[at:at] = [entry + "\n" for _w, entry in new]
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        write_atomic(path, "".join(lines))
+    except OSError as problem:
+        print(
+            f"  LEFT  {shown}  the record could not be written "
+            f"({problem.strerror or problem}) — {NOT_RESTAMPED}"
+        )
+        return 1
+    for offset, (where, _entry) in enumerate(new, at + 1):
+        print(f"  recorded {shown}:{offset}  a pact change for {where}")
+    return 0
 
 
 # --- the records arm: what a work item's records state about the tree -------
@@ -4535,54 +4995,122 @@ def main():
                     "released file is never written\n"
                 )
                 return 2
-        if into is None and cutoff is None:
-            code = reverify(ledgers, root, maps, default_repo, args.checked)
-            # Re-stamping in place cannot clear a family whose newest reading
-            # sits in a file the narrowing left out, so the run names, by its
-            # root row, each family a file it read holds a member of that is
-            # still owed a re-read, rather than exit 0 while a member it read
-            # reads DRIFTED (round 2, 🟡 12; round 3, 🟡 16). The root is
-            # named even where the narrowing left its file out: it is the row
-            # a `Re-read ·` cites.
+        # An `--into` that is there and will not read would be written over:
+        # `reverify_into` appends to what `read` answers, and `read` answers
+        # nothing for it (#736's overwrite, round 2 of PR #749, red 10).
+        # Refused before anything is planned or written.
+        if into is not None and os.path.lexists(into):
+            try:
+                with open(into, encoding="utf-8") as handle:
+                    handle.read()
+            except (OSError, ValueError):
+                sys.stderr.write(
+                    f"evidence_check: `--into {args.into}` is there and will not "
+                    "read, and the run would write over it — nothing was written\n"
+                )
+                return 2
+        # What the re-read moved, for the pact changes it owes (#647, C).
+        moves = []
+        # Three phases, in this order (round 2 of PR #749, red 10 and
+        # yellow 11). PLAN: every ledger write the run would make is computed
+        # and held in `PLANNED`, and nothing is written. RECORD: the pact
+        # changes the plan owes are written. APPLY: only then is the plan
+        # written. A run that cannot record writes no ledger file at all, so
+        # the drift stays for the run that can. A run killed after recording
+        # leaves the record written and the ledger unstamped; the next run
+        # plans the same move, finds it is the record's last word already,
+        # records nothing twice, and re-stamps. Nothing is ever put back, so
+        # no signal handler is needed and no file is ever removed.
+        # What the run says it wrote waits in TOLD until the write it names
+        # landed, so a run that writes nothing claims nothing (the writer's
+        # contract, W8, #647 C and D), and a file the apply step cannot
+        # write is named rather than a traceback (W10).
+        global PLANNED
+        plan = PLANNED = {}
+        told = []
+
+        def recorded_then_applied(code):
+            global PLANNED
+            PLANNED = None
+            recorded = record_pact_changes(moves, root, into, args.checked)
+            if recorded:
+                print(PACT_CHANGE_UNDONE)
+                return max(code, recorded)
+            landed, failed = apply_plan(plan)
+            for report in told:
+                for line in report(landed):
+                    print(line)
+            for path, problem in failed:
+                print(
+                    f"  LEFT  {built_name(path, root)}  could not be written "
+                    f"({problem.strerror or problem}) — it is as it was, and the "
+                    "next run plans its writes again"
+                )
+            return max(code, 1 if failed else 0)
+
+        try:
+            if into is None and cutoff is None:
+                code = reverify(
+                    ledgers, root, maps, default_repo, args.checked, moves, told
+                )
+                # Re-stamping in place cannot clear a family whose newest reading
+                # sits in a file the narrowing left out, so the run names, by its
+                # root row, each family a file it read holds a member of that is
+                # still owed a re-read, rather than exit 0 while a member it read
+                # reads DRIFTED (round 2, 🟡 12; round 3, 🟡 16). The root is
+                # named even where the narrowing left its file out: it is the row
+                # a `Re-read ·` cites.
+                view = list(ledgers)
+                known = {file_identity(p) for p in view}
+                view += [
+                    p
+                    for p in resolve_patterns(default_patterns(root))
+                    if file_identity(p) not in known
+                ]
+                done, owed, _ = released_drift(ledgers, view, root, maps, default_repo)
+                for key in sorted(owed, key=lambda k: (done.files[k[0]][0], k[1])):
+                    path, _, _, table = done.files[key[0]]
+                    print(
+                        f"  LEFT  {built_name(path, root)}:{key[1]}  "
+                        f"{row_label(table[key[1]][1])} — still DRIFTED: the newest "
+                        f"reading of {', '.join(owed[key])} in its family sits in a "
+                        "file this run did not write; run it without `--ledger`"
+                    )
+                return recorded_then_applied(max(code, 1 if owed else 0))
+            # A released file is not written: the fragments are re-stamped in
+            # place as before, and then the released rows are re-read into INTO,
+            # or named where there is no INTO. The view is read after the
+            # re-stamp, so a fragment's own re-read is counted before a new row
+            # is written for the family it belongs to.
+            writable = [p for p in ledgers if ledger_kind(root, p) != "released"]
+            code = reverify(
+                writable, root, maps, default_repo, args.checked, moves, told
+            )
             view = list(ledgers)
             known = {file_identity(p) for p in view}
-            view += [
-                p
-                for p in resolve_patterns(default_patterns(root))
-                if file_identity(p) not in known
-            ]
-            done, owed, _ = released_drift(ledgers, view, root, maps, default_repo)
-            for key in sorted(owed, key=lambda k: (done.files[k[0]][0], k[1])):
-                path, _, _, table = done.files[key[0]]
-                print(
-                    f"  LEFT  {built_name(path, root)}:{key[1]}  "
-                    f"{row_label(table[key[1]][1])} — still DRIFTED: the newest "
-                    f"reading of {', '.join(owed[key])} in its family sits in a "
-                    "file this run did not write; run it without `--ledger`"
-                )
-            return max(code, 1 if owed else 0)
-        # A released file is not written: the fragments are re-stamped in
-        # place as before, and then the released rows are re-read into INTO,
-        # or named where there is no INTO. The view is read after the
-        # re-stamp, so a fragment's own re-read is counted before a new row
-        # is written for the family it belongs to.
-        writable = [p for p in ledgers if ledger_kind(root, p) != "released"]
-        code = reverify(writable, root, maps, default_repo, args.checked)
-        view = list(ledgers)
-        known = {file_identity(p) for p in view}
-        for extra in resolve_patterns(default_patterns(root)) + (
-            [into] if into and os.path.isfile(into) else []
-        ):
-            if file_identity(extra) not in known:
-                known.add(file_identity(extra))
-                view.append(extra)
-        # The whole narrowed list, fragments included: a family is the run's
-        # to answer for wherever a file it read holds a member, and
-        # `reverify_into` writes no file but INTO either way (round 3, 🟡 16).
-        written = reverify_into(
-            ledgers, view, into, root, maps, default_repo, args.checked
-        )
-        return max(code, written)
+            for extra in resolve_patterns(default_patterns(root)) + (
+                [into] if into and os.path.isfile(into) else []
+            ):
+                if file_identity(extra) not in known:
+                    known.add(file_identity(extra))
+                    view.append(extra)
+            # The whole narrowed list, fragments included: a family is the run's
+            # to answer for wherever a file it read holds a member, and
+            # `reverify_into` writes no file but INTO either way (round 3, 🟡 16).
+            written = reverify_into(
+                ledgers,
+                view,
+                into,
+                root,
+                maps,
+                default_repo,
+                args.checked,
+                moves,
+                told,
+            )
+            return recorded_then_applied(max(code, written))
+        finally:
+            PLANNED = None
 
     if not ledgers:
         print("no evidence ledgers found — nothing to check")
