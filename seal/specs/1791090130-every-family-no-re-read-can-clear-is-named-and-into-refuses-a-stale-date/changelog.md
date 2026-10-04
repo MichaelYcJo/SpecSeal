@@ -5,9 +5,10 @@
   `--checked`. Where a coordinate it would carry already had a reading dated
   later, in a fragment `--ledger` left out or in a release file, the row
   cleared nothing. The run still wrote it and exited 0, and `--strict`
-  straight after exited 2. Now that row is left whole. Nothing is written or
-  recorded for it, a `LEFT` line names it with `--checked`, the later
-  reading's date and place, and the repair, and the run exits 1. The other
+  straight after exited 2. Now no row is written for it. The pact changes its
+  moved coordinates owe are still recorded, a `LEFT` line names it with
+  `--checked`, the later reading's date and place, and the repair, and the
+  run exits 1. The other
   rows of the same run are still written. A `--checked` equal to the newest
   date ties with it and is written. Where the newest reading is dated after
   today, which no `--checked` can reach, the line names a `Corrected ·` row
@@ -18,5 +19,7 @@
   twice, a BROKEN coordinate outside a released row under the freeze, a
   family rooted in a fragment whose anchored statement is gone, a citing row
   refused `MALFORMED`, and a citation whose released line changed. It used to
-  name the first one only. A case holds each one in every mode, narrowed and
-  not.
+  name the first one only. A case holds each one, in every mode and narrowed
+  or not for the first four. The fifth is held under the freeze for a folded
+  citing row, narrowed and not, and by one run over every ledger without the
+  freeze.

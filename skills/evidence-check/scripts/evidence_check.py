@@ -64,7 +64,7 @@ Usage:
                                           with a drifted coordinate; no
                                           released file is written. A row
                                           a reading dated after --checked
-                                          outranks is left whole and named,
+                                          outranks gets no Re-read row, is named,
                                           and the run exits 1. Where
                                           seal/config.md declares `Ledger
                                           frozen from`, `--reverify` without

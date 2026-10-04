@@ -87,7 +87,12 @@ when `--checked` is strictly older than the newest reading of ANY drifted
 coordinate that row would carry, the whole row is refused.
 
 - The row is not added to the rows to write.
-- No move is appended for it, so the pact-change record gets nothing for it.
+- Its moves are appended all the same, so the pact-change record gets the
+  change the code under it owes. *Changed by round 1 (🟡 2):* this read *No
+  move is appended for it, so the pact-change record gets nothing for it*.
+  The after-today repair, a `Corrected ·` row, takes the row out of every
+  later re-read, so a move the refusing run dropped was never recorded, and
+  #756's first promise is that a pact change is never lost.
 - It is named on a `LEFT` line, and the run exits 1.
 
 The newest reading is the one `family_view` grades by. It is the newest
@@ -103,7 +108,10 @@ It holds:
 - where the row is, and its label;
 - the `--checked` value;
 - the newest date, and where the reading that holds it sits;
-- that nothing was written or recorded for this row;
+- that no `Re-read ·` row was written for this row (*changed by round 1,
+  🟡 1:* it read *that nothing was written or recorded*, which a BROKEN
+  coordinate of the same row, recorded from `released_drift`'s BROKEN list,
+  already made false);
 - the repair: read the code again and date that reading.
 
 Where the newest date is later than today, no `--checked` can reach it,
@@ -132,11 +140,15 @@ extended where one already builds the family:
   "no LEFT line" only.
 
 **S6 — the record-first order is untouched.** The S1 check runs in step 1
-(plan), inside `reverify_into`, before the row reaches `rows` and before its
-moves reach `moves`. Step 0 is unchanged. The record and the plan never hold
-anything for a refused row, so W1, W2 and W4 hold as written: a run killed
-anywhere leaves nothing of the refused row on disk. A second identical run
-refuses it again and records nothing (W4).
+(plan), inside `reverify_into`, before the row reaches `rows`. Step 0 is
+unchanged. The plan never holds a ledger write for a refused row; its moves
+go to `moves` and are recorded in step 2, before any ledger is written, so
+W1, W2 and W4 hold as written. A run killed before the record leaves nothing
+on disk, and one killed after it leaves the record written and no row. A
+second identical run refuses the row again and finds each move the record's
+last word, so it appends nothing (W4). *Changed by round 1 (🟡 2):* this read
+*The record and the plan never hold anything for a refused row*, the seam
+#756's W9 offered; S1 says why the record now does.
 
 **S7 — evidence.** Rows for S1 and S4 go in this work item's fragment,
 `seal/ledger/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date.md`.
@@ -164,7 +176,7 @@ directory's `changelog.md`.
 | A2 — stale date, newest reading released | Given N folded into a release file, the freeze, no `--ledger`, when `--into --checked 2026-02-15` runs, then the same as A1 | new case, red at `edee5ca2` |
 | A3 — a tie clears | Given A1's tree with `--checked 2026-03-01`, the row is written, and `--strict` over the same narrowing then exits 0 | new case. Its red: change the comparison to `<=` and it fails |
 | A4 — the grid's invariant holds for a stale date | Given the narrowed grid (`test_a_narrowed_reverify_exits_0_only_where_the_narrowed_strict_does`) in mode `freeze with --into`, with `--checked` between M and N, a `--reverify` exiting 0 is followed by a `--strict` exiting 0 | grid extension or sibling, red at `edee5ca2` in the P5 cells (shape: questions.md Q4) |
-| A5 — a refused row records nothing | Given a signatory whose drifted released row cites a pact clause, when `--into` runs with a stale date, then `seal/pact-changes/<id>.md` gains no row for it, and a second identical run leaves the record byte for byte | new case in `tests/test_a_signatory_records_a_pact_change.py`. Red: append the moves before the check |
+| A5 — a refused row records its move once (*changed by round 1, 🟡 2:* it read *records nothing*) | Given a signatory whose drifted released row cites a pact clause, when `--into` runs with a stale date, then no `Re-read ·` row is written, `seal/pact-changes/<id>.md` gains one row for the move, and a second identical run leaves the record byte for byte | `tests/test_a_signatory_records_a_pact_change.py#test_a_row_refused_for_a_stale_date_records_its_move_once`, red before round 1's fix |
 | A6 — other rows of the same run still write | Given two drifted released rows, one stale and one not, then one `Re-read ·` row is written, one `LEFT`, exit 1 | new case |
 | A7 — newest after today | Given a released row whose `Checked` date is after today, then the `LEFT` line names a `Corrected ·` row as the repair | new case (Q2 says whether `--strict` already refuses such a cell) |
 | A8 — the double correction | `--strict` 2, `--reverify` 0 narrowed and not, in each mode the paragraph states | extend `test_a_released_row_corrected_by_two_rows_names_both` or a sibling |

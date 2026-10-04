@@ -1748,9 +1748,9 @@ def test_a_checked_date_the_calendar_does_not_have_is_named_as_written(
 # A `Re-read ·` row is a new reading at exactly `--checked`. Where a newer
 # reading of a coordinate it carries sits out of the run's reach -- in a
 # fragment the narrowing left out, or in a released file -- that newer reading
-# outranks the new row and the family stays DRIFTED. The row is left whole,
-# named, and no `Re-read ·` row is written for it; the moves under it are
-# still recorded where a pact clause is cited (round 1 of #746, yellow 2).
+# outranks the new row and the family stays DRIFTED. No `Re-read ·` row is
+# written for it and it is named; the moves under it are still recorded where
+# a pact clause is cited (round 1 of #746, yellow 2).
 
 N_PLACE = {
     "fragment": "seal/ledger/3000000003-the-newer-re-read.md:1",
@@ -1997,8 +1997,8 @@ def test_a_refusal_names_the_newest_of_the_readings_that_outrank_the_row(repo):
         ),
         (
             "skills/evidence-check/scripts/evidence_check.py",
-            "A row a reading dated after --checked outranks is left whole and "
-            "named, and the run exits 1.",
+            "A row a reading dated after --checked outranks gets no Re-read row, "
+            "is named, and the run exits 1.",
         ),
     ],
     ids=["the home: the refusal", "the home: after today", "the usage"],
