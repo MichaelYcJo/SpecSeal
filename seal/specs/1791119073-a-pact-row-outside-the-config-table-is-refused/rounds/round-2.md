@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #784 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `2f35e2f73eb404d7851539ae05574a34b871653c..27af657e3dfa98ecf24fdfb28785887ba8f90e25`, 6 commits |
 | Contract changes | stray_pact_rows → pact_declaration, round-2-report.md, round-2.md |
 | New units | _letters (depth 1); PACT_ITEMS (depth 1); WRAPS (depth 1); JOINS (depth 1); SPLITS (depth 1); MARKUP (depth 1); rendered_item (depth 1); letters (depth 1); test_s3_an_item_is_refused_exactly_where_gfm_shows_a_pact_item (depth 1); test_s3_a_pact_item_in_a_code_span_is_refused_on_the_walks_rows (depth 1); test_s7_a_code_spanned_item_off_the_walks_rows_or_empty_is_not_refused (depth 1); test_a_vendored_copy_reads_no_code_spanned_item (depth 1) |
