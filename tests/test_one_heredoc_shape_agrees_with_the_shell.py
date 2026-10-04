@@ -21,12 +21,18 @@ built in shape, so the reader must admit exactly those without a banned byte,
 and the case checks that first: a reader that stopped admitting would
 otherwise pass here by comparing nothing.
 
-Only sinks are run. The shell reads a body while it parses the command, before
-any consumer runs, so the cut does not depend on which consumer it is, and a
-Python program's body cannot hold the harmless shell lines the oracle needs.
+The program arm, `python3 -`, is run too, for clauses E and F: the lines after
+its terminator are the suffix the gate reads, so the shell must run those and
+no line of the body. Its body holds the same near lines, each followed by a
+line that creates a marker. Python refuses such a body as a syntax error
+before running any of it, and the shell has already decided where the body
+ended, so the markers that exist are the lines the shell ran as commands:
+exactly the suffix's, in the directory its `cd` names. They are compared with
+the markers the reader's reduced text names.
 
-The strings are harmless: `cat`, `tee`, a `cd` into a directory the case made,
-and `: >` to create a marker. Nothing here commits. Each shell is found by
+The strings are harmless: `cat`, `tee`, `python3` refusing a program it
+cannot compile, a `cd` into a directory the case made, and `: >` to create a
+marker. Nothing here commits. Each shell is found by
 `conftest.shell_probe` and skipped by name where it is not one, and its
 startup files are kept out by pointing `HOME` and `ZDOTDIR` at the case's own
 directory.
@@ -153,7 +159,7 @@ def run_one(shell, mode, command, target, home):
         timeout=30,
     )
     path = work / target
-    wrote = path.read_bytes() if path.exists() else None
+    wrote = path.read_bytes() if path.is_file() else None
     markers = sorted(
         os.path.relpath(os.path.join(root, name), work)
         for root, _, names in os.walk(work)
@@ -189,4 +195,77 @@ def test_the_shell_cuts_every_admitted_body_where_the_reader_does(
     assert not disagreements, (
         f"{len(disagreements)} of {compared} admitted strings cut differently "
         f"by {shell} {mode}:\n" + "\n".join(disagreements[:20])
+    )
+
+
+# (first line without the opener, the directory the suffix runs in, relative
+# to the directory the shell starts in)
+PROGRAM_HEADS = [
+    ("python3 -", "."),
+    ("python3 - 'q a' x.md", "."),
+    ("cd 'a b' && python3 -", "a b"),
+]
+
+SUFFIXES = [": > s", ": > s\n: > t\n"]
+
+
+def program_corpus():
+    """(command, directory the suffix runs in) for every admitted
+    combination: one near line and its marker per body, and one body of all
+    of them."""
+    rows = []
+    for d in DELIMITERS:
+        near = near_lines(d)
+        bodies_ = [[line, f": > m{i}"] for i, line in enumerate(near)]
+        bodies_.append([x for i, line in enumerate(near) for x in (line, f": > n{i}")])
+        for head, where in PROGRAM_HEADS:
+            for lines in bodies_:
+                for suffix in SUFFIXES:
+                    text = "".join(line + "\n" for line in lines)
+                    command = f"{head} <<'{d}'\n{text}{d}\n{suffix}"
+                    if reader.reduce(command) is not None:
+                        rows.append((command, where))
+    return rows
+
+
+def suffix_markers(reduced, where):
+    """The marker files the reduced text's own lines create, read the way
+    its suffix is written: one `: > NAME` per line, after the first."""
+    names = []
+    for line in reduced.split("\n")[1:]:
+        if line.startswith(": > "):
+            names.append(os.path.normpath(os.path.join(where, line[4:])))
+    return sorted(names)
+
+
+def test_the_program_corpus_is_admitted_and_its_suffix_kept():
+    rows = program_corpus()
+    assert len(rows) > 150, len(rows)
+    for command, where in rows:
+        reduced = reader.reduce(command)
+        assert suffix_markers(reduced, where), command
+
+
+@pytest.mark.parametrize("mode", sorted(MODES))
+@pytest.mark.parametrize("shell", ["bash", "zsh"])
+def test_the_shell_runs_a_programs_suffix_and_no_line_of_its_body(
+    shell, mode, tmp_path
+):
+    """Clauses E and F, measured: after `python3 -`'s terminator the shell
+    runs exactly the lines the reduced text keeps, and none of the body."""
+    why = shell_probe(shell)
+    if why is not None:
+        pytest.skip(f"{shell}: {why}")
+    if shutil.which("python3") is None:
+        pytest.skip("python3 is not on PATH here, so the program arm cannot run")
+    disagreements = []
+    rows = program_corpus()
+    for command, where in rows:
+        expected = suffix_markers(reader.reduce(command), where)
+        _code, _wrote, markers = run_one(shell, mode, command, "", tmp_path)
+        if markers != expected:
+            disagreements.append(f"{command!r}: ran {markers}, reader {expected}")
+    assert not disagreements, (
+        f"{len(disagreements)} of {len(rows)} program strings ran differently "
+        f"in {shell} {mode}:\n" + "\n".join(disagreements[:20])
     )
