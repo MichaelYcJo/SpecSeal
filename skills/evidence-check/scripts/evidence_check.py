@@ -3071,9 +3071,11 @@ def reverify(
     `(ledger, row number, coordinate, recorded hash, new hash or None)` per
     coordinate whose hash this rewrites, and per coordinate it leaves because
     no one place holds it (None, a BROKEN a re-read cannot clear). A row left
-    whole under `--checked` moved nothing and appends nothing. It is what
-    `record_pact_changes` writes a signatory's pact changes from, before the
-    hash it read is gone.
+    whole under `--checked` moved nothing and appends nothing. A coordinate
+    re-stamped on more than one walk (`cited_first`) appends one part, from
+    the hash the ledger held before the run to the hash it takes, once the
+    walks end (#791). It is what `record_pact_changes` writes a signatory's
+    pact changes from, before the hash it read is gone.
 
     Re-verifying is recomputing the hash, which is a person saying they have
     re-read the code. It is deliberately a separate command: a check that
@@ -3114,6 +3116,12 @@ def reverify(
     # a coordinate is one line, from the hash the ledger held to the one it
     # takes (round 2, yellow 1).
     first_old = {}
+    # The move each coordinate owes, under the same key, from the hash the
+    # ledger held before the run to the one it takes. A ledger line among a
+    # row's Code grounds that is not its citation moves on every walk the
+    # line it names moves, and a part per walk would write the permanent
+    # record a hash no file held (#791). Handed to MOVES once the walks end.
+    parts = {}
 
     def walks():
         for ledger in once:
@@ -3177,7 +3185,7 @@ def reverify(
         # Matched in `unquoted(text)` and spliced from `text`: the two have
         # the same offsets, and an example row in a closed fence is never
         # rewritten (#444).
-        nth = {}
+        nth, key_at = {}, {}
         for m in ANCHOR_RE.finditer(unquoted(text)):
             # What names this coordinate on every walk: its ledger, its row,
             # its coordinate and which of that row's spellings of it this is.
@@ -3185,7 +3193,7 @@ def reverify(
             # walk moves every offset after it.
             spot = (bisect.bisect_right(starts, m.start()), coordinate_of(m))
             nth[spot] = nth.get(spot, 0) + 1
-            key = (planned_key(ledger), *spot, nth[spot])
+            key = key_at[m.start()] = (planned_key(ledger), *spot, nth[spot])
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
             repo, rel = place(root, maps, default_repo, raw_path)
@@ -3383,7 +3391,14 @@ def reverify(
                     continue
                 number = bisect.bisect_right(starts, offset)
                 if new is None or number not in left_whole:
-                    moves.append((ledger, number, coord, old, new))
+                    held = parts.get(key_at[offset])
+                    parts[key_at[offset]] = (
+                        ledger,
+                        number,
+                        coord,
+                        held[3] if held else old,
+                        new,
+                    )
         out, at, said_here = [], 0, []
         for start, end, replacement, said in sorted(kept):
             out.append(text[at:start])
@@ -3397,6 +3412,8 @@ def reverify(
                 moved[0] = True
             put(ledger, "".join(out))
             written.append((ledger, said_here, dated, undated))
+    if moves is not None:
+        moves.extend(parts.values())
 
     def report(landed):
         said, dated, undated = {}, [], []

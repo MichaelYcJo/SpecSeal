@@ -2655,6 +2655,50 @@ def test_a_row_naming_one_coordinate_twice_is_named_twice(repo):
     assert len(said) == 2 and "2 rows re-verified" in fix.stdout, fix.stdout
 
 
+def test_a_ledger_coordinate_restamped_on_two_walks_is_one_move(repo):
+    """#791. A row that is not a citing row names, among its Code grounds, a
+    citing row of its own self-citing release file. That line moves on two
+    walks -- its code hash and date first, then its citation -- so the
+    coordinate naming it is re-stamped on both. `reverify` hands MOVES one
+    part for it, from the hash the ledger held before the run to the hash it
+    takes: the permanent pact-change record is written from MOVES, and a part
+    ending at the first walk's hash names a hash no file ever held. Red at
+    baeafe10, which handed over one part per walk."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+
+    def reread(cite):
+        return (
+            f"| Re-read · the row it cites | `{cite}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        )
+
+    def x1(coordinate):
+        return (
+            f"| X1 · other, beside the re-read | `src/service.py#other@{o}`, "
+            f"`{coordinate}` | read | 2026-01-01 | |"
+        )
+
+    released(repo, [r1, reread(citation(r1, "R1 · handler adds one"))])
+    cite = ec.citation_for(str(repo), str(repo / R_FILE), 5)
+    # X1 quotes the line it names, so the literal runs to that cell's closing
+    # pipe, which X1's own escaped copy does not hold.
+    line = citation(reread(cite), "Re-read · the row it cites \\|")
+    released(repo, [r1, reread(cite), x1(line)])
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, (line, check.stdout)
+    edit_handler(repo)
+    moves = []
+    ec.reverify([str(repo / R_FILE)], str(repo), {}, None, "2026-03-01", moves)
+    after = (repo / R_FILE).read_text(encoding="utf-8")
+    x = [move for move in moves if move[1] == 7]
+    assert len(x) == 1, moves
+    assert x[0][3] == line.rsplit("@", 1)[1], moves
+    assert f"@{x[0][4]}`" in after, moves
+    assert run(["--strict", "."], repo).returncode == 0
+
+
 def test_one_unfrozen_run_names_a_citing_row_it_left_whole_once(repo):
     """Round 2, white 2: the walked-file skip in `citations_left`. A citing
     row in a table with no date column is left whole by `--checked`, so its
