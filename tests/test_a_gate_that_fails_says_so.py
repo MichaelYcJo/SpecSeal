@@ -302,11 +302,15 @@ def gates_said(lines):
 @pytest.mark.parametrize(
     "broken, named",
     [
-        ({"cmdline.py": BROKEN}, ["commit-review-gate.py", "implementer-notice.py"]),
+        (
+            {"cmdline.py": BROKEN},
+            ["answer-write.py", "commit-review-gate.py", "implementer-notice.py"],
+        ),
         ({"cmdline_base.py": BROKEN}, ["worktree-guard.py", "worktree_consent.py"]),
         (
             {"cmdline.py": BROKEN, "cmdline_base.py": BROKEN},
             [
+                "answer-write.py",
                 "commit-review-gate.py",
                 "worktree-guard.py",
                 "implementer-notice.py",
@@ -321,7 +325,8 @@ def test_a_broken_shared_module_names_every_gate_that_imports_it(
 ):
     """S6. A broken shared reader names every gate that imports it, once, and
     no gate that does not. `cmdline.py` is imported by the commit gate and
-    `implementer-notice.py`; since #689 `cmdline_base.py`, the reader frozen at
+    `implementer-notice.py`, and since #773 by `answer-write.py` through
+    `tokens.given`, whose read leaves the heredoc bodies out; since #689 `cmdline_base.py`, the reader frozen at
     `86256492`, is imported by the worktree guard and `worktree_consent.py`. The
     commit gate's own import of `worktree_consent` is guarded, so a broken
     `cmdline_base.py` does not name it. The `post-bash` call is not a commit: a

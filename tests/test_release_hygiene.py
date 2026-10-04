@@ -136,6 +136,12 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
     ("docs/the-commit-gate-inside-git.md", "2.39.5"): "git's, a build #692 measured",
     ("docs/the-commit-gate-inside-git.md", "2.43.0"): "git's, a build #692 measured",
     ("docs/the-commit-gate-inside-git.md", "2.50.1"): "git's, a build #692 measured",
+    ("docs/worktree-guard-spec.md", "2.54.0"): (
+        "git's, the build whose `git checkout -h` and `git switch -h` the "
+        "guard's option table was taken from, named in §*Known limits* "
+        "(#764). A table read off an unnamed git is not a measurement, and "
+        "no release of SpecSeal makes the number wrong"
+    ),
     ("skills/implement/scripts/seal.py", "4.4.17"): (
         "bash's, named in a comment about the glob behaviour of that release"
     ),
@@ -157,12 +163,21 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "(file, token) so neither one lets the number through anywhere else"
     ),
     ("skills/verify/scripts/broad_gate.py", "9.1.1"): (
-        "pytest's, named in the comments over `ERROR_RE` and `STOPPED_EARLY_RE` "
-        "as the build whose endings were measured: the `ERROR` line shapes and "
-        "the `!` rules the base comparison reads (#747). The third member of "
+        "pytest's, named in the comments over `ERROR_RE`, `STOPPED_EARLY_RE` "
+        "and `NOTHING_COLLECTED_RE` as the build whose endings were measured: "
+        "the `ERROR` line shapes and the `!` rules the base comparison reads "
+        "(#747), and the line of a run that collected nothing (#761). The "
+        "third member of "
         "the class the row above names, a loaded file naming the tool build a "
         "measurement was taken on; an ending read off an unnamed pytest is "
         "not a measurement, and no release of SpecSeal makes the number wrong"
+    ),
+    ("skills/verify/scripts/broad_gate.py", "3.8.0"): (
+        "pytest-xdist's, named in the comment over `NOTHING_COLLECTED_RE` as "
+        "the build on which a run with a missing path was measured to print "
+        "`no tests ran` and exit 5 with no not-found reply (#761). The fourth "
+        "member of the same class: what xdist prints is a property of the "
+        "build it was read off, and no release of SpecSeal makes it wrong"
     ),
     ("CONTRIBUTING.md", "4.2.0"): (
         "markdown-it-py's, the parser the suite's CommonMark oracle reads, "

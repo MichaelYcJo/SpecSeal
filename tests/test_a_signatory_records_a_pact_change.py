@@ -3,9 +3,12 @@
 A signatory names the pact it signs in `seal/config.md` and cites clauses as
 pact anchors in its ledger rows. When `evidence-check --reverify` moves the
 hash of a row that cites a clause of a declared pact -- in place, or into a
-`Re-read ·` row under the freeze -- or leaves a coordinate of one BROKEN, it
-appends one row per ledger row to `seal/pact-changes/<work-item-id>.md` and
-prints a `recorded` line. S7-S11 of the work item's `spec.md`.
+`Re-read ·` row under the freeze -- finds the code under one moved where
+`--into` refuses it a `Re-read ·` row for a stale `--checked`, or leaves a
+coordinate of one BROKEN, it appends one row per ledger row to
+`seal/pact-changes/<work-item-id>.md` and prints a `recorded` line. S7-S11 of
+the work item's `spec.md`; the refused row is #746's, and a move starting at
+the newest reading is #774's.
 
 Each case builds a temporary signatory: `src/orders.py`, a ledger row citing
 `pact:orders-api/"## Order response shape / ### Fields"@1a2b3c4d` beside a
@@ -1320,6 +1323,26 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
             "A `Pact notify` value outside the vocabulary, or a row written twice, "
             "has no value at all: its first row is not the answer.",
         ),
+        (
+            "docs/the-pact.md",
+            "**A move `--into` records starts at the hash the coordinate's newest "
+            "reading holds**, whether it writes the row's `Re-read ·` row or "
+            "refuses it.",
+        ),
+        (
+            "docs/the-pact.md",
+            "A re-stamp in place records each row's move from that row's own "
+            "hash, one move per coordinate however many walks re-stamp it, and "
+            "BROKEN after it at the hash it holds where a later walk leaves it "
+            "(#791). A move whose two hashes agree is no move and is not "
+            "recorded (#774).",
+        ),
+        (
+            "docs/the-pact.md",
+            "The hash is a code coordinate's: a citing row's citation of a "
+            "released row is a ledger line, so its re-stamp records nothing "
+            "(#772).",
+        ),
     ],
     ids=[
         "the pact: W8-W10",
@@ -1329,6 +1352,9 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
         "the pact: a vendored copy",
         "skill: a vendored copy",
         "the pact: a doubled notify",
+        "the pact: an --into move starts at the newest reading",
+        "the pact: an in-place move starts at the row's own hash",
+        "the pact: a citation's re-stamp is not the trigger",
     ],
 )
 def test_the_documents_say_what_the_writer_does(doc, sentence):
@@ -1836,3 +1862,292 @@ def test_a_stale_row_with_a_broken_coordinate_says_what_was_recorded(repo):
     rows = record_rows(repo)
     assert any(f"`src/orders.py#evict@{e}` BROKEN" in r for r in rows), rows
     assert any(f"`src/orders.py#serialize@{s}` → " in r for r in rows), rows
+
+
+# --- #774: a recorded move starts at the coordinate's newest reading --------
+#
+# Under the freeze a released row's family can hold a newer reading in a
+# fragment `--ledger` leaves out. Where that reading holds other content, the
+# family is owed a re-read even though the released row's own hash matches the
+# code, and the move the run records starts at the newest reading's hash: that
+# is the hash the code moved FROM. The released member's hash recorded
+# `h1 → h1`, a move to itself (P3, round 2 of #771).
+
+OTHER_ITEM = "seal/ledger/1791010000-another-item.md"
+
+
+def _outranked_unchanged(repo):
+    """S1's tree: the freeze, released O1 read 2026-09-01 at `serialize@h1`
+    citing CLAUSE, another item's fragment re-reading O1 on 2026-09-10 at
+    `h2`, and the code back at `h1`. Returns `(h1, h2)`."""
+    h1 = unit_hash(repo, "src/orders.py", "serialize")
+    _frozen_released_o1(
+        repo, "2026-09-01", f"`{CLAUSE}`, `src/orders.py#serialize@{h1}`"
+    )
+    h2 = move_serialize(repo)
+    (repo / "src" / "orders.py").write_text(SOURCE, encoding="utf-8")
+    citation = ec.citation_for(str(repo), str(repo / "seal/releases/0.1.0.md"), 5)
+    assert citation is not None
+    (repo / OTHER_ITEM).write_text(
+        f"| Re-read · O1 · the field list | `{citation}`, "
+        f"`src/orders.py#serialize@{h2}` | read | 2026-09-10 | Re-read 2026-09-10 |\n",
+        encoding="utf-8",
+    )
+    return h1, h2
+
+
+@pytest.mark.parametrize(
+    "checked, exit_code",
+    [("2026-09-12", 0), ("2026-09-04", 1)],
+    ids=["the written arm", "the refusal arm"],
+)
+def test_a_recorded_move_starts_at_the_newest_reading(repo, checked, exit_code):
+    """S1 (#774). The newest reading of `serialize` is the other item's, at
+    `h2`, and the code is at `h1`: the code moved `h2 → h1`, and that is the
+    move recorded, whether the run writes O1's `Re-read ·` row or refuses it
+    for a stale `--checked`. Never `h1 → h1`, which is no move."""
+    h1, h2 = _outranked_unchanged(repo)
+    code, out = run(
+        repo,
+        "--ledger",
+        "seal/releases/0.1.0.md",
+        "--into",
+        FRAGMENT,
+        "--checked",
+        checked,
+    )
+    assert code == exit_code, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | "
+        f"`src/orders.py#serialize@{h2}` → `@{h1}` | {checked} |"
+    ], out
+
+
+def test_a_broken_coordinate_under_a_newer_reading_names_the_newest_hash(repo):
+    """S3 (#774). S1's family with `serialize` then removed: every reading
+    is BROKEN, and the record names the hash the newest reading recorded,
+    the last content anybody read there."""
+    _, h2 = _outranked_unchanged(repo)
+    (repo / "src" / "orders.py").write_text(
+        "def evict(key):\n    return key\n", encoding="utf-8"
+    )
+    code, out = run(
+        repo,
+        "--ledger",
+        "seal/releases/0.1.0.md",
+        "--into",
+        FRAGMENT,
+        "--checked",
+        "2026-09-12",
+    )
+    assert code == 1, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | "
+        f"`src/orders.py#serialize@{h2}` BROKEN | 2026-09-12 |"
+    ], out
+
+
+@pytest.mark.parametrize("beside", [False, True], ids=["alone", "beside a real move"])
+def test_a_part_whose_two_hashes_agree_is_not_recorded(repo, capsys, beside):
+    """S2 (#774). `record_pact_changes` drops a part whose old and new hash
+    agree, whichever writer handed it over: alone it leaves the row with
+    nothing to record, so no row and no `recorded` line; beside a real move,
+    only the real move is written."""
+    s = unit_hash(repo, "src/orders.py", "serialize")
+    e = unit_hash(repo, "src/orders.py", "evict")
+    ledger = cite(
+        repo,
+        [
+            row(
+                "O1",
+                f"`{CLAUSE}`, ",
+                f"src/orders.py#serialize@{s}`, `src/orders.py#evict@{e}",
+            )
+        ],
+    )
+    moves = [(str(ledger), 1, "src/orders.py#serialize", s, s)]
+    if beside:
+        moves.append((str(ledger), 1, "src/orders.py#evict", e, "abcdef12"))
+    assert ec.record_pact_changes(moves, str(repo), str(ledger), "2026-09-04") == 0
+    out = capsys.readouterr().out
+    if not beside:
+        assert not (repo / RECORD).exists(), out
+        assert "recorded" not in out, out
+        return
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | "
+        f"`src/orders.py#evict@{e}` → `@abcdef12` | 2026-09-04 |"
+    ], out
+    assert out.count("  recorded ") == 1, out
+
+
+@pytest.mark.parametrize(
+    "where", ["a copy with no hooks/", "a declaration that will not read"]
+)
+def test_a_row_whose_parts_all_agree_is_not_left_either(
+    repo, capsys, monkeypatch, where
+):
+    """S2's other half (#774). A row whose only part moved nothing owes no
+    record, so the arms that LEAVE an owed row -- a vendored copy that cannot
+    read the `Pact` row, and a `Pact` row that will not read -- do not leave
+    it: no `LEFT` line and exit 0, where the row used to stop the run."""
+    s = unit_hash(repo, "src/orders.py", "serialize")
+    ledger = cite(repo, [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{s}")])
+    if where == "a copy with no hooks/":
+        monkeypatch.setattr(ec, "plugin_module", lambda path, name: None)
+    else:
+        (repo / "seal" / "config.md").write_text(
+            config_text(("Mode", "shared"), ("Pact", "not a url")), encoding="utf-8"
+        )
+    moves = [(str(ledger), 1, "src/orders.py#serialize", s, s)]
+    assert ec.record_pact_changes(moves, str(repo), str(ledger), "2026-09-04") == 0
+    out = capsys.readouterr().out
+    assert "LEFT" not in out and not (repo / RECORD).exists(), out
+
+
+def test_a_coordinate_left_under_a_newer_reading_names_the_newest_hash(repo):
+    """S1's `no one place` arm (#774). The released row cites a statement of
+    `serialize` at `h1`, another item's fragment re-reads it at `h2`, and the
+    statement is then gone: the run leaves the coordinate and records it
+    BROKEN from `h2`, the last content anybody read there."""
+    h1 = _minor_coordinate(repo)
+    _frozen_released_o1(repo, "2026-09-01", f"`{CLAUSE}`, `{h1}`")
+    move_serialize(repo)
+    h2 = _minor_coordinate(repo)
+    assert h2 != h1
+    citation = ec.citation_for(str(repo), str(repo / "seal/releases/0.1.0.md"), 5)
+    (repo / OTHER_ITEM).write_text(
+        f"| Re-read · O1 · the field list | `{citation}`, `{h2}` | read | "
+        "2026-09-10 | Re-read 2026-09-10 |\n",
+        encoding="utf-8",
+    )
+    _leave(repo, "the anchored statement is gone")
+    code, out = run(
+        repo,
+        "--ledger",
+        "seal/releases/0.1.0.md",
+        "--into",
+        FRAGMENT,
+        "--checked",
+        "2026-09-12",
+    )
+    assert code == 1 and "no one place to hash" in out, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | `{h2}` BROKEN | 2026-09-12 |"
+    ], out
+
+
+# --- #772 and D3: a citation re-stamp is not a pact change -------------------
+
+
+def test_a_citation_restamp_is_not_a_pact_change(repo):
+    """S7 (D3). No freeze, `Pact notify | always`, a declared branch: R in a
+    release file and M re-reading it in another item's fragment both record
+    `serialize`, and the code moves. The in-place run re-stamps R, which
+    moves the line M cites, and re-stamps M's citation in the same walk
+    (#772). M's record row carries its code move and nothing for its
+    citation, which is a ledger line rather than code under a clause; R's
+    row is recorded as before. A second run adds nothing. The base recorded
+    the citation as a part of M's row on its second run."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), ("Pact", PACT_URL), ("Pact notify", "always")),
+        encoding="utf-8",
+    )
+    git(repo, "init", "-q", "-b", "feat/x")
+    (repo / "seal" / "specs" / ITEM).mkdir(parents=True)
+    (repo / "seal" / "specs" / ITEM / "routing.md").write_text(
+        "| Axis | Answer |\n|---|---|\n| Review | straight to the PR |\n"
+        "| Destination | open the pull request |\n| Branch | feat/x |\n",
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("R1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}"),
+        encoding="utf-8",
+    )
+    citation = ec.citation_for(str(repo), str(released), 5)
+    (repo / OTHER_ITEM).parent.mkdir(parents=True, exist_ok=True)
+    (repo / OTHER_ITEM).write_text(
+        f"| Re-read · R1 · the field list | `{citation}`, "
+        f"`src/orders.py#serialize@{old}` | read | 2026-09-02 | Re-read 2026-09-02 |\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", "-A")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "commit",
+        "-qm",
+        "x",
+    )
+    new = move_serialize(repo)
+    for _ in range(2):
+        code, out = run(repo, "--checked", "2026-09-04")
+        assert code == 0, out
+    assert sorted(record_rows(repo)) == sorted(
+        [
+            f"| — | {OTHER_ITEM} · Re-read | `src/orders.py#serialize@{old}` → "
+            f"`@{new}` | 2026-09-04 |",
+            f"| {CLAUSE} | seal/releases/0.1.0.md · R1 | "
+            f"`src/orders.py#serialize@{old}` → `@{new}` | 2026-09-04 |",
+        ]
+    ), out
+
+
+def test_an_in_place_move_starts_at_the_rows_own_hash(repo):
+    """The newest-reading rule is `--into`'s (round 1, yellow 2). No freeze, a
+    declared branch: released R1 cites the clause at `h0`, another item's
+    fragment re-reads R1 at `h1`, and the code then moves to `h2`. The
+    in-place re-stamp records R1's move from R1's own hash, `h0 → h2`, as the
+    pact doc says; making it the newest reading's is #785's frame, not this."""
+    git(repo, "init", "-q", "-b", "feat/x")
+    (repo / "seal" / "specs" / ITEM).mkdir(parents=True)
+    (repo / "seal" / "specs" / ITEM / "routing.md").write_text(
+        "| Axis | Answer |\n|---|---|\n| Review | straight to the PR |\n"
+        "| Destination | open the pull request |\n| Branch | feat/x |\n",
+        encoding="utf-8",
+    )
+    h0 = unit_hash(repo, "src/orders.py", "serialize")
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("R1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{h0}"),
+        encoding="utf-8",
+    )
+    citation = ec.citation_for(str(repo), str(released), 5)
+    h1 = move_serialize(repo)
+    (repo / OTHER_ITEM).parent.mkdir(parents=True, exist_ok=True)
+    (repo / OTHER_ITEM).write_text(
+        f"| Re-read · R1 · the field list | `{citation}`, "
+        f"`src/orders.py#serialize@{h1}` | read | 2026-09-02 | Re-read 2026-09-02 |\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", "-A")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "commit",
+        "-qm",
+        "x",
+    )
+    (repo / "src" / "orders.py").write_text(
+        SOURCE.replace("'id': order.id", "'id': order.id, 'n': 1"), encoding="utf-8"
+    )
+    h2 = unit_hash(repo, "src/orders.py", "serialize")
+    assert len({h0, h1, h2}) == 3
+    code, out = run(repo, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · R1 | "
+        f"`src/orders.py#serialize@{h0}` → `@{h2}` | 2026-09-04 |"
+    ], out

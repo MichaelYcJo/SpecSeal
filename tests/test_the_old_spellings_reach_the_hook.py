@@ -38,6 +38,20 @@ clearer = load_hook_module("answer-clear.py", "answer_clear_under_test")
         ("git commit -m x[no-review]", ()),
         ("echo 'it''s [no-review]", ()),
         ("git commit -m x", ()),
+        # #773, S4: a here-document body is data. Red at `94d7b2e0` for the
+        # two body rows; the rest are green there and stay green.
+        (
+            "python3 - <<'EOF'\nnote = \"[no-review]\"\nEOF\ngit -C ../r commit -m x",
+            (),
+        ),
+        ("cat > f <<EOF\n[no-review]\nEOF\ngit -C ../r commit -m x", ()),
+        (
+            ": '[no-review]'; cat > f <<EOF\nbody\nEOF\ngit commit -m x",
+            ("[no-review]",),
+        ),
+        ("cat > f <<EOF\nbody\nEOF\ngit commit -m x  # [no-review]", ("[no-review]",)),
+        ('cat <<EOF\n"\nEOF\necho [no-review] "\n"', ()),
+        (None, ()),
     ],
     ids=[
         "the no-op form",
@@ -48,6 +62,12 @@ clearer = load_hook_module("answer-clear.py", "answer_clear_under_test")
         "glued to a word",
         "an unbalanced quote reads nothing",
         "none",
+        "in the one shape's program body",
+        "in a body outside the shape",
+        "the no-op form beside a body",
+        "a comment after a body's terminator",
+        "a split only the bodiless text finishes reads what the raw text reads",
+        "no command at all reads nothing, as at the base",
     ],
 )
 def test_a_token_is_a_bare_word_and_nothing_else(command, found):

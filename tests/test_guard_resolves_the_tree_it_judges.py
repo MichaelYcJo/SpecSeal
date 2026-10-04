@@ -1131,10 +1131,11 @@ RESTORES = (
 )
 
 
-def _shapes(verb):
+def _placed(verb):
     """`git <verb>` with every redirection `_redirections` gives, at every
     position, glued to the word before it and spaced, its target glued and
-    spaced.
+    spaced -- as `(command, at, glued, operator)`, where `at` is the index of
+    the word of `git <verb>` the redirection stands before.
 
     A number or a `{fd}` is a descriptor only as a word of its own, so those
     are spaced: glued, bash hands it to git inside the word before
@@ -1153,7 +1154,13 @@ def _shapes(verb):
                     command = (command + " " + tail).rstrip()
                     if target == "EOF":
                         command += "\nEOF"
-                    yield command
+                    yield command, at, glued, op
+
+
+def _shapes(verb):
+    """The commands `_placed` builds, without where each redirection stands."""
+    for command, _at, _glued, _op in _placed(verb):
+        yield command
 
 
 def test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands(
@@ -1264,9 +1271,41 @@ def test_the_guard_policy_says_a_hidden_file_checkout_is_asked():
     assert "the two are examples, not the set" in text
     assert "`git checkout &>/dev/null README.md` is asked" in text
     assert (
-        "a `switch` naming a word or `-`, a `checkout` carrying `-b` or `-B`, a "
-        "`checkout` with no `--` among its words that names `-` or a word other "
-        "than `.`, or a `worktree add`"
+        "Each side is read by its words alone, as git is handed them: a "
+        "`switch` naming a word or `-` or carrying a creating option, a "
+        "`checkout` carrying a creating option (`-b`, `-B` or `--orphan`, in any "
+        "spelling git's option parser accepts), a `checkout` that names `-` or a "
+        "word other than `.` before any `--` and has no word after one, or a "
+        "`worktree add`; an option's value is not a name, and a redirection is "
+        "no word."
+    ) in text
+    # Round 1 of work item 1791119071, red 1: a bare trailing `--` is no
+    # restore, and the limit the `&` cut leaves says so.
+    assert (
+        "A cut after a `--` leaves the frozen reading a `--` with nothing after "
+        "it, so `git checkout feature/x -- <&1 README.md`, a restore, is judged "
+        "a switch to `feature/x` too"
+    ) in text
+
+
+def test_the_guard_policy_says_what_it_reads_past_the_base():
+    """§14 of the agent contract, for #764 and #738 (work item 1791119071):
+    the paragraph that says the command is read as `86256492` read it names
+    the one rule now read past it, on whose answer and when, and what stays
+    the base's. Red against the paragraph as it stood at `94d7b2e0`."""
+    text = _policy_text()
+    assert (
+        "One rule is read past the base, since #764 and #738 on the owner's "
+        "answer of 2026-10-04: a `checkout`'s and a `switch`'s own words are "
+        "read as git's option parser sees them once bash has taken the "
+        "redirections off"
+    ) in text
+    assert (
+        "Which segments are git, the `-C` values each names and where every "
+        "`cd` lands stay the base's, and `hooks/cmdline_base.py` is unchanged."
+    ) in text
+    assert (
+        "and the frozen segments it is compared with are read the same way (#738)"
     ) in text
 
 
@@ -1338,8 +1377,48 @@ KINDS = {
     # §*Which tree*'s words: a `--` takes every name out of a checkout, and
     # `-B` is a switch with or without one (round 3 of #737).
     "checkout a name before --": (["git", "checkout", "x", "--", "f"], None),
+    # Round 1 of 1791119071, 🔴 1: a `--` with nothing after it only says the
+    # name before it is no file, and git switches to it.
+    "checkout a name and a bare --": (["git", "checkout", "x", "--"], "switch"),
     "checkout -B with no name": (["git", "checkout", "-B"], "switch"),
     "switch -- a name": (["git", "switch", "--", "x"], "switch"),
+    # #764 (work item 1791119071): a creating option counts in every spelling
+    # git's option parser accepts, with or without its value, and an option's
+    # value is no name.
+    "checkout -b stuck": (["git", "checkout", "-by"], "switch"),
+    "checkout -b aggregated": (["git", "checkout", "-qb", "y"], "switch"),
+    "checkout -B aggregated and stuck": (["git", "checkout", "-qBy"], "switch"),
+    "checkout --orphan": (["git", "checkout", "--orphan", "y"], "switch"),
+    "checkout --orphan stuck": (["git", "checkout", "--orphan=y"], "switch"),
+    "checkout --orphan abbreviated and stuck": (
+        ["git", "checkout", "--orph=y"],
+        "switch",
+    ),
+    "switch -c alone": (["git", "switch", "-c"], "switch"),
+    "switch -c stuck": (["git", "switch", "-cy"], "switch"),
+    "switch -c aggregated and stuck": (["git", "switch", "-qcy"], "switch"),
+    "switch --create stuck": (["git", "switch", "--create=y"], "switch"),
+    "switch --create abbreviated and stuck": (["git", "switch", "--cre=y"], "switch"),
+    "switch --force-create stuck": (["git", "switch", "--force-create=y"], "switch"),
+    "switch --orphan stuck": (["git", "switch", "--orphan=y"], "switch"),
+    "checkout --conflict and its value": (
+        ["git", "checkout", "--conflict", "merge"],
+        None,
+    ),
+    "checkout --conflict, its value and a name": (
+        ["git", "checkout", "--conflict", "merge", "x"],
+        "switch",
+    ),
+    "switch --conflict and its value": (["git", "switch", "--conflict", "merge"], None),
+    "checkout -U and its value": (["git", "checkout", "-U", "3"], None),
+    "checkout -t taking the rest of its word": (["git", "checkout", "-tb"], None),
+    "checkout -b after --": (["git", "checkout", "--", "-b", "y"], None),
+    # A word git refuses, an ambiguous abbreviation here, takes nothing.
+    "switch an ambiguous abbreviation": (["git", "switch", "--c", "x"], "switch"),
+    # #738: a redirection is no word.
+    "checkout only a redirection": (["git", "checkout", "2>/dev/null"], None),
+    "checkout . with a redirection glued": (["git", "checkout", ".>/dev/null"], None),
+    "switch only a redirection": (["git", "switch", ">", "/dev/null"], None),
     "worktree add": (["git", "worktree", "add", "../wt"], "creation"),
     "worktree list": (["git", "worktree", "list"], None),
     "status": (["git", "status"], None),
@@ -1378,3 +1457,423 @@ def test_a_wider_reader_that_exits_at_load_costs_only_the_question(
     assert (
         module.wider_only_kinds("git --config-env k=v switch x", str(tmp_path)) == set()
     )
+
+
+# --- #764 and #738: a checkout's and a switch's words, as git is handed them ---
+#
+# Work item 1791119071. `spec.md`'s three axes, constructed: Axis 1 is each
+# creating option of each subcommand, Axis 2 each spelling git's option parser
+# accepts for it (`git help cli`: short separate and stuck, aggregated behind
+# `-q` separate and stuck, long separate and stuck, abbreviated separate and
+# stuck), and Axis 3 is `_placed`. git 2.54.0 switches on every spelling below
+# and on none of the twins (phase 1's M1, executed).
+CREATING = {
+    "checkout": ("-b", "-B", "--orphan"),
+    "switch": ("-c", "-C", "--create", "--force-create", "--orphan"),
+}
+# A value-taking option that creates nothing, in its three spellings.
+VALUED = ("--conflict merge", "--conflict=merge", "--confl merge")
+
+
+def _spellings(option, value):
+    """OPTION carrying VALUE in each spelling git's option parser accepts. An
+    abbreviation is the long name one character short, which no other option
+    of either subcommand begins with."""
+    if option.startswith("--"):
+        short_by_one = option[:-1]
+        return (
+            f"{option} {value}",
+            f"{option}={value}",
+            f"{short_by_one} {value}",
+            f"{short_by_one}={value}",
+        )
+    letter = option[1]
+    return (
+        f"{option} {value}",
+        f"{option}{value}",
+        f"-q{letter} {value}",
+        f"-q{letter}{value}",
+    )
+
+
+CREATIONS = tuple(
+    f"{sub} {spelling}"
+    for sub, options in CREATING.items()
+    for option in options
+    for spelling in _spellings(option, "y")
+)
+SWITCHES = (
+    *(
+        f"{sub} {words}"
+        for sub in CREATING
+        for words in ("feature/x", "-", *(f"{v} feature/x" for v in VALUED))
+    ),
+    "switch -- feature/x",
+    # `-t` may take a value stuck only, so the next word is the name.
+    *(f"{sub} -t feature/x" for sub in CREATING),
+)
+# What switches nothing: a file, `.`, a name after `--`, an option's value
+# where a name would stand, a creating option after `--` or after
+# `--end-of-options`, where it is a pathspec or a name, and one behind a
+# letter git refuses, which refuses the word.
+TWINS = (
+    "checkout README.md",
+    "checkout .",
+    "checkout -- feature/x",
+    "checkout feature/x -- README.md",
+    "checkout --conflict feature/x",
+    "checkout --end-of-options -b y",
+    "checkout -xb y",
+    *(f"checkout {v} README.md" for v in VALUED),
+    *(f"{sub} {v}" for sub in CREATING for v in VALUED),
+    *(f"checkout -- {spelling}" for spelling in _spellings("-b", "y")),
+)
+
+
+def _dashed(verb):
+    """A fourth axis, where a `--` stands (round 1 of work item 1791119071,
+    🔴 1): `(placement, verb)` for the verb as written, a bare `--` after it,
+    a `--` and a path after it, its last word behind a `--`, and
+    `--end-of-options` before its words with a bare `--` after them."""
+    sub, *words = verb.split()
+    yield "as written", verb
+    yield "a bare -- after", f"{verb} --"
+    yield "a -- and a path after", f"{verb} -- README.md"
+    yield "the last word behind a --", " ".join([sub, *words[:-1], "--", words[-1]])
+    yield (
+        "--end-of-options and a bare -- after",
+        " ".join([sub, "--end-of-options", *words, "--"]),
+    )
+
+
+def _git_switches(verb, placement):
+    """Whether git 2.54.0 moves HEAD on `git <verb>` with its `--` at
+    PLACEMENT, for a VERB of `CREATIONS` or `SWITCHES`. Measured by round 1's
+    fix pass: all 225 such commands, each run under bash in a scratch
+    repository, agree with this.
+
+    As written, every one switches. A bare `--` after only says the name
+    before it is no file, so the verb still switches, unless it already holds
+    a `--`, which makes two. A path after a `--` is a restore on `checkout`
+    and refused on `switch`. A last word behind a `--` is a pathspec to
+    `checkout`, still the branch to a `switch` that creates nothing, and a
+    creating option's lost value otherwise. `--end-of-options` makes every
+    option word a name: a `checkout` of a bare name or `-` still switches,
+    and `switch` takes the trailing `--` for a second reference and refuses."""
+    sub, *words = verb.split()
+    holds_dashes = "--" in words
+    if placement == "as written":
+        return True
+    if placement == "a bare -- after":
+        return not holds_dashes
+    if placement == "a -- and a path after":
+        return False
+    if placement == "the last word behind a --":
+        return sub == "switch" and verb not in CREATIONS and not holds_dashes
+    return sub == "checkout" and all(w == "-" or not w.startswith("-") for w in words)
+
+
+DASHED = [
+    (verb, placement, dashed)
+    for verb in (*CREATIONS, *SWITCHES)
+    for placement, dashed in _dashed(verb)
+]
+DASHED_SWITCHES = tuple(d for v, p, d in DASHED if _git_switches(v, p))
+# A `checkout` that creates nothing, where git switches nothing: a restore, or
+# a command git refuses. A creation or a `switch` git refuses here is asked,
+# the loud direction on a command that does nothing.
+DASHED_TWINS = tuple(
+    d
+    for v, p, d in DASHED
+    if not _git_switches(v, p) and v.startswith("checkout") and v not in CREATIONS
+)
+
+
+@pytest.fixture
+def a_branch_and_a_file(monkeypatch, repo):
+    """`repo` with `README.md` on disk beside its branch `feature/x`. `is_ref`
+    is a lookup over the repository's refs, read once, so a sweep of the
+    generated shapes spawns no git per shape."""
+    (repo / "README.md").write_text("r\n", encoding="utf-8")
+    listed = subprocess.run(
+        ["git", "-C", str(repo), "for-each-ref", "--format=%(refname:short)"],
+        capture_output=True,
+        check=True,
+        encoding="utf-8",
+    ).stdout.split()
+    monkeypatch.setattr(wg, "is_ref", lambda name, cwd: name in listed)
+    return str(repo)
+
+
+def _read_apart(command, cwd):
+    """`(judged, wider)`: the kinds `classify` reads on COMMAND's frozen
+    segments, as `main`'s loop reads them, and the kinds candidate C then adds
+    to them."""
+    judged = set()
+    for tokens, _wheres in wg.walk_command(command, cwd):
+        found = wg.classify(tokens, cwd)
+        if found:
+            judged.add("creation" if found == "worktree-add" else "switch")
+    return judged, wg.wider_only_kinds(command, cwd, judged)
+
+
+def _kinds_read(command, cwd):
+    """The kinds the guard reads in COMMAND at function level."""
+    judged, wider = _read_apart(command, cwd)
+    return judged | wider
+
+
+@pytest.mark.parametrize("verb", CREATIONS)
+def test_classify_reads_a_creating_option_in_every_spelling(repo, verb):
+    """`spec.md` A2. At `94d7b2e0` every spelling but the separate short one
+    was read as no switch, or as a plain one, because the arms test a word
+    against `-b`, `-B`, `-c` and `-C` alone."""
+    (repo / "README.md").write_text("r\n", encoding="utf-8")
+    assert wg.classify(["git", *verb.split()], str(repo)) == "create+switch", verb
+
+
+@pytest.mark.parametrize("verb", SWITCHES)
+def test_classify_reads_the_name_past_an_options_value(repo, verb):
+    """`spec.md` A2. At `94d7b2e0` `checkout --conflict merge feature/x` looked
+    up `merge` and found no ref."""
+    assert wg.classify(["git", *verb.split()], str(repo)) == "switch", verb
+
+
+@pytest.mark.parametrize(
+    "verb", [d for d in DASHED_SWITCHES if d not in (*CREATIONS, *SWITCHES)]
+)
+def test_classify_reads_a_switch_wherever_its_dashes_stand(repo, verb):
+    """Round 1's 🔴 1: `git checkout feature/x --` switches, and both readers
+    took any `--` for a restore."""
+    (repo / "README.md").write_text("r\n", encoding="utf-8")
+    assert wg.classify(["git", *verb.split()], str(repo)) in (
+        "switch",
+        "create+switch",
+    ), verb
+
+
+def test_a_bare_dashdash_names_the_branch_where_a_file_has_its_name(repo):
+    """With a branch and a file both called `README.md`, `git checkout
+    README.md --` switches to the branch (executed, git 2.54.0): the bare
+    `--` says the name is no file, so the path test is not asked of it."""
+    (repo / "README.md").write_text("r\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "-C", str(repo), "branch", "README.md"], check=True, capture_output=True
+    )
+    tokens = ["git", "checkout", "README.md", "--"]
+    assert wg.classify(tokens, str(repo)) == "switch"
+
+
+@pytest.mark.parametrize("verb", (*TWINS, *DASHED_TWINS))
+def test_classify_reads_no_switch_in_a_twin(repo, verb):
+    (repo / "README.md").write_text("r\n", encoding="utf-8")
+    assert wg.classify(["git", *verb.split()], str(repo)) is None, verb
+
+
+def test_no_constructed_switch_is_silent(a_branch_and_a_file):
+    """`spec.md` A4. Every shape of the three axes git switches on is read,
+    by the frozen loop's `classify` with its tree or, where an `&`- or
+    `|`-led operator cut the segment, by candidate C. Red at `94d7b2e0`, where
+    phase 1 counted 7,025 silent shapes of 20,729. Since round 1's fix pass
+    the verbs carry the `--` axis too (`_dashed`), and the shapes with a bare
+    `--` after a `checkout`'s name were silent at `a7ab2a4e`."""
+    silent = [
+        command
+        for verb in DASHED_SWITCHES
+        for command in _shapes(verb)
+        if "switch" not in _kinds_read(command, a_branch_and_a_file)
+    ]
+    assert not silent, (len(silent), silent[:10])
+
+
+def test_no_twin_is_asked_unless_an_operator_cuts_the_segment(a_branch_and_a_file):
+    """`spec.md` A5. A twin is silent wherever its redirection stands after
+    the subcommand and holds no `&` or `|`. Where it stands before the
+    subcommand or holds one, only candidate C reads the whole switch, and C
+    asks what §*Which tree*'s rule says: the kind the verb's own words hold.
+    Red at `94d7b2e0`, which read `-b` after `--` as a creation.
+
+    Where an `&`- or `|`-led operator cuts the segment, the frozen loop reads
+    the words before the cut alone, so `git checkout feature/x <&1 --
+    README.md` is judged a switch to `feature/x`, as at `94d7b2e0`
+    (§*Known limits*); only C's half is held to the rule there."""
+    wrong = []
+    for verb in (*TWINS, *DASHED_TWINS):
+        own = {wg.switch_kind(wg.parse_git(["git", *verb.split()]))} - {None}
+        for command, at, glued, op in _placed(verb):
+            judged, wider = _read_apart(command, a_branch_and_a_file)
+            after_the_subcommand = at > 2 or (at == 2 and not glued)
+            if after_the_subcommand and not any(c in op for c in "&|"):
+                if judged | wider:
+                    wrong.append((command, sorted(judged | wider)))
+            elif not wider <= own:
+                wrong.append((command, sorted(wider), sorted(own)))
+    assert not wrong, (len(wrong), wrong[:10])
+
+
+# One shape per position of Axis 3, through `main()`, over the dirty `w`.
+PLACED_SWITCHES = {
+    "R0, a stuck value": "git checkout -by",
+    "R1, between checkout and its name": "git checkout 2>/dev/null feature/x",
+    "R3, glued to the name": "git checkout feature/x>/dev/null",
+    "R4, between -b and its value": "git checkout -b 2>/dev/null y",
+    "R4, glued to -b": "git checkout -b>/dev/null y",
+    "R5, after the name": "git switch feature/x 2>/dev/null",
+}
+
+
+@pytest.mark.parametrize("name", sorted(PLACED_SWITCHES))
+def test_a_switch_wherever_its_redirection_stands_meets_the_dirty_tree_row(
+    monkeypatch, capsys, repo, tmp_path, name
+):
+    """bash runs each as a switch (phase 1, executed). All but R5 were
+    silent at `94d7b2e0`."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, top = run(
+        monkeypatch, capsys, f"cd w && {PLACED_SWITCHES[name]}", session
+    )
+    assert decision == "ask", (name, decision, reason)
+    assert "f.txt" in reason, (name, reason)
+    assert top and os.path.samefile(top, session / "w"), (name, top)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git checkout f.txt>/dev/null",
+        "git checkout 2>/dev/null f.txt",
+        "git checkout --conflict 2>/dev/null merge f.txt",
+    ],
+)
+def test_a_restore_wherever_its_redirection_stands_stays_silent(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """The tree tells the file from the branch, so the restore keeps the
+    base's silence -- the trade a fence in C, which reads no tree, could not
+    avoid (`plan.md` Alternatives A)."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, _ = run(monkeypatch, capsys, f"cd w && {command}", session)
+    assert decision == "silent", (command, decision, reason)
+
+
+def test_a_switch_behind_an_ampersand_led_operator_is_candidate_cs():
+    """R&: the frozen splitter cuts at `&`, so only C's merged view holds the
+    switch, and C asks without a tree (§*Known limits*)."""
+    assert wg.wider_only_kinds("git checkout 2>&1 feature/x", "/") == {"switch"}
+
+
+# A usage line of `git <sub> -h`: an optional short, an optional long with or
+# without `[no-]`, then `[=…]` for a value given stuck only, or ` <…>` for one
+# that must be given.
+USAGE = re.compile(
+    r"^ {2,}(?:-(?P<short>[^\s,-]))?(?:, )?(?:--(?:\[no-\])?(?P<long>[a-z][a-z0-9-]*))?"
+    r"(?P<value> <[^>]*>)?"
+)
+
+
+def _usage(sub):
+    r = subprocess.run(
+        ["git", sub, "-h"], capture_output=True, encoding="utf-8", errors="replace"
+    )
+    return r.stdout + r.stderr
+
+
+@pytest.mark.parametrize("sub", sorted(CREATING))
+def test_the_option_table_binds_the_installed_git(sub):
+    """`spec.md` A7. Every option `git <sub> -h` lists as taking a value it
+    must be given is one the guard's table says takes a value, so the value is
+    never read as a name. Fails on the first git that lists a new one, naming
+    it; red with `--conflict` taken out of the table.
+
+    And the other way (round 1's ⬜ 2): every option the table says takes a
+    value it must be given, and that git lists at all, git lists with one. A
+    git that made `--conflict <style>` optional would otherwise leave the
+    table taking the next word, and `checkout --conflict feature/x` would read
+    no name. An option git does not list is left alone, since an older git
+    may simply not have it. Red with `--guess` doctored to take a value."""
+    table = wg.SWITCH_OPTIONS[sub]
+    missing, seen = [], 0
+    listed = {}
+    for line in _usage(sub).splitlines():
+        m = USAGE.match(line)
+        if not m or not (m.group("short") or m.group("long")):
+            continue
+        for key in (m.group("short"), m.group("long")):
+            if key:
+                listed[key] = bool(m.group("value"))
+        if not m.group("value"):
+            continue
+        seen += 1
+        if m.group("short") and table.short.get(m.group("short"), (None,))[0] != (
+            wg.VALUE
+        ):
+            missing.append("-" + m.group("short"))
+        if m.group("long") and table.long.get(m.group("long"), (None,))[0] != (
+            wg.VALUE
+        ):
+            missing.append("--" + m.group("long"))
+    assert seen, f"read no value-taking option out of `git {sub} -h`"
+    assert not missing, (sub, missing)
+    loose = [
+        key
+        for names in (table.short, table.long)
+        for key, (takes, _creates) in names.items()
+        if takes == wg.VALUE and listed.get(key) is False
+    ]
+    assert not loose, (sub, "listed without a value it must be given", loose)
+
+
+def test_the_reduction_takes_out_every_redirection_the_reader_names():
+    """`spec.md` A8. The guard's own reduction is bound to `hooks/cmdline.py`'s
+    `_REDIRECTION` by this case, not by an import: `classify` keeps answering
+    where that module fails to load. Red with `<>` taken out of the guard's
+    copy; `&>` taken out is not red, because the `&` a glued word keeps is
+    cut and dropped before the operator is read."""
+    left = []
+    for op, target in _redirections():
+        gluable = not op[0].isdigit() and not op.startswith("{")
+        shapes = [[op + target], [op, target]]
+        if gluable:
+            shapes += [["name" + op + target], ["name" + op, target]]
+        for words in shapes:
+            got = wg.handed_words(words)
+            if got not in ([], ["name"]):
+                left.append((words, got))
+    assert not left, left
+
+
+def test_a_process_substitution_target_goes_with_its_operator():
+    """bash runs `git checkout 2> >(cat) feature/x` as a switch to
+    `feature/x` (executed); the splitter hands the target over as two words."""
+    words = ["2>", ">(tee", "log)", "feature/x"]
+    assert wg.handed_words(words) == ["feature/x"]
+
+
+def test_a_word_holding_whitespace_is_not_cut():
+    """A word with whitespace in it was quoted, so a `>` in it is the
+    argument's, as `hooks/cmdline.py#unglued` reads it."""
+    assert wg.handed_words(["a b>c"]) == ["a b>c"]
+
+
+def test_a_long_option_named_exactly_wins_over_the_ones_it_begins():
+    """git resolves an exact long name before a prefix: `--force` is
+    `switch`'s `--force` and not an ambiguous prefix of `--force-create`.
+    No option of either table tells the two readings apart today, so the rule
+    is pinned on a table built for it."""
+    options = wg._Options(
+        short={}, long={"x": (wg.VALUE, True), "xy": (wg.NONE, False)}
+    )
+    assert wg._long_option(options, "x") == (True, True)
+    assert wg._long_option(options, "x=v") == (False, True)
+    assert wg._long_option(options, "xy") == (False, False)
+
+
+def test_an_ambiguous_long_prefix_takes_nothing():
+    """git refuses a prefix two long names begin with (`git switch --c y`:
+    "ambiguous option: c (could be --create or --conflict)"), and a word git
+    refuses reads as an option that takes nothing and creates nothing."""
+    options = wg._Options(
+        short={}, long={"ab": (wg.VALUE, True), "ac": (wg.NONE, False)}
+    )
+    assert wg._long_option(options, "a") == (False, False)
+    assert wg._long_option(options, "ab") == (True, True)
