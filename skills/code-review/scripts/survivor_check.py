@@ -322,6 +322,24 @@ the retired side is read at the left end and takes part in the pairing, and
 only its departures that paired with nothing are then dropped. It is gone at
 the right end, so it adds nothing written.
 
+## A process record removed whole is out of the range too
+
+`settle --retire-process` (#729) removes a released work item's process record
+and leaves its directory standing. `rounds/`, `phases/` and `survivors.md` are
+already out of the range on both sides, by `records_a_past_state`. The rest of
+that arm's list — `broad-gate.md`, `handoff.md`, `pr.*.md`, `tests-todo.md` and
+`evidence-todo.md`, directly under the work item directory — is written for a
+pull request that has merged, and its sentences stand in the SDD set and in
+`docs/` because they were written there first. Measured on this repository's
+first drop, a `handoff.md` and a `broad-gate.md` reported 34 places, none of
+them a survivor of anything.
+
+So a file on that list that the range removed whole leaves the range, after
+the pairing, as a retired directory does. It stays in the pool while it
+stands: an in-flight work item's `handoff.md` that still carries a corrected
+sentence is reported, as it always was. Removing the file is not a correction
+of its wording.
+
 ## What it does not answer
 
 It reads the tip of the range, so a survivor introduced AFTER the range is
@@ -892,6 +910,37 @@ def records_a_past_state(path):
     return inside == ["survivors.md"] or (len(inside) > 1 and inside[0] == "phases")
 
 
+# The rest of `settle --retire-process`'s list, beside what
+# `records_a_past_state` already names: the files a work item writes for its
+# pull request, directly under its directory (#729).
+# `tests/test_a_process_record_drop_passes_the_readers.py` holds this and
+# `records_a_past_state` to `skills/settle/scripts/settle.py#is_process_record`,
+# so neither list can grow alone.
+PULL_REQUEST_FILES = (
+    "broad-gate.md",
+    "handoff.md",
+    "tests-todo.md",
+    "evidence-todo.md",
+)
+
+
+def written_for_a_pull_request(path):
+    """True for a work item's file on `PULL_REQUEST_FILES`, or a `pr.*.md`,
+    sitting directly under its `seal/specs/<id>/` directory.
+
+    `WORK_ITEM_DIR` anchors it, so a team's own `specs/` and a file of the
+    same name in prose are never matched."""
+    m = WORK_ITEM_DIR.match(path.replace("\\", "/"))
+    if m is None:
+        return False
+    rest = path.replace("\\", "/")[len(m.group(0)) :]
+    if "/" in rest:
+        return False
+    return rest in PULL_REQUEST_FILES or (
+        rest.startswith("pr.") and rest.endswith(".md")
+    )
+
+
 # The marker a gathered changelog fragment leaves in `CHANGELOG.md`, in the
 # shape `unverified_check.py#FOLD_MARKER` already spells for the fold's
 # marker in `docs/`. Spelled here rather than imported from the gatherer:
@@ -1389,11 +1438,18 @@ def corrected(root, a, b):
     # went with its code, and its cells arriving verbatim in a new row were
     # paired above as the move they are.
     removed = removed_ledger_rows(root, a, b, before, after)
+    # A file written for a pull request that the range removed whole leaves
+    # here as well, in the same order (#729): `settle --retire-process` takes
+    # it from a released work item, and removing it corrects none of its
+    # wording. One that still stands at `b` is left alone.
     gone = [
         sentence
         for sentence in gone
         if not any(sentence.path.startswith(d + "/") for d in retired)
         and (sentence.path, sentence.line) not in removed
+        and not (
+            written_for_a_pull_request(sentence.path) and sentence.path not in after
+        )
     ]
     written = {gram for sentence in fresh for gram in sentence.grams()}
     return gone, written, split
