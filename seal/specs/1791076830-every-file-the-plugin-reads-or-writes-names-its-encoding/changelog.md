@@ -1,6 +1,6 @@
 ### Fixed
 
-- Every Python file the plugin ships, and the three Python one-liners its
+- Every Python file the plugin ships, and the two Python one-liners its
   instructions hand a session, name the encoding they read and write in,
   and a branch that adds a call that does not now fails on every CI leg
   instead of only on Windows (#741). A call with no `encoding=` takes the locale's, which is
