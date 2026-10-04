@@ -2,8 +2,8 @@
 
 📋 implement applied
 · spec:     this directory's spec.md (R1–R3, S1–S12), plan.md, questions.md Q1–Q5; docs/commit-review-gate-spec.md (the four paragraphs spec.md §Grounding names); CONTRIBUTING.md §What a change to a gate must carry; skills/agent-contract/SKILL.md §9
-· evidence: seal/ledger/1791076831-a-here-document-body-is-data-to-the-commit-gate.md
-· verified: executed — the three refusals at 101f9bd0; the new module at 101f9bd0 (every silent case red, every stop case green) and at the head; the corpus module; the plan's narrow modules; mutation-check per added unit; the by-construction enumeration run in real shells. Read — gh's help text for Q4
+· evidence: seal/ledger/1791076831-a-here-document-body-is-data-to-the-commit-gate.md — H1–H4 added; 15 `Re-read ·` and 3 `Corrected ·` rows (0.16.0's E3, E7, E9) for released rows this range moved
+· verified: executed — the three refusals at 101f9bd0; the new module at 101f9bd0 (every silent case red, every stop case green) and at the head; the plan's ten gate and reader modules at the head (1437 passed, 77 skipped); the document and ledger modules; one mutation per added unit, each red; the by-construction enumeration in bash 3.2.57 and zsh 5.9 (35,616 runs, 0 holes). Read — gh's help text for Q4
 
 ## Why this work exists
 
@@ -25,6 +25,8 @@ The commit gate refused whole Bash calls whose only commit was text in a here-do
 | That each `gh` subcommand in `GH_REMOTE` runs no local git at runtime — Q4 was answered from `gh … --help` at 2.100.0, and the enumeration ran `gh` as a stub | the reviewer (warden), or a person with a scratch repository and network access |
 | Windows and Linux shells — the enumeration ran macOS bash 3.2 and zsh 5.9 only | CI's `windows-latest` and `ubuntu-latest` jobs, for the cases; nobody for the enumeration |
 | The full suite, lint and typecheck | the sealer, after the review rounds settle |
+| `seal/releases/0.15.1.md`'s L1 reads DRIFTED on this branch and on its base, because `f19e2762` (#752) changed a test it cites; the strict ledger check in the broad gate refuses it, and this work item did not re-read a row it never moved | the orchestrator, once for every branch of `release/v0.18.1` |
+| Whether the generated corpus 0.16.0's I10 names held a shape #739 now makes data; that probe was deleted and was not run again | nobody can rerun it; the reviewer judges whether the I10 re-read's wording is enough |
 
 ## Not done
 

@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | 33a8f1f3 |
-| Ran by | unknown — the spawn prompt did not name it; the orchestrator fills it |
+| Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
 
@@ -61,7 +61,13 @@ whose `f.sh`, `h.sh` and `g.txt` and whose `pre-commit` and
 `post-index-change` hooks already existed and were executable, so a sink that
 overwrote one kept the executable bit. Each body was a script that marks a run.
 Of 35,616 runs, no body the rule called data ran: 0 holes. 32 runs hit the 15
-s bound, and the marker was read at the bound in those too.
+s bound, and the marker was read at the bound in those too. A second run named
+them, and all 32 are one zsh family: a sink writing `pre-commit` or
+`post-index-change` and piped to `cat > f.sh`, which zsh's MULTIOS fills with
+the same body, then a Python follower running `sh f.sh`. The body's commit
+runs the hook, the hook is the body, and it commits again. In every one the
+sink's body is read, because a Python program stands on the line; the body the
+rule called data was the Python program's own.
 
 **Mutation, one break per added unit, through `bin/mutation-check`.** Of 33
 breaks on the first pass, 29 went red. Three survived (an unknown operator read as a
