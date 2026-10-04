@@ -25,7 +25,7 @@ The commit gate refused whole Bash calls whose only commit was text in a here-do
 | That each `gh` subcommand in `GH_REMOTE` runs no local git at runtime — Q4 was answered from `gh … --help` at 2.100.0, and the enumeration ran `gh` as a stub | the reviewer (warden), or a person with a scratch repository and network access |
 | Windows and Linux shells — the enumeration ran macOS bash 3.2 and zsh 5.9 only | CI's `windows-latest` and `ubuntu-latest` jobs, for the cases; nobody for the enumeration |
 | The full suite, lint and typecheck | the sealer, after the review rounds settle |
-| `seal/releases/0.15.1.md`'s L1 reads DRIFTED on this branch and on its base, because `f19e2762` (#752) changed a test it cites; the strict ledger check in the broad gate refuses it, and this work item did not re-read a row it never moved | the orchestrator, once for every branch of `release/v0.18.1` |
+| ✅ `seal/releases/0.15.1.md`'s L1 reads DRIFTED on this branch and on its base, because `f19e2762` (#752) changed a test it cites; the strict ledger check in the broad gate refuses it, and this work item did not re-read a row it never moved | re-read into this work item's fragment by the orchestrator at `f75ef84b`; `evidence-check --strict` read 0 drifted there |
 | Whether the generated corpus 0.16.0's I10 names held a shape #739 now makes data; that probe was deleted and was not run again | nobody can rerun it; the reviewer judges whether the I10 re-read's wording is enough |
 
 ## Not done
