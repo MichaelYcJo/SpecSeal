@@ -197,8 +197,18 @@ becomes one file per run. F3's own frame decides which, after reading the
 readers of `rounds/`, `phases/` and `survivors.md`.
 
 **F4 — the other rules `CLAUDE.md` restates get one home each (#730, in the
-release after #716's).** The merge-direction table, *no real identifiers*, the commit
-cadence, and every restated rule outside `CLAUDE.md` and `CONTRIBUTING.md`.
-#715 moved the ledger and fragment rules alone, because it rewrote them; the
-rest change no meaning, and finding a restated rule repository-wide needs a
-method of its own.
+release after #716's). Built by #730.** The merge method per direction lives
+in `docs/branch-and-release.md` §*Work accumulates on a release branch*, *no
+real identifiers* in `CONTRIBUTING.md` §*House rules*, and the commit cadence
+in step 2 of `skills/implement/SKILL.md`; the batch sentence at the foot of
+`CLAUDE.md`'s goal went to that skill's step 1. A `CLAUDE.md` row that points
+at a home carries three things: the home's path and section, the moment a
+session needs the rule, and the act in one sentence of the row's own, with
+the value the act needs. It carries no table, reasoning or history. Only the
+home's sentences are pinned, so a stale value in a row is a reviewer's
+finding; `tests/test_the_rules_claude_md_names_have_one_home.py` pins the
+homes and the links. Finding a restated rule anywhere is
+`tests/test_no_passage_is_pasted_into_a_second_file.py`: no two rule
+documents may share more 15-word runs than their pair was measured at. It
+does not see a rule restated in fresh words. The copies the tree already
+held, and a one-off pass over paraphrases, are #755's.
