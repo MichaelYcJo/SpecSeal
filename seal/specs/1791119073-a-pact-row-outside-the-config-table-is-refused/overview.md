@@ -16,7 +16,7 @@ Now such a row is refused, and every caller leaves the moved row or says so.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | The refusal sentence | Spec's shape: "… is shaped as a `Pact notify` row and is not read as one — it stands outside the `\| Item \| Value \|` table or spells the item another way; write it as a row of that table". Built: no dash or semicolon of its own, a third cause ("or holds a character that cuts the line"), the remedy as `\| <item> \| … \|`, and every whitespace character but a space shown as `<U+XXXX>` | built | `spec.md` §*Data & interfaces*: "The builder chooses the final text, and S16 pins it". The writer's `LEFT` line puts ` — ` and `; ` after the sentence, and W9 and W11 lines print as a correct row unless the invisible character is shown (`phases/phase-1.md`) |
-| The shape's grammar | `spec.md` Scope 2: "a pipe, `Pact` or `Pact<\s+>notify`". Built after round 1 of PR #784: the leading pipe optional, the separator between the two words possibly empty, and each line read with its format characters (Unicode category Cf) removed, in both readers | built | Round 1's 🟡 1 and 🟡 2, executed by the warden: GFM renders a line with no leading pipe directly under the table as one of its rows, and renders a Cf character as nothing, so both were rows read as the default with no refusal. Round 2 of PR #784 found the rest of that class, markup and character references and a code span, and the orchestrator decided to close it by construction: the line is read as GFM shows it and the item by its letters alone, held to cmark-gfm over a generated corpus |
+| The shape's grammar | `spec.md` Scope 2: "a pipe, `Pact` or `Pact<\s+>notify`". Built after round 1 of PR #784: the leading pipe optional, the separator between the two words possibly empty, and each line read with its format characters (Unicode category Cf) removed, in both readers | built | Round 1's 🟡 1 and 🟡 2, executed by the warden: GFM renders a line with no leading pipe directly under the table as one of its rows, and renders a Cf character as nothing, so both were rows read as the default with no refusal. Round 2 of PR #784 found the rest of that class, markup and character references and a code span, and the orchestrator decided to close it by construction: the line is read as GFM shows it and the item by its letters alone, held to cmark-gfm over a generated corpus. Round 3 widened the corpus to the CommonMark inline constructs as axes, applied to the pact items and to other words so both directions run; inline raw HTML is now read through `hooks/blocks.py`'s reader, and the shape takes GFM's whitespace set |
 
 ## Not verified
 
@@ -34,8 +34,8 @@ reported to the orchestrator as a candidate to file rather than built.
 paragraph's pinned one. It stays true after phase 3 and was not edited, so
 the region sibling E edits stays unmoved.
 
-The vendored copy does not read an item in a code span (round 2 of PR #784,
-yellow 2). It has no walk to tell the live table from the template's
+The vendored copy does not read an item holding a backtick, a code span
+included (rounds 2 and 3 of PR #784). It has no walk to tell the live table from the template's
 documentation table, which names both items in code spans, and a fix pass
 adds no reader. The orchestrator chose to name the limit instead:
 `docs/the-pact.md` states it and a case pins it.
