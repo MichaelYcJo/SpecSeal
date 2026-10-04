@@ -33,6 +33,7 @@ and every reader and writer of the sections moved with them (#728, F2).
 |---|---|
 | The full suite, lint and typecheck on the final tree | the sealer, once, after the review rounds settle |
 | The update into 0.18.1 by 0.18.0's update skill: step 2b reads the index's first heading (S12, held by S2 and S3 in the tree) and step 3 meets the index (D7) | the first `/specseal:update` into 0.18.1, by whoever runs it |
+| Why `evidence-check --strict .` reads 10 drifted rows at `origin/release/v0.18.1` itself (`templates/config.md`, `VERSIONS_OF_ANOTHER_PRODUCT`, `fake_venv`), which this branch inherits by its merge and did not cause | the orchestrator, for work items 1791076832 (#758) and 1791076833 (#756), whose fragments hold the readings |
 | The real gather and note on this repository: `gather_changelog.py --version 0.18.1` writing `changelog/0.18.1.md` and the index line at release preparation, and `publish-release.yml` publishing from that file at the tag | release preparation for 0.18.1, and the tag push |
 
 ## Not done
