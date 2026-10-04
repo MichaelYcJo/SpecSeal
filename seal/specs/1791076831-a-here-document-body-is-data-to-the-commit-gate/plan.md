@@ -4,7 +4,7 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-10-04 by the repository owner, whose `automation` answer covers this item, when `smith` was spawned. Q1–Q3 take the frame's defaults (move the one corpus row; strict `python3 -` is data; a sink beside a commit keeps today's reading). Q1 was reported to the owner at the spawn, because the trade it settles is the owner's by `docs/commit-review-gate-spec.md`.
 
 <!-- The line above is the record that the gate happened. Fill it in at the
 spawn: reading this plan and spawning the builder IS the approval, so nothing
