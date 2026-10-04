@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #756 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-4 |
 | Fix range | `ab8a4ecff78f2a321786843f72ca3a7c434e6e28..ec801b766ac015be2b0bd458242ebaabf78e64b1`, 2 commits |
 | Contract changes | test_a_vendored_copy_whose_config_will_not_read_leaves_the_row → round-3-report.md, round-3.md |
 | New units | none |

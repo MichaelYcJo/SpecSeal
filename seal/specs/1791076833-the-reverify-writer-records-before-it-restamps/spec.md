@@ -233,7 +233,9 @@ destroys bytes it never meant to touch. For a record this also changes its
 content hash, so a pact review that took it reads `NOT TAKEN` again for
 nothing. After this item, a file the run would write — a ledger it plans,
 `--into`, the record — that will not decode is unreadable under W3. A file it
-only reads, such as the code under a coordinate, keeps today's lenient read.
+only reads, such as the code under a coordinate, keeps today's lenient read;
+a vendored copy's `seal/config.md` is the one exception, read strictly since
+round 3 of PR #756.
 This is also **#746's seam**: a refusal #746 adds for a stale `--checked`
 goes in step 0 beside the `--into` refusal, or keeps the refused family out of
 both the plan and its moves. Either way, a refused row writes nothing and
