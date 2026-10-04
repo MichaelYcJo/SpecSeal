@@ -104,7 +104,7 @@ need.
 judges nothing, so it runs as the first act of the release checklist's step 2b
 on every release, including one that skips the fold. It is not a work item
 either, for the reason above: its commit carries `: '[no-review]';` in front
-of the command, and its pull request is where somebody reads what it removed.
+of the command, and somebody reads what it removed in its pull request.
 Run `settle` first; its last section is this arm's dry run.
 
 **Released means what it means for the fold**: present at `--released-at`.
