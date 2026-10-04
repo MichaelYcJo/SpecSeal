@@ -3831,6 +3831,107 @@ def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tm
     assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
 
 
+# --- 1791076832: the base re-run finds the part of the row that ran pytest ----
+#
+# #747. The comparison re-ran the row's first `&&` part, and a lint-first row's
+# first part is the linter: no `FAILED` line could appear, and every failing
+# file read `new` whatever the base did. The row is now cut where its shell
+# cuts it, and each prefix is tried until one prints pytest's summary.
+
+
+@pytest.mark.parametrize(
+    "row, prefixes",
+    [
+        ("pytest -q", ["pytest -q"]),
+        (
+            "lint && fmt && pytest -q",
+            ["lint", "lint && fmt", "lint && fmt && pytest -q"],
+        ),
+        ("a || b", ["a", "a || b"]),
+        ("a; b", ["a", "a; b"]),
+        ("a & b", ["a", "a & b"]),
+        ("pytest -q | tee out.txt", ["pytest -q", "pytest -q | tee out.txt"]),
+        ("pytest 2>&1 && lint", ["pytest 2>&1", "pytest 2>&1 && lint"]),
+        ("pytest >&2 && lint", ["pytest >&2", "pytest >&2 && lint"]),
+        ("lint <&0 && pytest", ["lint <&0", "lint <&0 && pytest"]),
+        ("echo 'a && b' && pytest", ["echo 'a && b'", "echo 'a && b' && pytest"]),
+        ('echo "a; b" && pytest', ['echo "a; b"', 'echo "a; b" && pytest']),
+        ("echo a\\&\\&b && pytest", ["echo a\\&\\&b", "echo a\\&\\&b && pytest"]),
+        (
+            "echo $(true && true) && pytest",
+            ["echo $(true && true)", "echo $(true && true) && pytest"],
+        ),
+        (
+            "echo $(echo ')') && pytest",
+            ["echo $(echo ')')", "echo $(echo ')') && pytest"],
+        ),
+        (
+            "echo `true && true` && pytest",
+            ["echo `true && true`", "echo `true && true` && pytest"],
+        ),
+        (
+            'echo "$(echo "a;b")" && pytest',
+            ['echo "$(echo "a;b")"', 'echo "$(echo "a;b")" && pytest'],
+        ),
+        ('echo "`echo ;`" && pytest', ['echo "`echo ;`"', 'echo "`echo ;`" && pytest']),
+        (
+            "(cd sub && pytest) && lint",
+            ["(cd sub && pytest)", "(cd sub && pytest) && lint"],
+        ),
+        ("echo 'unclosed && pytest", ["echo 'unclosed && pytest"]),
+        ("lint   &&   pytest  ", ["lint", "lint   &&   pytest"]),
+    ],
+)
+def test_a_row_is_cut_where_sh_cuts_it(row, prefixes):
+    """A7, `/bin/sh`. Every top-level operator is a cut, and nothing inside
+    a quote, an escape, a `$(…)`, a backtick pair or a group is; an `&`
+    straight after `>` or `<` is a redirection. Each prefix is the row's own
+    text up to the cut, and the whole row comes last."""
+    assert gate_module().row_prefixes(row, cmd_exe=False) == prefixes
+
+
+@pytest.mark.parametrize(
+    "row, prefixes",
+    [
+        ("bin\\test -q && lint", ["bin\\test -q", "bin\\test -q && lint"]),
+        ("lint & pytest", ["lint", "lint & pytest"]),
+        ("a || b", ["a", "a || b"]),
+        ("pytest | more", ["pytest", "pytest | more"]),
+        ("a; b", ["a; b"]),
+        ('echo "a && b" && pytest', ['echo "a && b"', 'echo "a && b" && pytest']),
+        ("echo a^&^&b && pytest", ["echo a^&^&b", "echo a^&^&b && pytest"]),
+        (
+            "(cd sub && pytest) && lint",
+            ["(cd sub && pytest)", "(cd sub && pytest) && lint"],
+        ),
+        ("pytest 2>&1 && lint", ["pytest 2>&1", "pytest 2>&1 && lint"]),
+        ("echo 'a && b'", ["echo 'a", "echo 'a && b'"]),
+        ("echo a\\&& b", ["echo a\\", "echo a\\&& b"]),
+        ('echo "unclosed && pytest', ['echo "unclosed && pytest']),
+    ],
+)
+def test_a_row_is_cut_where_cmd_exe_cuts_it(row, prefixes):
+    """A7, `cmd.exe`, driven from any machine. `;` separates nothing there,
+    `'` and `\\` are ordinary characters, and `^` is the escape."""
+    assert gate_module().row_prefixes(row, cmd_exe=True) == prefixes
+
+
+@pytest.mark.parametrize(
+    "windows, comspec, reads",
+    [
+        (False, r"C:\Windows\System32\cmd.exe", False),
+        (True, r"C:\Windows\System32\cmd.exe", True),
+        (True, '"C:\\Windows\\System32\\CMD.EXE"', True),
+        (True, "", True),
+        (True, r"C:\Program Files\Git\bin\bash.exe", False),
+    ],
+)
+def test_the_shell_a_row_is_cut_for_is_the_one_it_is_handed_to(windows, comspec, reads):
+    """The grammar `row_prefixes` cuts by and the rewrite `handed_to_shell`
+    makes read one answer, `cmd_exe_reads`, driven here from either machine."""
+    assert gate_module().cmd_exe_reads(windows=windows, comspec=comspec) is reads
+
+
 def test_a_plugin_check_that_fails_is_named_and_the_suite_is_not_compared(repo):
     """The comparison is reactive: it exists for a failing TEST. A failing
     plugin check — here an overview whose `## Not verified` row was deleted,

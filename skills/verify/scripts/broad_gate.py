@@ -1516,6 +1516,27 @@ def as_cmd_expands(part, here):
     return CMD_VARIABLE.sub(value, part)
 
 
+def cmd_exe_reads(windows=None, comspec=None):
+    """Whether `subprocess.run(..., shell=True)` hands its string to
+    `cmd.exe`: Windows, where `COMSPEC` names `cmd.exe` or is unset, which
+    Python answers with `cmd.exe` too.
+
+    The one answer two readers share (#747): `handed_to_shell` rewrites a
+    command name only for `cmd.exe`, and `row_prefixes` cuts the row by the
+    grammar of the shell that reads it. `windows` and `comspec` default to
+    this machine's, for the reason `handed_to_shell`'s docstring gives.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    if not windows:
+        return False
+    if comspec is None:
+        comspec = os.environ.get("COMSPEC")
+    # `ntpath` whatever this machine is: `C:\Windows\System32\cmd.exe` has no
+    # `/` in it for `posixpath.basename` to split at.
+    return not comspec or ntpath.basename(comspec.strip().strip('"')).lower() == CMD_EXE
+
+
 def handed_to_shell(command, windows=None, comspec=None, root=None):
     """The string `subprocess.run(command, shell=True)` should be given.
 
@@ -1546,15 +1567,7 @@ def handed_to_shell(command, windows=None, comspec=None, root=None):
     either platform — `quote`'s docstring says what reading `os.name` in the
     body cost the last time.
     """
-    if windows is None:
-        windows = os.name == "nt"
-    if not windows:
-        return command
-    if comspec is None:
-        comspec = os.environ.get("COMSPEC")
-    # `ntpath` whatever this machine is: `C:\Windows\System32\cmd.exe` has no
-    # `/` in it for `posixpath.basename` to split at.
-    if comspec and ntpath.basename(comspec.strip().strip('"')).lower() != CMD_EXE:
+    if not cmd_exe_reads(windows, comspec):
         return command
     here = os.curdir if root is None else root
     # `cmd.exe` expands `%VAR%` before it reads the name, so the part is
@@ -1821,6 +1834,93 @@ def first_command(command):
     """The row's first `&&`-joined command — the suite runner, by the shape
     every row this plugin has seen takes (`bin/test -q && uvx ruff …`)."""
     return command.split("&&", 1)[0].strip()
+
+
+# The operators that end one part of a row and begin the next, in each
+# grammar a row can be handed to, longest first so `&&` is never read as two
+# `&`. `;` separates nothing in `cmd.exe`.
+POSIX_CUTS = ("&&", "||", ";", "|", "&")
+CMD_CUTS = ("&&", "||", "&", "|")
+
+
+def row_prefixes(command, cmd_exe=False):
+    """Every prefix of `command` that ends where one of its top-level parts
+    ends, shortest first and the whole row last, each with its trailing
+    blanks dropped (#747).
+
+    **A prefix is a substring of the row as written**, never a re-rendered
+    list of tokens, for the reason `command_names_backslashed` gives: that is
+    how quoting gets lost. A prefix keeps every part before it — a `cd`, an
+    `export`, a lint — so the part it ends with runs in the context the row
+    gave it.
+
+    A cut falls at a TOP-LEVEL operator of the grammar of the shell the row
+    is handed to: `&&`, `||`, `;`, `|` and `&` for `/bin/sh`, and `&&`,
+    `||`, `&` and `|` for `cmd.exe`, which `cmd_exe` selects. Top-level means
+    outside every one of these:
+
+      - `/bin/sh`: single quotes, which nothing escapes inside; double
+        quotes; a backslash escape, outside single quotes; a backtick pair; a
+        `$(…)`; and a `( … )` group, all nested;
+      - `cmd.exe`: double quotes, which nothing escapes inside; a `^` escape
+        outside them; and a `( … )` group.
+
+    In both grammars an `&` written straight after `>` or `<` (`2>&1`,
+    `>&2`) is a redirection and not a cut.
+
+    **Not modelled, and named rather than claimed:** a `{ …; }` brace group,
+    a `${…}` holding an operator, and a `#` comment, each of which can put a
+    cut where the shell has none. A cut in the wrong place makes a prefix
+    that is not valid shell or runs no test, so it costs the comparison a
+    measurement and never fakes one: `compare_at_base` gives a word only
+    from a run whose output carries pytest's summary. An unclosed quote or
+    group leaves nothing after it top-level, so the row ends in one part.
+    """
+    cuts = CMD_CUTS if cmd_exe else POSIX_CUTS
+    prefixes = []
+    stack = []  # the open quotes and groups, innermost last
+    i, n = 0, len(command)
+    while i < n:
+        c = command[i]
+        top = stack[-1] if stack else None
+        if top in ('"', "'") and c == top:
+            stack.pop()
+            i += 1
+            continue
+        if top == "'" or (cmd_exe and top == '"'):
+            i += 1
+            continue
+        if c == ("^" if cmd_exe else "\\"):
+            i += 2
+            continue
+        if not cmd_exe and command.startswith("$(", i):
+            stack.append("$(")
+            i += 2
+            continue
+        if not cmd_exe and c == "`":
+            if top == "`":
+                stack.pop()
+            else:
+                stack.append(c)
+        elif top == '"':
+            pass
+        elif c == '"' or (c == "'" and not cmd_exe) or c == "(":
+            stack.append(c)
+        elif c == ")" and top in ("(", "$("):
+            stack.pop()
+        elif not stack:
+            op = next((op for op in cuts if command.startswith(op, i)), None)
+            if op and not (op == "&" and i and command[i - 1] in "<>"):
+                prefix = command[:i].rstrip()
+                if prefix and prefix not in prefixes:
+                    prefixes.append(prefix)
+                i += len(op)
+                continue
+        i += 1
+    whole = command.rstrip()
+    if whole and whole not in prefixes:
+        prefixes.append(whole)
+    return prefixes
 
 
 def compare_at_base(root, base, command, files, keep):
