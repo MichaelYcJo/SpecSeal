@@ -22,7 +22,7 @@ table are where the shapes are pinned as fixtures.
 | `skills/agent-contract/SKILL.md` §9 | Tells every agent "the gate reads a heredoc body as shell, on purpose". It changes with the rule (contract §14). |
 | `skills/agent-contract/SKILL.md` §12, §13, §15 | The disagreement class is enumerated by construction below. No defence rests on a platform guarantee: no tty, no exec bit, no installed tool. Each new case is seen red first. |
 | `CLAUDE.md` §*The goal a design is chosen against* | Unattended verification comes first. Each refusal #739 recorded cost an orchestrator the whole Bash call. |
-| PR #760's records on `fix/739-a-here-document-body-is-data-to-the-commit-gate`, under `seal/specs/1791076831-…/`: `rounds/round-1..3-report.md`, `post-review-check.md`; and #763 | The history this design answers. Four passes found that every rule trusting `hooks/cmdline.py`'s body boundaries (`_heredoc_split`, `_quoted_delimiter`, and `drop_comments` before them) fails open wherever that splitter and the shell disagree. Read 2026-10-04. |
+| PR #760's records on `fix/739-a-here-document-body-is-data-to-the-commit-gate`, under `seal/specs/1791076831-…/`: `rounds/round-1..3-report.md`, `post-review-check.md`; and #763 | The history this design answers. Four passes found that every rule trusting `hooks/cmdline.py`'s body boundaries (`_heredoc_split`, `_quoted_delimiter`, and `drop_comments` before them) fails open wherever that splitter and the shell disagree. Read 2026-10-04. `_quoted_delimiter` was #760's and is not in this tree · NAME NOT IN TREE |
 
 ## Scope
 
@@ -152,8 +152,8 @@ the problem this work exists to stop having.
 
 **Fresh, for the code.** #760's phase-1 reader record (`Heredoc`: `quoted`,
 `terminated`, `delimiter`, `dashed`) is produced inside `_heredoc_split`'s
-pass, the unit whose boundaries failed four times. `heredoc_data` (265 lines
-in `hooks/tokens.py`) rests on a positive line shape read through `shlex` and
+pass, the unit whose boundaries failed four times. #760's `heredoc_data` · NAME NOT IN TREE (265 lines
+in its `hooks/tokens.py`) rests on a positive line shape read through `shlex` and
 `is_plain`'s sets, which is the construction the passes broke. The new reader
 is a grammar over line 1, a line split and a count. Carrying either piece
 would bring back the trust this design removes, and a larger unit to review.

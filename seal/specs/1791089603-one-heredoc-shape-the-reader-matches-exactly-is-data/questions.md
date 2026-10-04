@@ -11,7 +11,7 @@ Each is settled from the tree, with the grounds where a reviewer can open them.
 None of them needs a person. Overturning one means reopening the row of
 `spec.md`'s disagreement table that it names.
 
-- **Fresh code, nothing of #760's hooks carried.** The record fields come out of `_heredoc_split`'s pass and `heredoc_data` rests on a `shlex` line shape, and both are what the four passes broke (`spec.md` §*Carry or fresh*). Only #760's must-stop test lists and #739's body fixtures are carried, as fixtures.
+- **Fresh code, nothing of #760's hooks carried.** The record fields come out of `_heredoc_split`'s pass and #760's `heredoc_data` · NAME NOT IN TREE rests on a `shlex` line shape, and both are what the four passes broke (`spec.md` §*Carry or fresh*). Only #760's must-stop test lists and #739's body fixtures are carried, as fixtures.
 - **The reducer is a module of its own**, `hooks/one_heredoc.py`, with no import from `cmdline`, `cmdline_base` or `tokens`. This is the owner's instruction that the decision not reuse the shared splitter, made checkable by an import list.
 - **The opener is line 1, and LEAD is only a `cd`.** Anything else before the consumer needs a quote-aware reader to show the opener is at top level (`spec.md` disagreement row 1; `plan.md` alternatives D and G).
 - **Nothing follows the delimiter on line 1.** A tail could hold a quote, a substitution or an operator that moves where the body starts (row 4). Follow-up commands go after the terminator, where they are lines of their own.

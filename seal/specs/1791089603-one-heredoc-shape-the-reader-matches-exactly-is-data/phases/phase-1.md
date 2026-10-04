@@ -10,8 +10,8 @@
 
 The reader, `hooks/one_heredoc.py`, written fresh: clauses A–F as a grammar
 over line 1, a raw line split, the `<<` count and the reduced text, with no
-reuse of `_heredoc_split`, `_quoted_delimiter` or `drop_comments` for the
-decision. Unit cases for every slot of clause B and a string failing each of
+reuse of `_heredoc_split`, `drop_comments` or #760's delimiter-quoting
+helper for the decision. Unit cases for every slot of clause B and a string failing each of
 A–E (S4's reader half). The agreement test over a generated corpus in the
 real bash and zsh on this machine (`/bin/bash` 3.2, zsh 5.9), directly and
 through `eval` (S6), executing harmless strings with a marker file and no
