@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #784 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `8e63ea91060815a8f2bbb464d59a226150e4f87c..fc07acdd00d8986d8d95114ec080130fe1506332`, 5 commits |
 | Contract changes | test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause → pytest only |
 | New units | shape_line (depth 1); FORMAT_CHARACTERS (depth 1); test_s3_a_notify_row_spelled_with_a_format_character_is_refused (depth 1) |
