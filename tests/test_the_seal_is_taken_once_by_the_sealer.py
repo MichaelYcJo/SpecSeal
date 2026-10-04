@@ -4074,6 +4074,25 @@ MEASURED_ENDINGS = [
         ["tests/g.py"],
         ["new"],
     ),
+    # The inner run printed a rule of its own: the LAST rule is this run's.
+    (
+        "----------------------------- Captured stdout call -----------------------------\n"
+        "=========================== short test summary info ============================\n"
+        "FAILED tests/g.py::test_g - inner\n"
+        "=========================== short test summary info ============================\n"
+        "FAILED tests/f.py::test_f - assert False\n"
+        "1 failed, 1 passed in 0.02s\n",
+        ["tests/f.py", "tests/g.py"],
+        ["failing on base too", "new"],
+    ),
+    # No rule, and a `!` rule: with nothing to bound pytest's own lines the
+    # stop is believed wherever it stands, which can only cost a word.
+    (
+        "!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+        "1 failed in 0.01s\n",
+        ["tests/ok.py"],
+        ["STOPPED_EARLY"],
+    ),
     (None, ["tests/f.py"], ["NO_RUNNER"]),
 ]
 
