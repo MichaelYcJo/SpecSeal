@@ -71,7 +71,7 @@ The ten rows still drifted are not this branch's: `templates/config.md`,
 `release/v0.18.1` at `edee5ca2`, and this branch does not touch them.
 
 **Two names in the frame are #760's and not in this tree**:
-`_quoted_delimiter` and `heredoc_data`. The records check refused them, so the
+`_quoted_delimiter` and `heredoc_data` · NAME NOT IN TREE. The records check refused them, so the
 lines in `spec.md` and `questions.md` that name them now say whose they are and
 carry `NAME NOT IN TREE`.
 
