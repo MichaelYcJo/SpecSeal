@@ -1357,15 +1357,13 @@ def cites_a_process_record(rest):
 
     The name is read off the front of `rest` by `CITED_NAME_RE` rather than
     by stripping the tails prose is known to add, because the list of tails
-    is the list that missed four shapes in #729's round 1. `rounds` with no
-    slash names the directory. The answer is `is_process_record`'s, so the
-    listing and the removal cannot disagree about a name."""
+    is the list that missed four shapes in #729's round 1. A name on
+    `PROCESS_DIRS` names the directory, with a slash after it or none. The
+    answer is `is_process_record`'s, so the listing and the removal cannot
+    disagree about a name; an empty name is on neither list."""
     m = CITED_NAME_RE.match(rest)
-    if m is None:
-        return False
-    name = m.group(0)
-    is_dir = rest[m.end() : m.end() + 1] == "/" or name in PROCESS_DIRS
-    return is_process_record(name, is_dir)
+    name = m.group(0) if m else ""
+    return is_process_record(name, name in PROCESS_DIRS)
 
 
 def write_process_section(found, out):
