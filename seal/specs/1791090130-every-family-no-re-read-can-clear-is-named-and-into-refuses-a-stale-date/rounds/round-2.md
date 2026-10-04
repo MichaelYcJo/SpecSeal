@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #771 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `538f7e6ef37ec888f45f6195f0c5bbf1dcd8f696..080a03a33a64892ab7242ccae0a1d840b9707ca2`, 3 commits |
 | Contract changes | none |
 | New units | none |
@@ -137,5 +137,5 @@ appended to
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| ⬜ 6: the record's old hash is the released member's, so an outranked-OK coordinate is recorded as a move to its own hash, in both of `reverify_into`'s arms and at the base | proposed: a new issue against #756's record writer; the fix is to take the old hash from the newest reading and skip a move whose two hashes agree | the orchestrator, who decides whether to file it |
+| ⬜ 6: the record's old hash is the released member's, so an outranked-OK coordinate is recorded as a move to its own hash, in both of `reverify_into`'s arms and at the base | filed as #774 against #756's record writer; the fix is to take the old hash from the newest reading and skip a move whose two hashes agree | the orchestrator, who decides whether to file it |
 | Without the freeze, one `--reverify` over every ledger moves the line a fragment's citing rows cite (round 1's deferral) | `overview.md` §*Not done*; already deferred in round 1 | the orchestrator, who decides whether to file it |
