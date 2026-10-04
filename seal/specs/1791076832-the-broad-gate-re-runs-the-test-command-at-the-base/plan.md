@@ -4,7 +4,9 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
-Approved 2026-10-04 by the repository owner, whose `automation` answer covers this item, when `smith` was spawned. Q1 and Q2 take the frame's defaults (yes; state both orders and recommend neither), under that same answer.
+Approved 2026-10-04 by the repository owner, whose `automation` answer covers this item, when `smith` was spawned.
+
+Q1 and Q2 take the frame's defaults (yes; state both orders and recommend neither), under that same answer.
 
 ## Summary
 

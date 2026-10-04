@@ -3849,7 +3849,12 @@ def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tm
         ),
         ("a || b", ["a", "a || b"]),
         ("a; b", ["a", "a; b"]),
-        ("a & b", ["a", "a & b"]),
+        # A lone `&` backgrounds the part before it, so it ends no prefix
+        # (round 1's 🟡 3): a prefix ending there would run that part in the
+        # foreground, which the row never does.
+        ("a & b", ["a & b"]),
+        ("a & b && c", ["a & b", "a & b && c"]),
+        ("a |& b", ["a", "a |& b"]),
         ("pytest -q | tee out.txt", ["pytest -q", "pytest -q | tee out.txt"]),
         ("pytest 2>&1 && lint", ["pytest 2>&1", "pytest 2>&1 && lint"]),
         ("pytest >&2 && lint", ["pytest >&2", "pytest >&2 && lint"]),
@@ -4025,8 +4030,50 @@ MEASURED_ENDINGS = [
         ["tests/ok.py"],
         ["STOPPED_EARLY"],
     ),
+    # Round 1's 🟡 4: at `COLUMNS=40`, the narrowest width pytest honours, the
+    # rule is one `!` each side.
+    (
+        "ERROR tests/b.py\n"
+        "! Interrupted: 1 error during collection !\n"
+        "1 error in 0.06s\n",
+        ["tests/b.py", "tests/f.py"],
+        ["failing on base too", "STOPPED_EARLY"],
+    ),
     (None, ["tests/f.py"], ["NO_RUNNER"]),
 ]
+
+
+# What decides that a run at the base was pytest's: its counts and its clock
+# alone on a line. Each is `(line, whether it is pytest's)`. The pytest lines
+# are pytest 9.1.1's, bare under `-q` and between `=` rules; the others print
+# a count and a clock too, measured in round 1 (cargo) and here.
+SUMMARY_LINES = [
+    ("1 failed, 1 passed in 0.02s", True),
+    ("1 error in 0.06s", True),
+    ("2 failed, 1 passed, 2 errors in 0.22s", True),
+    ("==== 768 passed, 1 skipped, 3 warnings in 612.34s (0:10:12) ====", True),
+    (
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; "
+        "1 filtered out; finished in 0.00s",
+        False,
+    ),
+    ("no tests ran in 0.00s", False),
+    ("Found 2 errors.", False),
+    ("Ran 3 tests in 0.001s", False),
+    ("1 passed in 0.01s, and a linter went on talking", False),
+    ("\x1b[31m1 failed\x1b[0m, \x1b[32m1 passed\x1b[0m\x1b[31m in 0.02s\x1b[0m", False),
+]
+
+
+@pytest.mark.parametrize("line, pytests", SUMMARY_LINES)
+def test_only_pytests_own_summary_line_says_pytest_ran(line, pytests):
+    """Round 1's 🟡 1. `suite_counts` takes any count followed by a clock,
+    which is right for the panel and wrong for choosing the run at the base:
+    `cargo test` prints one, and read as pytest's it gave `new` for a file
+    the base fails. A coloured line is not read either, and a run that
+    prints only that reads `new?`, which costs a measurement and fakes none."""
+    found = gate_module().PYTEST_SUMMARY_RE.search(f"F.\n{line}\n")
+    assert bool(found) is pytests, line
 
 
 @pytest.mark.parametrize("text, files, words", MEASURED_ENDINGS)
@@ -4069,6 +4116,55 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     with open(GATE, encoding="utf-8") as handle:
         docstring = ast.get_docstring(ast.parse(handle.read()))
     assert "`new?` with the reason no run measured it" in docstring
+
+
+def test_the_one_counterfeit_the_gate_cannot_see_is_named():
+    """Round 1's 🟡 5. A part that prints pytest's summary without running the
+    files appended to it gives `new` for a file it never ran, and pytest
+    under `-q` names no file that passed, so nothing mechanical tells. The
+    row's author is told in rule 3, and `compare_at_base` says it rather than
+    claiming every `new` measured."""
+    with open(os.path.join(ROOT, "templates", "config.md"), encoding="utf-8") as handle:
+        assert "a wrapper that drops its arguments" in handle.read()
+    gate = gate_module()
+    assert "part that drops its arguments" in gate.compare_at_base.__doc__
+
+
+def test_a_part_that_is_not_pytest_is_passed_over_though_it_prints_counts(tmp_path):
+    """Round 1's 🟡 1, end to end. The first part prints what `cargo test`
+    prints for a filter that matched nothing; it is not pytest, so the
+    comparison goes on to the part that is, and the base's failure is found."""
+    cargo = SUMMARY_LINES[4][0]
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{sys.executable} -c \"print('{cargo}')\" && {SUITE_ROW}",
+        {"tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE, (
+        out.stdout
+    )
+
+
+def test_a_file_named_below_a_cd_is_run_at_the_base_and_not_called_new(tmp_path):
+    """Round 1's 🟡 2. The row runs pytest from `sub`, so the failing file is
+    named `tests/test_two.py` and neither tree carries that path at the root.
+    It used to read `new` with no run at the base, which fails it. A path the
+    branch's own root does not carry says nothing about the base, so it is
+    run there with the others."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"cd sub && {SUITE_ROW}",
+        {"sub/tests/test_two.py": FAILING_TEST},
+        {"sub/tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE, (
+        out.stdout
+    )
 
 
 def test_a_runner_first_row_runs_once_at_the_base(tmp_path):

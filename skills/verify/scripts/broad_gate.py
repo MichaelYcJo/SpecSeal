@@ -1846,8 +1846,23 @@ ERROR_RE = re.compile(r"^ERROR\s+(\S+?)(?:::|\s)", re.M)
 # rather than as those texts because the rule is what every early stop shares:
 # `_pytest/terminal.py` writes a `!` separator for `shouldfail`, for
 # `shouldstop` and for an interrupt, and for nothing else in a run that
-# executes tests.
-STOPPED_EARLY_RE = re.compile(r"^!{3,} .+ !{3,}$", re.M)
+# executes tests. It pads the rule to the terminal's width with at least one
+# `!` each side, so at 40 columns, the narrowest pytest honours, it reads
+# `! Interrupted: 1 error during collection !` (round 1's 🟡 4).
+STOPPED_EARLY_RE = re.compile(r"^!+ .+ !+$", re.M)
+# The line that says pytest ran: its counts and its wall clock alone on a
+# line, bare under `-q` or between `=` rules — `1 failed, 1 passed in 0.02s`,
+# `== 768 passed in 612.34s (0:10:12) ==`. `suite_counts` takes any count
+# followed by a clock, which is right for the panel and wrong for choosing the
+# run at the base: `cargo test` prints `test result: ok. 0 passed; …; finished
+# in 0.00s`, and read as pytest's it gave `new` for a file the base fails
+# (round 1's 🟡 1). A run whose line carries colour codes, or that prints none
+# (`-qq`), is not read as pytest's, and its files read `new?`.
+PYTEST_SUMMARY_RE = re.compile(
+    r"^=*\s*\d+ [a-z]+(?:, \d+ [a-z]+)* in \d+(?:\.\d+)?s"
+    r"(?: \(\d+:\d\d:\d\d\))?\s*=*$",
+    re.M,
+)
 # What a file reads where no run measured it (#747). Each starts `new?`, so it
 # is never read as `new`, and says the comparison was not measured.
 NOT_MEASURED = f"{NEW}? not measured"
@@ -1870,7 +1885,8 @@ def verdicts_at_base(text, files):
       - `failing on base too` where a `FAILED` or `ERROR` line names the file
         — a file the base cannot collect fails there (`questions.md` Q1);
       - `new` where no such line names it AND the run did not stop early, so
-        every test it collected ran;
+        every test it collected ran — which is not proof the files appended
+        to it were among them (`compare_at_base` names the one shape);
       - `NO_RUNNER` or `STOPPED_EARLY` otherwise, both reading `new?`.
 
     The second condition is round 1's 🟡 4 of 0.10.0 in a new shape: one
@@ -1886,7 +1902,8 @@ def verdicts_at_base(text, files):
 
 # The operators that end one part of a row and begin the next, in each
 # grammar a row can be handed to, longest first so `&&` is never read as two
-# `&`. `;` separates nothing in `cmd.exe`.
+# `&`. `;` separates nothing in `cmd.exe`. Under `/bin/sh` a lone `&` ends a
+# part and no prefix (`row_prefixes`).
 POSIX_CUTS = ("&&", "||", ";", "|", "&")
 CMD_CUTS = ("&&", "||", "&", "|")
 
@@ -1903,9 +1920,13 @@ def row_prefixes(command, cmd_exe=False):
     gave it.
 
     A cut falls at a TOP-LEVEL operator of the grammar of the shell the row
-    is handed to: `&&`, `||`, `;`, `|` and `&` for `/bin/sh`, and `&&`,
-    `||`, `&` and `|` for `cmd.exe`, which `cmd_exe` selects. Top-level means
-    outside every one of these:
+    is handed to: `&&`, `||`, `;` and `|` for `/bin/sh`, and `&&`, `||`, `&`
+    and `|` for `cmd.exe`, which `cmd_exe` selects. **Under `/bin/sh` a lone
+    `&` ends a part and no prefix** (round 1's 🟡 3): it runs the part before
+    it in the background, so a prefix ending there would run that part in the
+    foreground, which the row never does, and a server or a `tail -f` there
+    never ends. `cmd.exe` runs the two in turn, so there it is a cut as `;`
+    is in `/bin/sh`. Top-level means outside every one of these:
 
       - `/bin/sh`: single quotes, which nothing escapes inside; double
         quotes; a backslash escape, outside single quotes; a backtick pair; a
@@ -1917,12 +1938,16 @@ def row_prefixes(command, cmd_exe=False):
     `>&2`) is a redirection and not a cut.
 
     **Not modelled, and named rather than claimed:** a `{ …; }` brace group,
-    a `${…}` holding an operator, and a `#` comment, each of which can put a
+    a compound command (`if`, `for`, `while`, `case`), a `${…}` holding an
+    operator, a `>|` redirection, and a `#` comment, each of which can put a
     cut where the shell has none. A cut in the wrong place makes a prefix
     that is not valid shell or runs no test, so it costs the comparison a
     measurement and never fakes one: `compare_at_base` gives a word only
     from a run whose output carries pytest's summary. An unclosed quote or
     group leaves nothing after it top-level, so the row ends in one part.
+    A prefix ending before a `|` runs the producer without its consumer,
+    which is the point where the runner comes first (`pytest -q | tee x`),
+    and which ends only where the producer ends on its own.
     """
     cuts = CMD_CUTS if cmd_exe else POSIX_CUTS
     prefixes = []
@@ -1959,8 +1984,9 @@ def row_prefixes(command, cmd_exe=False):
         elif not stack:
             op = next((op for op in cuts if command.startswith(op, i)), None)
             if op and not (op == "&" and command[i - 1 : i] in ("<", ">")):
-                # An operator before any command leaves nothing to run.
-                if command[:i].strip():
+                # An operator before any command leaves nothing to run, and a
+                # lone `&` under `/bin/sh` ends no prefix (the docstring).
+                if command[:i].strip() and (cmd_exe or op != "&"):
                     prefixes.append(command[:i].rstrip())
                 i += len(op)
                 continue
@@ -1985,12 +2011,20 @@ def compare_at_base(root, base, command, files, keep):
     lint-first row's first part is the linter: no `FAILED` line could
     appear, and every file read `new` whatever the base did. Now each prefix
     `row_prefixes` returns is run in turn, the failing files appended to
-    it, until one prints pytest's summary (`suite_counts`); that run is the
-    measurement, and `verdicts_at_base` reads it. A prefix keeps every part
-    before it, so a `cd` or an `export` still applies, and the parts before
-    the runner run once per prefix tried. Each run is kept as
+    it, until one prints pytest's summary line (`PYTEST_SUMMARY_RE`); that
+    run is the measurement, and `verdicts_at_base` reads it. A prefix keeps
+    every part before it, so a `cd` or an `export` still applies, and the
+    parts before the runner run once per prefix tried. Each run is kept as
     `suite-at-base-<k>.txt`. Where no prefix prints a summary, every present
     file reads `new?`, never `new`.
+
+    **The one thing a summary does not prove is that the appended files
+    ran.** A part that drops its arguments — a `sh -c '…'`, a `make` target —
+    prints a summary over something else, and every file reads `new`. pytest
+    under `-q` names no passing file, so nothing here can tell;
+    `templates/config.md` rule 3 names it for the row's author (round 1's
+    🟡 5). A `failing on base too` is never this shape: it comes from a line
+    that names the file.
 
     The `run` call stays in this function's own body: the shell sites are
     `gate` and this function, and a case holds that.
@@ -2017,8 +2051,18 @@ def compare_at_base(root, base, command, files, keep):
         # back `new`. Asked of the base tree first, and the absent ones are
         # `new` without a run — which is the truth: they arrived with this
         # branch.
+        #
+        # Absent only where this branch's own root carries the path. pytest
+        # names a file from the directory it ran in, and a `cd` part moves
+        # that, so a path the root does not carry says nothing about the base
+        # and is run with the others (round 1's 🟡 2). Where the base lacks it
+        # there too, pytest finds no such file, prints no summary, and every
+        # file of that run reads `new?`.
         absent = [
-            f for f in files if git(scratch, "cat-file", "-e", f"HEAD:{f}") is None
+            f
+            for f in files
+            if os.path.isfile(os.path.join(root, f))
+            and git(scratch, "cat-file", "-e", f"HEAD:{f}") is None
         ]
         present = [f for f in files if f not in absent]
         verdicts = {f: NEW for f in absent}
@@ -2029,7 +2073,7 @@ def compare_at_base(root, base, command, files, keep):
                 tried = run(
                     f"suite-at-base-{k}", f"{prefix} {paths}", scratch, keep, shell=True
                 )
-                if suite_counts(tried.text) is not None:
+                if PYTEST_SUMMARY_RE.search(tried.text):
                     measured = tried.text
                     break
             verdicts.update(verdicts_at_base(measured, present))
