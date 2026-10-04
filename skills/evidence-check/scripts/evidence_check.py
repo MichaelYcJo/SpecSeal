@@ -3744,13 +3744,14 @@ PACT_WORD = re.compile(r"(?<![^\W\d_])p[\W\d_]*a[\W\d_]*c[\W\d_]*t", re.I)
 # table cell's opening tag, in whose file a line naming a pact needs no `|`
 # (round 1 of PR #793, yellow 2).
 HTML_CELL = re.compile(r"<t[dh][\s/>]", re.I)
-# `hooks/config.py#DELIMITER_ROW`, copied for a copy with no `hooks/`: a GFM
-# delimiter row, its outer pipes each optional, at most three spaces in. The
-# GFM table walker reads a line as one where this matches and a pipe stands
-# in it, and so does `notify_may_be_always` (round 2 of PR #793, yellow 1);
-# `tests/test_a_signatory_declares_its_pact.py` holds the two equal.
-DELIMITER_ROW = re.compile(
-    r"^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$"
+# `hooks/config.py#UNDER_A_HEADER`, copied for a copy with no `hooks/`: a
+# line GFM may read as the delimiter row under a table's header, block-quote
+# markers, a vertical tab or form feed and a one-column row with no pipe
+# included, a run of dashes alone left out. That comment says why (round 2
+# of PR #793, yellow 1; round 3); `tests/test_a_signatory_declares_its_pact.py`
+# holds the two equal.
+UNDER_A_HEADER = re.compile(
+    r"^(?![ \t>]*-+[ \t]*$)[\s>]*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$"
 )
 
 
@@ -3785,11 +3786,11 @@ def notify_may_be_always(said):
     (`HTML_CELL`), which carries a value with no pipe (#759; round 1 of PR
     #793, yellow 2).
 
-    **A table's header is read whole.** A row-shaped line directly above a
-    delimiter row, read as the plugin's GFM walker reads one (`DELIMITER_ROW`
-    and a pipe, the outer pipes each optional), is a header, and a transposed table names the item there
-    and puts the value in the row below, so its item alone says nothing
-    (round 1 of PR #793, yellow 3).
+    **A table's header is read whole, and needs no pipe.** A line directly
+    above one `UNDER_A_HEADER` matches is a header: a transposed table names
+    the item there and puts the value in the row below, so its item alone
+    says nothing (round 1 of PR #793, yellow 3), and a one-column table's
+    header holds no `|` (round 3 of PR #793).
 
     Where the plugin refuses and this copy does not, nothing can mean
     `always`: a plain `Pact` row outside the table, a plain row with no
@@ -3805,11 +3806,11 @@ def notify_may_be_always(said):
     piped = HTML_CELL.search(said) is None
     for at, line in enumerate(lines):
         under = lines[at + 1] if at + 1 < len(lines) else ""
-        header = DELIMITER_ROW.match(under) and "|" in under
+        header = UNDER_A_HEADER.match(under) is not None
         plain = line.splitlines() == [line] and not header
         match = CONFIG_ROW_RE.match(line) if plain else None
         if match is None:
-            if names_a_pact(line, piped):
+            if names_a_pact(line, piped and not header):
                 return True
             continue
         item = match.group("item").replace("\\|", "|")

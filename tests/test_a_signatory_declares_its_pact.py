@@ -17,9 +17,11 @@ step's pinned sentences (S4).
 
 import importlib.util
 import os
+import re
 import sys
 import unicodedata
 
+import gfm_table_oracle as oracle
 import pytest
 from conftest import load_hook_module
 
@@ -222,20 +224,28 @@ def refused(line, cell=False):
     )
 
 
-# Delimiter rows by construction (round 2 of PR #793, yellow 1): the outer
-# pipes each optional, one cell or two, a cell of one or three dashes with
-# colons either side, padded or not, at the start of the line, three spaces
-# in, four in or behind a tab. The plugin's GFM walker reads one as a
-# delimiter row where `DELIMITER_ROW` matches and a pipe stands in it.
+# Delimiter rows by construction (round 2 of PR #793, yellow 1; round 3,
+# yellow 1): the outer pipes each optional, one cell to three, a cell of one
+# or three dashes with colons either side, padded with nothing or with each
+# character Python calls whitespace that does not end a GFM line -- every
+# one, so cmark-gfm, not a list, says which a delimiter row may hold. The
+# plugin's GFM walker reads one as a delimiter row where `DELIMITER_ROW`
+# matches and a pipe stands in it.
 DELIMITERS = sorted(
     {
-        indent + left + "|".join([f"{pad}{cell}{pad}"] * cols) + right
-        for indent in ("", "   ", "    ", "\t")
+        left + "|".join([f"{pad}{cell}{pad}"] * cols) + right
         for left in ("", "|")
         for right in ("", "|")
-        for cols in (1, 2)
+        for cols in (1, 2, 3)
         for cell in ("-", "---", ":--", "--:", ":-:")
-        for pad in ("", " ")
+        for pad in (
+            "",
+            *(
+                ch
+                for ch in map(chr, range(sys.maxunicode + 1))
+                if ch.isspace() and ch not in "\r\n"
+            ),
+        )
     }
 )
 WALKER_DELIMITERS = [
@@ -420,16 +430,65 @@ STRAY_WAYS = [
             ),
         )
     ),
-    # Round 2 of PR #793, yellow 1: GFM asks for no outer pipe on a
-    # delimiter row, so every delimiter row the walker reads is a header's.
+    # Round 2 of PR #793, yellow 1, and round 3, yellows 1 and 2: every table
+    # cmark-gfm renders with `always` under a `Pact notify` header, over each
+    # constructed delimiter row, behind each container -- none, a block
+    # quote with and without its space, a block quote the header continues
+    # lazily, a list item, three spaces, four spaces and a tab in. Its header
+    # names a pact whether or not it holds a pipe, so it is refused, and a
+    # copy with no `hooks/` is blind (S9 runs every row through it). Behind
+    # a container the delimiter row is padded with spaces alone.
     *(
         (
-            f"a transposed table over {d!r}",
-            CONFIG + f"\n| Mode | Pact notify |\n{d}\n| shared | always |\n",
-            ["| Mode | Pact notify |"],
+            f"a table cmark-gfm renders, {where} over {d!r}",
+            text,
+            [first + head_line],
             ORDERS,
         )
-        for d in WALKER_DELIMITERS
+        for d in DELIMITERS
+        for where, before, first, rest in (
+            ("at the margin", "", "", ""),
+            ("in a block quote", "", "> ", "> "),
+            ("in a block quote with no space", "", ">", ">"),
+            ("continuing a block quote lazily", "> x\n", "", "> "),
+            ("in a list item", "", "- ", "  "),
+            ("three spaces in", "", "   ", "   "),
+            ("four spaces in", "", "    ", "    "),
+            ("a tab in", "", "\t", "\t"),
+        )
+        if where == "at the margin" or set(d) <= set("|-: ")
+        for cols in [len(re.findall("-+", d))]
+        for cells in [
+            ("Mode", "Pact notify", "Note")[:cols] if cols > 1 else ("Pact notify",)
+        ]
+        for values in [("shared", "always", "x")[:cols] if cols > 1 else ("always",)]
+        for head_line, body_line in [
+            tuple(
+                ("| " if d.startswith("|") else "")
+                + " | ".join(row)
+                + (" |" if d.endswith("|") else "")
+                for row in (cells, values)
+            )
+        ]
+        for text in [
+            CONFIG
+            + "\n"
+            + before
+            + first
+            + head_line
+            + "\n"
+            + rest
+            + d
+            + "\n"
+            + rest
+            + body_line
+            + "\n"
+        ]
+        if any(
+            len(r) > cells.index("Pact notify")
+            and r[cells.index("Pact notify")] == "always"
+            for r in oracle.rows_under(text, cells) or []
+        )
     ),
 ]
 
@@ -794,11 +853,12 @@ def test_s9_the_vendored_copy_reads_the_silent_set_as_the_table_says():
     )
     assert ec.notify_may_be_always(None) is True
     # Round 2 of PR #793, yellow 1: the copy reads a line as a table's header
-    # exactly where the plugin's walker reads the line under it as a
-    # delimiter row.
-    for d in DELIMITERS:
+    # wherever the plugin's walker reads the line under it as a delimiter
+    # row. Round 3 widened the copy to what cmark-gfm renders, held in
+    # `STRAY_WAYS`, so here it is at least the walker, not exactly.
+    for d in WALKER_DELIMITERS:
         text = CONFIG + f"\n| Mode | Pact notify |\n{d}\n| shared | always |\n"
-        assert ec.notify_may_be_always(text) is (d in WALKER_DELIMITERS), repr(d)
+        assert ec.notify_may_be_always(text) is True, repr(d)
     with open(os.path.join(ROOT, "seal", "config.md"), encoding="utf-8") as f:
         assert ec.notify_may_be_always(f.read()) is False
 
@@ -834,7 +894,7 @@ def test_s10_the_reader_and_the_vendored_copy_read_one_word():
         ec.HTML_CELL.pattern,
         ec.HTML_CELL.flags,
     )
-    assert config.DELIMITER_ROW.pattern == ec.DELIMITER_ROW.pattern
+    assert config.UNDER_A_HEADER.pattern == ec.UNDER_A_HEADER.pattern
     lines = {line for text in S2_TEXTS for line in text.splitlines()}
     lines |= {line for below, _ in SILENT for line in (CONFIG + below).splitlines()}
     lines |= set(OTHER_ITEMS)
@@ -943,6 +1003,18 @@ def test_the_blind_side_is_read_as_no_line(item, gap):
             "with a `<`, anywhere, a comment or a code span included, refuses such a "
             "sentence too, so keep that tag out of this file.",
         ),
+        (
+            ("docs", "the-pact.md"),
+            "A line standing directly over a table's delimiter row is that table's "
+            "header, and a one-column table needs no pipe anywhere, so such a line "
+            "naming a pact is refused with or without a `|`, inside a block quote "
+            "or a list item too.",
+        ),
+        (
+            ("templates", "config.md"),
+            "So does a line of dashes and colons directly under the sentence, which "
+            "makes it a one-column table's header.",
+        ),
     ],
     ids=[
         "the pact: the rule",
@@ -958,6 +1030,8 @@ def test_the_blind_side_is_read_as_no_line(item, gap):
         "template: the Absent cell",
         "template: no pipe",
         "template: an HTML table cell's tag, round 2 of PR #793",
+        "the pact: a table's header, round 3 of PR #793",
+        "template: a table's header, round 3 of PR #793",
     ],
 )
 def test_s12_the_documents_say_a_pact_row_is_read_in_one_spelling(parts, sentence):

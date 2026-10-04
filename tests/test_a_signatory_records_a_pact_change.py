@@ -1627,6 +1627,9 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "\n<table><tr><td>Pact notify</td><td>always</td></tr></table>\n",
         f"\n| Pact | Pact notify |\n|---|---|\n| {PACT_URL} | always |\n",
         "\n| Mode | Pact notify |\n---|---\n| shared | always |\n",
+        "\n| Mode | Pact notify |\n---\x0b|---\n| shared | always |\n",
+        "\n> x\n| Mode | Pact notify |\n> ---|---\n> | shared | always |\n",
+        "\nPact notify\n:-:\nalways\n",
     ],
     ids=[
         "below the table",
@@ -1650,6 +1653,9 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "round 1 of PR #793, yellow 2: an HTML table row",
         "round 1 of PR #793, yellow 3: a transposed table",
         "round 2 of PR #793, yellow 1: a delimiter row with no outer pipes",
+        "round 3 of PR #793, yellow 1: a vertical tab in the delimiter row",
+        "round 3 of PR #793, yellow 1: a header a block quote continues",
+        "round 3 of PR #793, yellow 2: a one-column table with no pipe",
     ],
 )
 def test_s9_a_vendored_copy_leaves_where_the_plugin_refuses_a_pact_line(

@@ -433,7 +433,8 @@ table. A sentence with no pipe in it may name the pact freely, which is why
 this section is written without one: this file can be copied whole. A file
 that also holds an HTML table cell's tag, a `td` or `th` opened with a `<`,
 anywhere, a comment or a code span included, refuses such a sentence too, so
-keep that tag out of this file.
+keep that tag out of this file. So does a line of dashes and colons directly
+under the sentence, which makes it a one-column table's header.
 
 ## The fold's values
 

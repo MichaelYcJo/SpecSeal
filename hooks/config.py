@@ -664,6 +664,19 @@ PACT_WORD = re.compile(r"(?<![^\W\d_])p[\W\d_]*a[\W\d_]*c[\W\d_]*t", re.I)
 # `evidence_check.py#HTML_CELL` is its copy, held equal by
 # `tests/test_a_signatory_declares_its_pact.py`.
 HTML_CELL = re.compile(r"<t[dh][\s/>]", re.I)
+# A line GFM may read as the delimiter row under a table's header, wider than
+# `DELIMITER_ROW` on purpose and fail-closed: block-quote markers and any
+# whitespace before it, a vertical tab or form feed where a space stands,
+# and no pipe at all, because a one-column table needs none. A run of
+# dashes alone is a setext underline or a thematic break and is left out.
+# The line directly above one is a header, whose cells carry the values
+# below them, so it is read whole and needs no `|` (round 3 of PR #793).
+# `evidence_check.py#UNDER_A_HEADER` is its copy, held equal by
+# `tests/test_a_signatory_declares_its_pact.py`, which holds both readers to
+# every table cmark-gfm renders over a constructed delimiter row.
+UNDER_A_HEADER = re.compile(
+    r"^(?![ \t>]*-+[ \t]*$)[\s>]*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$"
+)
 
 
 def names_a_pact(text, piped=True):
@@ -909,7 +922,9 @@ def pact_lines_not_read(text, rows):
         line a `str.splitlines`-only character cuts, even where each of its
         pieces would be a row. In a file holding an HTML table cell
         (`HTML_CELL`) the `|` is not asked for, because such a cell carries
-        a value with no pipe beside it.
+        a value with no pipe beside it, and nor is it of a line directly
+        above one `UNDER_A_HEADER` matches: a table's header, whose value
+        stands in the row below (round 3 of PR #793).
 
     **Fences and comments are read through, on purpose.** Exempting them
     would make the refusal depend on `hidden_lines` matching GFM's block
@@ -925,17 +940,20 @@ def pact_lines_not_read(text, rows):
     taken = {index: item for index, item, _value in rows}
     piped = HTML_CELL.search(text) is None
     found, first = [], 0
-    for whole in blocks.gfm_lines(text, keepends=True):
+    wholes = blocks.gfm_lines(text, keepends=True)
+    for at, whole in enumerate(wholes):
         pieces = len(whole.splitlines())
         index, first = first, first + pieces
         line = whole.rstrip("\r\n")
+        under = wholes[at + 1].rstrip("\r\n") if at + 1 < len(wholes) else ""
+        header = UNDER_A_HEADER.match(under) is not None
         if pieces == 1 and index in taken:
             item = taken[index]
             if item not in (PACT_ROW, PACT_NOTIFY_ROW) and names_a_pact(
                 item, piped=False
             ):
                 found.append(line)
-        elif names_a_pact(line, piped):
+        elif names_a_pact(line, piped and not header):
             found.append(line)
     return found
 
