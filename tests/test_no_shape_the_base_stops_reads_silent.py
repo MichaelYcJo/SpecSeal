@@ -16,8 +16,9 @@ narrowed gate read silent while a real bash ran the commit. Those rounds'
 tables (`seal/specs/1790635415-a-gate-that-fails-to-load-says-so/rounds/
 round-2-report.md` and `round-3-report.md`, on
 `fix/28-a-gate-that-fails-to-load-says-so`) are rebuilt here row by row,
-controls included, beside the four shapes that prompted the person in the
-measured run and #662's reverse direction.
+controls included, beside three of the four shapes that prompted the person
+in the measured run and #662's reverse direction. The fourth is the one
+heredoc shape work item 1791089603 makes data, and `moved_row` holds it.
 
 Each command is issued twice without the press and twice with it, in a fresh
 session each way, because the base answers a first stop and a later one

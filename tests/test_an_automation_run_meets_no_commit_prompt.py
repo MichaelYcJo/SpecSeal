@@ -167,7 +167,7 @@ def test_an_unreadable_stop_is_refused_every_time(
         assert "pressed `automation`" in reason
 
 
-# --- S4: the four measured shapes -------------------------------------------
+# --- S4: three of the four measured shapes refused, the fourth silent -------
 
 
 def measured(w):
@@ -185,7 +185,7 @@ def measured(w):
     }
 
 
-def test_the_four_measured_shapes_are_refused_under_the_press(
+def test_three_measured_shapes_are_refused_under_the_press(
     monkeypatch, capsys, projects, tmp_path
 ):
     """S4. The session directory is opted in and undeclared, and W is
