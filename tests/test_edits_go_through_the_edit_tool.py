@@ -285,12 +285,21 @@ def test_the_rule_names_the_one_heredoc_shape_it_does_not_read():
             "`tee` or `tee -a` and one word",
             "`python3 -` followed by any number of words",
             "letters, digits and underscores in single quotes",
+            # Round 2, finding 1: "one space between every two tokens" read
+            # with `<<` and the delimiter as two tokens spaces them apart,
+            # and the reader refuses that; so does an empty quoted word.
+            "`<<` and, with no space between them, a delimiter",
             "letters, digits, `_`, `.`, `/` and `-` that do not start with `-`",
-            "one single-quoted word holding no quote and no newline",
+            "one single-quoted word holding no quote and no newline and not empty",
             "first line exactly equal to the delimiter",
         ):
             assert slot in text, (who, slot)
     policy = flat("docs", "commit-review-gate-spec.md")
+    for slot in (
+        "`<<` and, with no space between them, a delimiter",
+        "one single-quoted word that is not empty and holds no quote or newline",
+    ):
+        assert slot in policy, ("docs/commit-review-gate-spec.md", slot)
     assert "the repository owner made that trade for one shape alone" in policy
     assert "`hooks/one_heredoc.py` matches byte for byte" in policy
     assert "Every other body is read as shell exactly as before" in policy

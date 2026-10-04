@@ -243,9 +243,10 @@ data. Its first line has nothing before it, one space between every two
 tokens, and nothing after the delimiter. It is, in order: optionally `cd`,
 one word and `&&`; then the consumer, which is `cat` with `>` or `>>` and one
 word, `tee` or `tee -a` and one word, or `python3 -` followed by any number of
-words; then `<<` and a delimiter of letters, digits and underscores in single
-quotes. A word is either letters, digits, `_`, `.`, `/` and `-` that do not
-start with `-`, or one single-quoted word holding no quote and no newline.
+words; then `<<` and, with no space between them, a delimiter of letters,
+digits and underscores in single quotes. A word is either letters, digits,
+`_`, `.`, `/` and `-` that do not start with `-`, or one single-quoted word
+holding no quote and no newline and not empty.
 The body ends at the first line exactly equal to the delimiter. The command
 holds no carriage return, NUL or backslash before a newline, and no second
 `<<`; and nothing follows the terminator when the body is written to a file,

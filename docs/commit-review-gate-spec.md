@@ -180,15 +180,17 @@ Skipping a body that is only being written to a file would reopen #75, and
 the repository owner made that trade for one shape alone, the one
 `hooks/one_heredoc.py` matches byte for byte (#739, #763). Its first line is,
 with one space between tokens and nothing before or after: optionally `cd`,
-one word and `&&`; then the consumer; then `<<` and a delimiter of letters,
-digits and underscores in single quotes. The consumer is `cat` with `>` or
-`>>` and one word, `tee` or `tee -a` and one word, or `python3 -` and any
-number of words, where a word is a path of letters, digits, `_`, `.`, `/` and
-`-` not starting with `-`, or one single-quoted word. The body ends at the
-first line exactly equal to the delimiter, compared on the raw text. The
-command holds no carriage return, no NUL, no backslash before a newline, and
-no second `<<` outside the body. After `cat` or `tee` nothing but newlines may
-follow the terminator, because nothing may run after a file is written. After
+one word and `&&`; then the consumer; then `<<` and, with no space between
+them, a delimiter of letters, digits and underscores in single quotes. The
+consumer is `cat` with `>` or `>>` and one word, `tee` or `tee -a` and one
+word, or `python3 -` and any number of words, where a word is a path of
+letters, digits, `_`, `.`, `/` and `-` not starting with `-`, or one
+single-quoted word that is not empty and holds no quote or newline. The body
+ends at the first line exactly equal to the delimiter, compared on the raw
+text. The command holds no carriage return, no NUL, no backslash before a
+newline, and no second `<<` outside the body. After `cat` or `tee` nothing
+but newlines may follow the terminator, because nothing may run after a file
+is written. After
 `python3 -` anything may, and it is read as before: a Python program on stdin
 is a program whose operand is a script, which this document already leaves
 unread. The gate reads such a command with its body and
