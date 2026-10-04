@@ -93,6 +93,11 @@ LINKED = {
     "tests/test_the_plugin_directory_answers_the_box.py": ("identifiers",),
     "tests/test_a_workflow_is_read_the_one_way.py": ("identifiers",),
     "tests/test_the_gate_asks_the_range_ci_will_ask.py": ("identifiers",),
+    # The fifth citation, spelled `no-real-identifiers`, which the enumerating
+    # grep's `real identifier` did not match (round 1). Round 1's fix pass
+    # re-enumerated every `CLAUDE.md` mention against all four rules' words,
+    # hyphenated, spaced or quoted, and found no other.
+    "agents/warden.md": ("identifiers",),
 }
 
 # Every file in the class. A home is a carrier of the other rules, so a rule's
@@ -108,6 +113,7 @@ CARRIERS = (
     "tests/test_the_plugin_directory_answers_the_box.py",
     "tests/test_a_workflow_is_read_the_one_way.py",
     "tests/test_the_gate_asks_the_range_ci_will_ask.py",
+    "agents/warden.md",
 )
 
 
