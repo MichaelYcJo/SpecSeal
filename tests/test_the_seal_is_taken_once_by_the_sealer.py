@@ -3807,11 +3807,12 @@ def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tm
     """Round 1's 🟡 4. `compare_at_base` claims its verdicts are measured and
     never inferred, and one absent file turned every one of them into a guess.
 
-    pytest handed a path that does not exist exits 4 with `no tests ran` and
-    prints no `FAILED` line at all, so a single run over every failing file
-    loses the measurement for ALL of them and each comes back `new`. This
-    branch is exactly that shape: it adds a test module the base does not
-    carry.
+    A path that does not exist makes pytest run nothing at all, the files
+    beside it included: plain, it prints a not-found reply and exits 4, and
+    under xdist it prints only `no tests ran` and exits 5 (#761's
+    `phases/phase-1.md`). So one run over every failing file used to lose the
+    measurement for ALL of them. This branch is exactly that shape: it adds a
+    test module the base does not carry.
 
     Here the base already fails `tests/test_two.py`, and the branch adds
     `tests/test_three.py` failing too. The base-carried one has to keep
