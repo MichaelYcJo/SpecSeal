@@ -1856,10 +1856,13 @@ STOPPED_EARLY_RE = re.compile(r"^!+ .+ !+$", re.M)
 # followed by a clock, which is right for the panel and wrong for choosing the
 # run at the base: `cargo test` prints `test result: ok. 0 passed; …; finished
 # in 0.00s`, and read as pytest's it gave `new` for a file the base fails
-# (round 1's 🟡 1). A run whose line carries colour codes, or that prints none
-# (`-qq`), is not read as pytest's, and its files read `new?`.
+# (round 1's 🟡 1). A label is the category pytest or a plugin reports, and
+# one of pytest 9's own is two words — `2 failed, 1 subtests passed in
+# 0.01s` (round 2's 🟡 1) — so a label is one lowercase word or two. A run
+# whose line carries colour codes, a longer label, or no line at all (`-qq`)
+# is not read as pytest's, and its files read `new?`.
 PYTEST_SUMMARY_RE = re.compile(
-    r"^=*\s*\d+ [a-z]+(?:, \d+ [a-z]+)* in \d+(?:\.\d+)?s"
+    r"^=*\s*\d+ [a-z]+(?: [a-z]+)?(?:, \d+ [a-z]+(?: [a-z]+)?)* in \d+(?:\.\d+)?s"
     r"(?: \(\d+:\d\d:\d\d\))?\s*=*$",
     re.M,
 )
@@ -1867,8 +1870,9 @@ PYTEST_SUMMARY_RE = re.compile(
 # is never read as `new`, and says the comparison was not measured.
 NOT_MEASURED = f"{NEW}? not measured"
 NO_RUNNER = (
-    f"{NOT_MEASURED}: no part of the row printed a pytest summary at the base "
-    "(each part tried is kept as suite-at-base-<k>.txt)"
+    f"{NOT_MEASURED}: no part of the row printed a line the gate reads as "
+    "pytest's summary at the base (each part tried is kept as "
+    "suite-at-base-<k>.txt)"
 )
 STOPPED_EARLY = (
     f"{NOT_MEASURED}: the run at the base stopped before every test ran, "
@@ -2015,8 +2019,8 @@ def compare_at_base(root, base, command, files, keep):
     run is the measurement, and `verdicts_at_base` reads it. A prefix keeps
     every part before it, so a `cd` or an `export` still applies, and the
     parts before the runner run once per prefix tried. Each run is kept as
-    `suite-at-base-<k>.txt`. Where no prefix prints a summary, every present
-    file reads `new?`, never `new`.
+    `suite-at-base-<k>.txt`. Where no prefix prints a line read as that
+    summary, every present file reads `new?`, never `new`.
 
     **The one thing a summary does not prove is that the appended files
     ran.** A part that drops its arguments — a `sh -c '…'`, a `make` target —

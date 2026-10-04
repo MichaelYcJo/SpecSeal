@@ -16,7 +16,8 @@
 
   A file that run names in a `FAILED` or `ERROR` line reads
   `failing on base too`, and one it does not name reads `new`. Where no part
-  of the row prints a summary, or the run at the base stopped before every
+  of the row prints a line the gate reads as pytest's summary, or the run at
+  the base stopped before every
   test ran, the file reads `new?` with the reason, never `new`. Each run is
   kept as `suite-at-base-<k>.txt`.
 

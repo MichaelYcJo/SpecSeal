@@ -4052,6 +4052,9 @@ SUMMARY_LINES = [
     ("1 error in 0.06s", True),
     ("2 failed, 1 passed, 2 errors in 0.22s", True),
     ("==== 768 passed, 1 skipped, 3 warnings in 612.34s (0:10:12) ====", True),
+    # pytest 9.1.1 with the built-in `subtests` fixture (round 2's 🟡 1).
+    ("2 failed, 1 subtests passed in 0.01s", True),
+    ("1 passed, 2 subtests passed in 0.00s", True),
     (
         "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; "
         "1 filtered out; finished in 0.00s",
@@ -4060,6 +4063,8 @@ SUMMARY_LINES = [
     ("no tests ran in 0.00s", False),
     ("Found 2 errors.", False),
     ("Ran 3 tests in 0.001s", False),
+    ("Resolved 12 packages in 3ms", False),
+    ("3 files would be reformatted in 0.5s", False),
     ("4 checks in 12", False),
     ("1 passed in 0.01s, and a linter went on talking", False),
     ("\x1b[31m1 failed\x1b[0m, \x1b[32m1 passed\x1b[0m\x1b[31m in 0.02s\x1b[0m", False),
@@ -4096,8 +4101,9 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     and a smith reading it are both told it is not `new`."""
     gate = gate_module()
     assert gate.NO_RUNNER == (
-        "new? not measured: no part of the row printed a pytest summary at the "
-        "base (each part tried is kept as suite-at-base-<k>.txt)"
+        "new? not measured: no part of the row printed a line the gate reads as "
+        "pytest's summary at the base (each part tried is kept as "
+        "suite-at-base-<k>.txt)"
     )
     assert gate.STOPPED_EARLY == (
         "new? not measured: the run at the base stopped before every test ran, "
@@ -4135,7 +4141,7 @@ def test_a_part_that_is_not_pytest_is_passed_over_though_it_prints_counts(tmp_pa
     """Round 1's 🟡 1, end to end. The first part prints what `cargo test`
     prints for a filter that matched nothing; it is not pytest, so the
     comparison goes on to the part that is, and the base's failure is found."""
-    cargo = SUMMARY_LINES[4][0]
+    cargo = next(line for line, _ in SUMMARY_LINES if line.startswith("test result:"))
     repo = base_then_feature(
         tmp_path / "repo",
         f"{sys.executable} -c \"print('{cargo}')\" && {SUITE_ROW}",
