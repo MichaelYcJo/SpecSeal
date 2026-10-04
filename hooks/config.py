@@ -892,7 +892,7 @@ def stray_pact_rows(text, taken):
     for whole in blocks.gfm_lines(text, keepends=True):
         pieces = range(first, first + len(whole.splitlines()))
         first = pieces.stop
-        if len(pieces) < 2 or not any(i in shown for i in pieces):
+        if not any(i in shown for i in pieces):
             continue
         if any(i in taken or i in strays for i in pieces):
             continue
