@@ -653,8 +653,10 @@ PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
 # `evidence_check.py#NOTIFY_ROW_SHAPE` word for word -- the grammar a copy
 # with no `hooks/` looks for the same rows with -- and
 # `tests/test_a_signatory_declares_its_pact.py` holds the two equal (#759).
-# An empty value is the default, so it is not shaped as a row here.
-PACT_ROW_SHAPE = re.compile(r"[\s>]*\|\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
+# An empty value is the default, so it is not shaped as a row here. The
+# leading pipe is optional because GFM's is: a line directly under the table
+# with none is still one of its rows (round 1 of PR #784, yellow 1).
+PACT_ROW_SHAPE = re.compile(r"[\s>]*\|?\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
 
 
 def normalise_remote(url):

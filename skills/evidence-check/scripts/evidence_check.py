@@ -3736,7 +3736,8 @@ CODE_PART = re.compile(
 NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
 # Anything shaped like a `Pact` or a `Pact notify` row with a value, for a
 # copy with no `hooks/` to read either with: any case, any indentation,
-# quoted or fenced or not. It is matched line by line as `str.splitlines`
+# quoted or fenced or not, with or without a leading pipe, as GFM writes a
+# row either way (round 1 of PR #784, yellow 1). It is matched line by line as `str.splitlines`
 # cuts a file, with `\s` as Python reads it, because those are the plugin
 # reader's own rules (round 2 of PR #756, yellow 1), and line by line as GFM
 # cuts it, because the plugin's reader refuses a row only GFM's cut shows
@@ -3745,7 +3746,7 @@ NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
 # yellow 2). Its twin is `hooks/config.py#PACT_ROW_SHAPE`, the grammar the
 # plugin's reader finds a stray pact row with, and
 # `tests/test_a_signatory_declares_its_pact.py` holds the two equal.
-NOTIFY_ROW_SHAPE = re.compile(r"[\s>]*\|\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
+NOTIFY_ROW_SHAPE = re.compile(r"[\s>]*\|?\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
 PACT_CHANGE_UNDONE = (
     "  a pact change is owed and was not recorded, so this run wrote no ledger "
     "file: nothing was re-stamped"
