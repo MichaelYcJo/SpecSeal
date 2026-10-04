@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #767 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `8a0e440b2c210f141ed19829d4fd689ac68ad98e..0be7deb4132436ee7eb928165099579a4d2c81f8`, 6 commits |
+| Contract changes | none |
+| New units | test_a_paste_into_the_block_template_is_named (depth 1) |
 | Needs a fix | yes — 🟡 1, the ratchet reads none of `templates/claude-md-block.md`; 🟡 2, `agents/warden.md` still cites `CLAUDE.md` for the identifiers rule |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -38,10 +38,10 @@ Round 1 of work item `1791076836-every-rule-claude-md-restates-has-one-home` (#7
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The ratchet drops every file's generated region, so `templates/claude-md-block.md` is read as zero words and a paste into it is named by nothing | `tests/test_no_passage_is_pasted_into_a_second_file.py:105` | open | Executed: 0 of 767 words read; a 30-word paste inside the region named nothing, the same paste into `templates/sdd-spec.md` was named. Docstring, spec D5, ledger O3 and the changelog fragment say only `CLAUDE.md`'s copy is dropped |
-| 🟡 2 | A fifth citation names `CLAUDE.md` as the identifiers rule's place, and `LINKED` does not hold it | `agents/warden.md:404` | open | Spec Scope 2 and S5. The enumerating grep `real identifier` cannot match `no-real-identifiers`. Executed: the fix passes 117 cases, and `unlinked` names the target's sentence |
-| ⬜ 3 | A comment cites `CLAUDE.md:39` verbatim for a sentence this branch removed | `tests/test_chain_hooks_hardening.py:917` | open | Read: line 39 at the base was the batch sentence, and at the target it is the link paragraph. The case does not depend on it |
-| ⬜ 4 | The records call 2,091 *distinct runs* when it is the sum of per-pair counts; 1,197 distinct windows are shared | `seal/ledger/1791076836-every-rule-claude-md-restates-has-one-home.md:10` | open | Executed. A correction to the run's paperwork, which `Needs a fix` does not count. The same wording is in `phases/phase-2.md`, `questions.md` Q1 and `overview.md` |
+| 🟡 1 | The ratchet drops every file's generated region, so `templates/claude-md-block.md` is read as zero words and a paste into it is named by nothing | `tests/test_no_passage_is_pasted_into_a_second_file.py:105` | **fixed** `f610089f` | fixed at f610089f — `d63e6e8e`; Executed: 0 of 767 words read; a 30-word paste inside the region named nothing, the same paste into `templates/sdd-spec.md` was named. Docstring, spec D5, ledger O3 and the changelog fragment say only `CLAUDE.md`'s copy is dropped |
+| 🟡 2 | A fifth citation names `CLAUDE.md` as the identifiers rule's place, and `LINKED` does not hold it | `agents/warden.md:404` | **fixed** `211c492d` | fixed at 211c492d; Spec Scope 2 and S5. The enumerating grep `real identifier` cannot match `no-real-identifiers`. Executed: the fix passes 117 cases, and `unlinked` names the target's sentence |
+| ⬜ 3 | A comment cites `CLAUDE.md:39` verbatim for a sentence this branch removed | `tests/test_chain_hooks_hardening.py:917` | **fixed** `b9025b17` | fixed at b9025b17; Read: line 39 at the base was the batch sentence, and at the target it is the link paragraph. The case does not depend on it |
+| ⬜ 4 | The records call 2,091 *distinct runs* when it is the sum of per-pair counts; 1,197 distinct windows are shared | `seal/ledger/1791076836-every-rule-claude-md-restates-has-one-home.md:10` | answered | corrected at `b042462f`: ledger O4, `phase-2.md`, Q1 and the overview give the per-pair sum and the distinct 15-word windows apart, measured at three trees; Executed. A correction to the run's paperwork, which `Needs a fix` does not count. The same wording is in `phases/phase-2.md`, `questions.md` Q1 and `overview.md` |
 | 🟢 | The four `CLAUDE.md` link rows carry path and section, trigger and act with its values, and no table, incident or reasoning | `CLAUDE.md:40` | confirmed | Read against spec D2 and the four homes; the merge act matches all four pull-request rows of the home's table |
 | 🟢 | Each home holds everything its removed copy said, and the identifiers home gained the history-rewrite reason | `CONTRIBUTING.md:265` | confirmed | Read: the merge home, §*House rules*, and steps 1 and 2 of `skills/implement/SKILL.md` |
 | 🟢 | The ratchet names a paste and passes the measured debt: `BASELINE` equals the module's own counts in both directions | `tests/test_no_passage_is_pasted_into_a_second_file.py:193` | confirmed | Executed in the scratch clone: 68 files, 188,585 words, 103 pairs; a planted paste into `templates/sdd-spec.md` was named |
