@@ -280,6 +280,8 @@ CONSUMERS_READ = [
     "cat <<'EOF' > >(bash)",
     "cat <<'EOF' $(true)",
     "git -c core.hooksPath=/x status; cat <<'EOF'",
+    "cat <<'EOF' | git am",
+    "cat <<'EOF' | gh extension exec x",
 ]
 
 
@@ -304,6 +306,14 @@ FILE_RUNNERS = [
     "git add f.sh",
     "gh pr create --body-file f.sh",
     "gh pr checkout 1",
+    "gh alias import f.sh",
+    # A program the plain words hide: a process substitution, a backtick
+    # pair, and a `$'…'` whose escaped quote `shlex` reads as two quotes, so
+    # it sees one `echo` where bash runs `sh f.sh` between two.
+    "cat <(bash f.sh)",
+    "echo >(sh f.sh)",
+    "echo `sh f.sh`",
+    "echo $'\\'' ; sh f.sh ; echo \\'",
 ]
 
 
@@ -365,3 +375,26 @@ def test_two_bodies_and_a_pipeline_are_each_judged(tmp_path, command):
     got, out = decide(command, session)
     expected = "deny" if "python3" in command else "silent"
     assert got == expected, (command, out)
+
+
+tokens = load_hook_module("tokens.py", "tokens_heredoc_data")
+
+
+@pytest.mark.parametrize(
+    "command, expected",
+    [
+        # R2e is a closed list: a plain program that owns a body is not on it.
+        ("grep x <<'EOF'\nbody\nEOF", [False]),
+        ("git commit -F - <<'EOF'\nbody\nEOF", [False]),
+        ("cat <<'EOF'\nbody\nEOF", [True]),
+        ("python3 - <<'EOF'\nbody\nEOF", [True]),
+        # R2c: a word that steps around git's hooks keeps every body read.
+        ("cat <<'EOF' CLAUDECODE=\nbody\nEOF", [False]),
+        # R2d: an opener the line reads differently from the reader -- here
+        # `<<- 'EOF'`, whose dash stands apart -- keeps every body read.
+        ("cat <<- 'EOF'\nbody\nEOF", [False]),
+        ("cat <<-'EOF'\nbody\nEOF", [True]),
+    ],
+)
+def test_the_rule_answers_per_body(command, expected):
+    assert tokens.heredoc_data(command) == expected

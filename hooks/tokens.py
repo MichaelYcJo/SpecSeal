@@ -415,8 +415,6 @@ def _plain_on_a_data_line(command):
         # R2e's second kind, and the only place a Python program may stand:
         # it owns a body and reads its program from stdin.
         return bool(command.openers) and (not args or args[0] == "-")
-    if program == "printf":
-        return not (args and args[0].startswith("-"))
     return True
 
 
@@ -425,10 +423,10 @@ def _runs_what_it_reaches(command):
     program can, and git runs hooks, which a file the line wrote may be."""
     if command.program in STDIN_PROGRAMS or command.program == "git":
         return True
-    if command.program != "gh" or command.args[0] == "api":
+    if command.program != "gh" or command.args[:1] == ["api"]:
         return False
-    group = GH_REMOTE[command.args[0]]
-    return len(command.args) < 2 or command.args[1] not in group
+    remote = GH_REMOTE.get(command.args[0] if command.args else "", ())
+    return len(command.args) < 2 or command.args[1] not in remote
 
 
 def _writes_a_file(command):
