@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #793 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `ec5d32377ab4367166736b3fd99d625f90be7cde..e6173ed68762d8555f14e928b1ad253cc73b60aa`, 3 commits |
 | Contract changes | pact_line_refusal → pact_declaration; refused → round-1-report.md, round-1.md, pytest |
 | New units | DELIMITER_ROW (depth 1); DELIMITERS (depth 1); WALKER_DELIMITERS (depth 1); IN_A_CELL_FILE (depth 1) |
