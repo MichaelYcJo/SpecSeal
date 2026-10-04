@@ -304,6 +304,19 @@ STRAY_WAYS = [
         ["Pact notify | always"],
         ORDERS,
     ),
+    # The pipe counts as written or decoded, as the word does.
+    (
+        "a pipe written as a reference",
+        CONFIG + "Pact notify &#124; always\n",
+        ["Pact notify &#124; always"],
+        ORDERS,
+    ),
+    (
+        "a fullwidth pipe",
+        CONFIG + "Pact notify \uff5c always\n",
+        ["Pact notify \uff5c always"],
+        ORDERS,
+    ),
     # Round 4 of PR #784, yellow 4: a row GFM keeps in the live table and the
     # walk does not take, with the item in a code span.
     *(
