@@ -1209,20 +1209,25 @@ def test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers(
     no redirection, and one none of the frozen segments of the command as
     written holds. Checked by that condition, never by a list of shapes, so
     the policy's rule and the code cannot drift apart a position at a time.
-    Red against the round-1 sentence, which listed positions."""
+    Red against the round-1 sentence, which listed positions. The frozen half
+    is read from the wider splitter's segments with nothing subtracted first,
+    so it fails where the per-view subtraction is dropped (round 3 of #737,
+    white 10)."""
     assert POLICY_RULE in _policy_text()
     asked, outside = 0, []
     for verb in (*RESTORES, *ASKABLE):
         own = wg.switch_kind(wg.parse_git(["git", *verb.split()]))
         for command in _shapes(verb):
-            kinds = wg.wider_only_kinds(command, str(tmp_path))
+            # `judged=set()`: the function-level default subtracts what the
+            # frozen walk's words hold, which is this case's own frozen half,
+            # and would leave nothing for it to check.
+            kinds = wg.wider_only_kinds(command, str(tmp_path), judged=set())
             if not kinds:
                 continue
             asked += 1
-            frozen = {
-                wg.switch_kind(wg.parse_git(tokens))
-                for tokens, _wheres in wg.walk_command(command, str(tmp_path))
-            }
+            text = wg.wide.drop_heredoc_bodies(wg.wide.drop_comments(command))
+            items, _clean = wg.wide.split_segments_with_separators(text)
+            frozen = {wg.switch_kind(wg.parse_git(tokens)) for _sep, tokens in items}
             if kinds != {own} or own in frozen:
                 outside.append((command, sorted(kinds), own))
     assert asked, "the generator reached no shape the wider reading asks"
