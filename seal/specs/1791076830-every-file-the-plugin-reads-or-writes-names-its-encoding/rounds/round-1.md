@@ -7,14 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #757 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `839d19a931c44cc4285c59d16cba6d53da3bcc95..1604145994acfed8be7511203b340faff5bc6dd2`, 6 commits |
+| Contract changes | target_of → pytest only; judge_opener → round-1-report.md, round-1.md, pytest; judge → judge, main, pytest |
+| New units | UNBOUND_RECEIVERS (depth 1); BINARY_BY_DEFAULT (depth 1); TEXT_ALWAYS (depth 1); TEXT_UNLESS_BINARY (depth 1); METHODS_TEXT_UNLESS_BINARY (depth 1); dotted (depth 1); mode_node (depth 1); owner (depth 1); judge_text (depth 1) |
 | Needs a fix | yes — 🟡 1 (the unbound Path methods pass the walker), 🟡 2 (K1 omits the standard library's other text openers), 🟡 3 (two shipped Markdown one-liners open a file with no encoding) |
 | Loses a record or crashes | no |
+<!-- New units: .github/workflows/hygiene.yml read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,13 +25,13 @@ Round 1 of work item `1791076830-every-file-the-plugin-reads-or-writes-names-its
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `Path.read_text(p)`, `Path.write_text(p, s)` and `Path.open(p, "r", -1)`, called on the class, pass the walker: the path is read in the encoding's slot | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:262` | open | Executed: the three return no site at the target. A K1 row's own shape, so the module's claim to hold K1 fails |
-| 🟡 2 | K1 omits standard-library text openers: gzip/bz2/lzma in text mode (and `bz2.open("x.bz2", "rt")` passes because the name has a `b`), the logging file handlers and `basicConfig(filename=)`, `fileinput.FileInput` | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:102` | open | Executed: the walker-miss probe at the target. Fix applied in the scratch clone: 87 passed, ruff clean, the repository case still green |
-| 🟡 3 | Two shipped Markdown one-liners open a file with no encoding, outside the `.py` corpus; the changelog says every file the plugin reads names its encoding | `skills/update/SKILL.md:45` | open | Read. The update one reads the installer's record of a path under the user's home; on a cp949 or cp1252 interpreter that is decoded wrong. `skills/implement/orchestration.md:115` is the second |
-| ⬜ 4 | The docstring says every missed spelling is a K1 row; ten spellings found cannot be rows (rebinding, star import, `partial`, a reference passed to `map`, `getattr`, `__import__`, a module loaded through `importlib`, positional `universal_newlines`, `configparser`'s `read`) | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:16` | open | Executed: the probe's MISS rows. None in the tree. The sentence misleads, not the behaviour |
-| ⬜ 5 | The receiver rule reports `tarfile.open(p)` and `zipfile.ZipFile(z).open(name)`, which are binary, so the answer is a whole-unit allowance that hides later real sites in that unit | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:100` | open | Executed: the probe's FALSE+ rows |
-| ⬜ 6 | `CONTRIBUTING.md` says both halves cover every tracked `.py`; the entry-point half covers `hooks/` | `CONTRIBUTING.md:271` | open | Read; the spec scopes that half to hooks on purpose |
-| ⬜ 7 | Correction: the changelog fragment, phase-1, overview and ledger E3 say each em dash and ellipsis was *spelled* as itself; the escape text was lost | `seal/specs/1791076830-every-file-the-plugin-reads-or-writes-names-its-encoding/changelog.md:18` | open | Read the bytes with `cat -v`; no `u2014` in any of the three files. Paperwork, so a correction |
+| 🟡 1 | `Path.read_text(p)`, `Path.write_text(p, s)` and `Path.open(p, "r", -1)`, called on the class, pass the walker: the path is read in the encoding's slot | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:262` | **fixed** `9a1b0336` | fixed at 9a1b0336; Executed: the three return no site at the target. A K1 row's own shape, so the module's claim to hold K1 fails |
+| 🟡 2 | K1 omits standard-library text openers: gzip/bz2/lzma in text mode (and `bz2.open("x.bz2", "rt")` passes because the name has a `b`), the logging file handlers and `basicConfig(filename=)`, `fileinput.FileInput` | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:102` | **fixed** `9a1b0336` | fixed at 9a1b0336 — `b27f9cec`, `fd5fe34f`; Executed: the walker-miss probe at the target. Fix applied in the scratch clone: 87 passed, ruff clean, the repository case still green |
+| 🟡 3 | Two shipped Markdown one-liners open a file with no encoding, outside the `.py` corpus; the changelog says every file the plugin reads names its encoding | `skills/update/SKILL.md:45` | **fixed** `fd2af401` | fixed at fd2af401 — (the three one-liners name UTF-8), `9c27b3dd` (an Out-of-scope row: the walk reads `.py` only; the changelog narrowed to say so); Read. The update one reads the installer's record of a path under the user's home; on a cp949 or cp1252 interpreter that is decoded wrong. `skills/implement/orchestration.md:115` is the second |
+| ⬜ 4 | The docstring says every missed spelling is a K1 row; ten spellings found cannot be rows (rebinding, star import, `partial`, a reference passed to `map`, `getattr`, `__import__`, a module loaded through `importlib`, positional `universal_newlines`, `configparser`'s `read`) | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:16` | **fixed** `9a1b0336` | fixed at 9a1b0336; Executed: the probe's MISS rows. None in the tree. The sentence misleads, not the behaviour |
+| ⬜ 5 | The receiver rule reports `tarfile.open(p)` and `zipfile.ZipFile(z).open(name)`, which are binary, so the answer is a whole-unit allowance that hides later real sites in that unit | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:100` | **fixed** `9a1b0336` | fixed at 9a1b0336; Executed: the probe's FALSE+ rows |
+| ⬜ 6 | `CONTRIBUTING.md` says both halves cover every tracked `.py`; the entry-point half covers `hooks/` | `CONTRIBUTING.md:271` | **fixed** `fd2af401` | fixed at fd2af401; Read; the spec scopes that half to hooks on purpose |
+| ⬜ 7 | Correction: the changelog fragment, phase-1, overview and ledger E3 say each em dash and ellipsis was *spelled* as itself; the escape text was lost | `seal/specs/1791076830-every-file-the-plugin-reads-or-writes-names-its-encoding/changelog.md:18` | answered | corrected at `9c27b3dd`: the changelog, phase 1, overview and E3 carry the escape text again, written by a script so nothing decodes it; Read the bytes with `cat -v`; no `u2014` in any of the three files. Paperwork, so a correction |
 | 🟢 | The 29 product edits keep their failure direction | `hooks/commit-review-gate.py:590` | confirmed | Read per site: 9 empty markers, 2 ASCII-only writes, `read_mark` with `errors="replace"`, 3 reads in handlers catching `ValueError` or `Exception`, 14 non-gate scripts strict before and after |
 | 🟢 | S7, S8 and S9 each go red when their unit is undone | `hooks/git/pre-commit.py:47` | confirmed | Executed: three mutations through `bin/mutation-check`, each red |
 | 🟢 | The smith's question: post-commit's stdout raised under an ASCII console before this work, and the call closes it | `hooks/git/post-commit.py:24` | confirmed | Executed: the stdout write raised before `to_utf8` and went out as UTF-8 after. Read: `notify` marks before it returns, so the raise lost the notice for the session |
