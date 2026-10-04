@@ -18,6 +18,7 @@ case.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | How the released rows the edit drifted are read again | S7: *Released rows whose code this work drifts are read again into that same fragment with `--reverify --into`*. L4 and N1 of `seal/releases/0.18.0.md` claim `--into` writes a row this work now refuses for a stale date | `Corrected ·` rows for L4 and N1, carrying the claim with the narrowing and every coordinate; `Re-read ·` rows for the five drifted rows that still hold | A `--into` row's Notes say *the cited row's claim holds* (`INTO_VERIFIED`), which is false for those two. `docs/the-evidence-ledger.md` §*A released row is read again in the branch's fragment*: *A re-read or a correction is a citing row in the branch's own fragment* |
+| How many families the paragraph names | `spec.md` §*The class*: three families, a double correction, a BROKEN anchor in a family, a family rooted in a fragment whose statement is gone. S4: *plus any further family phase 2's enumeration finds* | Five: the three, with BROKEN widened to any row outside a released carrier under the freeze, plus a citing row refused `MALFORMED` and a citation whose released line changed | `spec.md` §*Out*: row-shape refusals stay out *unless phase 2's enumeration shows one of them inside a family exiting 0* — the marker refusal is inside a family; the enumeration is in `phases/phase-2.md` |
 
 ## Not verified
 
@@ -33,6 +34,18 @@ The chore's ten drifted rows (`fake_venv`, `VERSIONS_OF_ANOTHER_PRODUCT`,
 the spawn said. `--strict .` reads exactly those ten DRIFTED until that
 branch lands on the release branch.
 
+The unfrozen writer's own citation drift is named and pinned, not fixed.
+Without the freeze, one `--reverify` over every ledger that re-stamps a
+released row in place moves the line its fragment's `Re-read ·` rows cite,
+so `--strict` reads their citations DRIFTED until a second run
+(`phases/phase-2.md`). Fixing it changes a writer's behaviour, which
+`spec.md` §*Out* leaves to an issue of its own. Whether to file one is the
+orchestrator's to decide; this repository runs frozen and never meets it.
+
 ## Fed back into the spec
 
-none
+*Inferred during implementation*, and the planner may overturn them:
+`docs/the-evidence-ledger.md`'s paragraph names a citing row refused
+`MALFORMED` and a citation whose released line changed, beside the three
+`spec.md` named, and it states BROKEN for any row rather than for a family
+alone. Each rests on `phases/phase-2.md`'s enumeration.
