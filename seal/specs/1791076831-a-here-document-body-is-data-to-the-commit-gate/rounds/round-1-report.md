@@ -27,7 +27,7 @@ I confirmed, by opening the code rather than trusting the account:
   asserts that same shape silent with the press and without. Both as the
   account states.
 - Q2's strict `python3 -` form is enforced: `_plain_on_a_data_line` for a
-  `STDIN_PROGRAM` returns False unless the first word past redirections is
+  `STDIN_PROGRAMS` returns False unless the first word past redirections is
   `-` or absent, and `CONSUMERS_READ` pins `python3 -c`, `python3 x.py`,
   `python3 $X`, `python3 <<'EOF' -c` as still read. Confirmed.
 
