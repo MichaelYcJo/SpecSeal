@@ -36,6 +36,7 @@ is not an answer somebody gave.
 import os
 import re
 import sys
+import unicodedata
 
 # `hooks/blocks.py` is a sibling, found by this file's own directory, so the
 # callers that load this module by path -- `broad_gate.py#load`, `seal.py` --
@@ -656,7 +657,18 @@ PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
 # An empty value is the default, so it is not shaped as a row here. The
 # leading pipe is optional because GFM's is: a line directly under the table
 # with none is still one of its rows (round 1 of PR #784, yellow 1).
-PACT_ROW_SHAPE = re.compile(r"[\s>]*\|?\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
+PACT_ROW_SHAPE = re.compile(r"[\s>]*\|?\s*(Pact(?:\s*notify)?)\s*\|\s*[^\s|]", re.I)
+
+
+def shape_line(line):
+    """LINE as `PACT_ROW_SHAPE` reads it: every format character (Unicode
+    category Cf, U+200B, U+2060, U+FEFF, U+00AD and the rest) removed,
+    because GFM renders none of them and a person reads the row without
+    them. So `Pact` and `notify` may stand with nothing between them once
+    one is gone (round 1 of PR #784, yellow 2).
+    `evidence_check.py#shape_line` is its copy, held equal by
+    `tests/test_a_signatory_declares_its_pact.py`."""
+    return "".join(ch for ch in line if unicodedata.category(ch) != "Cf")
 
 
 def normalise_remote(url):
@@ -887,7 +899,7 @@ def stray_pact_rows(text, taken):
     shown = dict(unfenced(text.splitlines(), text))
     strays = {}
     for index, line in shown.items():
-        match = PACT_ROW_SHAPE.match(line)
+        match = PACT_ROW_SHAPE.match(shape_line(line))
         if match and index not in taken:
             strays[index] = (_shaped_item(match), line)
     first = 0
@@ -899,15 +911,15 @@ def stray_pact_rows(text, taken):
         if any(i in taken or i in strays for i in pieces):
             continue
         line = whole.rstrip("\r\n")
-        match = PACT_ROW_SHAPE.match(line)
+        match = PACT_ROW_SHAPE.match(shape_line(line))
         if match:
             strays[pieces.start] = (_shaped_item(match), line)
     return [strays[index] for index in sorted(strays)]
 
 
 def _shaped_item(match):
-    named = " ".join(match.group(1).split()).lower()
-    return PACT_NOTIFY_ROW if named == PACT_NOTIFY_ROW.lower() else PACT_ROW
+    named = "".join(match.group(1).split()).lower()
+    return PACT_NOTIFY_ROW if named == "pactnotify" else PACT_ROW
 
 
 def stray_refusal(item, line):
@@ -916,7 +928,9 @@ def stray_refusal(item, line):
     code point, because the character that cut the line or spelled the item
     another way is otherwise invisible in the sentence that names it."""
     shown = "".join(
-        f"<U+{ord(ch):04X}>" if ch.isspace() and ch != " " else ch
+        f"<U+{ord(ch):04X}>"
+        if (ch.isspace() and ch != " ") or unicodedata.category(ch) == "Cf"
+        else ch
         for ch in line.strip()
     )
     return (

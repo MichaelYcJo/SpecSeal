@@ -115,6 +115,7 @@ import subprocess
 import sys
 import tempfile
 import types
+import unicodedata
 
 # `--help` ends with the docstring's last section. Partitioned rather than
 # indexed, so an interpreter run with `-OO`, where a module has no docstring,
@@ -3746,7 +3747,16 @@ NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
 # yellow 2). Its twin is `hooks/config.py#PACT_ROW_SHAPE`, the grammar the
 # plugin's reader finds a stray pact row with, and
 # `tests/test_a_signatory_declares_its_pact.py` holds the two equal.
-NOTIFY_ROW_SHAPE = re.compile(r"[\s>]*\|?\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
+NOTIFY_ROW_SHAPE = re.compile(r"[\s>]*\|?\s*(Pact(?:\s*notify)?)\s*\|\s*[^\s|]", re.I)
+
+
+def shape_line(line):
+    """`hooks/config.py#shape_line`, copied for a copy with no `hooks/`:
+    LINE with every format character (Unicode category Cf) removed, as GFM
+    renders it (round 1 of PR #784, yellow 2)."""
+    return "".join(ch for ch in line if unicodedata.category(ch) != "Cf")
+
+
 PACT_CHANGE_UNDONE = (
     "  a pact change is owed and was not recorded, so this run wrote no ledger "
     "file: nothing was re-stamped"
@@ -3836,11 +3846,11 @@ def record_pact_changes(moves, root, into, checked):
         said = read(declaration, strict=True) if os.path.lexists(declaration) else ""
         lines = (said or "").splitlines() + gfm_lines(said or "")
         named = {
-            " ".join(m.group(1).lower().split())
-            for m in map(NOTIFY_ROW_SHAPE.match, lines)
+            "".join(m.group(1).lower().split())
+            for m in map(NOTIFY_ROW_SHAPE.match, map(shape_line, lines))
             if m
         }
-        blind = said is None or named >= {"pact", "pact notify"}
+        blind = said is None or named >= {"pact", "pactnotify"}
         left = 0
         for where, _row, _parts, anchors in entries:
             if anchors:
