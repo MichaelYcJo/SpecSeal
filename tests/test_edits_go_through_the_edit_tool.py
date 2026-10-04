@@ -260,3 +260,27 @@ def test_the_reviewer_file_still_does_not_trip_the_gate():
     """The warden lost the waiver example with §8, and must stay clean."""
     gate = load_hook_module("commit-review-gate.py", "crg_edit_tool")
     assert not gate._hides_a_commit(read("agents", "warden.md"))
+
+
+def test_the_rule_names_the_one_heredoc_shape_it_does_not_read():
+    """Work item 1791089603 (#739, #763). The gate reads every heredoc body
+    as shell but one shape, which `hooks/one_heredoc.py` matches byte for
+    byte. A carrier that still says every body is read sends a session to
+    the `Edit` tool for nothing; one that names the exception without its
+    limits sends a session to spell a patch that is read after all. So the
+    contract names the exception and what stays read, and the policy names
+    the grammar and no longer leaves the trade open."""
+    for parts in CARRIERS:
+        text = flat(*parts)
+        who = "/".join(parts)
+        assert "with one exception named below" in text, who
+        assert "one shape the gate matches byte for byte" in text, who
+        assert "Any other spelling of the same body is read as shell" in text, who
+        assert "changes nothing about the first reason" in text, who
+    policy = flat("docs", "commit-review-gate-spec.md")
+    assert "the repository owner made that trade for one shape alone" in policy
+    assert "`hooks/one_heredoc.py` matches byte for byte" in policy
+    assert "Every other body is read as shell exactly as before" in policy
+    assert "that trade is the repository owner's to make" not in policy, (
+        "the policy still leaves open a trade the owner has made"
+    )
