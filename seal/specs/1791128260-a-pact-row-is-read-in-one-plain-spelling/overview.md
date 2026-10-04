@@ -43,5 +43,9 @@ read; the orchestrator ruled it out of scope in round 1 of PR #793.
   (the plan's `word(item)`).
 - *Inferred in round 1's fix pass of PR #793:* a file holding an HTML table
   cell (`HTML_CELL`, `<td` or `<th`) drops the pipe condition for every
-  line, in both readers; the vendored copy reads a row-shaped line directly
-  above a delimiter row whole, as a table's header.
+  line, in both readers.
+- *Inferred in rounds 1-3's fix passes of PR #793:* a line directly above
+  one `UNDER_A_HEADER` matches is a table's header, read whole and with no
+  `|` asked, by both readers: the delimiter row is read as cmark-gfm renders
+  one (outer pipes optional, a vertical tab or form feed, a block quote, a
+  one-column row with no pipe), held by construction against the oracle.
