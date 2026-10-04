@@ -32,8 +32,8 @@ and is listed here by reading.
   the class a call in the receiver builds, resolves through the file's
   imports to one of these. A module whose `open` takes no locale encoding:
   `os`, `webbrowser`, `tarfile`, `shelve`, `dbm` and its submodules `dumb`,
-  `gnu`, `ndbm` and `sqlite3`, `wave`, `aifc`, `sunau`, `tokenize`, `posix`
-  and `nt`. PIL's `Image`. `ZipFile` or `TarFile`, called on the class or
+  `gnu`, `ndbm` and `sqlite3`, `wave`, `aifc`, `sunau`, `tokenize`, `posix`,
+  `nt` and `ossaudiodev`. PIL's `Image`. `ZipFile` or `TarFile`, called on the class or
   built in the receiver, which read bytes. Each of those is excused. And
   `zipfile.Path`, called on the class or built in the receiver, is judged as
   `zipfile.Path.open`, whose encoding comes one place earlier; one reached by
@@ -64,9 +64,10 @@ a module loaded through `importlib`, `universal_newlines` given by position,
 `configparser`'s `.read`, whose name is too common to match without types,
 a file handler named in a string to `logging.config.dictConfig`, a
 handler subclass whose constructor calls `super().__init__(p)`, and a name an
-import binds that a narrower scope rebinds (`import wave`, then
-`def f(wave): return wave.open()`), because imports are read for the whole
-file and not per scope, so that `.open` is excused as the module's. Write the
+import binds that anything else in the file also binds, in any scope
+(`import wave`, then `wave = make(p)`, a loop variable `for wave in ws`, or a
+parameter `def f(wave)`), because imports are read for the whole file and
+not per scope, so that `.open` is excused as the module's. Write the
 call plainly instead. The walk errs the other way too: a `ZipFile` or
 `TarFile` bound to a name first (`with ZipFile(z) as zf: zf.open(n)`) is not
 traced, so its `.open` is reported though it reads bytes.
@@ -139,8 +140,11 @@ TEMPFILES = {
 # (`tokenize`); or a class whose `.open` reads bytes, called on the class or
 # built in the receiver (`zipfile.ZipFile(z).open(name)`). The modules are
 # every standard-library module with a module-level `open` that no other
-# table holds, enumerated over every importable module on 3.12 to 3.14
-# (#762), with PIL's `Image` beside them.
+# table holds, with PIL's `Image` beside them (#762). Each module that
+# imports on macOS was found by importing it on 3.12 to 3.14. Each one that
+# does not was read in its documentation instead: `dbm.gnu`, `nt` and
+# `ossaudiodev` carry an `open`, and `nis`, `spwd`, `msilib`, `msvcrt`,
+# `winreg` and `winsound` carry none.
 NOT_A_FILE_OPENER = {
     "os",
     "webbrowser",
@@ -159,16 +163,26 @@ NOT_A_FILE_OPENER = {
     "tokenize",
     "posix",
     "nt",
+    # 3.12 on Linux and FreeBSD, removed in 3.13: an audio device.
+    "ossaudiodev",
     "PIL.Image",
 }
 # Classes whose methods, called on the class, take the path first, so the
 # encoding's position moves one to the right: `Path.read_text(p, "utf-8")`.
+# Every public standard-library class defining `open`, `read_text` or
+# `write_text` was read on 3.12 to 3.14 (#762), and these are the ones whose
+# method, called on the class, reads text in the locale with its encoding in
+# a slot the shift decides. `Traversable.read_text(self, encoding=None)`
+# hands `None` on to the concrete path's `open`; `importlib.abc.Traversable`
+# is the same class on 3.12 and 3.13.
 UNBOUND_RECEIVERS = {
     "pathlib.Path",
     "pathlib.PurePath",
     "pathlib.PosixPath",
     "pathlib.WindowsPath",
     "zipfile.Path",
+    "importlib.resources.abc.Traversable",
+    "importlib.abc.Traversable",
 }
 # Openers that are binary unless the mode carries `t`: (the mode's position,
 # the encoding's position or None where it is keyword-only).
@@ -740,6 +754,16 @@ UNNAMED = {
         'import zipfile as z\nz.Path.open(q, "r")',
         "zipfile.Path.open()",
     ),
+    # #762: `Traversable.read_text(self, encoding=None)` passes `None` on to
+    # the locale, so called on the class, `t` is the traversable.
+    "Traversable.read_text unbound": (
+        "from importlib.resources.abc import Traversable\nTraversable.read_text(t)",
+        ".read_text()",
+    ),
+    "Traversable.read_text unbound, the importlib.abc spelling": (
+        "import importlib.abc\nimportlib.abc.Traversable.read_text(t)",
+        ".read_text()",
+    ),
 }
 
 # The same calls with the encoding named (by keyword, or positionally where
@@ -825,6 +849,7 @@ NAMED = {
     ),
     "posix.open is os.open": "import posix\nposix.open(p, 0)",
     "nt.open is os.open": "import nt\nnt.open(p, 0)",
+    "ossaudiodev.open is an audio device": 'import ossaudiodev\nossaudiodev.open("w")',
 }
 
 
@@ -921,6 +946,15 @@ def test_no_method_is_matched_by_its_dotted_name():
     # The row #762 moved out, so the check is shown to name one.
     moved = {"OPENERS": {"zipfile.Path.open": (0, 1), "io.open": (1, 3)}}
     assert methods_of_unbound_receivers(moved) == ["OPENERS['zipfile.Path.open']"]
+    # The `.open` branch shifts a class's positions only for a class in
+    # UNBOUND_RECEIVERS, so a method row for any other class is judged
+    # unshifted when the method is called on its class.
+    unshifted = sorted(set(OPEN_METHODS) - {"<expr>"} - UNBOUND_RECEIVERS)
+    assert not unshifted, (
+        f"OPEN_METHODS rows {unshifted} name a class outside "
+        "UNBOUND_RECEIVERS, so the method called on its class is judged "
+        "without the shift"
+    )
     methods = methods_of_unbound_receivers(tables)
     assert not methods, (
         f"{methods} are methods of a class in UNBOUND_RECEIVERS, matched by "
