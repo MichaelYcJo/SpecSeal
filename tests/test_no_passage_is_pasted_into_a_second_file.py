@@ -101,8 +101,10 @@ def lines(text):
 
 
 def words(text):
-    """TEXT normalised as the docstring says, as a list of words."""
-    text = GENERATED.sub("\n", text)
+    """TEXT normalised as the docstring says, as a list of words.
+
+    `CLAUDE.md`'s generated region is dropped by `tree`, which knows the
+    path; this reads every file's text the same way."""
     kept, fence = [], None
     for line in lines(text):
         opened = FENCE.match(line)
@@ -178,10 +180,15 @@ def over_baseline(texts, baseline):
 
 
 def tree():
+    """`{path: text}` for the corpus, with `CLAUDE.md`'s generated region
+    dropped. Only that copy is sanctioned (spec O1): the template it is
+    generated from, `templates/claude-md-block.md`, carries the same markers
+    and is read like any other rule document."""
     texts = {}
     for rel in corpus():
         with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
-            texts[rel] = f.read()
+            text = f.read()
+        texts[rel] = GENERATED.sub("\n", text) if rel == "CLAUDE.md" else text
     return texts
 
 
@@ -228,6 +235,9 @@ BASELINE = {
     ("agents/smith.md", "skills/code-review/orchestration.md"): 14,
     ("agents/smith.md", "skills/implement/SKILL.md"): 46,
     ("agents/smith.md", "skills/implement/orchestration.md"): 1,
+    # Read once round 1 stopped the template's region being dropped with
+    # `CLAUDE.md`'s.
+    ("agents/smith.md", "templates/claude-md-block.md"): 13,
     ("agents/warden.md", "docs/review-chain-spec.md"): 5,
     ("agents/warden.md", "docs/review-handoff-protocol.md"): 9,
     ("agents/warden.md", "docs/round-record-spec.md"): 36,
@@ -343,6 +353,20 @@ def test_a_paste_is_named_with_the_pair_the_run_and_the_act():
     assert "link to the home instead of copying it" in named[0].lower()
 
 
+def test_a_paste_into_the_block_template_is_named():
+    """The block `install.sh` distributes is a rule document: a paste inside
+    its generated region is named like a paste anywhere else (round 1)."""
+    texts = tree()
+    paste = a_sentence_of(texts["CONTRIBUTING.md"])
+    rel = "templates/claude-md-block.md"
+    planted = texts[rel].replace(
+        "specseal:start -->", "specseal:start -->\n" + paste, 1
+    )
+    assert planted != texts[rel]
+    texts[rel] = planted
+    assert [f for f in over_baseline(texts, BASELINE) if rel in f]
+
+
 def test_a_count_over_its_baseline_is_named_and_one_at_it_is_not():
     """The ratchet's own edge, on a pair the table already holds."""
     texts = tree()
@@ -397,12 +421,22 @@ def test_a_wrapped_section_name_is_one_token():
     )
 
 
-def test_the_generated_block_fences_and_headings_are_not_read():
+def test_only_claude_mds_generated_region_is_dropped():
+    """`CLAUDE.md`'s copy of the block shares nothing with its template,
+    because the copy is not read; the template itself is read whole."""
+    texts = tree()
+    rel = "templates/claude-md-block.md"
+    assert len(words(texts[rel])) > 500, len(words(texts[rel]))
+    assert ("CLAUDE.md", rel) not in shared_counts(
+        {"CLAUDE.md": texts["CLAUDE.md"], rel: texts[rel]}
+    )
+
+
+def test_fences_and_headings_are_not_read():
     run = " ".join(f"w{i}" for i in range(WINDOW))
     fenced = f"```\n{run}\n```\n"
-    block = f"<!-- specseal:start -->\n{run}\n<!-- specseal:end -->\n"
     heading = f"## {run}\n"
-    for skipped in (fenced, block, heading):
+    for skipped in (fenced, heading):
         assert not shared_counts({"a.md": skipped, "b.md": run}), skipped
     assert shared_counts({"a.md": run, "b.md": run}) == {("a.md", "b.md"): 1}
     # A copy whose first word was capitalised by its new sentence is a copy.
