@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #757 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `839d19a931c44cc4285c59d16cba6d53da3bcc95..1604145994acfed8be7511203b340faff5bc6dd2`, 6 commits |
 | Contract changes | target_of → pytest only; judge_opener → round-1-report.md, round-1.md, pytest; judge → judge, main, pytest |
 | New units | UNBOUND_RECEIVERS (depth 1); BINARY_BY_DEFAULT (depth 1); TEXT_ALWAYS (depth 1); TEXT_UNLESS_BINARY (depth 1); METHODS_TEXT_UNLESS_BINARY (depth 1); dotted (depth 1); mode_node (depth 1); owner (depth 1); judge_text (depth 1) |
