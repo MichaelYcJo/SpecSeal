@@ -112,7 +112,7 @@ its own root, and every 0.3.x work item carried `routing.md` (#688).
      CI's `git clone --branch` fails on it. One line reads it:
 
      ```bash
-     python3 -c 'import json, os; print("v" + json.load(open(os.path.join(os.environ["CLAUDE_PLUGIN_ROOT"], ".claude-plugin", "plugin.json")))["version"])'
+     python3 -c 'import json, os; print("v" + json.load(open(os.path.join(os.environ["CLAUDE_PLUGIN_ROOT"], ".claude-plugin", "plugin.json"), encoding="utf-8"))["version"])'
      ```
    - **local** — creates `$(git rev-parse --git-common-dir)/seal/`, installs
      nothing, touches nothing in the tree. Spell the path through the common

@@ -78,7 +78,7 @@ jobs:
             echo "nothing that ships changed"; exit 0
           fi
           old=$(git show "$base:.claude-plugin/plugin.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
-          new=$(python3 -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')
+          new=$(python3 -c 'import json; print(json.load(open(".claude-plugin/plugin.json", encoding="utf-8"))["version"])')
           echo "version: $old -> $new"
           echo "$ships"
           if [ "$old" = "$new" ]; then

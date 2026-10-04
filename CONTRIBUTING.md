@@ -268,8 +268,10 @@ when it arrives.
   `encoding="utf-8"`. Every hook entry point also opens its `__main__` with
   `console.to_utf8()`.
   `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py`
-  enforces both over every tracked `.py` — classify a unit in its `ALLOWED`
-  deliberately, never to make a test pass.
+  enforces the first over every tracked `.py` and the second over `hooks/`
+  — classify a unit in its `ALLOWED` deliberately, never to make a test
+  pass. A `python3 -c` line in a skill or a workflow is outside its reach,
+  so name the encoding there yourself.
 - **Functional files are English-only.** Skills, agents, hooks, and commands
   load into model context, where a translated mirror would drift. Korean
   belongs in human-facing docs (`README.ko.md`). The `writing-style` skill
