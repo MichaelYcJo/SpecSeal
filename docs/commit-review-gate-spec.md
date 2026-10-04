@@ -191,7 +191,12 @@ provably do not, and everything unlisted is read as before. A body is data
 when all of these hold:
 
 - its delimiter is quoted (`'EOF'`, `"EOF"`, `\EOF`, `E'O'F`, with no `$`
-  in the word) and its terminator line arrived;
+  in the word), its terminator line arrived, and so is every other
+  delimiter on the line. The outer shell expands a body behind an unquoted
+  one, and anything it expands there can run a file another body was
+  written to. No test of that body's text is enough, because the shell
+  removes a backslash-newline before it expands, so a `$` at a line's end
+  and `(` on the next are a substitution;
 - it is a top-level body, not one inside `$( … )`, a backtick pair, `<( … )`,
   an `eval` argument, a `-c` string or another body, because a
   substitution's value goes wherever the command around it sends it;
@@ -200,10 +205,8 @@ when all of these hold:
   `gh pr|issue|release|api`, or a Python program; no `$( … )`, backtick,
   `${ … }`, `$'…'`, subshell, group or `&` but `&&` and a descriptor's; no
   word that steps around git's hooks, no `--output` option and no `printf`
-  option; no body behind an unquoted delimiter that holds `$( … )` or a
-  backtick, since the outer shell runs it and it can run a file another body
-  was written to; and every `<<` on the line is one the reader opened a body
-  for, in order, on the default descriptor;
+  option; and every `<<` on the line is one the reader opened a body for, in
+  order, on the default descriptor;
 - the command owning it is `cat` or `tee`, or `python3` or `python` whose
   first word, past redirections, is `-` or absent — a flag, a script or `$X`
   there makes the body input to some other program;

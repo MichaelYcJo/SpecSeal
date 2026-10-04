@@ -225,9 +225,10 @@ assert that every substitution matched.
 And no Bash command line exists, so the commit gate has nothing to read. The
 gate reads a heredoc body as shell, on purpose, unless nothing on the line can
 run it: a body behind a quoted delimiter (`<<'EOF'`), fed to `cat`, `tee` or
-`python3 -`, on a line of plain commands where nothing can run a file that
-body reached, is data (#739). Every other body is read — an unquoted
-delimiter, a shell or any other program fed the body, a sink writing a file
+`python3 -`, on a line of plain commands where every delimiter is quoted and
+nothing can run a file that body reached, is data (#739). Every other body is
+read — any body on a line holding an unquoted delimiter, a shell or any other
+program fed the body, a sink writing a file
 beside a `git` or a Python program, a body inside `$( … )` — and two kinds of
 segment count there. One is a segment whose command word is `git` with the
 `commit` subcommand, whatever the outer command does with the body — a patch

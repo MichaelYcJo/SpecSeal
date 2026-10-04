@@ -469,22 +469,23 @@ def heredoc_data(command):
     records = heredocs(text)
     unread = [False] * len(records)
     commands = _commands(drop_heredoc_bodies(text)) if records else None
-    # `is_plain`'s last word guard: a body behind an unquoted delimiter runs
-    # its substitutions in the outer shell, and `cat <<B` holding `$(sh f.sh)`
-    # runs the file another body on the line was written to (round 1 of #739).
-    if commands is None or any(
-        not r.quoted and ("$(" in r.text or "`" in r.text) for r in records
-    ):
+    # A body behind an unquoted delimiter is expanded by the outer shell, so
+    # no body on its line is data: `cat <<B` holding `$(sh f.sh)` runs the file
+    # another body was written to, and a backslash-newline the shell removes
+    # first splits the `$(` past any test of the text (rounds 1 and 2 of #739;
+    # the owner's structural rule, 2026-10-04).
+    if commands is None or not all(r.quoted for r in records):
         return unread
     owners = [(c, word) for c in commands for word in c.openers]
+    # The lengths are compared first, so `zip` pairs every opener and record.
     if len(owners) != len(records) or any(
         word != ("-" if r.dashed else "") + r.delimiter
-        for (_c, word), r in zip(owners, records, strict=True)
+        for (_c, word), r in zip(owners, records)  # noqa: B905
     ):
         return unread
     runs = any(map(_runs_what_it_reaches, commands))
     answers = []
-    for (owner, _word), record in zip(owners, records, strict=True):
+    for (owner, _word), record in zip(owners, records):  # noqa: B905
         data = record.quoted and record.terminated
         data = data and (owner.program in SINKS or owner.program in STDIN_PROGRAMS)
         if data and owner.program in SINKS and runs:

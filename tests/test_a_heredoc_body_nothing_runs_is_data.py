@@ -317,6 +317,8 @@ FILE_RUNNERS = [
     # A body behind an unquoted delimiter: the outer shell runs its
     # substitution, which runs the file the first body was written to.
     "cat <<B\n$(sh f.sh)\nB",
+    # The same, split by a backslash-newline the shell removes first.
+    "cat <<B\n$\\\n(sh f.sh)\nB",
 ]
 
 
@@ -405,8 +407,11 @@ tokens = load_hook_module("tokens.py", "tokens_heredoc_data")
         ("git -c user.name=y status; cat <<'EOF'\nbody\nEOF", [True]),
         # R2c carries every word guard of `is_plain`: an `--output` option
         # writes a file no redirection names, `printf -v` assigns a variable,
-        # and a body behind an unquoted delimiter runs its substitutions in
-        # the outer shell -- here the file another body was written to.
+        # and a body behind an unquoted delimiter is expanded by the outer
+        # shell, so no body on such a line is data (round 2: the owner's
+        # structural rule). A backslash-newline joins `$` and `(` before the
+        # expansion, `${x:=…}` assigns, and the file another body was written
+        # to is what an expansion can reach.
         (
             "cat <<'EOF' | git diff --no-index --output=h - /dev/null\nbody\nEOF",
             [False],
@@ -414,7 +419,12 @@ tokens = load_hook_module("tokens.py", "tokens_heredoc_data")
         ("printf -v PATH %s .; cat <<'EOF'\nbody\nEOF", [False]),
         ("cat > f.sh <<'A'\nbody\nA\ncat <<B\n$(sh f.sh)\nB", [False, False]),
         ("cat > f.sh <<'A'\nbody\nA\ncat <<B\n`sh f.sh`\nB", [False, False]),
+        ("cat > f.sh <<'A'\nbody\nA\ncat <<B\n$\\\n(sh f.sh)\nB", [False, False]),
+        ("cat > f.sh <<'A'\nbody\nA\ncat <<B\n${x:=y}\nB", [False, False]),
+        ("cat <<'A'\nbody\nA\ncat <<B\nplain text\nB", [False, False]),
+        # A line whose bodies are all quoted keeps its verdicts.
         ("cat <<'A'\nbody\nA\ncat <<'B'\n$(sh f.sh)\nB", [True, True]),
+        ("cat > f.sh <<'A'\nbody\nA\npython3 - <<'B'\nprint(1)\nB", [False, True]),
         # R2d: an opener the line reads differently from the reader -- here
         # `<<- 'EOF'`, whose dash stands apart -- keeps every body read.
         ("cat <<- 'EOF'\nbody\nEOF", [False]),
