@@ -1919,3 +1919,60 @@ def test_the_refusal_reads_the_date_the_grading_reads():
     assert ec.reading_date(header, cells) == "2026-03-01"
     cells[3] = "2026-13-45"
     assert ec.reading_date(header, cells) == ""
+
+
+def test_a_refusal_names_the_newest_of_the_readings_that_outrank_the_row(repo):
+    """R1 cites `handler` and `other`; a fragment re-read dated 2026-03-01
+    holds other content for `handler`, another dated 2026-04-01 for `other`,
+    and the run, narrowed to R's file, reaches neither. Both outrank
+    `--checked 2026-02-15`, and the line names the later one, 2026-04-01,
+    which is the reading a new reading has to reach."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler and other | `src/service.py#handler@{h}`, "
+            f"`src/service.py#other@{o}` | read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler and other")
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("y = x + 1", "y = x + 2").replace("x * 2", "x * 3"),
+        encoding="utf-8",
+    )
+    for name, unit, date in (
+        ("3000000003-the-handler-re-read", "handler", "2026-03-01"),
+        ("3000000004-the-other-re-read", "other", "2026-04-01"),
+    ):
+        fragment(
+            repo,
+            [
+                f"| Re-read · R1 · handler and other | `{cite}`, "
+                f"`src/service.py#{unit}@{unit_hash(repo, 'src/service.py', unit)}` "
+                f"| read | {date} | Re-read {date} |"
+            ],
+            name=name,
+        )
+    (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+    frozen(repo, "0")
+    out = run(
+        [
+            "--reverify",
+            "--into",
+            MEMBER_INTO,
+            "--checked",
+            "2026-02-15",
+            "--ledger",
+            R_FILE,
+            ".",
+        ],
+        repo,
+    )
+    assert out.returncode == 1, out.stdout + out.stderr
+    left = [line for line in out.stdout.splitlines() if line.startswith("  LEFT")]
+    assert len(left) == 1, out.stdout
+    assert (
+        "the newest reading of src/service.py#other, 2026-04-01 at "
+        "seal/ledger/3000000004-the-other-re-read.md:1, so a"
+    ) in left[0], left[0]
