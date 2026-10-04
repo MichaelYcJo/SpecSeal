@@ -359,7 +359,7 @@ STRAY_WAYS = [
             ),
             (
                 "the item on a line of its own",
-                "<table>\n<tr>\n<TD>\nPact notify\n</TD>\n<td>always</td>\n</tr>\n</table>\n",
+                "<TABLE>\n<TR>\n<TD>\nPact notify\n</TD>\n<TD>always</TD>\n</TR>\n</TABLE>\n",
                 ["Pact notify"],
             ),
         )
