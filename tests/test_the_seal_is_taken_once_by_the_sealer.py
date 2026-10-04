@@ -3990,6 +3990,90 @@ def base_then_feature(d, row, at_base, on_feature):
     return repo
 
 
+# What pytest 9.1.1 printed at the end of a run, measured for `questions.md`
+# Q3 in a scratch directory: a collection error with and without xdist, a
+# fixture error in setup, and `-x` with and without xdist. Each is
+# `(output, files asked about, the words expected)`.
+MEASURED_ENDINGS = [
+    (
+        "ERROR tests/b.py\n"
+        "!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n"
+        "1 error in 0.06s\n",
+        ["tests/b.py", "tests/f.py"],
+        ["failing on base too", "STOPPED_EARLY"],
+    ),
+    (
+        "FAILED tests/f.py::test_b - assert False\n"
+        "ERROR tests/b.py - ImportError while importing test module '/pr...\n"
+        "ERROR tests/s.py::test_d - RuntimeError: x\n"
+        "2 failed, 1 passed, 2 errors in 0.22s\n",
+        ["tests/b.py", "tests/s.py", "tests/f.py", "tests/ok.py"],
+        ["failing on base too", "failing on base too", "failing on base too", "new"],
+    ),
+    (
+        "FAILED tests/f.py::test_b - assert False\n"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+        "1 failed in 0.01s\n",
+        ["tests/f.py", "tests/ok.py"],
+        ["failing on base too", "STOPPED_EARLY"],
+    ),
+    (
+        "FAILED tests/f.py::test_b - assert False\n"
+        "!!!!!!!!!!!! xdist.dsession.Interrupted: stopping after 1 failures !!!!!!!!!!!!!\n"
+        "1 failed, 1 passed, 1 error in 0.30s\n",
+        ["tests/ok.py"],
+        ["STOPPED_EARLY"],
+    ),
+    (None, ["tests/f.py"], ["NO_RUNNER"]),
+]
+
+
+@pytest.mark.parametrize("text, files, words", MEASURED_ENDINGS)
+def test_the_base_run_is_read_off_what_pytest_printed(text, files, words):
+    """`verdicts_at_base` over pytest's own endings (#747, `questions.md` Q1
+    and Q3): a `FAILED` or `ERROR` line in any of its three measured shapes
+    names a file, a `!` rule means the run stopped early, and no run means
+    nothing was measured. A word in capitals is the module's constant."""
+    gate = gate_module()
+    expected = [getattr(gate, w) if w.isupper() else w for w in words]
+    assert list(gate.verdicts_at_base(text, files).values()) == expected
+
+
+def test_a_runner_first_row_runs_once_at_the_base(tmp_path):
+    """A3 (#747). Where the runner is the row's first part, the first prefix
+    prints pytest's summary and is the only one run: the parts after it cost
+    the base comparison nothing."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{SUITE_ROW} && {LINT}",
+        {"tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE
+    kept = sorted(p.name for p in (tmp_path / "out").glob("suite-at-base-*.txt"))
+    assert kept == ["suite-at-base-1.txt"], kept
+
+
+def test_a_row_is_cut_at_the_semicolon_its_shell_reads(tmp_path):
+    """The comparison cuts by the grammar of the shell it hands the row to:
+    under `/bin/sh` a `;` ends a part, so the format stand-in is tried alone
+    first and pytest is reached by the second prefix."""
+    posix_row_shell_or_skip()
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{FORMAT}; {SUITE_ROW}",
+        {"tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE
+    kept = sorted(p.name for p in (tmp_path / "out").glob("suite-at-base-*.txt"))
+    assert kept == ["suite-at-base-1.txt", "suite-at-base-2.txt"], kept
+
+
 def test_a_lint_first_row_finds_a_failure_the_base_shares(tmp_path):
     """A1 (#747). The row runs a linter and a formatter before pytest, and
     the base fails the same file. The comparison used to re-run the first
