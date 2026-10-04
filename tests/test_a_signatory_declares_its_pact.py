@@ -519,9 +519,10 @@ def test_s3_an_item_is_refused_exactly_where_gfm_shows_a_pact_item(item):
     ],
 )
 def test_s3_a_pact_item_in_a_code_span_is_refused_on_the_walks_rows(row, item):
-    """Round 2 of PR #784, yellow 2. GFM renders `<code>Pact notify</code>`
-    in the live table, and the walk takes the row under another item. Only
-    the walk's own rows are read this way: the template's and the config
+    """Rounds 2 and 3 of PR #784, yellow 2 and yellow 1. GFM renders the
+    item from a code span, part of one, or a backtick it shows as itself,
+    and the walk takes the row under another item. The walk's rows alone are
+    read with their backticks removed: the template's and the config
     skill's `| Row | Value | Absent |` tables name both items in code spans."""
     assert letters(rendered_item(CONFIG + row + "\n")) == letters(item)
     assert config.pact_declaration(CONFIG + row + "\n")[1:] == (
