@@ -6,6 +6,8 @@ the gate. -->
 
 Approved 2026-10-04 by the orchestrator under the owner's `automation` routing, when `smith` was spawned.
 
+Re-approved 2026-10-04 by the orchestrator after the re-frame at d22b105b (phase 1 broke approach A's premise; Q4 answered), when phases 2 and 3 were resumed.
+
 <!-- The line above is the record that the gate happened. Fill it in at the
 spawn: reading this plan and spawning the builder IS the approval, so nothing
 extra is being asked for here — only that the approval stop living in a
