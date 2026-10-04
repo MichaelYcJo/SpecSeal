@@ -160,7 +160,9 @@ Enforced by: tests/test_gate_judges_the_repo_it_commits_to.py::test_a_commit_aim
 edits a file is still a command line this gate reads.** Dropping a heredoc
 body from the walk decides where a commit lands; whether the command commits
 at all is asked of every body separately, as shell, on purpose, because a
-commit hidden in a body used to walk straight past (legacy #75). Two kinds of
+commit hidden in a body used to walk straight past (legacy #75) — every body
+but one shape, which nothing on the line can run (#739, *A here-document body
+nothing can run is data* below). Two kinds of
 segment count there. One is a segment whose command word is `git` with the
 `commit` subcommand, so what counts is the position and never the presence of
 the word: a fixture file of shell commands held in Python strings can read
@@ -173,9 +175,53 @@ commit in it at all — an `eval` whose argument the reader cannot expand
 stops the session, since nothing can tell what it reduces to without running
 the shell. So a session that searched its patch for a commit and found none
 has not cleared it, and an edit the `Edit` tool makes leaves no command line
-to read. Skipping a body that is only being written to a file would reopen
-#75, and that trade is the repository owner's to make.
+to read.
 Enforced by: tests/test_edits_go_through_the_edit_tool.py::test_the_rule_names_the_tool_and_pairs_its_two_reasons, tests/test_gate_judges_the_repo_it_commits_to.py::test_an_interpreter_fed_heredoc_body_that_commits_stops
+
+<!-- specs/1791076831-a-here-document-body-is-data-to-the-commit-gate -->
+**A here-document body nothing can run is data.** The paragraph above left
+one trade to the repository owner: skipping a body that is only being
+written to a file. #739 is the owner's answer for the shapes it measured.
+Three Bash calls were refused in one orchestration run, each for a body that
+only mentioned a commit: a pull request body written with `cat > pr.md`, a
+Python patch read from stdin, and the same patch with a real commit after it.
+Legacy #75 rejected a list of the programs that RUN a body, because it fails
+open on every runner the list misses. This one lists the few consumers that
+provably do not, and everything unlisted is read as before. A body is data
+when all of these hold:
+
+- its delimiter is quoted (`'EOF'`, `"EOF"`, `\EOF`, `E'O'F`, with no `$`
+  in the word) and its terminator line arrived;
+- it is a top-level body, not one inside `$( … )`, a backtick pair, `<( … )`,
+  an `eval` argument, a `-c` string or another body, because a
+  substitution's value goes wherever the command around it sends it;
+- the line is plain, with comments and bodies dropped: every program a bare,
+  unquoted word from the plain set of *The commit gate inside git*, `tee`,
+  `gh pr|issue|release|api`, or a Python program; no `$( … )`, backtick,
+  `${ … }`, `$'…'`, subshell, group or `&` but `&&` and a descriptor's; no
+  word that steps around git's hooks; and every `<<` on the line is one the
+  reader opened a body for, in order, on the default descriptor;
+- the command owning it is `cat` or `tee`, or `python3` or `python` whose
+  first word, past redirections, is `-` or absent — a flag, a script or `$X`
+  there makes the body input to some other program;
+- for `cat` and `tee`, when any stage of its pipeline writes a file, nothing
+  on the line can run that file: no Python program, no `git` (a commit runs
+  hooks, and `git add` runs `post-index-change`, and a file the line wrote
+  may be one), and no `gh` subcommand that runs local git (`pr create`,
+  `pr checkout`, `pr merge`, `pr close`, `issue develop`, `release create`,
+  read from `gh --help` at 2.100.0).
+
+A body that is data is not read at all, and every other body, and every
+segment outside the bodies, is read exactly as before: a real commit beside
+a data body is judged where it lands. An unquoted body stays read whole,
+because the outer shell expands substitutions in it and reading it for those
+alone needs a scanner where a quote is literal. So does the commit-message
+form `git commit -m "$(cat <<'EOF' … EOF)"`, whose body sits inside a
+substitution. The failure direction is the one a narrowing has: a shape this
+admits that a shell runs is a silent commit. That is why the rule is a
+positive shape, and why the shapes were enumerated by construction and run
+in bash 3.2 and zsh 5.9 with every data body a script that marks a run.
+Enforced by: tests/test_a_heredoc_body_nothing_runs_is_data.py, tests/test_no_shape_the_base_stops_reads_silent.py::test_the_one_row_that_left_the_corpus_reads_silent
 
 <!-- specs/1788305134-the-reader-stops-where-it-need-not -->
 
@@ -352,7 +398,11 @@ the session's own repository opted in.
 What stays unread is a program whose operands are a script or a remote
 command rather than a command here — `bash run.sh`, `source`, `make`, `uv
 run`, `npx`, `ssh`, `docker exec` — because reading it would mean reading
-files or machines, not the command. Each stays silent as it was.
+files or machines, not the command. Each stays silent as it was. A Python
+program read from stdin behind a quoted delimiter is the same class (#739),
+and a file a heredoc body was written to is not read either way: which is
+why a line that writes one beside something that could run it keeps that
+body read.
 
 The reading can only have gained stops by this, for the reason #669's change
 gives, and for one more: a command the splitter could not finish is still
@@ -511,7 +561,11 @@ Enforced by: tests/test_an_automation_run_meets_no_commit_prompt.py
 line and `git commit` on the next reaches the session's own directory whenever
 the `cd` fails, which is *Two operators consume one, not one* above (#662). A
 heredoc body is read as shell for whether it commits, which is *A file edit
-goes through the `Edit` tool* above (#665). Work item `1790635415` narrowed
+goes through the `Edit` tool* above (#665), and since #739 every body but the
+one shape *A here-document body nothing can run is data* names. That narrowing
+is the opposite construction of the one below: it lists the consumers that
+provably do not run a body, not the ones that do, and every row of these
+rounds but one still stops. Work item `1790635415` narrowed
 both — trusting an existing `cd` target not to fail, and reading a body fed
 to a known interpreter as data — and its rounds 2 and 3 found commands the
 narrowed gate read silent where the base stopped them, and a real bash ran the
@@ -522,7 +576,9 @@ narrowed further than its proof, so the reading stays where it was, and what
 changed is who a stop is put to. The changes to the reading are the two
 stricter ones above: a commit behind a reserved word (#669), and one behind a
 wrapper, in a shell string or in a substitution (#670). Every one of those
-commands still stops, with the press and without.
+commands still stops, with the press and without, except "a patch whose body
+loops over a commit string": a quoted body fed to `python3 -` on a plain line,
+which #739 asks to read silent.
 Enforced by: tests/test_no_shape_the_base_stops_reads_silent.py
 
 **Both arms, one call.** When both arms fire, the reason asks for two
