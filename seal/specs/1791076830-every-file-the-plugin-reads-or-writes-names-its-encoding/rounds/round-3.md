@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #757 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `42db96397ce676dcfa551239bb6bd6ac5f647e48..d74b92aa028b9e915d2c36c0ef3e6d7c544d2bda`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (`zipfile.Path.open` called on its class passes as named) and 🟡 2 (a local named after one of six modules has its `.open()` excused) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -33,11 +33,11 @@ The fix pass added no unit. Its changes are rows on existing tables and edits in
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `zipfile.Path.open` sits in `OPENERS`, which the top of `judge` matches before the `.open` branch, so the class-called form is judged with no path shift and `zipfile.Path.open(q, "r")` passes as named | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:314` | open | Executed: three unbound spellings return no site at the target and are reported at `de952182` and `839d19a9`; the line-765 `NAMED` case passes on `"r"` read as the encoding. Fix applied in the scratch clone: 122 passed, ruff clean. Who answers it: #741's branch, before PR #757 is marked ready; the walker's `judge` is a unit this work item created |
-| 🟡 2 | The restored bare-name branch of `owner` excuses `.open()` on any local named `os`, `webbrowser`, `tarfile`, `shelve`, `dbm` or `wave`; before round 1 only the first two were; the docstring says any bare name | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:405` | open | Executed: `wave`, `tarfile` and `shelve` locals holding a path return no site at the target and are reported at `839d19a9` and `de952182`. Read: `839d19a9`'s set held two names. Fix applied in the scratch clone: 122 passed. Who answers it: #741's branch, before PR #757 is marked ready; `owner` is a unit this work item created |
-| ⬜ 3 | A `zipfile.Path` reached by `/`, `.joinpath` or a name is judged at `Path.open`'s positions, though the docstring says any `zipfile.Path` is judged as `zipfile.Path.open` | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:32` | open | Executed at the target and with 🟡 1 and 🟡 2's fixes applied. An over-report, none in the tree. Who answers it: #741's branch, with 🟡 1's edit |
-| ⬜ 4 | `dbm.gnu`, `dbm.ndbm` and `dbm.sqlite3` are reported though they open no text; the fix for round 2's finding 2 added `dbm.dumb` alone | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:134` | open | Executed at the target for all three. An over-report, none in the tree. Who answers it: #741's branch, with 🟡 2's edit |
-| ⬜ 5 | Correction: `spec.md`'s K1 row says `.open` on a bare name no import binds is excused, the same over-wide sentence as 🟡 2 | `seal/specs/1791076830-every-file-the-plugin-reads-or-writes-names-its-encoding/spec.md:86` | open | Read. Paperwork, so a correction. Who answers it: #741's branch, with 🟡 2's docstring edit |
+| 🟡 1 | `zipfile.Path.open` sits in `OPENERS`, which the top of `judge` matches before the `.open` branch, so the class-called form is judged with no path shift and `zipfile.Path.open(q, "r")` passes as named | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:314` | deferred #762 | #762 — the run is capped: round 2 was its one reopening, and this record ends it; Executed: three unbound spellings return no site at the target and are reported at `de952182` and `839d19a9`; the line-765 `NAMED` case passes on `"r"` read as the encoding. Fix applied in the scratch clone: 122 passed, ruff clean. Who answers it: #741's branch, before PR #757 is marked ready; the walker's `judge` is a unit this work item created |
+| 🟡 2 | The restored bare-name branch of `owner` excuses `.open()` on any local named `os`, `webbrowser`, `tarfile`, `shelve`, `dbm` or `wave`; before round 1 only the first two were; the docstring says any bare name | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:405` | deferred #762 | #762 — the run is capped: round 2 was its one reopening, and this record ends it; Executed: `wave`, `tarfile` and `shelve` locals holding a path return no site at the target and are reported at `839d19a9` and `de952182`. Read: `839d19a9`'s set held two names. Fix applied in the scratch clone: 122 passed. Who answers it: #741's branch, before PR #757 is marked ready; `owner` is a unit this work item created |
+| ⬜ 3 | A `zipfile.Path` reached by `/`, `.joinpath` or a name is judged at `Path.open`'s positions, though the docstring says any `zipfile.Path` is judged as `zipfile.Path.open` | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:32` | deferred #762 | #762 — carried with the two yellows it sits beside; Executed at the target and with 🟡 1 and 🟡 2's fixes applied. An over-report, none in the tree. Who answers it: #741's branch, with 🟡 1's edit |
+| ⬜ 4 | `dbm.gnu`, `dbm.ndbm` and `dbm.sqlite3` are reported though they open no text; the fix for round 2's finding 2 added `dbm.dumb` alone | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:134` | deferred #762 | #762 — carried with the two yellows it sits beside; Executed at the target for all three. An over-report, none in the tree. Who answers it: #741's branch, with 🟡 2's edit |
+| ⬜ 5 | Correction: `spec.md`'s K1 row says `.open` on a bare name no import binds is excused, the same over-wide sentence as 🟡 2 | `seal/specs/1791076830-every-file-the-plugin-reads-or-writes-names-its-encoding/spec.md:86` | deferred #762 | #762 — `spec.md`'s K1 row and the module docstring are corrected together with 🟡 2's code, so the two never disagree; Read. Paperwork, so a correction. Who answers it: #741's branch, with 🟡 2's docstring edit |
 | 🟢 | round 2's finding 1 is closed — `ElementInclude.default_loader` is no longer a K1 row and its text call is a `NAMED` case | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:24` | confirmed | Read: the loader's 3.12 source sets UTF-8 when `encoding` is falsy, and the branch is gone from `judge`. Executed: the text call returns no site at the target, and was reported at `de952182` |
 | 🟢 | round 2's finding 2 is closed for what it named — the docstring says a `ZipFile` or `TarFile` built in the receiver, `dbm.dumb` is excused, and an unimported `os` is excused again | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:33` | confirmed | Executed: `dbm.dumb` by three import spellings and `def f(os)` return no site at the target. The fix reaches further than it says; that is this round's 🟡 2 and ⬜ 4 |
 | 🟢 | round 2's finding 3 is closed for what it named — `zipfile.Path(z).open("r", "utf-8")` is not reported | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:191` | confirmed | Executed at the target, with the `from zipfile import Path` spelling as well. The unbound form the same row broke is this round's 🟡 1 |
