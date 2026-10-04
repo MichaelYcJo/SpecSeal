@@ -830,6 +830,32 @@ def test_s5_an_attended_session_is_told_to_ask_and_the_second_attempt_is_the_sam
     assert "Then do what they picked." in text
 
 
+def test_the_refusal_reaches_an_ascii_console_as_written(world):
+    """#741 S8: `hooks/git/pre-commit.py` opens with `console.to_utf8()`.
+
+    Without the call the hook did not crash here, which is what #741's frame
+    expected: Python keeps `backslashreplace` on stderr whatever
+    `PYTHONIOENCODING` says, so the refusal arrived with every em dash and
+    ellipsis spelled `\\u2014` and `\\u2026` -- including inside the waiver it
+    tells the reader to type. Decoded here as UTF-8 rather than in the
+    locale's encoding, so the Windows leg reads the same bytes."""
+    world.change(world.main)
+    got = subprocess.run(
+        ["git", "-C", str(world.main), "commit", "-q", "-m", "x"],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env(world.home, PYTHONIOENCODING="ascii", PYTHONUTF8="0"),
+        stdin=subprocess.DEVNULL,
+        timeout=60,
+    )
+    assert got.returncode != 0
+    assert "\\u20" not in got.stderr, got.stderr
+    assert (
+        got.stderr == gate.refusal(["review"], str(world.main), "release", False) + "\n"
+    )
+
+
 def test_s5_both_spellings_the_refusal_names_actually_commit(world):
     world.change(world.main)
     before = world.head(world.main)

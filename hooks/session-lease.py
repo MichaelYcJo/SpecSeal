@@ -116,7 +116,7 @@ def main():
         record["pid"] = pid
     try:
         os.makedirs(leases, exist_ok=True)
-        with open(os.path.join(leases, session), "w") as f:
+        with open(os.path.join(leases, session), "w", encoding="utf-8") as f:
             json.dump(record, f)
         cutoff = time.time() - 86400
         for name in os.listdir(leases):

@@ -587,7 +587,7 @@ def read_mark(cwd, git_dir, name):
         return ""
     path = os.path.join(cwd or ".", git_dir, name)
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             return f.read().strip()
     except OSError:
         return ""
@@ -699,7 +699,7 @@ def already_asked(cwd, git_dir, session):
         return True
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, "w").close()
+        open(path, "w", encoding="utf-8").close()
     except OSError:
         return True
     return False
