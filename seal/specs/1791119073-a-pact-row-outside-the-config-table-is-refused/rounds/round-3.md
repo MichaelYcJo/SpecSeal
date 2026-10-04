@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #784 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-4 |
 | Fix range | `180d22b2acad9ac6eafa7b3f349cfc52572b1011..92a6a90aac54745a7b3d065f10cddacf83a71e9b`, 6 commits |
 | Contract changes | test_a_vendored_copy_reads_no_code_spanned_item → pytest only |
 | New units | RAW_HTML (depth 1); TAG_END (depth 1) |
