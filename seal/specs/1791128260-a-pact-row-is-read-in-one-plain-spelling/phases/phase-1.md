@@ -32,7 +32,7 @@ and #784's branch at `b16cee46`. Nothing in them disagrees with the frame.
 **The units.** `PACT_WORD`; `names_a_pact(text, piped=True)`, one predicate
 for both readings, where `piped=False` is the walked-row item check the plan's
 pseudocode calls `word(item)`; `indexed_config_rows`; `pact_lines_not_read`,
-the scan; and `pact_line_refusal`, #784's `stray_refusal` rendering under the
+the scan; and `pact_line_refusal`, #784's `stray_refusal` rendering under the <!-- NAME NOT IN TREE: #784's, never ported -->
 new sentence. The scan counts each GFM line's `str.splitlines` pieces to find
 its walk index, the way #784 did, so it needs no offset arithmetic. The two
 standard-library imports sit inside the two functions that use them:
@@ -59,9 +59,8 @@ other modules that build a `seal/config.md` naming a pact
 with no fixture changed: 1807, 154, 617 and 51 cases. No fixture holds a line
 naming a pact with a pipe that is not a plain walked row.
 
-**Q4: the sentence.** The frame's text with one change. "the one spelling
-read" became the whole of the claim, and the sentence keeps the frame's two
-remedies:
+**Q4: the sentence.** The frame's text, unchanged. It names the line, says
+the one spelling and the table, and gives both remedies:
 
 `` `<line>` names a pact and is not a `Pact` or `Pact notify` row in the one spelling read: write it as `| Pact | … |` or `| Pact notify | … |` inside the `| Item | Value |` table, or take it out of this file ``
 

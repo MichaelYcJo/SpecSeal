@@ -97,7 +97,7 @@ walked row has its pipes.
 
 | Approach | Failure scenario | Verdict |
 |---|---|---|
-| #784: emulate GFM's rendering of the item (`shape_line`) and hold it to cmark-gfm | Four rounds each found more spellings missed: no leading pipe, Cf, markup, entities, code spans, five raw HTML kinds, link destinations, `<!-->`, legacy entities. The class is GFM's whole inline grammar | rejected by the owner, 2026-10-05 |
+| #784: emulate GFM's rendering of the item (`shape_line`, NAME NOT IN TREE) and hold it to cmark-gfm | Four rounds each found more spellings missed: no leading pipe, Cf, markup, entities, code spans, five raw HTML kinds, link destinations, `<!-->`, legacy entities. The class is GFM's whole inline grammar | rejected by the owner, 2026-10-05 |
 | The spawn's example: any line whose letters (non-alphanumerics removed) contain `pact` | `impact` and `compact` refuse anywhere in the file, values of walked rows included. `P&#97;ct` is missed, because the reference leaves digits | rejected; the look-behind, the decode union and the item-only read on walked rows fix all three |
 | No `\|` condition: refuse every line naming a pact | A signatory's comment or paragraph mentioning its pact refuses, and `--reverify` leaves every moved row | rejected. GFM gives a pipe-less line no value cell, so excluding it loses nothing. Q2 measures that |
 | Exempt fenced and commented lines, as #784 did | The refusal then depends on `hidden_lines` matching GFM's block grammar. That is modelling again, and an unclosed fence hides everything below it | rejected; read through, and the example refuses |

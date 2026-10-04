@@ -177,7 +177,7 @@ the default that it is documented and accepted.
    projection, with byte-identical output. The refusal sentence names the
    line as written, with every whitespace character other than a space and
    every Cf character shown as `<U+XXXX>`. That rendering is #784's
-   `stray_refusal`, reused.
+   `stray_refusal`, reused. <!-- NAME NOT IN TREE: #784's, never ported -->
 2. `skills/evidence-check/scripts/evidence_check.py#record_pact_changes`, the
    vendored branch (`config is None`). It uses the same constant, the same
    predicate and the same `gfm_lines` cut, held equal by a test. It has no
@@ -194,8 +194,8 @@ the default that it is documented and accepted.
    constant `NOTIFY_ROW_SHAPE` is replaced by `PACT_WORD`. A released ledger
    row cites `NOTIFY_ROW_SHAPE` (Data §*Ledger*).
 3. **Delete** what #784 added and this replaces, wherever it reaches this
-   branch: `PACT_ROW_SHAPE`, `shape_line` (both copies), `RAW_HTML`,
-   `TAG_END`, `_shaped_item`, `PACT_ITEMS`, the two-cut stray walk, and the
+   branch: `PACT_ROW_SHAPE`, `shape_line` (both copies), `RAW_HTML`, <!-- NAME NOT IN TREE: #784's, never ported -->
+   `TAG_END`, `_shaped_item`, `PACT_ITEMS`, the two-cut stray walk, and the <!-- NAME NOT IN TREE: #784's, never ported -->
    cmark-gfm oracle case. None of it is on the base (`94d7b2e0`), so in
    practice this means "do not port it". Port only what still holds:
    `indexed_config_rows`, the refusal rendering, the caller cases and the
@@ -281,7 +281,7 @@ sentence naming that line.
   units this work edits, seen at framing (read):
   - `0.18.1.md`:168 C1 (`pact_declaration@d3dccc0e`, `record_pact_changes@42221904`,
     `NOTIFY_ROW_SHAPE@99e032de`);
-  - `0.18.1.md`:170 and :201 (`templates/config.md#"## Pact"@0fdeedac`);
+  - `0.18.1.md`:170 and :201 (`templates/config.md#"## Pact"`, at hash 0fdeedac when framed);
   - `0.18.1.md`:175 (`record_pact_changes`);
   - `0.18.1.md`:228 (Re-read of P1, `pact_declaration`);
   - `0.18.0.md`:6 and :8;
