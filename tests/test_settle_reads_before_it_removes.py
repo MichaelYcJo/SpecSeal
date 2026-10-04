@@ -1519,6 +1519,14 @@ def test_both_cheat_sheets_carry_the_command(edition):
     assert "`settle [--retire]`" in text, (
         f"{edition}'s cheat sheet has no row for the command"
     )
+    # #729's round 1, 🟡 3: the row names the process arm too, and keeps the
+    # spelling above, which three cases split on. The raw file is read, so
+    # the row is the row.
+    with open(os.path.join(ROOT, edition), encoding="utf-8") as f:
+        row = f.read().split("`settle [--retire]`")[1].split("\n")[0]
+    assert "`settle --retire-process`" in row, (
+        f"{edition}'s cheat-sheet row does not name the process arm"
+    )
 
 
 # --- round 1's fixes -------------------------------------------------------
