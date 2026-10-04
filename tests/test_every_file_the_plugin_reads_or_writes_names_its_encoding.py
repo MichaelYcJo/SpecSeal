@@ -677,25 +677,66 @@ def entry_points(root=ROOT):
 DECLINES_ENTRY_POINTS = "the liveness half of ENTRY_POINTS_CLASSIFIED"
 
 
+def lacking_and_gone(verdicts, missing, classified):
+    """`(entry points lacking the call and not classified, classified paths
+    that are no longer an entry point lacking it)`, or `pytest.skip` when a
+    file the tree deleted could be why a classified path looks gone."""
+    lacking = sorted(p for p, ok in verdicts.items() if not ok and p not in classified)
+    gone = sorted(p for p in classified if verdicts.get(p) is not False)
+    if gone:
+        decline_if_shrunken(missing, DECLINES_ENTRY_POINTS)
+    return lacking, gone
+
+
 def test_every_hook_entry_point_opens_with_to_utf8():
     verdicts, missing = entry_points()
     assert verdicts, "git ls-files found no hook entry point at all"
-    lacking = sorted(
-        p for p, ok in verdicts.items() if not ok and p not in ENTRY_POINTS_CLASSIFIED
-    )
+    lacking, gone = lacking_and_gone(verdicts, missing, ENTRY_POINTS_CLASSIFIED)
     assert not lacking, (
         f"{lacking} do not open `if __name__ == '__main__':` with "
         "`console.to_utf8()`. A hook that raises while printing dies with "
         "stdout empty, which is how a hook says nothing applies. Make the "
         "call the block's first statement, as hooks/console.py says"
     )
-    gone = sorted(p for p in ENTRY_POINTS_CLASSIFIED if verdicts.get(p) is not False)
-    if gone:
-        decline_if_shrunken(missing, DECLINES_ENTRY_POINTS)
     assert not gone, (
         f"{gone} are classified and are no longer an entry point lacking the "
         "call; drop the row"
     )
+
+
+def test_an_entry_point_classification_of_nothing_is_reported(tmp_path):
+    guard = 'if __name__ == "__main__":\n'
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            "hooks/bare.py": guard + "    main()\n",
+            "hooks/fixed.py": guard + "    console.to_utf8()\n    main()\n",
+            "hooks/sub/deep.py": guard + "    main()\n",
+            "hooks/module.py": "x = 1\n",
+        },
+    )
+    verdicts, missing = entry_points(root)
+    assert verdicts == {
+        "hooks/bare.py": False,
+        "hooks/fixed.py": True,
+        "hooks/sub/deep.py": False,
+    }, verdicts
+    classified = {"hooks/bare.py": "grounds", "hooks/fixed.py": "grounds"}
+    lacking, gone = lacking_and_gone(verdicts, missing, classified)
+    assert lacking == ["hooks/sub/deep.py"] and gone == ["hooks/fixed.py"]
+
+
+def test_a_deleted_entry_point_declines_rather_than_drops_its_row(tmp_path):
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {"hooks/bare.py": 'if __name__ == "__main__":\n    main()\n'},
+        deleted=["hooks/bare.py"],
+    )
+    verdicts, missing = entry_points(root)
+    assert verdicts == {} and missing == ["hooks/bare.py"]
+    with pytest.raises(pytest.skip.Exception) as declined:
+        lacking_and_gone(verdicts, missing, {"hooks/bare.py": "grounds"})
+    assert DECLINES_ENTRY_POINTS in str(declined.value)
 
 
 def test_the_call_after_main_is_reported():
