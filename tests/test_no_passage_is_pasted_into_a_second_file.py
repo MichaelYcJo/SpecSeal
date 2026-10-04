@@ -185,7 +185,8 @@ def tree():
     return texts
 
 
-# Measured on 2026-10-04 at this work item's phase 1 tree. Every entry is debt
+# Measured on 2026-10-04 at this work item's phase 1 tree, and again after
+# `release/v0.18.1` was merged in at edee5ca2. Every entry is debt
 # that #755 moves, cluster by cluster, except where a comment names the rule
 # that makes the copy sanctioned. A change that drains a pair may lower its
 # entry; nothing has to.
@@ -271,7 +272,8 @@ BASELINE = {
     ("docs/the-evidence-ledger.md", "skills/evidence-check/SKILL.md"): 10,
     ("docs/the-evidence-ledger.md", "skills/settle/SKILL.md"): 14,
     ("docs/the-evidence-ledger.md", "templates/ledger.md"): 14,
-    ("docs/the-pact.md", "skills/evidence-check/SKILL.md"): 4,
+    ("docs/the-pact.md", "skills/evidence-check/SKILL.md"): 21,
+    ("docs/the-pact.md", "templates/pact-review.md"): 10,
     ("skills/agent-contract/SKILL.md", "skills/implement/SKILL.md"): 17,
     ("skills/code-review/SKILL.md", "skills/code-review/orchestration.md"): 5,
     ("skills/code-review/SKILL.md", "skills/implement/SKILL.md"): 9,
