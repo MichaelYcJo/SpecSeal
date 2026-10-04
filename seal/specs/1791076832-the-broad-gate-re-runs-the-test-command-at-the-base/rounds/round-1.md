@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #758 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `88b8c632b85a00e167d6ab1aa5c0d0a390c6fe57..457f773e103efd22d7cca1cb84011cfa6b18cfd5`, 3 commits |
+| Contract changes | none |
+| New units | PYTEST_SUMMARY_RE (depth 1); SUMMARY_LINES (depth 1); test_only_pytests_own_summary_line_says_pytest_ran (depth 1); test_the_one_counterfeit_the_gate_cannot_see_is_named (depth 1); test_a_part_that_is_not_pytest_is_passed_over_though_it_prints_counts (depth 1); test_a_file_named_below_a_cd_is_run_at_the_base_and_not_called_new (depth 1) |
 | Needs a fix | yes — 🟡 1 (cargo's line read as pytest's summary), 🟡 2 (a `cd` row's file reads `new` unasked), 🟡 3 (a lone `&` runs a background part in the foreground at the base), 🟡 4 (the `!{3,}` rule misses pytest at 40–45 columns), 🟡 5 (a summary-printing wrapper's `new` is documented as measured) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,14 +24,14 @@ Round 1 of work item `1791076832-the-broad-gate-re-runs-the-test-command-at-the-
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The base re-run takes `cargo test`'s result line for pytest's summary, so a lint-first `cargo test && pytest` row reads `new` for a file the base fails | `skills/verify/scripts/broad_gate.py:2032` | open | executed, probe D: `tests/test_two.py  new` with the base failing it; prefix 1 printed only cargo's line |
-| 🟡 2 | A `cd sub && …` row's failing file is asked about at the repository root, found absent, and reads `new` with no run at the base | `skills/verify/scripts/broad_gate.py:2021` | open | executed, probe A: `new`, no `suite-at-base-*.txt` kept, base fails the file |
-| 🟡 3 | Under `/bin/sh` a prefix ending at a lone `&` runs the backgrounded part in the foreground with no bound, so a part that never ends hangs the gate at the base | `skills/verify/scripts/broad_gate.py:1964` | open | executed, probe B: 12 s sleeper ran in the foreground as prefix 1, gate 13.7 s; the old `&&`-only cut never did this |
-| 🟡 4 | `STOPPED_EARLY_RE` needs three `!`, and pytest at 40–45 columns writes one or two, so an interrupted base run reads `new` for an unnamed file | `skills/verify/scripts/broad_gate.py:1850` | open | executed: pytest 9.1.1 at `COLUMNS=40` printed `! Interrupted: 1 error during collection !`; `verdicts_at_base` on that ending gave `new` |
-| 🟡 5 | A part that prints pytest's summary but drops the appended files gives `new`, while rule 3 and `compare_at_base` say a word is only given from a run that measured it | `templates/config.md:333` | open | executed, probe C: `sh -c '…test_one.py'` first part, `tests/test_two.py  new` with the base failing it |
-| ⬜ 6 | Rule 3 says "the same but `;` under `cmd.exe`" for a list that lacks `;`, and calls a runner whose output goes to a file "never reached" | `templates/config.md:333` | open | read; the finding-3 fix rewrites the sentence |
-| ⬜ 7 | `row_prefixes`' "Not modelled" list omits compound commands and `>\|` | `skills/verify/scripts/broad_gate.py:1919` | open | read; each costs a measurement and fakes none |
-| ⬜ 8 | `plan.md`'s approval line carries a second sentence after "spawned.", so `chain_check` reports it absent | `seal/specs/1791076832-the-broad-gate-re-runs-the-test-command-at-the-base/plan.md:7` | open | executed: a dry run of `round-record new` in the scratch clone printed the notice; a correction, not counted in `Needs a fix` |
+| 🟡 1 | The base re-run takes `cargo test`'s result line for pytest's summary, so a lint-first `cargo test && pytest` row reads `new` for a file the base fails | `skills/verify/scripts/broad_gate.py:2032` | **fixed** `c3a5bd80` | fixed at c3a5bd80 — `0b208e42`; executed, probe D: `tests/test_two.py  new` with the base failing it; prefix 1 printed only cargo's line |
+| 🟡 2 | A `cd sub && …` row's failing file is asked about at the repository root, found absent, and reads `new` with no run at the base | `skills/verify/scripts/broad_gate.py:2021` | **fixed** `c3a5bd80` | fixed at c3a5bd80; executed, probe A: `new`, no `suite-at-base-*.txt` kept, base fails the file |
+| 🟡 3 | Under `/bin/sh` a prefix ending at a lone `&` runs the backgrounded part in the foreground with no bound, so a part that never ends hangs the gate at the base | `skills/verify/scripts/broad_gate.py:1964` | **fixed** `c3a5bd80` | fixed at c3a5bd80; executed, probe B: 12 s sleeper ran in the foreground as prefix 1, gate 13.7 s; the old `&&`-only cut never did this |
+| 🟡 4 | `STOPPED_EARLY_RE` needs three `!`, and pytest at 40–45 columns writes one or two, so an interrupted base run reads `new` for an unnamed file | `skills/verify/scripts/broad_gate.py:1850` | **fixed** `c3a5bd80` | fixed at c3a5bd80; executed: pytest 9.1.1 at `COLUMNS=40` printed `! Interrupted: 1 error during collection !`; `verdicts_at_base` on that ending gave `new` |
+| 🟡 5 | A part that prints pytest's summary but drops the appended files gives `new`, while rule 3 and `compare_at_base` say a word is only given from a run that measured it | `templates/config.md:333` | **fixed** `c3a5bd80` | fixed at c3a5bd80; executed, probe C: `sh -c '…test_one.py'` first part, `tests/test_two.py  new` with the base failing it |
+| ⬜ 6 | Rule 3 says "the same but `;` under `cmd.exe`" for a list that lacks `;`, and calls a runner whose output goes to a file "never reached" | `templates/config.md:333` | **fixed** `c3a5bd80` | fixed at c3a5bd80; read; the finding-3 fix rewrites the sentence |
+| ⬜ 7 | `row_prefixes`' "Not modelled" list omits compound commands and `>\|` | `skills/verify/scripts/broad_gate.py:1919` | **fixed** `c3a5bd80` | fixed at c3a5bd80; read; each costs a measurement and fakes none |
+| ⬜ 8 | `plan.md`'s approval line carries a second sentence after "spawned.", so `chain_check` reports it absent | `seal/specs/1791076832-the-broad-gate-re-runs-the-test-command-at-the-base/plan.md:7` | answered | corrected at `c3a5bd80`: `plan.md`'s Approved line now ends at its one sentence, and the Q1/Q2 note sits on the line below; `APPROVED_RE` matched 0 lines before and 1 after; executed: a dry run of `round-record new` in the scratch clone printed the notice; a correction, not counted in `Needs a fix` |
 | 🟢 | #748's case polls and is red without the group kill | `tests/test_the_commit_gate_decides_at_the_commit.py:434` | confirmed | executed: red with `the row's loop outlived the bound` under `proc.kill()`, reverted, green 3 of 3 |
 | 🟢 | Q1 (a base `ERROR` line reads `failing on base too`) and Q2 (rule 3 states both orders) are built as answered | `skills/verify/scripts/broad_gate.py:1841` | confirmed | read: `ERROR_RE` joins `FAILED_RE` in `verdicts_at_base`; rule 3's last sentences state both costs and pick neither |
 | 🟢 | The cut does not split quotes, `$(…)`, backticks, `( … )` or `2>&1` in either grammar, and the base re-run stays in `compare_at_base`'s own body | `skills/verify/scripts/broad_gate.py:1894` | confirmed | read; the orchestrator executed the parametrised cases and the shell-site case |
