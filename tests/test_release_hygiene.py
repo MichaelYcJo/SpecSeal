@@ -132,6 +132,9 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
     # policy states which gits a git-side decision was measured to hold on,
     # and that is the class the `seal.py` and `broad_gate.py` rows below name:
     # a property read off an unnamed git is not a measurement.
+    # gh's, the release whose `--help` #739 read for the subcommands that run
+    # local git.
+    ("docs/commit-review-gate-spec.md", "2.100.0"): "gh's, the `--help` #739 read",
     ("docs/the-commit-gate-inside-git.md", "2.34.1"): "git's, a build #692 measured",
     ("docs/the-commit-gate-inside-git.md", "2.39.5"): "git's, a build #692 measured",
     ("docs/the-commit-gate-inside-git.md", "2.43.0"): "git's, a build #692 measured",
