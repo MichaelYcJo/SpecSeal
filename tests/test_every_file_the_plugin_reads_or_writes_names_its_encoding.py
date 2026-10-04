@@ -28,12 +28,20 @@ then read for whether `None` means the locale. It does not for
 and is listed here by reading.
 
 - builtin `open`, `io.open`, `codecs.open`, `os.fdopen`, in a text mode;
-- `<expr>.open(...)` judged as `Path.open`, or as `zipfile.Path.open`,
-  whose encoding comes one place earlier, on a `zipfile.Path`; except on
-  `os`, `webbrowser`, `tarfile`, `shelve`, `dbm`, `dbm.dumb`, `wave`, PIL's
-  `Image` and a `ZipFile(...)` or `TarFile(...)` built in the receiver
-  itself, which open no text, and on a bare name no import binds; called on
-  the class (`Path.open(p)`), every position moves one to the right;
+- `<expr>.open(...)` judged as `Path.open`, except where the receiver, or
+  the class a call in the receiver builds, resolves through the file's
+  imports to one of these. A module whose `open` takes no locale encoding:
+  `os`, `webbrowser`, `tarfile`, `shelve`, `dbm` and its submodules `dumb`,
+  `gnu`, `ndbm` and `sqlite3`, `wave`, `aifc`, `sunau`, `tokenize`, `posix`
+  and `nt`. PIL's `Image`. `ZipFile` or `TarFile`, called on the class or
+  built in the receiver, which read bytes. Each of those is excused. And
+  `zipfile.Path`, called on the class or built in the receiver, is judged as
+  `zipfile.Path.open`, whose encoding comes one place earlier; one reached by
+  `/`, `.joinpath` or a name is not traced, so it is judged as `Path.open`,
+  and `encoding=` written as a keyword passes it. A receiver no import binds
+  is excused under no spelling, so `os.open(p, 0)` on a parameter named `os`
+  is judged. Called on the class (`Path.open(p)`), every position moves one
+  to the right;
 - `<expr>.read_text(...)` and `<expr>.write_text(...)`, the same way;
 - `subprocess.run` / `Popen` / `call` / `check_call` / `check_output` with
   `text=`, `universal_newlines=` or `errors=` and no `encoding`, the module
@@ -54,8 +62,11 @@ pass and no K1 row could catch them: a name rebound to an opener
 passed by reference (`map(Path.read_text, ps)`), `getattr`, `__import__` and
 a module loaded through `importlib`, `universal_newlines` given by position,
 `configparser`'s `.read`, whose name is too common to match without types,
-a file handler named in a string to `logging.config.dictConfig`, and a
-handler subclass whose constructor calls `super().__init__(p)`. Write the
+a file handler named in a string to `logging.config.dictConfig`, a
+handler subclass whose constructor calls `super().__init__(p)`, and a name an
+import binds that a narrower scope rebinds (`import wave`, then
+`def f(wave): return wave.open()`), because imports are read for the whole
+file and not per scope, so that `.open` is excused as the module's. Write the
 call plainly instead. The walk errs the other way too: a `ZipFile` or
 `TarFile` bound to a name first (`with ZipFile(z) as zf: zf.open(n)`) is not
 traced, so its `.open` is reported though it reads bytes.
@@ -122,8 +133,14 @@ TEMPFILES = {
     "TemporaryFile": (0, 2),
     "SpooledTemporaryFile": (1, 3),
 }
-# `.open` receivers that open no text file: a module, or a class whose
-# instance's `.open` reads bytes (`zipfile.ZipFile(z).open(name)`).
+# `.open` receivers whose `open` takes no locale encoding, matched against
+# what `owner` resolves them to through the file's imports. A module whose
+# `open` opens no text file, or reads the encoding the file itself declares
+# (`tokenize`); or a class whose `.open` reads bytes, called on the class or
+# built in the receiver (`zipfile.ZipFile(z).open(name)`). The modules are
+# every standard-library module with a module-level `open` that no other
+# table holds, enumerated over every importable module on 3.12 to 3.14
+# (#762), with PIL's `Image` beside them.
 NOT_A_FILE_OPENER = {
     "os",
     "webbrowser",
@@ -414,10 +431,12 @@ def judge(call, bound):
 
 
 def owner(receiver, bound):
-    """What a `.open` is called on: the dotted name of a receiver, of the
-    class a receiver call constructs (`zipfile.ZipFile(z)`), or a bare name no
-    import binds, read as itself (`os` taken as a parameter). An instance
-    bound to a name first (`with ZipFile(z) as zf`) is not traced."""
+    """What a `.open` is called on: the dotted name of a receiver, or of the
+    class a receiver call constructs (`zipfile.ZipFile(z)`), resolved through
+    the file's imports; None where no import binds the name. A name no import
+    binds is None whatever it is spelled, because the walk cannot prove that
+    a parameter named `os` is the module (K2). An instance bound to a name
+    first (`with ZipFile(z) as zf`) is not traced."""
     if isinstance(receiver, ast.Call):
         return dotted(receiver.func, bound)
     return dotted(receiver, bound)
