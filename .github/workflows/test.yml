@@ -71,7 +71,9 @@ jobs:
       # Pillow draws the release seal and its pixel case decodes it (#718),
       # pinned in `run_tests.py#PILLOW` and held to this line the same way, so
       # the pin runs on all three operating systems.
-      - run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0
+      # cmarkgfm is GitHub's renderer, which the table walker's oracle reads
+      # (#647), pinned in `run_tests.py#CMARKGFM` and held to this line too.
+      - run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22
       - run: |
           git config --global user.email ci@ci
           git config --global user.name ci

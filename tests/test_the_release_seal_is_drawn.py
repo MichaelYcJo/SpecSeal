@@ -824,6 +824,9 @@ def test_the_publishing_workflow_installs_the_pins_the_runner_holds():
         ]
     assert len(installs) == 1, installs
     assert runner.MARKDOWN_IT in installs[0] and runner.PILLOW in installs[0], installs
+    # #647: the suite at the tag collects the table walker's case, which
+    # imports the pinned renderer.
+    assert runner.CMARKGFM in installs[0], installs
 
 
 def test_a_refused_gh_or_git_call_is_a_reason_naming_the_call(monkeypatch):
