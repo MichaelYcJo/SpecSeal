@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #760 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `0844c21f148f2337725eda6796fd32499dd83e63..dafafb01d6dbddac9a2a7862675e8631dc0583a7`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (`hooks/tokens.py:396`, with `:432`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,7 +28,7 @@ Attack the enumeration (1,147,608 shapes, 40,608 silent, 0 bodies executed under
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `_plain_on_a_data_line` drops two of `is_plain`'s per-word guards — `--output` (writes a file R2f/`_writes_a_file` then misses) and a `printf` leading-`-` option — so a data line can hold `git diff --output=<path>` writing a file a later `git commit` runs as a hook, against R2f's "nothing on the line can run that file" and the Grounding claim that R2c reuses `is_plain`'s construction | `hooks/tokens.py:396` (`_plain_on_a_data_line`), with `hooks/tokens.py:432` (`_writes_a_file`) | open | Verified in the clone: at the target `heredoc_data("cat <<'EOF' \| git diff --no-index --output=h - /dev/null\n…\nEOF")` is `[True]`; `is_plain` rejects both shapes (`--output`, `printf -`). Not driven to an executed commit because `git diff --output` emits diff text, not the verbatim body |
+| 🟡 1 | `_plain_on_a_data_line` drops two of `is_plain`'s per-word guards — `--output` (writes a file R2f/`_writes_a_file` then misses) and a `printf` leading-`-` option — so a data line can hold `git diff --output=<path>` writing a file a later `git commit` runs as a hook, against R2f's "nothing on the line can run that file" and the Grounding claim that R2c reuses `is_plain`'s construction | `hooks/tokens.py:396` (`_plain_on_a_data_line`), with `hooks/tokens.py:432` (`_writes_a_file`) | **fixed** `ae22b8cc` | fixed at ae22b8cc; Verified in the clone: at the target `heredoc_data("cat <<'EOF' \| git diff --no-index --output=h - /dev/null\n…\nEOF")` is `[True]`; `is_plain` rejects both shapes (`--output`, `printf -`). Not driven to an executed commit because `git diff --output` emits diff text, not the verbatim body |
 
 ## Paste-ready fixes
 
