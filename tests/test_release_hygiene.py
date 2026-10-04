@@ -1328,6 +1328,14 @@ def test_the_newest_changelog_entry_is_the_version_being_shipped():
     assert newest == version(), (
         f"CHANGELOG's newest entry is {newest}, plugin.json ships {version()}"
     )
+    # S3 of #728: the index heads the release, and the release's own file is
+    # there too. A preparation commit that staged the index line and left
+    # `changelog/X.Y.Z.md` untracked ships a heading that links nowhere.
+    release = os.path.join(ROOT, "changelog", f"{newest}.md")
+    assert os.path.isfile(release), (
+        f"CHANGELOG.md heads {newest} and changelog/{newest}.md is not there. "
+        "`gather_changelog.py --version X.Y.Z` writes both; stage both"
+    )
 
 
 def test_the_release_target_is_asked_before_the_work_starts():

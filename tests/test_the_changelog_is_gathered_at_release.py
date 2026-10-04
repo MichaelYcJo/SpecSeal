@@ -1,7 +1,7 @@
 """A change writes a changelog fragment; the release gathers them.
 
 Issue #46. Three branches ran in parallel on 2026-09-01, touched 34 files, and
-shared exactly one — `CHANGELOG.md`, in all three pairs. Nothing else
+shared exactly one — the changelog, in all three pairs. Nothing else
 overlapped at all, so parallel work was never the thing that conflicted:
 appending to one three-line region was.
 
@@ -13,6 +13,11 @@ whole broad gate. Two of the three branches paid that or were about to.
 The fix is one fragment per work item, gathered at release. This file holds
 the gathering — that it happens, that it happens once, and that a release
 pull request cannot go out with a fragment left behind.
+
+Since #728 a release is a file of its own, `changelog/X.Y.Z.md`, and
+`CHANGELOG.md` is the index heading each one with a link to it. The fixtures
+here are laid out that way, and the cases under *this repository* hold the
+real tree to it.
 """
 
 import os
@@ -45,13 +50,44 @@ def run(*args, root=None):
     )
 
 
+INDEX_HEAD = "# Changelog\n\nThe index.\n\n"
+
+
+def entry(heading, version):
+    """One release's entry in the index, as the gather writes it."""
+    return f"{heading}\n\n[changelog/{version}.md](changelog/{version}.md)\n"
+
+
+def lay_out(root, *sections):
+    """`root` in the released layout: each section, heading line first, as
+    `changelog/<version>.md`, and an index heading them in the order given."""
+    (root / "changelog").mkdir(exist_ok=True)
+    entries = []
+    for text in sections:
+        heading = text.split("\n", 1)[0]
+        version = heading.split()[1]
+        (root / "changelog" / f"{version}.md").write_text(text, encoding="utf-8")
+        entries.append(entry(heading, version))
+    (root / "CHANGELOG.md").write_text(
+        INDEX_HEAD + "\n".join(entries), encoding="utf-8"
+    )
+
+
+def snapshot(root):
+    """Every file the gather may write, by path, so a run that must write
+    nothing can be shown to have created nothing as well."""
+    out = {"CHANGELOG.md": (root / "CHANGELOG.md").read_text(encoding="utf-8")}
+    directory = root / "changelog"
+    if directory.is_dir():
+        for path in sorted(directory.iterdir()):
+            out[f"changelog/{path.name}"] = path.read_text(encoding="utf-8")
+    return out
+
+
 @pytest.fixture
 def tree(tmp_path):
-    """A repository shape with a released changelog and two fragments."""
-    (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n- the first release\n",
-        encoding="utf-8",
-    )
+    """A repository shape with one released file and two fragments."""
+    lay_out(tmp_path, "## 0.1.0 — 2026-09-01\n\n- the first release\n")
     for work_item_id, body in (
         ("1788229400-later", "- **the later one.** What it changes.\n"),
         ("1700000000-earlier", "- **the earlier one.** What it changes.\n"),
@@ -62,8 +98,18 @@ def tree(tmp_path):
     return tmp_path
 
 
-def changelog(tree):
+def changelog(tree, version="0.2.0"):
+    """The release's own file, or "" where the gather has not written it."""
+    path = tree / "changelog" / f"{version}.md"
+    return path.read_text(encoding="utf-8") if path.is_file() else ""
+
+
+def index(tree):
     return (tree / "CHANGELOG.md").read_text(encoding="utf-8")
+
+
+def headings(text):
+    return re.findall(r"^## (.+)$", text, re.M)
 
 
 def gather(tree, version="0.2.0", date="2026-09-15"):
@@ -72,7 +118,8 @@ def gather(tree, version="0.2.0", date="2026-09-15"):
     Round 1, 🟡 9: three cases here ran the gather and then asserted something
     that a script consisting of `sys.exit(0)` also satisfies. A return code is
     not an effect — the marker landing in the file is — so every case that
-    depends on a gather having happened goes through this.
+    depends on a gather having happened goes through this. The release's own
+    file is where the section and the marker land (#728).
     """
     r = run("--version", version, "--date", date, root=tree)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -93,12 +140,49 @@ def test_every_fragment_reaches_the_released_section(tree):
 
 
 def test_the_new_section_lands_above_the_released_ones(tree):
-    """A section that lands below a dated one reads as older than work that
+    """A heading that lands below a dated one reads as older than work that
     already shipped — the state `test_unreleased_sits_above_every_dated_section`
-    was written for, after a rebase resolved the wrong way."""
+    was written for, after a rebase resolved the wrong way. Since #728 the
+    order is the index's, and the section itself is a file."""
     gather(tree)
-    headings = re.findall(r"^## (.+)$", changelog(tree), re.M)
-    assert headings[0].startswith("0.2.0"), headings
+    found = headings(index(tree))
+    assert found == ["0.2.0 — 2026-09-15", "0.1.0 — 2026-09-01"], found
+
+
+def test_a_gather_writes_the_release_file_and_its_index_entry(tree):
+    """S4 of #728. The release's file is the section, heading first, each
+    fragment under its marker in id order; the index gains the same heading
+    line and the link to the file, above every older entry, and nothing else
+    of the index moves."""
+    r = gather(tree)
+    assert changelog(tree) == (
+        "## 0.2.0 — 2026-09-15\n\n"
+        "<!-- specs/1700000000-earlier -->\n"
+        "- **the earlier one.** What it changes.\n\n"
+        "<!-- specs/1788229400-later -->\n- **the later one.** What it changes.\n"
+    )
+    assert index(tree) == (
+        INDEX_HEAD
+        + entry("## 0.2.0 — 2026-09-15", "0.2.0")
+        + "\n"
+        + entry("## 0.1.0 — 2026-09-01", "0.1.0")
+    )
+    out = " ".join(r.stdout.split())
+    assert "into changelog/0.2.0.md, ## 0.2.0 — 2026-09-15" in out, out
+    assert "CHANGELOG.md now heads its index with ## 0.2.0 — 2026-09-15" in out, out
+
+
+def test_an_index_with_no_release_yet_takes_the_first_entry_below_its_text():
+    """The first release a repository gathers meets an index with no `## `
+    line to go above: the entry follows the index's own text after one blank
+    line, and the file ends with one newline. An index that already heads
+    the version is returned as it is."""
+    gather_mod = load(SCRIPT, "specseal_gather_first_index_entry")
+    text = gather_mod.indexed(INDEX_HEAD, "## 0.1.0 — d", "0.1.0")
+    assert text == INDEX_HEAD + entry("## 0.1.0 — d", "0.1.0"), repr(text)
+    assert gather_mod.indexed(text, "## 0.1.0 — e", "0.1.0") == text, (
+        "an index that already heads the version took a second entry"
+    )
 
 
 def test_the_entries_are_in_work_item_order(tree):
@@ -132,28 +216,30 @@ def test_a_second_gather_for_the_same_version_appends_into_its_section(tree):
     (late / "changelog.md").write_text(
         "- **the late one.** A repair.\n", encoding="utf-8"
     )
+    listed = index(tree)
     second = run("--version", "0.2.0", "--date", "2026-09-16", root=tree)
     assert second.returncode == 0, second.stdout + second.stderr
     text = changelog(tree)
-    headings = re.findall(r"^## (.+)$", text, re.M)
-    assert headings == ["0.2.0 — 2026-09-15", "0.1.0 — 2026-09-01"], (
-        f"the second gather wrote a second heading, or re-dated the first: {headings}"
+    found = headings(text)
+    assert found == ["0.2.0 — 2026-09-15"], (
+        f"the second gather wrote a second heading, or re-dated the first: {found}"
     )
+    # S5 of #728: the index already heads the release, so it takes no
+    # second entry and its date stays the first gather's.
+    assert index(tree) == listed, index(tree)
     assert "the late one" in text, text
-    # Inside the section, after the entries the first gather wrote and
-    # before the release below it.
-    assert (
-        text.index("the later one")
-        < text.index("the late one")
-        < text.index("## 0.1.0")
-    ), text
+    # Inside the section, after the entries the first gather wrote.
+    assert text.index("the later one") < text.index("the late one"), text
     assert "<!-- specs/1788300001-late -->" in text, text
     # Round 1 of #536's work item (⬜ 2): the append arm re-joined the blank
-    # lines it had walked back over, leaving two before the next heading.
-    # One blank line between the appended entry and the next `## `, as the
-    # first gather writes it, and no run of three newlines anywhere.
+    # lines it had walked back over. One blank line between two entries, as
+    # the first gather writes them, no run of three newlines anywhere, and
+    # one newline at the end of the file.
     assert "\n\n\n" not in text, f"a run of blank lines:\n{text}"
-    assert "- **the late one.** A repair.\n\n## 0.1.0" in text, text
+    assert text.endswith(
+        "What it changes.\n\n<!-- specs/1788300001-late -->\n"
+        "- **the late one.** A repair.\n"
+    ), text
     check = run("--check", root=tree)
     assert check.returncode == 0, check.stdout
     assert "3 changelog fragments, all gathered" in check.stdout, check.stdout
@@ -163,11 +249,12 @@ def test_a_second_gather_into_the_last_section_ends_the_file_with_one_newline(
     tmp_path,
 ):
     """The other half of ⬜ 2: appending into the LAST section of a file
-    left the file ending with three newlines."""
-    (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## 0.2.0 — 2026-09-15\n\n<!-- specs/1700000000-earlier -->\n"
+    left the file ending with three newlines. Every release file is its own
+    last section now (#728)."""
+    lay_out(
+        tmp_path,
+        "## 0.2.0 — 2026-09-15\n\n<!-- specs/1700000000-earlier -->\n"
         "- the earlier one\n",
-        encoding="utf-8",
     )
     d = tmp_path / "seal" / "specs" / "1788300001-late"
     d.mkdir(parents=True)
@@ -185,10 +272,8 @@ def test_a_second_gather_into_an_undated_heading_says_what_the_write_does(tmp_pa
     today and the summary line said nothing about appending — and the write
     appended anyway. One predicate answers *is there a section* for both.
     The gatherer never writes an undated heading; a hand edit does."""
-    (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## 0.2.0\n\n- an entry somebody wrote by hand\n",
-        encoding="utf-8",
-    )
+    lay_out(tmp_path, "## 0.2.0\n\n- an entry somebody wrote by hand\n")
+    listed = index(tmp_path)
     d = tmp_path / "seal" / "specs" / "1788300001-late"
     d.mkdir(parents=True)
     (d / "changelog.md").write_text("- the late one\n", encoding="utf-8")
@@ -199,8 +284,8 @@ def test_a_second_gather_into_an_undated_heading_says_what_the_write_does(tmp_pa
     r = run("--version", "0.2.0", "--date", "2026-09-16", root=tmp_path)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "appended into the existing section" in r.stdout, r.stdout
-    headings = re.findall(r"^## (.+)$", changelog(tmp_path), re.M)
-    assert headings == ["0.2.0"], headings
+    assert headings(changelog(tmp_path)) == ["0.2.0"], changelog(tmp_path)
+    assert index(tmp_path) == listed, index(tmp_path)
 
 
 def test_a_dry_run_of_a_second_gather_shows_the_section_it_appends_into(tree):
@@ -213,12 +298,12 @@ def test_a_dry_run_of_a_second_gather_shows_the_section_it_appends_into(tree):
     (late / "changelog.md").write_text(
         "- **the late one.** A repair.\n", encoding="utf-8"
     )
-    before = changelog(tree)
+    before = snapshot(tree)
     r = run("--version", "0.2.0", "--date", "2026-09-16", "--dry-run", root=tree)
     assert r.returncode == 0, r.stdout
     assert "## 0.2.0 — 2026-09-15" in r.stdout, r.stdout
     assert "2026-09-16" not in r.stdout, r.stdout
-    assert changelog(tree) == before, "--dry-run wrote to the file"
+    assert snapshot(tree) == before, "--dry-run wrote to a file"
 
 
 def test_a_release_with_nothing_to_gather_fails(tree):
@@ -260,7 +345,7 @@ def test_a_copy_edit_to_a_released_entry_does_not_reopen_it(tree):
     text = changelog(tree)
     assert "<!-- specs/1788229400-later -->" in text, text
     text = text.replace("the later one", "the later one, reworded")
-    (tree / "CHANGELOG.md").write_text(text, encoding="utf-8")
+    (tree / "changelog" / "0.2.0.md").write_text(text, encoding="utf-8")
     assert "the later one." not in changelog(tree), (
         "the re-wording did not land, so this proves nothing about matching"
     )
@@ -273,7 +358,7 @@ def test_a_fragment_deleted_from_the_file_by_hand_is_reported(tree):
     """The other direction, or the case above passes by never failing."""
     gather(tree)
     text = changelog(tree).replace("<!-- specs/1788229400-later -->", "")
-    (tree / "CHANGELOG.md").write_text(text, encoding="utf-8")
+    (tree / "changelog" / "0.2.0.md").write_text(text, encoding="utf-8")
     r = run("--check", root=tree)
     assert r.returncode == 1, r.stdout
     assert "1788229400-later" in r.stdout, r.stdout
@@ -282,12 +367,14 @@ def test_a_fragment_deleted_from_the_file_by_hand_is_reported(tree):
 def test_dry_run_writes_nothing(tree):
     """The precedent is `close_issues_on_release.py`'s `DRY_RUN`, which exists
     because that script was run by hand for its output during development and
-    closed a real issue."""
-    before = changelog(tree)
+    closed a real issue. S6 of #728: neither the index nor anything under
+    `changelog/` changes, and no release file is created."""
+    before = snapshot(tree)
     r = run("--version", "0.2.0", "--date", "2026-09-15", "--dry-run", root=tree)
     assert r.returncode == 0, r.stdout
     assert "## 0.2.0 — 2026-09-15" in r.stdout
-    assert changelog(tree) == before, "--dry-run wrote to the file"
+    assert "into changelog/0.2.0.md" in r.stdout, r.stdout
+    assert snapshot(tree) == before, "--dry-run wrote to a file"
 
 
 def test_an_empty_fragment_is_not_gathered_as_a_blank_entry(tree):
@@ -344,6 +431,55 @@ def test_the_accumulation_section_no_longer_exists():
     )
 
 
+VERSION_NAME = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.md$")
+
+
+def release_files_on_disk():
+    """`[(version, text)]` for every `changelog/<X.Y.Z>.md` in the working
+    tree, newest first. Listed from the disk, not from `git ls-files`: a
+    release preparation runs the suite before the new file is staged (#728,
+    spec D9), and an index line whose file the listing missed would read as
+    a file that is not there."""
+    directory = os.path.join(ROOT, "changelog")
+    found = []
+    for name in os.listdir(directory):
+        parts = VERSION_NAME.match(name)
+        if parts:
+            with open(os.path.join(directory, name), encoding="utf-8") as f:
+                found.append((tuple(map(int, parts.groups())), name[:-3], f.read()))
+    return [(version, text) for _, version, text in sorted(found, reverse=True)]
+
+
+def test_the_index_and_the_release_files_agree():
+    """S2 of #728. Each `changelog/<v>.md` opens with its one `## ` line,
+    naming `<v>`; `CHANGELOG.md` carries that same line once per file, newest
+    first, each followed by the link to its file, and no other `## ` line.
+    The heading lives in both places on purpose (spec D2), and this is what
+    keeps the two copies one line."""
+    files = release_files_on_disk()
+    assert len(files) >= 44, f"{len(files)} release files — this case is blind"
+    want = []
+    for version, text in files:
+        lines = text.split("\n")
+        sections = [line for line in lines if line.startswith("## ")]
+        assert sections == [lines[0]], (
+            f"changelog/{version}.md has {sections} as its `## ` lines; a "
+            "release file opens with its one heading and carries no other"
+        )
+        assert re.match(rf"## {re.escape(version)} — \S+$", lines[0]), lines[0]
+        assert text.endswith("\n") and not text.endswith("\n\n"), (
+            f"changelog/{version}.md does not end with exactly one newline"
+        )
+        want.append(f"{lines[0]}\n\n[changelog/{version}.md](changelog/{version}.md)")
+    index = read("CHANGELOG.md")
+    at = index.index("\n## ")
+    assert "\n\n".join(want) + "\n" == index[at + 1 :], (
+        "CHANGELOG.md's entries are not the release files' headings, newest "
+        "first, each with the link to its file. The gather writes both: "
+        "`gather_changelog.py --version X.Y.Z`"
+    )
+
+
 def test_the_documents_send_a_change_to_its_own_fragment():
     """Where an entry goes is decided in one home since #715,
     `docs/the-record-layout.md`, beside the release sequence that gathers it;
@@ -390,7 +526,7 @@ def test_this_work_item_wrote_its_own_fragment():
 
     Once the work item is released and retired, the fragment is gone and
     the marker `gather_changelog.py` wrote above its body is the proof it
-    existed — a hand edit of `CHANGELOG.md` leaves no marker behind."""
+    existed — a hand edit of the released notes leaves no marker behind."""
     item = "1788229400-every-branch-appends-to-the-same-two-files"
     frag = os.path.join(ROOT, "seal", "specs", item, "changelog.md")
     if os.path.isfile(frag):
@@ -398,7 +534,7 @@ def test_this_work_item_wrote_its_own_fragment():
             assert f.read().strip(), "the fragment is empty"
         return
     body = gathered_entry(ROOT, item)
-    assert body is not None, "this work item edited CHANGELOG.md instead"
+    assert body is not None, "this work item edited the released notes instead"
     assert body.strip(), "the gathered fragment is empty"
 
 
@@ -406,7 +542,8 @@ def test_a_gathered_body_line_opening_with_an_issue_number_is_kept(tmp_path):
     """#497 round 1 ⬜ 8. The block ends at the next marker or heading, and a
     heading is `#` and then a space; a body line wrapped onto `#120` is the
     entry's own sentence, and cutting it there reads as a shorter entry."""
-    (tmp_path / "CHANGELOG.md").write_text(
+    (tmp_path / "changelog").mkdir()
+    (tmp_path / "changelog" / "1.0.0.md").write_text(
         "## [1.0.0]\n\n<!-- specs/1799000000-an-item -->\n- **A thing changed**, per\n"
         "#120, and the rest of it.\n\n## [0.9.0]\n- an older entry\n",
         encoding="utf-8",
@@ -427,7 +564,46 @@ def test_the_check_says_how_many_markers_it_read(tree):
     gather(tree)
     r = run("--check", root=tree)
     assert r.returncode == 0, r.stdout
-    assert "2 work items marked in CHANGELOG.md" in r.stdout, r.stdout
+    assert "2 work items marked in changelog/" in r.stdout, r.stdout
+
+
+def test_the_check_reads_the_markers_of_every_release_file(tmp_path):
+    """S7 of #728. The markers are spread over the release files, and the
+    check counts them all; a fragment whose marker stands in none of them is
+    named, in the sentence that says where it should have gone."""
+    lay_out(
+        tmp_path,
+        "## 0.2.0 — 2026-09-15\n\n<!-- specs/1788229400-later -->\n- later\n\n"
+        "<!-- specs/1788229500-latest -->\n- latest\n",
+        "## 0.1.0 — 2026-09-01\n\n<!-- specs/1700000000-earlier -->\n- earlier\n",
+    )
+    r = run("--check", root=tmp_path)
+    assert r.returncode == 0, r.stdout
+    out = " ".join(r.stdout.split())
+    want = "0 changelog fragments, all gathered; 3 work items marked in changelog/"
+    assert want in out, out
+    d = tmp_path / "seal" / "specs" / "1788300001-left"
+    d.mkdir(parents=True)
+    (d / "changelog.md").write_text("- left behind\n", encoding="utf-8")
+    r = run("--check", root=tmp_path)
+    assert r.returncode == 1, r.stdout
+    out = " ".join(r.stdout.split())
+    assert "changelog fragments that never reached a file under changelog/:" in out
+    assert "seal/specs/1788300001-left/changelog.md" in out, out
+
+
+def test_a_block_one_release_file_leaves_open_hides_nothing_in_another(tmp_path):
+    """Each release file is read on its own. Read as one text, a fence the
+    newer file never closed would hide every marker of the older one."""
+    lay_out(
+        tmp_path,
+        "## 0.2.0 — 2026-09-15\n\n<!-- specs/1788229400-later -->\n- later\n\n"
+        "```\nan example nobody closed\n",
+        "## 0.1.0 — 2026-09-01\n\n<!-- specs/1700000000-earlier -->\n- earlier\n",
+    )
+    r = run("--check", root=tmp_path)
+    assert r.returncode == 0, r.stdout
+    assert "2 work items marked in changelog/" in r.stdout, r.stdout
 
 
 def test_a_corpus_with_no_fragment_and_no_marker_is_not_a_pass(tmp_path):
@@ -439,39 +615,41 @@ def test_a_corpus_with_no_fragment_and_no_marker_is_not_a_pass(tmp_path):
     That is the silent direction `unverified_check.py`'s own docstring argues
     against one file over: a tolerant reader reports zero and zero is
     indistinguishable from success. So the check judges by the markers the
-    file carries, and a corpus with neither is refused rather than passed."""
-    (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n- an entry with no marker\n",
-        encoding="utf-8",
-    )
+    release files carry, and a corpus with neither is refused rather than
+    passed."""
+    lay_out(tmp_path, "## 0.1.0 — 2026-09-01\n\n- an entry with no marker\n")
     r = run("--check", root=tmp_path)
     assert r.returncode == 1, r.stdout
-    assert "examined nothing" in r.stdout, r.stdout
+    out = " ".join(r.stdout.split())
+    assert "examined nothing" in out, out
+    want = "no <!-- specs/<work-item-id> --> marker in any changelog/<X.Y.Z>.md"
+    assert want in out, out
 
 
 def test_a_folded_corpus_still_passes_on_its_markers(tmp_path):
     """The other half, and the one that makes the fold possible at all: every
     fragment has been gathered and every directory has been retired, so there
-    is nothing left on disk and the file carries the record of all of it."""
-    (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n"
+    is nothing left on disk and the release files carry the record of all of
+    it."""
+    lay_out(
+        tmp_path,
+        "## 0.1.0 — 2026-09-01\n\n"
         "<!-- specs/1700000000-earlier -->\n- the earlier one\n\n"
         "<!-- specs/1788229400-later -->\n- the later one\n",
-        encoding="utf-8",
     )
     r = run("--check", root=tmp_path)
     assert r.returncode == 0, r.stdout
-    assert "2 work items marked in CHANGELOG.md" in r.stdout, r.stdout
+    assert "2 work items marked in changelog/" in r.stdout, r.stdout
 
 
 def test_a_marker_quoted_inline_is_not_a_gathered_work_item(tmp_path):
     """The count is line-anchored for the reason `fold_ledger.py#is_marked`
-    already pays for: `CHANGELOG.md`'s own entries describe the convention,
-    and a bare substring count read the description as a work item."""
-    (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n"
+    already pays for: the released entries describe the convention, and a
+    bare substring count read the description as a work item."""
+    lay_out(
+        tmp_path,
+        "## 0.1.0 — 2026-09-01\n\n"
         "- each entry carries `<!-- specs/<work-item-id> -->` above it\n",
-        encoding="utf-8",
     )
     r = run("--check", root=tmp_path)
     assert r.returncode == 1, r.stdout
@@ -490,11 +668,11 @@ QUOTED_MARKER = {
 def quoting(tree, shape):
     """The fixture's file with the earlier work item gathered for real and
     the later one's marker only quoted, in `shape`."""
-    (tree / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n"
+    lay_out(
+        tree,
+        "## 0.1.0 — 2026-09-01\n\n"
         "<!-- specs/1700000000-earlier -->\n- the earlier one\n\n"
         + QUOTED_MARKER[shape],
-        encoding="utf-8",
     )
 
 
@@ -518,14 +696,14 @@ def test_a_quoted_marker_is_not_counted(tree):
     line-anchored marker, so a fenced or commented quotation of one counted
     as a work item that was gathered."""
     gather(tree)
-    (tree / "CHANGELOG.md").write_text(
+    (tree / "changelog" / "0.2.0.md").write_text(
         changelog(tree) + "\n" + QUOTED_MARKER["fenced"] + "\n"
         "<!-- a draft\n<!-- specs/1700000000-earlier -->\n-->\n",
         encoding="utf-8",
     )
     r = run("--check", root=tree)
     assert r.returncode == 0, r.stdout
-    assert "2 work items marked in CHANGELOG.md" in r.stdout, r.stdout
+    assert "2 work items marked in changelog/" in r.stdout, r.stdout
 
 
 def load(path, name):
@@ -542,11 +720,11 @@ def test_the_gather_and_the_survivor_check_read_one_set_of_markers(
     tree, shape, monkeypatch
 ):
     """#584, S7. `survivor_check.py#gathered_fragments` excuses a gathered
-    fragment from its sweep, and it reads `CHANGELOG.md`'s markers through
+    fragment from its sweep, and it reads the released markers through
     `live_lines`. The gather reading the same file by another rule is two
     answers to *was this entry shipped*."""
     quoting(tree, shape)
-    text = changelog(tree)
+    text = changelog(tree, "0.1.0")
     gather_mod = load(SCRIPT, "specseal_gather_changelog")
     survivor = load(
         os.path.join(ROOT, "skills", "code-review", "scripts", "survivor_check.py"),
@@ -556,7 +734,9 @@ def test_the_gather_and_the_survivor_check_read_one_set_of_markers(
         survivor, "read_blobs", lambda root, rev, paths: {survivor.CHANGELOG: text}
     )
     frags = gather_mod.fragments(str(tree))
-    missing = {i for i, _ in gather_mod.ungathered(text, frags)}
+    missing = {
+        i for i, _ in gather_mod.ungathered(gather_mod.live_markers(text), frags)
+    }
     gathered = {i for i, _ in frags} - missing
     assert gathered == survivor.gathered_fragments(str(tree), "HEAD")
     assert gathered == {"1700000000-earlier"}
@@ -582,11 +762,11 @@ def test_a_fragment_carrying_its_own_section_line_is_refused(tree, dry_run):
     note short, so the gather refuses before it writes or prints a section,
     naming the fragment, the line number and the line, and what to do."""
     headed(tree, "- **an entry.** What it changes.\n\n## A heading of its own\n")
-    before = changelog(tree)
+    before = snapshot(tree)
     args = ["--version", "0.2.0", "--date", "2026-09-15"]
     r = run(*args, *(["--dry-run"] if dry_run else []), root=tree)
     assert r.returncode == 1, r.stdout + r.stderr
-    assert changelog(tree) == before, "the refused gather wrote to the file"
+    assert snapshot(tree) == before, "the refused gather wrote to a file"
     assert "## 0.2.0" not in r.stdout, "the refused gather printed a section"
     out = " ".join(r.stdout.split())
     assert f"seal/specs/{HEADED}/changelog.md:3: ## A heading of its own" in out, out
@@ -648,11 +828,11 @@ def test_a_fragment_that_leaves_a_block_open_is_refused(tree, shape, dry_run):
     second time. Refused before anything is written or printed, beside the
     #586 refusal, naming the fragment."""
     headed(tree, LEFT_OPEN[shape])
-    before = changelog(tree)
+    before = snapshot(tree)
     args = ["--version", "0.2.0", "--date", "2026-09-15"]
     r = run(*args, *(["--dry-run"] if dry_run else []), root=tree)
     assert r.returncode == 1, r.stdout + r.stderr
-    assert changelog(tree) == before, "the refused gather wrote to the file"
+    assert snapshot(tree) == before, "the refused gather wrote to a file"
     assert "## 0.2.0" not in r.stdout, "the refused gather printed a section"
     out = " ".join(r.stdout.split())
     assert f"seal/specs/{HEADED}/changelog.md" in out, out
@@ -672,7 +852,7 @@ def test_a_fragment_that_closes_what_it_opens_is_gathered(tree):
     gather(tree)
     r = run("--check", root=tree)
     assert r.returncode == 0, r.stdout
-    assert "3 work items marked in CHANGELOG.md" in r.stdout, r.stdout
+    assert "3 work items marked in changelog/" in r.stdout, r.stdout
 
 
 def test_the_documents_say_a_fragment_carries_no_section_line():

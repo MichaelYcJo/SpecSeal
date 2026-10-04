@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Gather each work item's changelog fragment into the released section.
+"""Gather each work item's changelog fragment into the release's own file.
 
 Three branches ran in parallel on 2026-09-01 and touched 34 files between them.
-They shared exactly one, and all three pairs shared the same one: `CHANGELOG.md`
+They shared exactly one, and all three pairs shared the same one: the changelog
 (issue #46). Nothing else overlapped at all — so parallel work was never the
 problem, appending to one three-line region was.
 
@@ -10,14 +10,21 @@ The conflict itself is cheap and arrives at the worst possible moment: after
 the broad gate has run and before the pull request opens, where nothing may be
 edited. Resolving it costs a second run of the whole broad gate.
 
-So a change writes `seal/specs/<work-item-id>/changelog.md` and leaves `CHANGELOG.md`
-alone. Two branches cannot collide, because no two work items share an id. This
-script is the other half — release preparation runs it, and it concatenates the
-fragments into `## X.Y.Z — <date>`.
+So a change writes `seal/specs/<work-item-id>/changelog.md` and leaves the
+released notes alone. Two branches cannot collide, because no two work items
+share an id. This script is the other half — release preparation runs it, and
+it concatenates the fragments into `## X.Y.Z — <date>`.
 
-  gather_changelog.py --version 0.2.0            write the released section
+**Each release is a file of its own** (#728, `docs/the-record-layout.md` §F2):
+`changelog/X.Y.Z.md`, which opens with that `## X.Y.Z — <date>` line, and
+`CHANGELOG.md` is the index — one copy of each release's heading line, newest
+first, with a link to its file under it. The gather writes the release's file
+and, where the index has no heading for the version yet, puts one above every
+older one. A reader who wants one release opens one file.
+
+  gather_changelog.py --version 0.2.0            write the release's file
   gather_changelog.py --version 0.2.0 --dry-run  print it, write nothing
-  gather_changelog.py --check                    every fragment reached the file
+  gather_changelog.py --check                    every fragment reached a file
 
 **A gathered fragment is marked, not matched.** Each entry is written under an
 HTML comment naming the work item it came from, and `--check` looks for that
@@ -43,8 +50,10 @@ glob goes empty two ways: every fragment reached the file, and there are no
 fragments left to reach it because `settle` retired the work items whole. The
 second is the state every repository running this methodology ends up in, and
 reporting it as *all gathered* is a pass over an empty set. So the check also
-counts the markers `CHANGELOG.md` carries and prints both numbers, and a
-corpus with neither a fragment nor a marker is refused rather than passed.
+counts the markers the release files under `changelog/` carry and prints both
+numbers, and a corpus with neither a fragment nor a marker is refused rather
+than passed. Each release file is read on its own, so a block one of them
+leaves open hides nothing in another.
 
 **A fragment carries no line starting `## `** (#586). The released section
 ends at the next such line, for `insert` below and for
@@ -62,7 +71,8 @@ the ones it would write, before anything is written or printed, naming it.
 It does not close the block for the author: that would ship text nobody
 wrote, and a bare comment opener in prose was never meant to open anything.
 
-Exit codes: 0 done · 1 nothing to gather, a fragment is missing from the file,
+Exit codes: 0 done · 1 nothing to gather, a fragment is missing from every
+release file,
 `--check` found neither a fragment nor a marker and so examined nothing, a
 fragment carries a line starting `## `, or a fragment leaves a fenced block
 or an HTML comment open. All five are failures a release pull request should
@@ -83,6 +93,12 @@ import console
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 TITLE = "# Changelog"
+# The index, and the directory each release's own file lives in (#728).
+INDEX = "CHANGELOG.md"
+RELEASES = "changelog"
+# A release file's name: the version and nothing else, so a README or a
+# draft beside them is not read as a release.
+RELEASE_FILE_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.md$")
 # Markers on a line of their own, which is how `section()` writes them. The
 # line anchor is what `fold_ledger.py#is_marked` already pays for: this file's
 # own entries describe the convention, so a bare substring count reads the
@@ -149,12 +165,46 @@ def fragments(root):
     return sorted(out)
 
 
-def ungathered(changelog_text, frags):
-    """The fragments whose marker stands on no live line (`live_markers`).
+def release_path(root, version):
+    """`changelog/<version>.md` under `root`, the file a release's notes are."""
+    return os.path.join(root, RELEASES, f"{version}.md")
+
+
+def release_files(root):
+    """`[(version, path)]` for every `changelog/<X.Y.Z>.md`, newest first.
+
+    Listed from the disk rather than from git: release preparation runs this
+    before the new file is staged (`docs/release-checklist.md` §3)."""
+    directory = os.path.join(root, RELEASES)
+    if not os.path.isdir(directory):
+        return []
+    found = []
+    for name in os.listdir(directory):
+        parts = RELEASE_FILE_RE.match(name)
+        if parts:
+            number = tuple(int(n) for n in parts.groups())
+            found.append((number, name[: -len(".md")], os.path.join(directory, name)))
+    return [(version, path) for _, version, path in sorted(found, reverse=True)]
+
+
+def released_markers(root):
+    """The live markers of every release file, each file read on its own, so
+    a block one file leaves open hides nothing in the next (#584's rule,
+    applied per file)."""
+    out = []
+    for _, path in release_files(root):
+        with open(path, encoding="utf-8") as f:
+            out.extend(live_markers(f.read()))
+    return out
+
+
+def ungathered(marked, frags):
+    """The fragments whose id is not among `marked`, the live markers
+    `released_markers` read.
 
     It used to be a substring test, so a marker quoted in prose, a fence or a
     code span marked its fragment gathered (#584)."""
-    gathered = set(live_markers(changelog_text))
+    gathered = set(marked)
     return [(i, body) for i, body in frags if i not in gathered]
 
 
@@ -283,6 +333,39 @@ def insert(changelog_text, block, version):
     return "\n".join(lines[:at] + reader.gfm_lines(block) + [""] + lines[at:]) + "\n"
 
 
+def index_entry(heading, version):
+    """One release's entry in `CHANGELOG.md`: the heading line its file opens
+    with, a blank line, and the link to the file.
+
+    The heading is kept here as well as in the file because the update skill
+    an installed copy already carries checks an update landed by the first
+    `## ` line of `CHANGELOG.md` (spec D2 of #728); the link is what a
+    reader follows."""
+    link = f"{RELEASES}/{version}.md"
+    return f"{heading}\n\n[{link}]({link})"
+
+
+def indexed(index_text, heading, version):
+    """`index_text` with `version`'s entry above every older one, or as it is
+    where the index already heads `version`.
+
+    The entry goes above the first `## ` line, the way `insert` places a new
+    section; an index with none yet takes it after its own text and one
+    blank line."""
+    if section_heading(index_text, version) is not None:
+        return index_text
+    lines = reader.gfm_lines(index_text)
+    entry = reader.gfm_lines(index_entry(heading, version))
+    at = next(
+        (n for n, line in enumerate(lines) if line.startswith(SECTION_LINE)), None
+    )
+    if at is None:
+        while lines and not lines[-1].strip():
+            lines.pop()
+        return "\n".join([*lines, "", *entry]) + "\n"
+    return "\n".join([*lines[:at], *entry, "", *lines[at:]]) + "\n"
+
+
 def main(argv=None):
     console.to_utf8()
     ap = argparse.ArgumentParser()
@@ -291,7 +374,7 @@ def main(argv=None):
     ap.add_argument(
         "--check",
         action="store_true",
-        help="report fragments that are not in CHANGELOG.md and exit 1",
+        help="report fragments that are in no changelog/<X.Y.Z>.md and exit 1",
     )
     ap.add_argument("--dry-run", action="store_true", help="print, write nothing")
     ap.add_argument("--root", default=ROOT, help="repository root (default: this one)")
@@ -301,15 +384,13 @@ def main(argv=None):
         ap.error("pass --version to gather, or --check to verify")
 
     root = os.path.abspath(args.root)
-    changelog = os.path.join(root, "CHANGELOG.md")
-    with open(changelog, encoding="utf-8") as f:
-        text = f.read()
     frags = fragments(root)
-    missing = ungathered(text, frags)
+    marked = released_markers(root)
+    missing = ungathered(marked, frags)
 
     if args.check:
         if missing:
-            print("changelog fragments that never reached CHANGELOG.md:")
+            print(f"changelog fragments that never reached a file under {RELEASES}/:")
             for work_item_id, _ in missing:
                 print(f"  seal/specs/{work_item_id}/changelog.md")
             print(
@@ -323,23 +404,22 @@ def main(argv=None):
         # empty glob used to print "all gathered" having examined nothing,
         # which reads as success and is the one direction a checker of claims
         # must not fail in (`unverified_check.py`'s own docstring argues it
-        # one file over). The markers in the file are the record that survives
-        # the directory, so they are what a folded corpus is judged by.
-        marked = len(live_markers(text))
+        # one file over). The markers in the release files are the record that
+        # survives the directory, so they are what a folded corpus is judged by.
         if not frags and not marked:
             print(
                 "nothing to check: no changelog fragment under seal/specs/ "
-                "and no <!-- specs/<work-item-id> --> marker in CHANGELOG.md, "
-                "so this examined nothing and `all gathered` would be a "
-                "report about an empty set.\n"
-                "A release gathers its fragments into the file, and the "
+                f"and no <!-- specs/<work-item-id> --> marker in any "
+                f"{RELEASES}/<X.Y.Z>.md, so this examined nothing and "
+                "`all gathered` would be a report about an empty set.\n"
+                "A release gathers its fragments into its own file, and the "
                 "marker above each entry is what stays once the work item's "
                 "directory is folded away."
             )
             return 1
         print(
             f"{len(frags)} changelog fragments, all gathered; "
-            f"{marked} work items marked in CHANGELOG.md"
+            f"{len(marked)} work items marked in {RELEASES}/"
         )
         return 0
 
@@ -349,7 +429,7 @@ def main(argv=None):
     if not missing:
         print(
             f"nothing to gather: all {len(frags)} fragments are already in "
-            "CHANGELOG.md. A release with no entries is one nobody can read — "
+            f"{RELEASES}/. A release with no entries is one nobody can read — "
             "check that the branches you meant to ship are merged"
         )
         return 1
@@ -394,10 +474,21 @@ def main(argv=None):
         return 1
 
     # The section's own date where it already exists — the release date is
-    # the first gather's, and a later gather joins that section (#289).
+    # the first gather's, and a later gather joins that section (#289). The
+    # index's heading answers where the file does not exist yet.
+    path = release_path(root, args.version)
+    shown = os.path.relpath(path, root).replace(os.sep, "/")
+    text = ""
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    index_path = os.path.join(root, INDEX)
+    with open(index_path, encoding="utf-8") as f:
+        index = f.read()
     found = section_heading(text, args.version)
     date = (
         existing_date(text, args.version)
+        or existing_date(index, args.version)
         or args.date
         or datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
     )
@@ -406,18 +497,26 @@ def main(argv=None):
     # — dated or not — and the block's only where this run writes one.
     heading = found.group(0) if found else reader.gfm_lines(block)[0]
     if args.dry_run:
+        print(f"into {shown}:")
         if found:
             print("appending into the existing section:\n")
         print("\n".join([heading, *reader.gfm_lines(block)[1:]]))
         return 0
-    with open(changelog, "w", encoding="utf-8") as f:
-        f.write(insert(text, block, args.version))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(insert(text, block, args.version) if text.strip() else block)
+    new_index = indexed(index, heading, args.version)
+    if new_index != index:
+        with open(index_path, "w", encoding="utf-8") as f:
+            f.write(new_index)
     print(
-        f"gathered {len(missing)} fragments into {heading}"
+        f"gathered {len(missing)} fragments into {shown}, {heading}"
         + (" (appended into the existing section)" if found else "")
     )
     for work_item_id, _ in missing:
         print(f"  seal/specs/{work_item_id}/changelog.md")
+    if new_index != index:
+        print(f"{INDEX} now heads its index with {heading}")
     return 0
 
 
