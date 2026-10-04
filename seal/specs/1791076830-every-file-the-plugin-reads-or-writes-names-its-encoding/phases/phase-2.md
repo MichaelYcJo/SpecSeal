@@ -62,4 +62,4 @@ broken.
 
 | Removed item | Where it must land |
 |---|---|
-| the module's `NOT_YET_JUDGED` constant and the `skip` parameter, which kept `tests/` out of phase 1's corpus | none — the corpus is every tracked `.py`, which `tracked_python`'s docstring now says |
+| the module's `NOT_YET_JUDGED` constant and the `skip` parameter, which kept `tests/` out of phase 1's corpus | none — the corpus is every tracked `.py`, which `tracked_python`'s docstring now says · NAME NOT IN TREE |

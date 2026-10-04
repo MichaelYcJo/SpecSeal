@@ -8,8 +8,8 @@ evidence ledger, not here. -->
 
 📋 implement applied
 · spec:     seal/specs/1791076830-every-file-the-plugin-reads-or-writes-names-its-encoding/{spec,plan,questions}.md (K1–K4, D1–D8, S1–S10); CONTRIBUTING.md §House rules; hooks/console.py module docstring; tests/test_a_script_says_which_interpreter_it_needs.py#CLASSIFIED and its liveness half; tests/conftest.py#git_listing, #on_disk, #decline_if_shrunken
-· evidence: seal/ledger/1791076830-every-file-the-plugin-reads-or-writes-names-its-encoding.md — written in phase 3
-· verified: executed — the new module, the phase-1 covering modules, M2 and M4; read — W1's handler per hook site
+· evidence: seal/ledger/1791076830-every-file-the-plugin-reads-or-writes-names-its-encoding.md — E1–E5 added, and 74 `Re-read ·` rows for the released rows the edits drifted (M3)
+· verified: executed — the new module and every case seen red (48 mutations in phase 1, 3 in phase 2, 4 in phase 3, one survivor on an unasserted word), the 54 phase-1 covering modules, the 44 phase-2 edited modules, M1–M4, `bin/evidence-check .`; read — W1's handler per hook site, W2, and the 74 released claims M3 re-dated
 
 ## Why this work exists
 
@@ -23,6 +23,7 @@ A file read or written in the locale's encoding breaks only on the Windows leg, 
 | `codecs.open` and `os.fdopen` argument positions | Spec K1: `codecs.open` takes `encoding` as *the 4th positional argument* like `open`; `os.fdopen` is *as `open`, positions shifted by the fd* | The walker uses each signature: `codecs.open(filename, mode, encoding)` is 3rd; `os.fdopen(fd, mode, buffering, encoding)` puts the fd in `open`'s file slot, so its positions are `open`'s | The signatures (`codecs.open`, `os.fdopen` → `open(fd, *args)`); spec silent on why it chose otherwise. No such call is in the tree |
 | A `*` positional splat | Spec K2 names a `**` splat | The walker counts a `*` splat as unproven too | K2's own principle: *shapes the walker cannot prove … count as unnamed*. A `*args` can carry the encoding's position. None in the tree |
 | How a `.github/scripts/` site is named | Spec, Data & interfaces: product edits *add `encoding="utf-8"` … to existing calls* | `text=True` is replaced by `encoding="utf-8"` at all 14 sites | `encoding=` alone puts `subprocess` in text mode, so the pair says the same thing twice; `tests/conftest.py#git_listing` already spells it this way |
+| How the House rules sentence is held | Spec S10: *Read*; nothing pinned it | `test_the_rule_is_where_a_contributor_reads_it` pins four phrases of the bullet | `skills/agent-contract/SKILL.md` §14: text a person reads and acts on is pinned in the same work |
 | `read_mark` exists twice | Spec D7 names `hooks/commit-review-gate.py#read_mark` | Fixed as named; `hooks/gate.py#read_mark` already reads `encoding="utf-8", errors="replace"` | Read at `1ecb019f`. The gate's copy is the shape the old one now matches |
 
 ## Not verified
@@ -35,7 +36,12 @@ A file read or written in the locale's encoding breaks only on the Windows leg, 
 
 ## Not done
 
-Nothing yet.
+`console.to_utf8()` stays out of `.github/scripts/` and `skills/*/scripts/`,
+as the spec's Out of scope says: `seal/follow-up.md` holds that widening as
+the repository owner's question, and this work left the row as it stands.
+`hooks/dispatch.py` keeps its inline loop, classified. The S8 case covers
+the pre-commit hook only; the other two git hooks are held by the
+entry-point half alone.
 
 ## Fed back into the spec
 
