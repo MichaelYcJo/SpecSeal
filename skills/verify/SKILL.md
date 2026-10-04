@@ -506,7 +506,7 @@ about to run it a second time after the change.
   `Broad gate` row printed a line the gate reads as pytest's summary there,
   or the run there stopped
   before every test ran. It is a question about the file, not a finding
-  either way; open the kept `suite-at-base-<k>.txt` files and run the file at
+  either way; open the kept `suite-at-base-*.txt` files and run the file at
   the base by hand before calling it either of the two above.
   `templates/config.md` §*Choosing a value — the criterion*, rule 3, says
   which rows the gate cannot measure.
