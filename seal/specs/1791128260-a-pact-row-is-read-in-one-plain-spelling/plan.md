@@ -4,7 +4,7 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-10-05 by the orchestrator under the owner's `automation` routing and the owner's redesign choice, when `smith` was spawned.
 
 ## Summary
 
