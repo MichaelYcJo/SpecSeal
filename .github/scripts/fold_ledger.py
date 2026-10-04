@@ -51,8 +51,9 @@ seventeen ledger sections from `0.9.4` to `0.15.0` (eighteen tags after
 exists, the new work items go at the end of it, the file keeps the first
 fold's date over `--date` and over today, and `--dry-run` prints the heading
 it joins. `--check` refuses a release file that heads a version twice, or one
-not named for the version it heads, naming the lines — the same three answers
-`gather_changelog.py` gives for `CHANGELOG.md` (#289). It also refuses a
+not named for the version it heads, naming the lines — the answers
+`gather_changelog.py` and `tests/test_release_hygiene.py` give for the
+changelog (#289). It also refuses a
 `seal/ledger.md` that heads any release at all: a section there was written
 by hand or by a fold from before #547, and the refusal says to move it into
 its release's file in the change that wrote it.
@@ -65,7 +66,7 @@ file is on disk. `seal/ledger.md` is never written by a fold.
 
 **A folded work item is marked, not matched.** Each section is written under
 an HTML comment naming the work item, the same comment `gather_changelog.py`
-writes in `CHANGELOG.md`. A fragment that turns up while its marker is already
+writes in a release's file under `changelog/`. A fragment that turns up while its marker is already
 in `ledger.md` or in any release file is refused rather than folded twice: the
 same claim in the corpus twice, with no way to tell which is current, is
 worse than a stop that names the work item and the file.
@@ -125,9 +126,9 @@ Every `seal/specs/*/evidence-todo.md` in the tree is read. The step runs on a
 branch cut from the release branch, which holds merged work only, so "every
 released work item" and "every work item present" are the same set.
 
-**A new release is a new file**, where the changelog gather inserts at the
-top of one file. A changelog is read newest-first; a ledger is read by area
-and by coordinate. The checker (`evidence_check.py`) scans a ledger for
+**A new release is a new file**, as a changelog release is since #728, and
+no index heads them: a changelog is read newest-first, from `CHANGELOG.md`;
+a ledger is read by area and by coordinate. The checker (`evidence_check.py`) scans a ledger for
 anchors and reads no headings, so nothing measures from where a row sits.
 
 Exit codes: 0 done · 1 for nothing to fold, an open evidence-todo row, a

@@ -28,7 +28,7 @@ which is the one thing the clause above forbids.
 **Released means present on the branch the release merges to**, which is why
 `--released-at` names a ref rather than a date. The two alternatives were
 measured on this repository and both are wrong: 11 work items carry no
-`<!-- specs/<id> -->` marker in `CHANGELOG.md` although they plainly shipped,
+`<!-- specs/<id> -->` marker in the changelog although they plainly shipped,
 and 15 carry none in `seal/ledger.md`.
 
 **The fold record is the provenance comment, and there is no second file.**

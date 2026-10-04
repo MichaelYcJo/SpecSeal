@@ -15,7 +15,7 @@ is found, the copy is the defect.
 | Kind | Home | Size target | Index |
 |---|---|---|---|
 | The evidence ledger | `seal/ledger/<work-item-id>.md` while a work item is open; `seal/releases/<X.Y.Z>.md` once its release folds it; `seal/ledger.md` for the rows from before the fragments. The rules: `docs/the-evidence-ledger.md` | a release file is over target, and its reading unit is one `### <work-item-id>` section | the file name, by version, and the `### <work-item-id>` heading inside it |
-| The changelog | `seal/specs/<work-item-id>/changelog.md` while a work item is open; `CHANGELOG.md` once its release gathers it | `CHANGELOG.md` is over target; one release's section is the unit | the `## X.Y.Z` heading. One file per release is decided and not built (F2) |
+| The changelog | `seal/specs/<work-item-id>/changelog.md` while a work item is open; `changelog/<X.Y.Z>.md`, the release's own file, once its release gathers it | each release file is under target, and is the unit | the file name, by version, and `CHANGELOG.md`, which heads each release newest first with a link to its file (F2, built) |
 | A work item's files | `seal/specs/<work-item-id>/` | each file under target | the table under *seal/specs/<work-item-id>/* below |
 | The repository's rules | `CLAUDE.md` for the rules a session must hold, `CONTRIBUTING.md` for a contributor's procedure, and the `docs/` document each one links to | each file under target | this document, and the *docs/* table below |
 | The configuration | `seal/config.md`, one row per item; `templates/config.md` documents every row | under target | the `Item` column |
@@ -30,7 +30,7 @@ half is added because a ledger row is one long line: at 233f0455 the longest
 was 8,831 characters, so a ledger file can reach megabytes under any line
 cap.
 
-Two kinds are over target today, and each is named here rather than
+One kind is over target today, and it is named here rather than
 discovered:
 
 - **A release ledger file.** 37 files at 233f0455, 2.42 MB together, the
@@ -38,8 +38,10 @@ discovered:
   `docs/the-evidence-ledger.md`) and are not split. The reading unit is the
   section: all 148 `### <work-item-id>` sections measured then are at most
   58 KB, with a median of 14 KB.
-- **`CHANGELOG.md`.** 549 KB at 233f0455, with sections at a median of 12 KB
-  and at most 33 KB. F2 below moves it to one file per release.
+
+`CHANGELOG.md` was the second, 549 KB at 233f0455, until F2 below moved each
+release into a file of its own: 44 files at the move, the largest 525 lines
+and 33 KB.
 
 No index file is added inside `seal/releases/`. The file name is the index
 by version and the `### <work-item-id>` heading is the index inside a file;
@@ -66,8 +68,9 @@ fragment*.
 
 **Both kinds of fragment are gathered at the release, by two commands in one
 commit**, and `docs/release-checklist.md` §*2. Gather, fold, bump* holds the
-commands. The changelog fragments are concatenated into the released section
-of `CHANGELOG.md`. The ledger fragments move into that release's own file,
+commands. The changelog fragments are concatenated into the release's own
+file, `changelog/X.Y.Z.md`, and the release's heading goes into the index,
+`CHANGELOG.md`. The ledger fragments move into that release's own file,
 `seal/releases/X.Y.Z.md`, and the fragments are removed. A fragment lives
 from the work item's first row to the release that ships it.
 
@@ -154,15 +157,16 @@ What the SDD set still cites of it resolves at the tag of that release.
 |---|---|
 | `CLAUDE.md` | the rules a session in this repository must hold, each linking to its home |
 | `CONTRIBUTING.md` | how a contribution is made and checked, and what a change to a gate must carry |
-| `CHANGELOG.md` | what each release changed, one `## X.Y.Z` section each |
+| `CHANGELOG.md` | which releases there are: the index, one `## X.Y.Z — <date>` heading each, newest first, with a link to the release's file |
+| `changelog/<X.Y.Z>.md` | what one release changed, that release's section alone |
 | `README.md` and `README.ko.md` | what the plugin is and how to install it |
 
 ## What is decided and not built yet
 
 Four parts of this layout were decided here, each to be built by its own
-issue. F1 is built; the other three are not yet. Each says when, by the
-release it lands in relative to #716's; the issue's milestone names the
-version, so no number here goes stale when it ships.
+issue. All four are built, each by the issue its paragraph names. Each says
+when, by the release it lands in relative to #716's; the issue's milestone
+names the version, so no number here goes stale when it ships.
 
 **F1 — `docs/commit-review-gate-spec.md` is cut in three (#727, in the
 release #716 ships in, after #716 lands). Built by #727.** The table below
@@ -193,7 +197,10 @@ target is `changelog/<X.Y.Z>.md`, with all existing sections migrated and
 `CHANGELOG.md` kept as a short index linking each one; the GitHub Release
 reads the release's own file. Migrated rather than frozen, because no branch
 writes the changelog in parallel, and a link at an old tag keeps resolving at
-that tag.
+that tag. Built by #728. Each file opens with its release's `## X.Y.Z —
+<date>` line, and the index keeps that same line above each link, because the
+update skill an installed copy already carries checks that an update landed
+by the first `## ` line of `CHANGELOG.md`.
 
 **F3 — a work item's directory is laid out by lifetime (#729, in the release
 after #716's). Built by #729.**

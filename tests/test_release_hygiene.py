@@ -597,7 +597,8 @@ def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
     Three exemptions, each argued where it is declared rather than here:
 
     - `RECORDS_OF_A_MOMENT` — files whose whole job is to name a moment.
-      `seal/specs/` and `CHANGELOG.md` are outside the scanned set entirely.
+      `seal/specs/`, `CHANGELOG.md` and `changelog/` are outside the scanned
+      set entirely.
       `docs/one-root-by-lifetime.md` is the 0.4.0 design and says so in every
       other paragraph, and `docs/experiments/` holds dated measurements whose
       numbers are the reading.
@@ -1343,6 +1344,14 @@ def test_the_newest_changelog_entry_is_the_version_being_shipped():
     newest = dated[0].split()[0]
     assert newest == version(), (
         f"CHANGELOG's newest entry is {newest}, plugin.json ships {version()}"
+    )
+    # S3 of #728: the index heads the release, and the release's own file is
+    # there too. A preparation commit that staged the index line and left
+    # `changelog/X.Y.Z.md` untracked ships a heading that links nowhere.
+    release = os.path.join(ROOT, "changelog", f"{newest}.md")
+    assert os.path.isfile(release), (
+        f"CHANGELOG.md heads {newest} and changelog/{newest}.md is not there. "
+        "`gather_changelog.py --version X.Y.Z` writes both; stage both"
     )
 
 

@@ -81,7 +81,15 @@ Read them. Then:
 python3 .github/scripts/gather_changelog.py --version X.Y.Z
 python3 .github/scripts/fold_ledger.py --version X.Y.Z
 sed -i '' 's/"version": "A.B.C"/"version": "X.Y.Z"/' .claude-plugin/plugin.json
+git add -A changelog/ CHANGELOG.md seal/ .claude-plugin/plugin.json
 ```
+
+The gather writes a new file, the release's own `changelog/X.Y.Z.md`, and
+heads the index `CHANGELOG.md` with its line (#728); the fold removes the
+fragments it moved. Both are staged before §3 runs anything, because the
+suite lists files with `git ls-files`, which reads the index: an untracked
+release file and an unstaged removal are a tree the listing does not
+describe.
 
 The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
 row; that is a review that never drained, not a release problem, and the
@@ -183,9 +191,10 @@ the survivor sweep leaves a retired directory out of its range.
 ## 3. Verify before committing — all of it, here
 
 The preparation commit is the first time a fragment's prose is read by the
-tests that scan `CHANGELOG.md`, and the first time `seal/ledger/` is empty.
-Both found something the first time. So the whole gate runs on this tree,
-and every exit code is read directly rather than through a `| tail`.
+tests that scan the release files under `changelog/`, and the first time
+`seal/ledger/` is empty. Both found something the first time. So the whole
+gate runs on this tree, and every exit code is read directly rather than
+through a `| tail`.
 
 <!-- specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep -->
 **A sweep that walks a git listing judges what remains instead of stopping at
@@ -320,17 +329,18 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
 
 - [ ] **A GitHub Release exists at `vX.Y.Z`** — `gh release view vX.Y.Z`.
       The tag push fires `.github/workflows/publish-release.yml`, which
-      publishes it from the `## X.Y.Z` section step 2 already gathered, with
+      publishes it from the release's file step 2 already gathered, with
       the title taken from the `release: X.Y.Z — <symptoms>` line step 5
       prescribes. **This box confirms the workflow fired; it is not where the
       note gets written.** Nothing there means the job went red or never ran,
       and `gh run list --workflow publish-release.yml` says which. The job
-      fails for a tag whose version `CHANGELOG.md` carries no section for,
-      which is step 2 not having happened; for a `v*` tag that is not
-      `vX.Y.Z`; and when a `gh` call it makes fails. A missing title line is
-      not one of them — it falls back to the tag name. The note opens with
-      a summary of the release's pull requests and a `### 🙌 Thanks to` line
-      for each outside contributor, over the section folded; where the job
+      fails for a tag whose release file, `changelog/X.Y.Z.md`, is not there
+      or carries no section for it, which is step 2 not having happened; for
+      a `v*` tag that is not `vX.Y.Z`; and when a `gh` call it makes fails.
+      A missing title line is not one of them — it falls back to the tag
+      name. The note opens with a summary of the release's pull requests
+      and a `### 🙌 Thanks to` line for each outside contributor, over the
+      section folded; where the job
       log says the pull requests could not be listed, the note went out as
       the section alone, which one `gh release edit` repairs. After the
       note, the same workflow's `seal` job attaches `seal.png` and puts it

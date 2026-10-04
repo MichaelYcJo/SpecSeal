@@ -934,9 +934,10 @@ it the same way on both sides of the range and in the pool.** What is left
 out is left out by its shape, never by a list of files. A file under a work
 item that records a past state is out: a round record, the work item's own
 `survivors.md`, and everything under its `phases/`. A released section of
-the root `CHANGELOG.md` — every line under a heading that names a version —
-is out, and so is a fragment whose fold marker stands in `CHANGELOG.md` at
-the tip, because a released entry is not rewritten;
+a changelog — every line under a heading that names a version, in the root
+`CHANGELOG.md` or in a release's own file under `changelog/` — is out, and
+so is a fragment whose fold marker stands in either at the tip, because a
+released entry is not rewritten;
 `## Unreleased` and an ungathered fragment stay in. A ledger row the range
 removed because one of its anchors left the code is out, since its claim
 went with the code; a row corrected in place is still read where its id
@@ -954,7 +955,7 @@ it quoted before `--exempt` was read and diluted the rest under the floor:
 on three pull requests of one release, 36 rows were written and 7 were
 consulted. Six of the twenty-one places the next release's four ranges
 reported were function bodies matched on loop and `if` shapes.
-Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state, skills/code-review/scripts/survivor_check.py::a_gathered_fragment, skills/code-review/scripts/survivor_check.py::python_prose, skills/code-review/scripts/survivor_check.py::removed_ledger_rows
+Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state, skills/code-review/scripts/survivor_check.py::a_changelog, skills/code-review/scripts/survivor_check.py::a_gathered_fragment, skills/code-review/scripts/survivor_check.py::python_prose, skills/code-review/scripts/survivor_check.py::removed_ledger_rows
 
 <!-- specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording -->
 <!-- specs/1790221963-a-release-writes-the-gathered-text-back -->
@@ -973,7 +974,8 @@ release is held and never written, because the fragment's own branch wrote
 it. Written, it subtracted the survivor a correction in the same commit left
 in another file whenever the release also lost a sentence, and renaming
 `## Unreleased` or rewording an entry as it is released both lose one. It
-still splits a sentence `CHANGELOG.md` itself lost, and nothing else. A
+still splits a sentence the changelog holding it lost — the root file or a
+release's own file — and nothing else. A
 release that loses no live sentence writes nothing it put under a version
 heading, and that guard and the gathered-text filter are pinned by separate
 cases, because either alone kept the shape the ticket first named green.
