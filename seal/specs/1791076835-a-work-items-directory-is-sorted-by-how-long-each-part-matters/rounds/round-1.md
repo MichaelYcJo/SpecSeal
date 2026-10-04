@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #768 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `597d36254a39b85ebe33e89decde7e5348297e94..2fa080e3eb9b0e1e01c451a94591837fad1eda9b`, 5 commits |
+| Contract changes | none |
+| New units | CITED_NAME_RE (depth 1); TAILS (depth 1); TAKEN_NAMES (depth 1); NOT_TAKEN (depth 1); test_a_citation_into_a_taken_file_is_read_whatever_follows_it (depth 1); test_a_citation_into_a_file_that_stays_is_not_read_as_one (depth 1); test_a_citation_written_as_prose_is_listed (depth 1); test_the_fold_reads_a_reference_into_the_process_record_at_the_tag (depth 1); test_no_carrier_says_nothing_reads_the_process_record (depth 1); test_the_design_records_dated_section_says_no_check_reads_it (depth 1) |
 | Needs a fix | yes — 🟡 1 (the fold procedure does not say where the SDD set's references into the removed process record resolve), 🟡 2 (cites_a_process_record misses four prose shapes of citation), 🟡 3 (the README cheat sheet omits the arm in both editions) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -39,10 +39,10 @@ The risk to weigh is a removal that loses something a reader still needs after r
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The SDD set that stays names its own rounds and phases files on 400 lines in 51 released items; the arm lists none of them, and the fold procedure does not say they now resolve at the release tag | `skills/settle/SKILL.md:110` | open | read and measured: `citations` skips `seal/specs/`, and the references are relative; the documents say the process record is read by nothing |
-| 🟡 2 | `cites_a_process_record` does not list a citation ending in `.`, `,`, `:N` or `#anchor`, or naming `rounds` with no slash | `skills/settle/scripts/settle.py:1347` | open | executed: four shapes run through the target's own regex and predicate, each unlisted; controls listed |
-| 🟡 3 | The README cheat-sheet row in both editions does not mention `settle --retire-process` or the dry-run section | `README.md:288` | open | read; the same row is `README.ko.md:280`, and the test module calls it the row a reader types from |
-| ⬜ 4 | The survivor filter hides the survivor of a pull-request file moved out with a sentence reworded | `skills/code-review/scripts/survivor_check.py:1452` | open | executed at base and target: reported at `edee5ca2`, silent at `5830d41f`; the same exception rounds, phases and retired directories already carry, so it is not counted as needing a fix |
+| 🟡 1 | The SDD set that stays names its own rounds and phases files on 400 lines in 51 released items; the arm lists none of them, and the fold procedure does not say they now resolve at the release tag | `skills/settle/SKILL.md:110` | **fixed** `af100b2c` | fixed at af100b2c; read and measured: `citations` skips `seal/specs/`, and the references are relative; the documents say the process record is read by nothing |
+| 🟡 2 | `cites_a_process_record` does not list a citation ending in `.`, `,`, `:N` or `#anchor`, or naming `rounds` with no slash | `skills/settle/scripts/settle.py:1347` | **fixed** `af100b2c` | fixed at af100b2c — `fc7f87bd`; executed: four shapes run through the target's own regex and predicate, each unlisted; controls listed |
+| 🟡 3 | The README cheat-sheet row in both editions does not mention `settle --retire-process` or the dry-run section | `README.md:288` | **fixed** `e7f73307` | fixed at e7f73307; read; the same row is `README.ko.md:280`, and the test module calls it the row a reader types from |
+| ⬜ 4 | The survivor filter hides the survivor of a pull-request file moved out with a sentence reworded | `skills/code-review/scripts/survivor_check.py:1452` | answered | no change to the filter. It sits at the range's left end and removes only files gone at the right end, which are pull-request files an earlier pull request merged, never the branch's own `handoff.md` in progress. `rounds/`, `phases/` (#365, #460) and retired directories already carry the same exemption, and no narrower rule keeps a pull request that carries a drop quiet. The trade and its measurement are written into `survivor_check.py`'s module docstring at `3d7cc5de`; executed at base and target: reported at `edee5ca2`, silent at `5830d41f`; the same exception rounds, phases and retired directories already carry, so it is not counted as needing a fix |
 | 🟢 | The arm, run over the real corpus, removes exactly the allow-list from 54 released items and the three pull-request readers pass the drop | `skills/settle/scripts/settle.py:1381` | confirmed | executed in a scratch clone: 525 files, 0 kept; chain, survivor and unverified checks exit 0 |
 | 🟢 | No corpus-reading test module pins a removed file of a released item | `tests/conftest.py` | confirmed | executed after the drop: nine corpus modules 582 passed, 1 skipped; `test_release_hygiene.py` 50 passed |
 | 🟢 | The arm's allow-list and the survivor sweep's two predicates agree entry by entry | `skills/code-review/scripts/survivor_check.py:928` | confirmed | executed: the two new modules, 50 passed |
