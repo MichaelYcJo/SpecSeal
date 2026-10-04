@@ -3003,7 +3003,8 @@ def reverify(
     for ledger in ledgers:
         text = read(ledger, strict=True)
         if text is None:
-            unreadable.append(display_name(ledger, root))
+            # `/` on every platform, as every path the writer prints.
+            unreadable.append(built_name(ledger, root))
             continue
         # Named and left, never healed (#299): which reading of a coordinate
         # the parser refused was meant is not this command's call, and the
@@ -5041,7 +5042,7 @@ def main():
                     print(line)
             for path, problem in failed:
                 print(
-                    f"  LEFT  {display_name(path, root)}  could not be written "
+                    f"  LEFT  {built_name(path, root)}  could not be written "
                     f"({problem.strerror or problem}) — it is as it was, and the "
                     "next run plans its writes again"
                 )

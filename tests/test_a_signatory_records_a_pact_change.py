@@ -1518,3 +1518,62 @@ def test_a_vendored_copy_whose_config_will_not_read_leaves_the_row(
             os.chmod(config, 0o644)
     assert code == 1 and "may be `always`" in out, out
     assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+
+
+@pytest.mark.parametrize("shape", ["ledger unreadable", "could not be written"])
+def test_a_left_line_names_its_ledger_in_posix_form(repo, monkeypatch, capsys, shape):
+    """Every path the writer prints is in `/` form on every platform, as
+    0.18.0 made `pact-check`'s (#735). On Windows `display_name` keeps the
+    native `\\`, and `built_name` turns it into `/`; both `LEFT` lines below
+    printed `display_name`, so the Windows leg read `seal\\ledger\\…`.
+    Windows is simulated here so the case fails on any platform:
+    `display_name` answers the backslashed spelling and `built_name`'s
+    flavour is `ntpath`, whose separator it replaces."""
+    import ntpath
+
+    monkeypatch.setattr(
+        ec,
+        "display_name",
+        lambda path, root, flavour=os.path: os.path.relpath(path, root).replace(
+            "/", "\\"
+        ),
+    )
+    monkeypatch.setattr(ec.built_name, "__defaults__", (ntpath,))
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    if shape == "ledger unreadable":
+        cite(repo, [])
+        name = "seal/ledger/1790000000-other.md"
+        (repo / name).write_bytes(
+            row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")
+            .replace("| |\n", "| caf\xe9 |\n")
+            .encode("latin-1")
+        )
+    else:
+        cite(repo, [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")])
+        name = FRAGMENT
+        real = ec.write_atomic
+
+        def refuses_the_ledger(path, text):
+            if path.endswith(os.path.join("ledger", os.path.basename(FRAGMENT))):
+                raise PermissionError(13, "Permission denied")
+            return real(path, text)
+
+        monkeypatch.setattr(ec, "write_atomic", refuses_the_ledger)
+    move_serialize(repo)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "evidence_check.py",
+            "--reverify",
+            "--into",
+            FRAGMENT,
+            "--checked",
+            "2026-09-04",
+            str(repo),
+        ],
+    )
+    monkeypatch.chdir(repo)
+    assert ec.main() == 1
+    out = capsys.readouterr().out
+    assert f"  LEFT  {name}  {shape}" in out, out
