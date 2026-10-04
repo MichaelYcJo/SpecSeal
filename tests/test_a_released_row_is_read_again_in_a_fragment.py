@@ -2557,7 +2557,7 @@ def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
     assert check.returncode == 0, check.stdout
 
 
-def test_the_walk_order_places_what_it_can_and_walks_the_rest_again(repo):
+def test_the_walk_order_survives_a_self_citation_and_a_cycle(repo):
     """`cited_first` (#772). A file citing only placed files follows them. A
     file citing a row of itself, two files citing each other, and a file
     citing one of those are placed by no order: they keep the given order, to
