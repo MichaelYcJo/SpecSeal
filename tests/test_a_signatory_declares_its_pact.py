@@ -697,6 +697,9 @@ SILENT = [
     ("\n<!-- this repository signs the orders pact -->\n", config.NOTIFY_DEFAULT),
     ("\nThis repository signs the orders pact: always.\n", config.NOTIFY_DEFAULT),
     ("|\u00a0Pact notify\u00a0| always |\n", "always"),
+    # Round 3 of PR #793: a run of dashes alone under a line is a setext
+    # underline, not a delimiter row, so a heading naming a pact is prose.
+    ("\nThis repository signs the orders pact\n---\n", config.NOTIFY_DEFAULT),
 ]
 
 
@@ -709,6 +712,7 @@ SILENT = [
         "a comment with no pipe",
         "prose with no pipe",
         "a no-break space beside a pipe",
+        "a setext heading naming a pact",
     ],
 )
 def test_s4_a_line_that_is_not_a_pact_row_in_another_spelling_is_silent(below, notify):
