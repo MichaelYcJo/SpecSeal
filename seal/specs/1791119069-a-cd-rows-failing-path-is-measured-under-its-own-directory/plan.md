@@ -63,8 +63,8 @@ Read at 94d7b2e0 unless another commit is named.
   missing exits 1 with `1 failed in <t>s` (control).
 - pytest 9.1.1, read in this repository's `.venv`: `Config.cwd_relative_nodeid`
   (`_pytest/config/__init__.py`) and `_pytest/terminal.py` (`mkrel`,
-  `_get_node_id_with_markup`) make the short-summary path relative to the
-  invocation directory, and `resolve_collection_argument` (`_pytest/main.py`)
+  `_get_node_id_with_markup`) make the short-summary path relative to the · NAME NOT IN TREE
+  invocation directory, and `resolve_collection_argument` (`_pytest/main.py`) · NAME NOT IN TREE
   resolves an appended argument against the same directory. A solo run at the
   base therefore asks the directory the branch's `FAILED` line was relative
   to.

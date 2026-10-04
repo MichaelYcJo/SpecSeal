@@ -164,6 +164,13 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "measurement was taken on; an ending read off an unnamed pytest is "
         "not a measurement, and no release of SpecSeal makes the number wrong"
     ),
+    ("skills/verify/scripts/broad_gate.py", "3.8.0"): (
+        "pytest-xdist's, named in the comment over `NOTHING_COLLECTED_RE` as "
+        "the build on which a run with a missing path was measured to print "
+        "`no tests ran` and exit 5 with no not-found reply (#761). The fourth "
+        "member of the same class: what xdist prints is a property of the "
+        "build it was read off, and no release of SpecSeal makes it wrong"
+    ),
     ("CONTRIBUTING.md", "4.2.0"): (
         "markdown-it-py's, the parser the suite's CommonMark oracle reads, "
         "pinned in `.github/scripts/run_tests.py#MARKDOWN_IT` (#667). The "

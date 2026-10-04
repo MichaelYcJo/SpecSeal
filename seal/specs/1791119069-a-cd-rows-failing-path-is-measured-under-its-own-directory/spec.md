@@ -52,7 +52,7 @@ The defect is not "a `cd` part". It is: **the directory a failing path is
 relative to is pytest's invocation directory, and the gate decided absence in
 a different directory.** Read in pytest 9.1.1: the short-summary line names a
 file through `Config.cwd_relative_nodeid` (`_pytest/config/__init__.py`),
-relative to `invocation_params.dir`, and `resolve_collection_argument`
+relative to `invocation_params.dir`, and `resolve_collection_argument` · NAME NOT IN TREE
 (`_pytest/main.py`) resolves an appended argument against the same directory.
 So a run at the base, of the row as written, with the file appended, asks the
 right directory whatever moved it.
