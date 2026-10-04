@@ -1834,8 +1834,9 @@ def quote(path, windows=None):
 # `-q` too, measured against pytest 9.1.1: `ERROR tests/x.py` where the file
 # could not be collected, `ERROR tests/x.py - ImportError…` beside xdist, and
 # `ERROR tests/x.py::test_d - RuntimeError: x` where a fixture failed in setup.
-# A `FAILED` line is read alongside it, through `FAILED_RE`.
-ERROR_RE = re.compile(r"^ERROR\s+(\S+?)(?:::|\s|$)", re.M)
+# A `FAILED` line is read alongside it, through `FAILED_RE`. The file ends at
+# `::`, at a blank, or at the newline the summary line always follows.
+ERROR_RE = re.compile(r"^ERROR\s+(\S+?)(?:::|\s)", re.M)
 # The rule of `!` pytest writes when a run stops before every collected test
 # has run. Measured against pytest 9.1.1: `!!! Interrupted: 1 error during
 # collection !!!`, `!!! stopping after 1 failures !!!`, and under xdist `!!!
