@@ -430,7 +430,10 @@ pact and holds a pipe is refused the same way: one written under the
 table, a fenced or commented example, or a row of the table whose item says
 `pact notify`, `**Pact notify**` or `` `Pact` ``. Keep both rows in that
 table. A sentence with no pipe in it may name the pact freely, which is why
-this section is written without one: this file can be copied whole.
+this section is written without one: this file can be copied whole. A file
+that also holds an HTML table cell's tag, a `td` or `th` opened with a `<`,
+anywhere, a comment or a code span included, refuses such a sentence too, so
+keep that tag out of this file.
 
 ## The fold's values
 

@@ -3744,6 +3744,14 @@ PACT_WORD = re.compile(r"(?<![^\W\d_])p[\W\d_]*a[\W\d_]*c[\W\d_]*t", re.I)
 # table cell's opening tag, in whose file a line naming a pact needs no `|`
 # (round 1 of PR #793, yellow 2).
 HTML_CELL = re.compile(r"<t[dh][\s/>]", re.I)
+# `hooks/config.py#DELIMITER_ROW`, copied for a copy with no `hooks/`: a GFM
+# delimiter row, its outer pipes each optional, at most three spaces in. The
+# GFM table walker reads a line as one where this matches and a pipe stands
+# in it, and so does `notify_may_be_always` (round 2 of PR #793, yellow 1);
+# `tests/test_a_signatory_declares_its_pact.py` holds the two equal.
+DELIMITER_ROW = re.compile(
+    r"^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$"
+)
 
 
 def names_a_pact(text, piped=True):
@@ -3778,7 +3786,8 @@ def notify_may_be_always(said):
     #793, yellow 2).
 
     **A table's header is read whole.** A row-shaped line directly above a
-    delimiter row is a header, and a transposed table names the item there
+    delimiter row, read as the plugin's GFM walker reads one (`DELIMITER_ROW`
+    and a pipe, the outer pipes each optional), is a header, and a transposed table names the item there
     and puts the value in the row below, so its item alone says nothing
     (round 1 of PR #793, yellow 3).
 
@@ -3795,7 +3804,8 @@ def notify_may_be_always(said):
     lines = gfm_lines(said)
     piped = HTML_CELL.search(said) is None
     for at, line in enumerate(lines):
-        header = at + 1 < len(lines) and RULE_LINE_RE.match(lines[at + 1].strip())
+        under = lines[at + 1] if at + 1 < len(lines) else ""
+        header = DELIMITER_ROW.match(under) and "|" in under
         plain = line.splitlines() == [line] and not header
         match = CONFIG_ROW_RE.match(line) if plain else None
         if match is None:

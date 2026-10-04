@@ -848,7 +848,12 @@ def pact_declaration(text):
             f"one row, separated by `{PACT_SEPARATOR}`"
         )
     not_read = pact_lines_not_read(text, rows)
-    refusals.extend(map(pact_line_refusal, not_read))
+    # Where a line is refused only because the file holds an HTML table
+    # cell's tag, the sentence says so (round 2 of PR #793, yellow 2).
+    cell = HTML_CELL.search(text) is not None
+    refusals.extend(
+        pact_line_refusal(line, cell and not names_a_pact(line)) for line in not_read
+    )
     value = pact_rows[0] if pact_rows else ""
     if not value:
         return [], None, refusals
@@ -935,7 +940,7 @@ def pact_lines_not_read(text, rows):
     return found
 
 
-def pact_line_refusal(line):
+def pact_line_refusal(line, cell=False):
     """The sentence a line `pact_lines_not_read` names is refused in. It
     quotes LINE stripped, with every whitespace character other than a space
     and every format character (Unicode category Cf) shown as its code
@@ -943,7 +948,10 @@ def pact_line_refusal(line):
     another way is otherwise invisible in the sentence that names it. It
     opens lower-case and ends with no full stop, so it reads after each
     caller's prefix: `chain-check`'s, `pact-check`'s `REFUSED` line, and the
-    writer's `LEFT` line."""
+    writer's `LEFT` line. CELL is true where LINE holds no `|` and is refused
+    only because the file holds an HTML table cell's tag (`HTML_CELL`), and
+    then the sentence names that cause, because the line alone shows none
+    (round 2 of PR #793, yellow 2)."""
     import unicodedata
 
     shown = "".join(
@@ -957,6 +965,11 @@ def pact_line_refusal(line):
         f"`{PACT_NOTIFY_ROW}` row in the one spelling read: write it as "
         f"`| {PACT_ROW} | … |` or `| {PACT_NOTIFY_ROW} | … |` inside the "
         "`| Item | Value |` table, or take it out of this file"
+    ) + (
+        "; this file holds an HTML table cell's tag, so a line with no `|` is "
+        "refused too"
+        if cell
+        else ""
     )
 
 

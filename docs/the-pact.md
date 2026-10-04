@@ -90,11 +90,12 @@ quote, inside a code fence or an HTML comment, or cut by a character only
 Python ends a line at. An example kept in a fence or a comment is refused too,
 because telling it from a live row would mean modelling GFM; delete it. A line
 with no `|` has no value cell, so the pact can be named in prose. In a file
-that holds an HTML table cell, `<td>` or `<th>`, a line naming a pact is
-refused with or without a `|`, because such a cell carries a value with no pipe
-beside it. A refusal leaves `Pact notify` with no value, so
-`evidence-check --reverify` leaves every moved row it cannot rule out,
-`pact-check` exits 2, and a signatory's CI prints a notice.
+that holds an HTML table cell's tag, `<td>` or `<th>`, anywhere, a code span, a
+fence or a comment included, a line naming a pact is refused with or without a
+`|`, because such a cell carries a value with no pipe beside it; take the tag
+out to name the pact in prose again. A refusal leaves `Pact notify` with no
+value, so `evidence-check --reverify` leaves every moved row it cannot rule
+out, `pact-check` exits 2, and a signatory's CI prints a notice.
 Enforced by: tests/test_a_signatory_declares_its_pact.py::test_s2_every_way_the_walk_passes_a_pact_row_by_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s2_a_pact_item_spelled_another_way_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s4_a_line_that_is_not_a_pact_row_in_another_spelling_is_silent, tests/test_a_signatory_declares_its_pact.py::test_s5_a_plain_row_in_a_fence_or_a_comment_is_refused_and_not_read, tests/test_a_signatory_records_a_pact_change.py::test_s6_a_pact_line_below_the_table_leaves_the_moved_row
 
 ## The pact anchor
@@ -345,13 +346,13 @@ destination in `[P](x)act`, and an entity name the decode does not know. So
 does `Pаct` spelled with a Cyrillic `а`, U+0430, and `ᴘᴀᴄᴛ` in Latin small
 capitals, which NFKC does not fold. Each such line is read as it was before
 #759, and a notify value written in one is the default. YAML front matter is
-not read either: github.com shows it as a table, cmark-gfm does not, and no
-line of it holds a `|`. Catching these would need a grammar of GFM's markup or
-a table of look-alike letters, and leaving both out is what keeps the rule one
-that refuses rather than one that models. Every spelling the review of the
-earlier design found is caught: `` `Pact notify` ``, `**Pact notify**`, `Pact`
-with a U+200B inside it, `[Pact notify](x)` and a character reference such as
-`P&#97;ct`.
+not read either: github.com shows it as a table, cmark-gfm does not, and a line
+of it naming a pact is refused only where it holds a `|`. Catching these would
+need a grammar of GFM's markup or a table of look-alike letters, and leaving
+both out is what keeps the rule one that refuses rather than one that models.
+Every spelling the review of the earlier design found is caught:
+`` `Pact notify` ``, `**Pact notify**`, `Pact` with a U+200B inside it,
+`[Pact notify](x)` and a character reference such as `P&#97;ct`.
 Enforced by: tests/test_a_signatory_declares_its_pact.py::test_the_blind_side_is_read_as_no_line, tests/test_a_signatory_declares_its_pact.py::test_s2_a_pact_item_spelled_another_way_is_refused
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->

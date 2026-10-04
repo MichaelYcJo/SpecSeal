@@ -1541,6 +1541,11 @@ ONE_SPELLING = (
     "spelling read: write it as `| Pact | … |` or `| Pact notify | … |` inside "
     "the `| Item | Value |` table, or take it out of this file"
 )
+# What the sentence adds where a line with no `|` is refused only because the
+# file holds an HTML table cell's tag (round 2 of PR #793, yellow 2).
+IN_A_CELL_FILE = (
+    "; this file holds an HTML table cell's tag, so a line with no `|` is refused too"
+)
 
 
 @pytest.mark.parametrize(
@@ -1585,8 +1590,10 @@ def test_s6_a_pact_line_below_the_table_leaves_the_moved_row(
     assert code == 1, out
     assert (
         f"LEFT seal/ledger/{ITEM}.md:1 {why}, and the `Pact` rows will not "
-        f"read: `{below.strip()}` {ONE_SPELLING} — no pact change was recorded "
-        "and nothing was re-stamped; fix the row and run it again"
+        f"read: `{below.strip()}` {ONE_SPELLING}"
+        + (IN_A_CELL_FILE if "<td>" in below else "")
+        + " — no pact change was recorded and nothing was re-stamped; fix the "
+        "row and run it again"
     ) in " ".join(out.split()), out
     assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
     assert not (repo / "seal" / "pact-changes").exists(), out
@@ -1619,6 +1626,7 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "\n```\n| Pact notify | always |\n```\n",
         "\n<table><tr><td>Pact notify</td><td>always</td></tr></table>\n",
         f"\n| Pact | Pact notify |\n|---|---|\n| {PACT_URL} | always |\n",
+        "\n| Mode | Pact notify |\n---|---\n| shared | always |\n",
     ],
     ids=[
         "below the table",
@@ -1641,6 +1649,7 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "in a closed fence",
         "round 1 of PR #793, yellow 2: an HTML table row",
         "round 1 of PR #793, yellow 3: a transposed table",
+        "round 2 of PR #793, yellow 1: a delimiter row with no outer pipes",
     ],
 )
 def test_s9_a_vendored_copy_leaves_where_the_plugin_refuses_a_pact_line(

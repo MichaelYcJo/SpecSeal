@@ -198,9 +198,11 @@ FORMAT_CHARACTERS = [
 ]
 
 
-def refused(line):
+def refused(line, cell=False):
     """The sentence a line naming a pact is refused in, written here rather
-    than asked of the reader, so the case pins what a person reads (S12)."""
+    than asked of the reader, so the case pins what a person reads (S12).
+    CELL is true where the line holds no `|` and is refused because the file
+    holds an HTML table cell's tag (round 2 of PR #793, yellow 2)."""
     shown = "".join(
         f"<U+{ord(ch):04X}>"
         if (ch.isspace() and ch != " ") or unicodedata.category(ch) == "Cf"
@@ -212,7 +214,33 @@ def refused(line):
         "the one spelling read: write it as `| Pact | … |` or "
         "`| Pact notify | … |` inside the `| Item | Value |` table, or take it "
         "out of this file"
+    ) + (
+        "; this file holds an HTML table cell's tag, so a line with no `|` is "
+        "refused too"
+        if cell
+        else ""
     )
+
+
+# Delimiter rows by construction (round 2 of PR #793, yellow 1): the outer
+# pipes each optional, one cell or two, a cell of one or three dashes with
+# colons either side, padded or not, at the start of the line, three spaces
+# in, four in or behind a tab. The plugin's GFM walker reads one as a
+# delimiter row where `DELIMITER_ROW` matches and a pipe stands in it.
+DELIMITERS = sorted(
+    {
+        indent + left + "|".join([f"{pad}{cell}{pad}"] * cols) + right
+        for indent in ("", "   ", "    ", "\t")
+        for left in ("", "|")
+        for right in ("", "|")
+        for cols in (1, 2)
+        for cell in ("-", "---", ":--", "--:", ":-:")
+        for pad in ("", " ")
+    }
+)
+WALKER_DELIMITERS = [
+    d for d in DELIMITERS if config.DELIMITER_ROW.match(d) and "|" in d
+]
 
 
 # (id, text, the lines refused, the pacts read): #784's `STRAY_WAYS`, each a
@@ -350,17 +378,17 @@ STRAY_WAYS = [
             (
                 "one line",
                 "<table><tr><td>Pact notify</td><td>always</td></tr></table>\n",
-                ["<table><tr><td>Pact notify</td><td>always</td></tr></table>"],
+                [("<table><tr><td>Pact notify</td><td>always</td></tr></table>", True)],
             ),
             (
                 "a cell to a line",
                 "<table>\n<tr>\n<td>Pact notify</td>\n<td>always</td>\n</tr>\n</table>\n",
-                ["<td>Pact notify</td>"],
+                [("<td>Pact notify</td>", True)],
             ),
             (
                 "the item on a line of its own",
                 "<TABLE>\n<TR>\n<TD>\nPact notify\n</TD>\n<TD>always</TD>\n</TR>\n</TABLE>\n",
-                ["Pact notify"],
+                [("Pact notify", True)],
             ),
         )
     ),
@@ -381,6 +409,17 @@ STRAY_WAYS = [
             ),
         )
     ),
+    # Round 2 of PR #793, yellow 1: GFM asks for no outer pipe on a
+    # delimiter row, so every delimiter row the walker reads is a header's.
+    *(
+        (
+            f"a transposed table over {d!r}",
+            CONFIG + f"\n| Mode | Pact notify |\n{d}\n| shared | always |\n",
+            ["| Mode | Pact notify |"],
+            ORDERS,
+        )
+        for d in WALKER_DELIMITERS
+    ),
 ]
 
 
@@ -391,7 +430,11 @@ def test_s2_every_way_the_walk_passes_a_pact_row_by_is_refused(text, lines, pact
     """S2. Each way the table walk passes a pact row by: every line is
     refused, naming it, `notify` is None, and `pacts` is what the plain
     `Pact` row parsed."""
-    assert config.pact_declaration(text) == (pacts, None, [refused(x) for x in lines])
+    assert config.pact_declaration(text) == (
+        pacts,
+        None,
+        [refused(*x) if isinstance(x, tuple) else refused(x) for x in lines],
+    )
 
 
 # #784's generators of spellings of the item: emphasis, strikethrough, links,
@@ -739,6 +782,12 @@ def test_s9_the_vendored_copy_reads_the_silent_set_as_the_table_says():
         is False
     )
     assert ec.notify_may_be_always(None) is True
+    # Round 2 of PR #793, yellow 1: the copy reads a line as a table's header
+    # exactly where the plugin's walker reads the line under it as a
+    # delimiter row.
+    for d in DELIMITERS:
+        text = CONFIG + f"\n| Mode | Pact notify |\n{d}\n| shared | always |\n"
+        assert ec.notify_may_be_always(text) is (d in WALKER_DELIMITERS), repr(d)
     with open(os.path.join(ROOT, "seal", "config.md"), encoding="utf-8") as f:
         assert ec.notify_may_be_always(f.read()) is False
 
@@ -774,6 +823,7 @@ def test_s10_the_reader_and_the_vendored_copy_read_one_word():
         ec.HTML_CELL.pattern,
         ec.HTML_CELL.flags,
     )
+    assert config.DELIMITER_ROW.pattern == ec.DELIMITER_ROW.pattern
     lines = {line for text in S2_TEXTS for line in text.splitlines()}
     lines |= {line for below, _ in SILENT for line in (CONFIG + below).splitlines()}
     lines |= set(OTHER_ITEMS)
@@ -849,14 +899,17 @@ def test_the_blind_side_is_read_as_no_line(item, gap):
         ),
         (
             ("docs", "the-pact.md"),
-            "In a file that holds an HTML table cell, `<td>` or `<th>`, a line "
-            "naming a pact is refused with or without a `|`, because such a cell "
-            "carries a value with no pipe beside it.",
+            "In a file that holds an HTML table cell's tag, `<td>` or `<th>`, "
+            "anywhere, a code span, a fence or a comment included, a line naming a "
+            "pact is refused with or without a `|`, because such a cell carries a "
+            "value with no pipe beside it; take the tag out to name the pact in "
+            "prose again.",
         ),
         (
             ("docs", "the-pact.md"),
             "YAML front matter is not read either: github.com shows it as a table, "
-            "cmark-gfm does not, and no line of it holds a `|`.",
+            "cmark-gfm does not, and a line of it naming a pact is refused only "
+            "where it holds a `|`.",
         ),
         (
             ("templates", "config.md"),
@@ -873,6 +926,12 @@ def test_the_blind_side_is_read_as_no_line(item, gap):
             "A sentence with no pipe in it may name the pact freely, which is why "
             "this section is written without one: this file can be copied whole.",
         ),
+        (
+            ("templates", "config.md"),
+            "A file that also holds an HTML table cell's tag, a `td` or `th` opened "
+            "with a `<`, anywhere, a comment or a code span included, refuses such a "
+            "sentence too, so keep that tag out of this file.",
+        ),
     ],
     ids=[
         "the pact: the rule",
@@ -887,6 +946,7 @@ def test_the_blind_side_is_read_as_no_line(item, gap):
         "template: the rule",
         "template: the Absent cell",
         "template: no pipe",
+        "template: an HTML table cell's tag, round 2 of PR #793",
     ],
 )
 def test_s12_the_documents_say_a_pact_row_is_read_in_one_spelling(parts, sentence):
