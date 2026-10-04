@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #788 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `64747288749a758ce8565b67a5cb841dc44c5914..7adcc033cc92ffb6af6bb966dd263849f1c0a7dd`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,8 +31,8 @@ Round 2 of #764/#738 (PR #788), the verifying round, at 675ef92a: open round 1's
 | 🟢 | the corpus clause still holds after the fix: no recorded pair changes kind, and C fires on none | `docs/worktree-guard-spec.md:741` | confirmed | Executed: the same 25,741 pairs, a7ab2a4e against 675ef92a tree-blind, 0 differ; `wider_only_kinds` at 675ef92a fires on 0 |
 | 🟢 | the policy sentence, the Known-limits sentence and `switch_kind`'s docstring agree with `switch_kind` | `docs/worktree-guard-spec.md:644`, `docs/worktree-guard-spec.md:753` | confirmed | Read clause by clause; Executed: the pin red with a7ab2a4e's policy, and the Known-limits example judged a switch by the frozen loop |
 | 🟢 | the two new survivors.md rows quote the surviving text with grounds | `seal/specs/1791119071-the-worktree-guard-reads-a-glued-value-and-a-redirection/survivors.md` | confirmed | Executed: `bin/survivor-check` over the fix range names exactly those two and excuses both |
-| ⬜ 3 | a test comment still says a `--` takes every name out of a checkout, two lines above the row that says it does not | `tests/test_guard_resolves_the_tree_it_judges.py:1377` | open | Read; no behaviour depends on it |
-| ⬜ 4 | `Corrected · G1`'s evidence cell does not record that the fix pass's new `KINDS` row and pin assertion were seen red (correction) | `seal/ledger/1791119071-the-worktree-guard-reads-a-glued-value-and-a-redirection.md:7` | open | Read; the claim holds (executed: both red at a7ab2a4e); paperwork, so out of `Needs a fix` |
+| ⬜ 3 | a test comment still says a `--` takes every name out of a checkout, two lines above the row that says it does not | `tests/test_guard_resolves_the_tree_it_judges.py:1377` | deferred #790 | #790 — A stale test comment with no behaviour depending on it; #790 changes the same module, so its checklist carries the reviewer's paste-ready wording rather than this run spending its one reopening on a comment; Read; no behaviour depends on it |
+| ⬜ 4 | `Corrected · G1`'s evidence cell does not record that the fix pass's new `KINDS` row and pin assertion were seen red (correction) | `seal/ledger/1791119071-the-worktree-guard-reads-a-glued-value-and-a-redirection.md:7` | answered | A correction to a record: `Corrected · G1`'s evidence cell now records the red the fix pass and round 2 saw against `a7ab2a4e` (7adcc033).; Read; the claim holds (executed: both red at a7ab2a4e); paperwork, so out of `Needs a fix` |
 
 ## Paste-ready fixes
 
