@@ -3748,7 +3748,7 @@ NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
 # plugin's reader finds a stray pact row with, and
 # `tests/test_a_signatory_declares_its_pact.py` holds the two equal.
 NOTIFY_ROW_SHAPE = re.compile(
-    r"[\s>]*(?:\|[^\w|`]*|[^\w|`\s#+*\-=~>]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|\s*[^\s|]",
+    r"[\s>]*(?:\|[^\w|`]*|[^\w|`\s]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|\s*[^\s|]",
     re.I,
 )
 

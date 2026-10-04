@@ -264,6 +264,11 @@ STRAY_WAYS = [
         "Pact notify | always |",
     ),
     (
+        "W8 no leading pipe, punctuation before the item",
+        CONFIG + "(Pact notify) | always |\n",
+        "(Pact notify) | always |",
+    ),
+    (
         "W8 no pipe at either end, directly under the table",
         CONFIG + "Pact notify | always\n",
         "Pact notify | always",

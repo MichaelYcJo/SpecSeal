@@ -659,7 +659,7 @@ PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
 # leading pipe is optional because GFM's is: a line directly under the table
 # with none is still one of its rows (round 1 of PR #784, yellow 1).
 PACT_ROW_SHAPE = re.compile(
-    r"[\s>]*(?:\|[^\w|`]*|[^\w|`\s#+*\-=~>]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|\s*[^\s|]",
+    r"[\s>]*(?:\|[^\w|`]*|[^\w|`\s]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|\s*[^\s|]",
     re.I,
 )
 
