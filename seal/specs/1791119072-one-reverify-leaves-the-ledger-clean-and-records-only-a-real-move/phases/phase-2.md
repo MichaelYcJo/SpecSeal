@@ -27,9 +27,8 @@ through `read`, and `read` answers from the open plan, exactly as the plan's
 technical context says. S4, S5, S6 and S7 were each red at `f995fd89`, which
 changes nothing these cases reach: S4 and S5 with `--strict` exit 2 and the
 citation named DRIFTED, S6 with exit 0 and no `LEFT` line, and S7 with a
-second record row for M carrying the citation
-`seal/releases/0.1.0.md#"### 1000000001-x">"R1 · the field list"@15ceb729 →
-@a9b719d7`.
+second record row for M carrying its citation of
+R's line as a part, `@15ceb729 → @a9b719d7`.
 
 **S7 runs twice, and the second run is what makes it red at the base.** At
 the base the one run walks M before R, so M's citation is still OK and no
