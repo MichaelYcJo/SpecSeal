@@ -379,12 +379,11 @@ NONE, VALUE, OPTIONAL = "none", "value", "optional"
 
 class _Options:
     """One subcommand's options: `short` maps a letter, `long` a name, to
-    `(takes, creates)`; `negatable` holds the long names `--no-` negates."""
+    `(takes, creates)`."""
 
-    def __init__(self, short, long, fixed=()):
+    def __init__(self, short, long):
         self.short = short
         self.long = long
-        self.negatable = set(long) - set(fixed)
 
 
 # Every option `git checkout -h` and `git switch -h` list on git 2.54.0, which
@@ -432,7 +431,6 @@ SWITCH_OPTIONS = {
             "pathspec-from-file": (VALUE, False),
             "pathspec-file-nul": (NONE, False),
         },
-        fixed=("ours", "theirs", "unified", "inter-hunk-context"),
     ),
     "switch": _Options(
         short={
@@ -469,28 +467,18 @@ def _long_option(options, body):
     """`(takes the next word, creates)` for the long option `--BODY`.
 
     Resolved the way git's option parser resolves it: an exact name first,
-    then a unique prefix, `--no-` negating a negatable one. A negation takes
-    no value and creates nothing, and a value given after `=` takes no word.
-    A name git refuses, unknown or an ambiguous prefix, reads as an option
-    that takes nothing -- the reading every `-` word had before #764."""
+    then a unique prefix, and a value given after `=` takes no word. A name
+    git refuses, unknown or an ambiguous prefix, reads as an option that
+    takes nothing -- the reading every `-` word had before #764. A negation
+    (`--no-orphan`, `--no-cr`) takes no value and creates nothing, which is
+    that same reading, so it needs no rule of its own: no long name of either
+    subcommand begins with `no-`, and every `--no-` word lands there."""
     name, stuck, _value = body.partition("=")
-    asked, negated = name, False
-    if asked.startswith("no-"):
-        asked, negated = asked[3:], True
-    candidates = [name] if name in options.long else []
-    if not candidates and negated and asked in options.negatable:
+    found = [name] if name in options.long else []
+    found = found or [n for n in options.long if n.startswith(name)]
+    if len(found) != 1:
         return False, False
-    if not candidates:
-        prefixed = {(n, False) for n in options.long if n.startswith(name)}
-        if negated:
-            prefixed |= {(n, True) for n in options.negatable if n.startswith(asked)}
-        if len(prefixed) != 1:
-            return False, False
-        ((found, is_negation),) = prefixed
-        if is_negation:
-            return False, False
-        candidates = [found]
-    takes, creates = options.long[candidates[0]]
+    takes, creates = options.long[found[0]]
     return takes == VALUE and not stuck, creates
 
 

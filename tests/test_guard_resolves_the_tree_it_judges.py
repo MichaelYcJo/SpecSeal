@@ -1491,19 +1491,25 @@ CREATIONS = tuple(
     for option in options
     for spelling in _spellings(option, "y")
 )
-SWITCHES = tuple(
-    f"{sub} {words}"
-    for sub in CREATING
-    for words in ("feature/x", "-", *(f"{v} feature/x" for v in VALUED))
+SWITCHES = (
+    *(
+        f"{sub} {words}"
+        for sub in CREATING
+        for words in ("feature/x", "-", *(f"{v} feature/x" for v in VALUED))
+    ),
+    "switch -- feature/x",
 )
 # What switches nothing: a file, `.`, a name after `--`, an option's value
-# where a name would stand, and a creating option after `--`, where it is a
-# pathspec.
+# where a name would stand, a creating option after `--` or after
+# `--end-of-options`, where it is a pathspec or a name, and one behind a
+# letter git refuses, which refuses the word.
 TWINS = (
     "checkout README.md",
     "checkout .",
     "checkout -- feature/x",
     "checkout --conflict feature/x",
+    "checkout --end-of-options -b y",
+    "checkout -xb y",
     *(f"checkout {v} README.md" for v in VALUED),
     *(f"{sub} {v}" for sub in CREATING for v in VALUED),
     *(f"checkout -- {spelling}" for spelling in _spellings("-b", "y")),
@@ -1702,3 +1708,29 @@ def test_the_reduction_takes_out_every_redirection_the_reader_names():
             if got not in ([], ["name"]):
                 left.append((words, got))
     assert not left, left
+
+
+def test_a_process_substitution_target_goes_with_its_operator():
+    """bash runs `git checkout 2> >(cat) feature/x` as a switch to
+    `feature/x` (executed); the splitter hands the target over as two words."""
+    words = ["2>", ">(tee", "log)", "feature/x"]
+    assert wg.handed_words(words) == ["feature/x"]
+
+
+def test_a_word_holding_whitespace_is_not_cut():
+    """A word with whitespace in it was quoted, so a `>` in it is the
+    argument's, as `hooks/cmdline.py#unglued` reads it."""
+    assert wg.handed_words(["a b>c"]) == ["a b>c"]
+
+
+def test_a_long_option_named_exactly_wins_over_the_ones_it_begins():
+    """git resolves an exact long name before a prefix: `--force` is
+    `switch`'s `--force` and not an ambiguous prefix of `--force-create`.
+    No option of either table tells the two readings apart today, so the rule
+    is pinned on a table built for it."""
+    options = wg._Options(
+        short={}, long={"x": (wg.VALUE, True), "xy": (wg.NONE, False)}
+    )
+    assert wg._long_option(options, "x") == (True, True)
+    assert wg._long_option(options, "x=v") == (False, True)
+    assert wg._long_option(options, "xy") == (False, False)
