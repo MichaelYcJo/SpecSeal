@@ -3729,9 +3729,12 @@ def record_pact_changes(moves, root, into, checked):
         # `always` and is left with the rows citing one (round 1 of PR #756,
         # yellow 1). The shape is looser than the plugin's reader, so it
         # leaves too much rather than too little; without both rows nothing
-        # can mean `always` (round 2 of PR #756, yellow 2).
+        # can mean `always` (round 2 of PR #756, yellow 2). It is read
+        # strictly, as `declared_pacts` reads it: a lenient read turns a byte
+        # that is not UTF-8 into U+FFFD, which can hide the row the plugin
+        # refuses to rule out (round 3 of PR #756, yellow 1).
         declaration = os.path.join(seal_home(root), "config.md")
-        said = read(declaration) if os.path.lexists(declaration) else ""
+        said = read(declaration, strict=True) if os.path.lexists(declaration) else ""
         named = {
             " ".join(m.group(1).lower().split())
             for m in map(NOTIFY_ROW_SHAPE.match, (said or "").splitlines())

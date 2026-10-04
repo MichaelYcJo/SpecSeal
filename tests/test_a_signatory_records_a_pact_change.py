@@ -1485,19 +1485,36 @@ def test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause(
     assert f"@{new}" in ledger.read_text(encoding="utf-8"), out
 
 
-@UNREADABLE
-def test_a_vendored_copy_whose_config_will_not_read_leaves_the_row(repo, tmp_path):
-    """A `seal/config.md` the vendored copy cannot open cannot rule `always`
-    out either, so a moved row citing no clause is left."""
+@pytest.mark.parametrize(
+    "shape",
+    [
+        pytest.param("it cannot be opened", marks=UNREADABLE),
+        "it is not UTF-8",
+    ],
+)
+def test_a_vendored_copy_whose_config_will_not_read_leaves_the_row(
+    repo, tmp_path, shape
+):
+    """A `seal/config.md` the vendored copy cannot open, or one that is not
+    UTF-8, cannot rule `always` out either, so a moved row citing no clause
+    is left, as the plugin's own reader leaves it (round 3 of PR #756,
+    yellow 1). Read leniently, the byte below hides the notify row."""
     old = unit_hash(repo, "src/orders.py", "serialize")
     ledger_rows = [row("O2", "", f"src/orders.py#serialize@{old}")]
     ledger = cite(repo, ledger_rows)
     move_serialize(repo)
     config = repo / "seal" / "config.md"
-    os.chmod(config, 0)
-    try:
+    if shape == "it is not UTF-8":
+        config.write_bytes(
+            config_text(("Mode", "shared"), ("Pact", PACT_URL)).encode("utf-8")
+            + b"| Pact notify\xff | always |\n"
+        )
         code, out = _vendored(repo, tmp_path)
-    finally:
-        os.chmod(config, 0o644)
+    else:
+        os.chmod(config, 0)
+        try:
+            code, out = _vendored(repo, tmp_path)
+        finally:
+            os.chmod(config, 0o644)
     assert code == 1 and "may be `always`" in out, out
     assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
