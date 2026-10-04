@@ -1422,7 +1422,7 @@ def run(name, command, root, keep, shell=False, env=None, windows=None, comspec=
 
     **A shell string is handed over through `handed_to_shell`**, which is the
     one place this module's shell sites meet: `gate`'s `SUITE` and
-    `compare_at_base`'s `suite-at-base` both arrive here, so neither needed a
+    `compare_at_base`'s `suite-at-base-<k>` both arrive here, so neither needed a
     change of its own (#448). Where what the shell is handed differs from what
     the row says, one stderr line says so before the run, and the kept file
     carries both lines above the exit code — the row as written first, because
@@ -1830,10 +1830,55 @@ def quote(path, windows=None):
     return f'"{path}"' if windows else shlex.quote(path)
 
 
-def first_command(command):
-    """The row's first `&&`-joined command — the suite runner, by the shape
-    every row this plugin has seen takes (`bin/test -q && uvx ruff …`)."""
-    return command.split("&&", 1)[0].strip()
+# pytest's short-summary line for a file or test that errored, printed under
+# `-q` too, measured against pytest 9.1.1: `ERROR tests/x.py` where the file
+# could not be collected, `ERROR tests/x.py - ImportError…` beside xdist, and
+# `ERROR tests/x.py::test_d - RuntimeError: x` where a fixture failed in setup.
+# A `FAILED` line is read alongside it, through `FAILED_RE`.
+ERROR_RE = re.compile(r"^ERROR\s+(\S+?)(?:::|\s|$)", re.M)
+# The rule of `!` pytest writes when a run stops before every collected test
+# has run. Measured against pytest 9.1.1: `!!! Interrupted: 1 error during
+# collection !!!`, `!!! stopping after 1 failures !!!`, and under xdist `!!!
+# xdist.dsession.Interrupted: stopping after 1 failures !!!`. Read as the rule
+# rather than as those texts because the rule is what every early stop shares:
+# `_pytest/terminal.py` writes a `!` separator for `shouldfail`, for
+# `shouldstop` and for an interrupt, and for nothing else in a run that
+# executes tests.
+STOPPED_EARLY_RE = re.compile(r"^!{3,} .+ !{3,}$", re.M)
+# What a file reads where no run measured it (#747). Each starts `new?`, so it
+# is never read as `new`, and says the comparison was not measured.
+NOT_MEASURED = f"{NEW}? not measured"
+NO_RUNNER = (
+    f"{NOT_MEASURED}: no part of the row printed a pytest summary at the base "
+    "(each part tried is kept as suite-at-base-<k>.txt)"
+)
+STOPPED_EARLY = (
+    f"{NOT_MEASURED}: the run at the base stopped before every test ran, "
+    "and it does not name this file"
+)
+
+
+def verdicts_at_base(text, files):
+    """{file: word} for `files`, read off one run at the base, or off none.
+
+    `text` is the output of the run that printed pytest's summary, or `None`
+    where no run did. **A word is given only where that run measured it**:
+
+      - `failing on base too` where a `FAILED` or `ERROR` line names the file
+        — a file the base cannot collect fails there (`questions.md` Q1);
+      - `new` where no such line names it AND the run did not stop early, so
+        every test it collected ran;
+      - `NO_RUNNER` or `STOPPED_EARLY` otherwise, both reading `new?`.
+
+    The second condition is round 1's 🟡 4 of 0.10.0 in a new shape: one
+    file's collection error interrupts the run, and every other file it was
+    asked about would read `new` for having never run.
+    """
+    if text is None:
+        return {f: NO_RUNNER for f in files}
+    named = set(FAILED_RE.findall(text)) | set(ERROR_RE.findall(text))
+    unnamed = STOPPED_EARLY if STOPPED_EARLY_RE.search(text) else NEW
+    return {f: (ON_BASE if f in named else unnamed) for f in files}
 
 
 # The operators that end one part of a row and begin the next, in each
@@ -1923,13 +1968,29 @@ def row_prefixes(command, cmd_exe=False):
 
 
 def compare_at_base(root, base, command, files, keep):
-    """{file: `new` | `failing on base too`}, measured — never inferred.
+    """{file: `new` | `failing on base too` | `new? …`}, measured — never
+    inferred.
 
-    A scratch worktree at `base`, the row's first command run there on the
-    failing files the base actually carries, the worktree removed whatever
-    happened. A file the base does not carry cannot fail there, so it reads
-    `new` without a run -- which is the truth: the test arrived with this
-    branch.
+    A scratch worktree at `base`, the part of the row that runs pytest run
+    there on the failing files the base actually carries, the worktree
+    removed whatever happened. A file the base does not carry cannot fail
+    there, so it reads `new` without a run -- which is the truth: the test
+    arrived with this branch.
+
+    **The part that runs pytest is found by running, not by its name or its
+    place** (#747). The row used to be cut at its first `&&`, and a
+    lint-first row's first part is the linter: no `FAILED` line could
+    appear, and every file read `new` whatever the base did. Now each prefix
+    `row_prefixes` returns is run in turn, the failing files appended to
+    it, until one prints pytest's summary (`suite_counts`); that run is the
+    measurement, and `verdicts_at_base` reads it. A prefix keeps every part
+    before it, so a `cd` or an `export` still applies, and the parts before
+    the runner run once per prefix tried. Each run is kept as
+    `suite-at-base-<k>.txt`. Where no prefix prints a summary, every present
+    file reads `new?`, never `new`.
+
+    The `run` call stays in this function's own body: the shell sites are
+    `gate` and this function, and a case holds that.
 
     **The absent ones are separated before the run rather than after it**
     (round 1's 🟡 4). pytest handed a path that does not exist exits 4 with
@@ -1959,10 +2020,16 @@ def compare_at_base(root, base, command, files, keep):
         present = [f for f in files if f not in absent]
         verdicts = {f: NEW for f in absent}
         if present:
-            runner = f"{first_command(command)} {' '.join(quote(f) for f in present)}"
-            check = run("suite-at-base", runner, scratch, keep, shell=True)
-            at_base = set(failing_files(check.text))
-            verdicts.update({f: (ON_BASE if f in at_base else NEW) for f in present})
+            paths = " ".join(quote(f) for f in present)
+            measured = None
+            for k, prefix in enumerate(row_prefixes(command, cmd_exe_reads()), 1):
+                tried = run(
+                    f"suite-at-base-{k}", f"{prefix} {paths}", scratch, keep, shell=True
+                )
+                if suite_counts(tried.text) is not None:
+                    measured = tried.text
+                    break
+            verdicts.update(verdicts_at_base(measured, present))
         return verdicts
     finally:
         subprocess.run(
@@ -2947,10 +3014,13 @@ def gate(args, console_wants_letters, terminal=False):
         raise Refused(missing_row(home))
     # The one place the value is looked at before a shell is handed it, and
     # the only one there needs to be: the other surface that runs the row
-    # (`compare_at_base` → `first_command`) is reached only after the run
-    # below, so this refusal closes it by reachability rather than by a
-    # second guard in a second place (`spec.md` §*The class, enumerated by
-    # construction*).
+    # (`compare_at_base`, over the prefixes `row_prefixes` cuts) is reached
+    # only after the run below, so this refusal closes it by reachability
+    # rather than by a second guard in a second place (`spec.md`
+    # §*The class, enumerated by construction*). Every prefix is a substring
+    # of the row this refusal passed, cut before an operator, so none ends in
+    # the `&` the refusal is for, and each part it runs is a part the row
+    # itself runs (#747).
     unrunnable = not_as_written(home, command)
     if unrunnable:
         raise Refused(unrunnable)
