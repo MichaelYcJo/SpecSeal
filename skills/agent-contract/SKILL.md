@@ -239,23 +239,14 @@ running the shell, and the gate fails closed. So searching your patch for a
 commit and finding none does not clear it.
 
 The exception is one shape the gate matches byte for byte, and its body is
-data. Its first line has nothing before it, one space between every two
-tokens, and nothing after the delimiter. It is, in order: optionally `cd`,
-one word and `&&`; then the consumer, which is `cat` with `>` or `>>` and one
-word, `tee` or `tee -a` and one word, or `python3 -` followed by any number of
-words; then `<<` and, with no space between them, a delimiter of letters,
-digits and underscores in single quotes. A word is either letters, digits,
-`_`, `.`, `/` and `-` that do not start with `-`, or one single-quoted word
-holding no quote and no newline and not empty.
-The body ends at the first line exactly equal to the delimiter. The command
-holds no carriage return, NUL or backslash before a newline, and no second
-`<<`; and nothing follows the terminator when the body is written to a file,
-while after `python3 -` the lines that follow are read as before. Any
-other spelling of the same body is read as shell, and the exception changes
-nothing about the first reason: an edit made through the shell still cannot
-fail the way an `Edit` call does
-(`docs/commit-review-gate-spec.md` §*A file edit goes through the `Edit`
-tool* holds the whole grammar).
+data: `cat`, `tee` or `python3 -` fed by `<<` and a delimiter in single
+quotes, on a first line with nothing before the command, and nothing after
+the terminator when the body goes to a file. Any other spelling of the same
+body is read as shell, and the exception changes nothing about the first
+reason: an edit made through the shell still cannot fail the way an `Edit`
+call does. The grammar, slot by slot, has one home, and a session spelling a
+heredoc any other way reads it there first: `docs/commit-review-gate-spec.md`
+§*A file edit goes through the `Edit` tool*.
 
 That second reason is about a reader, and since #692 the reader judges a
 commit only where git's hooks cannot: a clone whose hooks slot is somebody

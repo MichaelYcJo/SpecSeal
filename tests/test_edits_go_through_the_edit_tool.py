@@ -269,7 +269,12 @@ def test_the_rule_names_the_one_heredoc_shape_it_does_not_read():
     the `Edit` tool for nothing; one that names the exception without its
     limits sends a session to spell a patch that is read after all. So the
     contract names the exception and what stays read, and the policy names
-    the grammar and no longer leaves the trade open."""
+    the grammar and no longer leaves the trade open.
+
+    The grammar has one home, the policy. Round 1's finding 4 pinned every
+    slot in the contract too, and #730's ratchet then counted that copy
+    against the pair; the repository owner chose the policy as the home, so
+    the contract names the common spelling and links the slots."""
     for parts in CARRIERS:
         text = flat(*parts)
         who = "/".join(parts)
@@ -277,27 +282,26 @@ def test_the_rule_names_the_one_heredoc_shape_it_does_not_read():
         assert "one shape the gate matches byte for byte" in text, who
         assert "Any other spelling of the same body is read as shell" in text, who
         assert "changes nothing about the first reason" in text, who
-        # Round 1 of 1791089603, finding 4: a summary missing a slot sends a
-        # session to write a string the reader refuses, and each one costs an
-        # unattended run a stop. So every slot of the grammar is named.
-        for slot in (
-            "`cat` with `>` or `>>` and one word",
-            "`tee` or `tee -a` and one word",
-            "`python3 -` followed by any number of words",
-            "letters, digits and underscores in single quotes",
-            # Round 2, finding 1: "one space between every two tokens" read
-            # with `<<` and the delimiter as two tokens spaces them apart,
-            # and the reader refuses that; so does an empty quoted word.
-            "`<<` and, with no space between them, a delimiter",
-            "letters, digits, `_`, `.`, `/` and `-` that do not start with `-`",
-            "one single-quoted word holding no quote and no newline and not empty",
-            "first line exactly equal to the delimiter",
-        ):
-            assert slot in text, (who, slot)
+        assert (
+            "`docs/commit-review-gate-spec.md` §*A file edit goes through the "
+            "`Edit` tool*" in text
+        ), who
     policy = flat("docs", "commit-review-gate-spec.md")
+    # Round 1 of 1791089603, finding 4: a summary missing a slot sends a
+    # session to write a string the reader refuses, and each one costs an
+    # unattended run a stop. So every slot of the grammar is named, at home.
     for slot in (
+        "`cat` with `>` or `>>` and one word",
+        "`tee` or `tee -a` and one word",
+        "`python3 -` and any number of words",
+        "letters, digits and underscores in single quotes",
+        # Round 2, finding 1: "one space between every two tokens" read
+        # with `<<` and the delimiter as two tokens spaces them apart,
+        # and the reader refuses that; so does an empty quoted word.
         "`<<` and, with no space between them, a delimiter",
+        "letters, digits, `_`, `.`, `/` and `-` not starting with `-`",
         "one single-quoted word that is not empty and holds no quote or newline",
+        "first line exactly equal to the delimiter",
     ):
         assert slot in policy, ("docs/commit-review-gate-spec.md", slot)
     assert "the repository owner made that trade for one shape alone" in policy
