@@ -385,6 +385,19 @@ def test_every_file_the_plugin_reads_or_writes_names_its_encoding():
     )
 
 
+def test_the_rule_is_where_a_contributor_reads_it():
+    """`CONTRIBUTING.md`'s House rules names the rule and this module, the
+    way *No real identifiers* names its own."""
+    with open(os.path.join(ROOT, "CONTRIBUTING.md"), encoding="utf-8") as f:
+        text = f.read()
+    rules = text.split("\n## House rules\n", 1)[1].split("\n## ", 1)[0]
+    flat = " ".join(rules.split())
+    assert "**Every file read or written names its encoding.**" in flat, flat
+    assert 'Name `encoding="utf-8"`.' in flat
+    assert f"`tests/{os.path.basename(__file__)}`" in flat
+    assert "opens its `__main__` with `console.to_utf8()`" in flat
+
+
 def test_every_classification_carries_its_grounds():
     for table in (ALLOWED, ENTRY_POINTS_CLASSIFIED):
         empty = sorted(k for k, v in table.items() if not str(v).strip())
