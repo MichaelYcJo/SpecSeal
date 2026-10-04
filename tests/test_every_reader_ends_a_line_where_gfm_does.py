@@ -660,6 +660,14 @@ OUT_OF_CLASS.update(
         ("hooks/blocks.py", "walk_text"): (1, F),
         ("hooks/config.py", "config_rows"): (1, F),
         ("hooks/config.py", "refusal"): (1, F),
+        # A copy with no hooks/ beside it looks for a `Pact notify` row in
+        # `seal/config.md` line by line as `config_rows` splits it, so it
+        # finds every row the plugin's reader finds (round 2 of PR #756,
+        # yellow 1).
+        ("skills/evidence-check/scripts/evidence_check.py", "record_pact_changes"): (
+            1,
+            "`seal/config.md`, split where `config_rows` splits it",
+        ),
         # The one GFM table walker the pact's `Signatory` table and both pact
         # records are read through, reading what `unfenced` shows it as
         # `config_rows` does (#647; ⬜ 21 of #735's round 3).
