@@ -3400,6 +3400,22 @@ def current_hash(m, root, maps, default_repo):
     return content_hash(gfm_lines(body)[start - 1 : end])
 
 
+def newest_hash(view, key, coord, m):
+    """The hash the newest reading of COORD recorded in the family rooted at
+    KEY -- the row `view.newest` names, and its first reading of COORD -- or
+    M's own where KEY roots no family: a released row outside every family is
+    its own newest reading. A move a re-read records starts here, because it
+    is the content the code moved from (#774): the released member's hash,
+    where a newer reading outranks it, records a move from content nobody
+    read last, and from the hash the code is back at, a move to itself."""
+    at = view.newest.get(key, {}).get(coord)
+    if at is not None:
+        for reading in view.readings.get(key, {}).get(coord, []):
+            if reading[0] == at[1]:
+                return reading[1].group("hash")
+    return m.group("hash")
+
+
 def released_drift(ledgers, view_paths, root, maps, default_repo):
     """`(view, drifted, broken)` for the rows of LEDGERS a re-read owes.
 
@@ -3416,7 +3432,8 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
     BROKEN is `[(where, coordinate, detail, row, hash)]` for the released
     coordinates a re-read cannot clear, which take a `Corrected ·` row
     instead; `row` is the `(file identity, line)` key `view.files` reads and
-    `hash` the one the row recorded.
+    `hash` the one the coordinate's newest reading recorded (`newest_hash`),
+    which outside every family is the row's own.
     """
     view = family_view(view_paths, root, maps, default_repo)
     wanted = {file_identity(p) for p in ledgers if ledger_kind(root, p) == "released"}
@@ -3475,7 +3492,9 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
                     continue
             key, m, status, detail = pick
             if status == "BROKEN":
-                broken.append((where(key), coord, detail, key, m.group("hash")))
+                broken.append(
+                    (where(key), coord, detail, key, newest_hash(view, top, coord, m))
+                )
                 continue
             # DRIFTED, or OK and outranked by a newer reading holding other
             # content: the family owes a re-read either way. That newer
@@ -3559,7 +3578,8 @@ def reverify_into(
     repair is a `Corrected ·` row (#746).
 
     MOVES is `reverify`'s: each coordinate a written row re-reads, and each
-    BROKEN one, is appended against the released row it belongs to. TOLD is
+    BROKEN one, is appended against the released row it belongs to, from the
+    hash the coordinate's newest reading recorded (`newest_hash`, #774). TOLD is
     `reverify`'s too: the `wrote` lines and the count of rows written wait
     until INTO lands, and the `LEFT` lines, which say nothing was written,
     print now.
@@ -3607,7 +3627,7 @@ def reverify_into(
                             path,
                             key[1],
                             coord,
-                            m.group("hash"),
+                            newest_hash(view, key, coord, m),
                             current_hash(m, root, maps, default_repo),
                         )
                     )
@@ -3640,14 +3660,18 @@ def reverify_into(
                 # Recorded BROKEN through the same record step (round 2 of
                 # PR #749, yellow 14).
                 if moves is not None:
-                    moves.append((path, key[1], coord, m.group("hash"), None))
+                    moves.append(
+                        (path, key[1], coord, newest_hash(view, key, coord, m), None)
+                    )
                 continue
             # M may come from any released member of the family, not from
             # KEY's own line (`released_drift`): slice the line it was matched
             # on, which is the string the match carries.
             stamped.append(spanned(m.string[m.start() : m.start("hash")] + new))
             if moves is not None:
-                moves.append((path, key[1], coord, m.group("hash"), new))
+                moves.append(
+                    (path, key[1], coord, newest_hash(view, key, coord, m), new)
+                )
         if not stamped:
             continue
         rows.append(
@@ -3788,6 +3812,8 @@ def record_pact_changes(moves, root, into, checked):
     the same move or the same BROKEN is not recorded again, whatever its date,
     so a second run records nothing twice; a change that comes back after its
     revert is recorded, because the record's last word for it was the revert.
+    A coordinate whose old and new hash agree moved nothing and is dropped,
+    and a row with nothing left is not recorded (#774).
 
     Exit 1, recording nothing, where a row is owed and no work item names the
     file, where the file is there and will not read, decode or parse, where
@@ -3811,7 +3837,11 @@ def record_pact_changes(moves, root, into, checked):
         line = lines[number - 1] if 0 < number <= len(lines) else ""
         cells = dict((n, c) for n, _h, c in ledger_table_rows(text)).get(number, [])
         label = (cells[0] if cells else "").split(" · ", 1)[0].strip()
-        parts = list(dict.fromkeys(coords))
+        # A part whose two hashes agree moved nothing, whichever writer
+        # handed it over, and a row left with no part owes no record (#774).
+        parts = [p for p in dict.fromkeys(coords) if p[1] != p[2]]
+        if not parts:
+            continue
         where = f"{built_name(ledger, root)}:{number}"
         row = f"{built_name(ledger, root)} · {label or number}".replace("|", "\\|")
         entries.append((where, row, parts, list(PACT_ANCHOR_RE.finditer(line))))

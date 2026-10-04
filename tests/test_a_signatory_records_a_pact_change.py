@@ -1315,6 +1315,14 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
             "A `Pact notify` value outside the vocabulary, or a row written twice, "
             "has no value at all: its first row is not the answer.",
         ),
+        (
+            "docs/the-pact.md",
+            "**A recorded move starts at the hash the coordinate's newest reading "
+            "holds**, which under the freeze can be a later `Re-read ·` row's "
+            "rather than the released row's, so code that went back to the "
+            "released hash records the move back; a move whose two hashes agree "
+            "is no move and is not recorded (#774).",
+        ),
     ],
     ids=[
         "the pact: W8-W10",
@@ -1324,6 +1332,7 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
         "the pact: a vendored copy",
         "skill: a vendored copy",
         "the pact: a doubled notify",
+        "the pact: a move starts at the newest reading",
     ],
 )
 def test_the_documents_say_what_the_writer_does(doc, sentence):
@@ -1677,3 +1686,120 @@ def test_a_stale_row_with_a_broken_coordinate_says_what_was_recorded(repo):
     rows = record_rows(repo)
     assert any(f"`src/orders.py#evict@{e}` BROKEN" in r for r in rows), rows
     assert any(f"`src/orders.py#serialize@{s}` → " in r for r in rows), rows
+
+
+# --- #774: a recorded move starts at the coordinate's newest reading --------
+#
+# Under the freeze a released row's family can hold a newer reading in a
+# fragment `--ledger` leaves out. Where that reading holds other content, the
+# family is owed a re-read even though the released row's own hash matches the
+# code, and the move the run records starts at the newest reading's hash: that
+# is the hash the code moved FROM. The released member's hash recorded
+# `h1 → h1`, a move to itself (P3, round 2 of #771).
+
+OTHER_ITEM = "seal/ledger/1791010000-another-item.md"
+
+
+def _outranked_unchanged(repo):
+    """S1's tree: the freeze, released O1 read 2026-09-01 at `serialize@h1`
+    citing CLAUSE, another item's fragment re-reading O1 on 2026-09-10 at
+    `h2`, and the code back at `h1`. Returns `(h1, h2)`."""
+    h1 = unit_hash(repo, "src/orders.py", "serialize")
+    _frozen_released_o1(
+        repo, "2026-09-01", f"`{CLAUSE}`, `src/orders.py#serialize@{h1}`"
+    )
+    h2 = move_serialize(repo)
+    (repo / "src" / "orders.py").write_text(SOURCE, encoding="utf-8")
+    citation = ec.citation_for(str(repo), str(repo / "seal/releases/0.1.0.md"), 5)
+    assert citation is not None
+    (repo / OTHER_ITEM).write_text(
+        f"| Re-read · O1 · the field list | `{citation}`, "
+        f"`src/orders.py#serialize@{h2}` | read | 2026-09-10 | Re-read 2026-09-10 |\n",
+        encoding="utf-8",
+    )
+    return h1, h2
+
+
+@pytest.mark.parametrize(
+    "checked, exit_code",
+    [("2026-09-12", 0), ("2026-09-04", 1)],
+    ids=["the written arm", "the refusal arm"],
+)
+def test_a_recorded_move_starts_at_the_newest_reading(repo, checked, exit_code):
+    """S1 (#774). The newest reading of `serialize` is the other item's, at
+    `h2`, and the code is at `h1`: the code moved `h2 → h1`, and that is the
+    move recorded, whether the run writes O1's `Re-read ·` row or refuses it
+    for a stale `--checked`. Never `h1 → h1`, which is no move."""
+    h1, h2 = _outranked_unchanged(repo)
+    code, out = run(
+        repo,
+        "--ledger",
+        "seal/releases/0.1.0.md",
+        "--into",
+        FRAGMENT,
+        "--checked",
+        checked,
+    )
+    assert code == exit_code, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | "
+        f"`src/orders.py#serialize@{h2}` → `@{h1}` | {checked} |"
+    ], out
+
+
+def test_a_broken_coordinate_under_a_newer_reading_names_the_newest_hash(repo):
+    """S3 (#774). S1's family with `serialize` then removed: every reading
+    is BROKEN, and the record names the hash the newest reading recorded,
+    the last content anybody read there."""
+    _, h2 = _outranked_unchanged(repo)
+    (repo / "src" / "orders.py").write_text(
+        "def evict(key):\n    return key\n", encoding="utf-8"
+    )
+    code, out = run(
+        repo,
+        "--ledger",
+        "seal/releases/0.1.0.md",
+        "--into",
+        FRAGMENT,
+        "--checked",
+        "2026-09-12",
+    )
+    assert code == 1, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | "
+        f"`src/orders.py#serialize@{h2}` BROKEN | 2026-09-12 |"
+    ], out
+
+
+@pytest.mark.parametrize("beside", [False, True], ids=["alone", "beside a real move"])
+def test_a_part_whose_two_hashes_agree_is_not_recorded(repo, capsys, beside):
+    """S2 (#774). `record_pact_changes` drops a part whose old and new hash
+    agree, whichever writer handed it over: alone it leaves the row with
+    nothing to record, so no row and no `recorded` line; beside a real move,
+    only the real move is written."""
+    s = unit_hash(repo, "src/orders.py", "serialize")
+    e = unit_hash(repo, "src/orders.py", "evict")
+    ledger = cite(
+        repo,
+        [
+            row(
+                "O1",
+                f"`{CLAUSE}`, ",
+                f"src/orders.py#serialize@{s}`, `src/orders.py#evict@{e}",
+            )
+        ],
+    )
+    moves = [(str(ledger), 1, "src/orders.py#serialize", s, s)]
+    if beside:
+        moves.append((str(ledger), 1, "src/orders.py#evict", e, "abcdef12"))
+    assert ec.record_pact_changes(moves, str(repo), str(ledger), "2026-09-04") == 0
+    out = capsys.readouterr().out
+    if not beside:
+        assert not (repo / RECORD).exists(), out
+        assert "recorded" not in out, out
+        return
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | "
+        f"`src/orders.py#evict@{e}` → `@abcdef12` | 2026-09-04 |"
+    ], out
+    assert out.count("  recorded ") == 1, out
