@@ -1970,9 +1970,10 @@ def measured_summary(text):
 
     `PYTEST_SUMMARY_RE` reads any count and clock, and a run that collected
     nothing but counted warnings ends `1 warning in 0.00s`, which it reads.
-    That run measured no file, so a line `NOTHING_COLLECTED_RE` reads is
-    never a summary, whatever the exit code: read as one, a run of several
-    files that the base lacks one of gave `new` for a file the base fails.
+    That run measured no file, so where the run's own last line is one
+    `NOTHING_COLLECTED_RE` reads, there is no summary, whatever the exit
+    code: read as one, a run of several files that the base lacks one of
+    gave `new` for a file the base fails.
 
     **Only the last such line decides** (#761 round 2). pytest writes its own
     line after everything a test printed, and a failing test that runs
