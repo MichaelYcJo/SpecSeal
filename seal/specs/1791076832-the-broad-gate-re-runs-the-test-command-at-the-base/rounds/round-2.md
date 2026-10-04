@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #758 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `4e981840fc3da6f9ba3a9546ba2c9f832a10b3fb..55b402872c51a5b0dd7bdce14433624dfd9e3e60`, 4 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (pytest 9's two-word subtests label is not read as pytest's summary, so a file the base fails reads `new?`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -32,8 +32,8 @@ The new units the fixes created are a finding surface: `PYTEST_SUMMARY_RE`, `SUM
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | pytest 9's subtests summary (`2 failed, 1 subtests passed in 0.01s`) is not read as pytest's, so a file the base fails reads `new?` where `88b8c632` gave `failing on base too` | `skills/verify/scripts/broad_gate.py:1861` | open | executed: the regex against pytest 9.1.1's measured lines; the gate on a subtests fixture gave `new?` at `eafc2021` and `failing on base too` at `88b8c632`; the proposed regex gave `failing on base too` and kept 28 cases green |
-| ⬜ 2 | `NO_RUNNER` says no part printed a pytest summary, where with colour forced on or a two-word label pytest did and the gate did not read it | `skills/verify/scripts/broad_gate.py:1869` | open | read; the word `new?` and the action it asks for are right, the sentence is not |
+| 🟡 1 | pytest 9's subtests summary (`2 failed, 1 subtests passed in 0.01s`) is not read as pytest's, so a file the base fails reads `new?` where `88b8c632` gave `failing on base too` | `skills/verify/scripts/broad_gate.py:1861` | **fixed** `542e1122` | fixed at 542e1122 — `cf441933`, `b2876cdb`; executed: the regex against pytest 9.1.1's measured lines; the gate on a subtests fixture gave `new?` at `eafc2021` and `failing on base too` at `88b8c632`; the proposed regex gave `failing on base too` and kept 28 cases green |
+| ⬜ 2 | `NO_RUNNER` says no part printed a pytest summary, where with colour forced on or a two-word label pytest did and the gate did not read it | `skills/verify/scripts/broad_gate.py:1869` | **fixed** `542e1122` | fixed at 542e1122 — `cf441933`; read; the word `new?` and the action it asks for are right, the sentence is not |
 | 🟢 | round 1's finding 1 is closed — a cargo line is no longer taken for pytest's | `skills/verify/scripts/broad_gate.py:2076` | confirmed | executed: the end-to-end cargo case green at `eafc2021`, red at `88b8c632` |
 | 🟢 | round 1's finding 2 is closed — a file under a `cd` is run at the base | `skills/verify/scripts/broad_gate.py:2061` | confirmed | executed: shared file `failing on base too`; shared plus branch-new under `cd` both `new?`, where `88b8c632` gave both `new`; the departure from the proposal measures at least as much and fakes nothing |
 | 🟢 | round 1's finding 3 is closed — a lone `&` ends no prefix under `/bin/sh` | `skills/verify/scripts/broad_gate.py:1988` | confirmed | executed: `a & b`, `a & b && c`, `a \|& b` green at `eafc2021`, red at `88b8c632` |
