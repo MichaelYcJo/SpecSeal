@@ -1563,6 +1563,7 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "| **Pact notify** | always |\n",
         "| Pact&#32;notify | always |\n",
         "| [Pact notify]() | always |\n",
+        "| Pact-notify | always |\n",
     ],
     ids=[
         "S12 below the table",
@@ -1573,6 +1574,7 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "in bold",
         "with a character reference",
         "as a link",
+        "with a hyphen",
     ],
 )
 def test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify(

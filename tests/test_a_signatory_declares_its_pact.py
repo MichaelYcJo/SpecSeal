@@ -492,8 +492,26 @@ def test_s6_a_stray_notify_row_with_no_pact_anywhere_is_ignored():
         "\n- " + STRAY + "\n",
         "\n| Pact notify |  |\n",
         "\n| Pact |  |\n",
+        "\n* Pact notify | always\n",
+        "\n- Pact notify | always\n",
+        "\n+ Pact notify | always\n",
+        "\n# Pact notify | always\n",
+        "\n\\| Pact notify | always |\n",
+        "\nPact name | always |\n",
     ],
-    ids=["a closed fence", "a closed comment", "a list item", "empty", "empty pact"],
+    ids=[
+        "a closed fence",
+        "a closed comment",
+        "a list item",
+        "empty",
+        "empty pact",
+        "a star list item, no pipe",
+        "a dash list item, no pipe",
+        "a plus list item, no pipe",
+        "a heading, no pipe",
+        "an escaped leading pipe",
+        "another item",
+    ],
 )
 def test_s7_a_pact_row_that_is_not_a_stray_is_not_refused(below):
     """S7. An example in a closed fence or comment, a list item, and an empty
