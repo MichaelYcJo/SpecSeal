@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #788 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `58d4b7a599a9eb8258b6e28d6ee4cb75b697d973..cd684fb2737f1f1e152347eb4f2cf5adef306107`, 3 commits |
 | Contract changes | none |
 | New units | _dashed (depth 1); _git_switches (depth 1); DASHED (depth 1); DASHED_SWITCHES (depth 1); DASHED_TWINS (depth 1); test_classify_reads_a_switch_wherever_its_dashes_stand (depth 1); test_a_bare_dashdash_names_the_branch_where_a_file_has_its_name (depth 1) |
