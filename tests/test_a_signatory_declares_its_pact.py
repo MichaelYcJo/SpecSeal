@@ -230,7 +230,18 @@ def refused(line, cell=False):
 # character Python calls whitespace that does not end a GFM line -- every
 # one, so cmark-gfm, not a list, says which a delimiter row may hold. The
 # plugin's GFM walker reads one as a delimiter row where `DELIMITER_ROW`
-# matches and a pipe stands in it.
+# matches and a pipe stands in it. The padding is one scan of the code
+# points, made once: written inside the comprehension it was made again for
+# each of the sixty outer combinations, most of this module's import (round
+# 4 of PR #793, #794).
+PADS = (
+    "",
+    *(
+        ch
+        for ch in map(chr, range(sys.maxunicode + 1))
+        if ch.isspace() and ch not in "\r\n"
+    ),
+)
 DELIMITERS = sorted(
     {
         left + "|".join([f"{pad}{cell}{pad}"] * cols) + right
@@ -238,14 +249,7 @@ DELIMITERS = sorted(
         for right in ("", "|")
         for cols in (1, 2, 3)
         for cell in ("-", "---", ":--", "--:", ":-:")
-        for pad in (
-            "",
-            *(
-                ch
-                for ch in map(chr, range(sys.maxunicode + 1))
-                if ch.isspace() and ch not in "\r\n"
-            ),
-        )
+        for pad in PADS
     }
 )
 WALKER_DELIMITERS = [
@@ -491,6 +495,32 @@ STRAY_WAYS = [
         )
     ),
 ]
+
+
+# The fewest oracle-kept rows each container gives, measured at 793 rows in
+# all (261 at the margin, 111 behind each block quote and the list item, 88
+# three spaces in). Below it the construction has stopped rendering.
+KEPT_FLOOR = 80
+
+
+def test_s2_cmark_gfm_renders_a_table_behind_every_container_that_takes_one():
+    """S2's oracle-kept rows are not an empty set. A row is kept only where
+    cmark-gfm renders `always` under the header it was built with, so an
+    edit the oracle stops rendering would leave S2 and S9 passing over
+    nothing (round 4 of PR #793, #794)."""
+    kept = [w[0] for w in STRAY_WAYS if w[0].startswith("a table cmark-gfm renders")]
+    for where in (
+        "at the margin",
+        "in a block quote",
+        "in a block quote with no space",
+        "continuing a block quote lazily",
+        "in a list item",
+        "three spaces in",
+    ):
+        shown = sum(
+            k.startswith(f"a table cmark-gfm renders, {where} over") for k in kept
+        )
+        assert shown >= KEPT_FLOOR, (where, shown)
 
 
 @pytest.mark.parametrize(
@@ -1016,8 +1046,10 @@ def test_the_blind_side_is_read_as_no_line(item, gap):
         ),
         (
             ("templates", "config.md"),
-            "So does a line of dashes and colons directly under the sentence, which "
-            "makes it a one-column table's header.",
+            "So does a line directly under the sentence that GFM reads as a table's "
+            "delimiter row, such as `:-:`, `---:` or dashes between two pipes, which "
+            "makes the sentence a one-column table's header; a line of dashes alone "
+            "is a heading's underline and refuses nothing.",
         ),
     ],
     ids=[
