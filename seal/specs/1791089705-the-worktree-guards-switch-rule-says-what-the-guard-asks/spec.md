@@ -156,7 +156,7 @@ base):
 
 | Row | File | Cites | Drifted by |
 |---|---|---|---|
-| K7 | `seal/releases/0.18.0.md`, §1790993140 | `docs/worktree-guard-spec.md#"### Which tree…"@570099db` | S1–S3 |
+| K7 | `seal/releases/0.18.0.md`, §1790993140 | `docs/worktree-guard-spec.md#"### Which tree, when the command walks to it"@570099db` | S1–S3 |
 | `Re-read · M2` | `seal/releases/0.18.0.md`, §1791019475 | the same heading `@570099db` | S1–S3 |
 | K5 | `seal/releases/0.18.0.md`, §1790993140 | `hooks/worktree-guard.py#switch_kind@dd9e3aa1` | S4 |
 
