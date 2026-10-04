@@ -298,10 +298,10 @@ pact reviews on one machine.** The record is written inside `--reverify`, so
 a signatory that types a new hash into a ledger row leaves no pact change,
 and nothing can see that it should have. A copy of the checker with no
 `hooks/` beside it cannot read the `Pact` row; it names each row citing a
-pact, and each other moved row where `seal/config.md` holds a `Pact notify`
-row or will not read, says it recorded nothing, and re-stamps nothing, so
-the plugin's own checker records the change where the signatory is checked
-out. A pact under
+pact, and each other moved row where `seal/config.md` holds a `Pact` row and
+a `Pact notify` row that both carry a value, or will not read, says it
+recorded nothing, and re-stamps nothing, so the plugin's own checker records
+the change where the signatory is checked out. A pact under
 local mode keeps `seal/pact-reviews/` under the git directory, so another
 clone of the pact's repository reads the same changes as `NOT TAKEN`, which
 is loud in the right direction.

@@ -1297,14 +1297,15 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
         ),
         (
             "docs/the-pact.md",
-            "and each other moved row where `seal/config.md` holds a `Pact notify` "
-            "row or will not read, says it recorded nothing, and re-stamps nothing",
+            "and each other moved row where `seal/config.md` holds a `Pact` row and "
+            "a `Pact notify` row that both carry a value, or will not read, says it "
+            "recorded nothing, and re-stamps nothing",
         ),
         (
             "skills/evidence-check/SKILL.md",
-            "and each other moved row where `seal/config.md` holds a `Pact notify` "
-            "row or will not read, records nothing, and exits 1. A `Pact notify` "
-            "row written twice has no value",
+            "and each other moved row where `seal/config.md` holds a `Pact` row and "
+            "a `Pact notify` row that both carry a value, or will not read, records "
+            "nothing, and exits 1. A `Pact notify` row written twice has no value",
         ),
         (
             "docs/the-pact.md",
@@ -1408,8 +1409,17 @@ def _vendored(repo, tmp_path):
     [
         (("Pact", PACT_URL), ("Pact notify", "always")),
         (("Pact", PACT_URL), ("Pact notify", "never")),
+        (("Pact", PACT_URL), ("Pact notify\u00a0", "always")),
+        (("Pact", PACT_URL), ("Pact notify\u3000", "always")),
+        (("Pact", f"{PACT_URL} |\u2028| Pact notify | always"),),
     ],
-    ids=["always", "never, which this copy cannot read either"],
+    ids=[
+        "always",
+        "never, which this copy cannot read either",
+        "a no-break space beside a pipe, which the plugin reads",
+        "an ideographic space beside a pipe, which the plugin reads",
+        "a row after a line separator, which the plugin reads",
+    ],
 )
 def test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause(
     repo, tmp_path, rows
@@ -1417,7 +1427,9 @@ def test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause(
     """A copy with no `hooks/` reads no `Pact notify` value, so wherever the
     config has a `Pact notify` row a moved row citing no clause may be owed
     under `always`: it is left on a `LEFT` line, not re-stamped (round 1 of
-    PR #756, yellow 1). Leaving it under `never` too is the safe direction."""
+    PR #756, yellow 1). Leaving it under `never` too is the safe direction.
+    A row is found as the plugin's reader finds one, with `\\s` and
+    `str.splitlines` (round 2 of PR #756, yellow 1)."""
     (repo / "seal" / "config.md").write_text(
         config_text(("Mode", "shared"), *rows), encoding="utf-8"
     )
@@ -1437,14 +1449,34 @@ def test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause(
     assert not (repo / "seal" / "pact-changes").exists(), out
 
 
-@pytest.mark.parametrize("shape", ["no notify row", "no config.md"])
+@pytest.mark.parametrize(
+    "rows",
+    [
+        (("Pact", PACT_URL),),
+        None,
+        (("Pact", ""), ("Pact notify", "")),
+        (("Pact notify", "always"),),
+    ],
+    ids=[
+        "no notify row",
+        "no config.md",
+        "the template's empty rows",
+        "a notify row with no Pact row",
+    ],
+)
 def test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause(
-    repo, tmp_path, shape
+    repo, tmp_path, rows
 ):
-    """Without a `Pact notify` row nothing can mean `always`, so the vendored
-    copy still re-stamps a moved row citing no clause, at exit 0."""
-    if shape == "no config.md":
+    """Without a `Pact` row and a `Pact notify` row that both carry a value
+    nothing can mean `always`, so the vendored copy still re-stamps a moved
+    row citing no clause, at exit 0, as the plugin does. The template ships
+    both rows empty (round 2 of PR #756, yellow 2)."""
+    if rows is None:
         (repo / "seal" / "config.md").unlink()
+    else:
+        (repo / "seal" / "config.md").write_text(
+            config_text(("Mode", "shared"), *rows), encoding="utf-8"
+        )
     old = unit_hash(repo, "src/orders.py", "serialize")
     ledger = cite(repo, [row("O2", "", f"src/orders.py#serialize@{old}")])
     new = move_serialize(repo)

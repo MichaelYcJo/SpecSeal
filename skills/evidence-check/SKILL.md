@@ -333,7 +333,8 @@ the one a `routing.md` declares for the branch; with neither, the row is
 named on a `LEFT` line and the run exits 1. A copy of this script with no
 `hooks/` beside it cannot read the `Pact` row: it names each row citing a
 pact on a `LEFT` line, and each other moved row where `seal/config.md` holds
-a `Pact notify` row or will not read, records nothing, and exits 1. A `Pact
+a `Pact` row and a `Pact notify` row that both carry a value, or will not
+read, records nothing, and exits 1. A `Pact
 notify` row written twice has no value, so it cannot rule `always` out
 either. Where the record is
 written, the ledger is written exactly as before. **The run records first

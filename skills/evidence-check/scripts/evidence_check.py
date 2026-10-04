@@ -3640,9 +3640,14 @@ CODE_PART = re.compile(
 # still there for the run that can record it (round 1 of PR #749, red 1;
 # round 2, red 10 and yellow 11).
 NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
-# Anything shaped like a `Pact notify` row, for a copy with no `hooks/` to
-# read its value with: any case, any indentation, quoted or fenced or not.
-NOTIFY_ROW_SHAPE = re.compile(r"^[ \t>]*\|[ \t]*Pact notify[ \t]*\|", re.M | re.I)
+# Anything shaped like a `Pact` or a `Pact notify` row with a value, for a
+# copy with no `hooks/` to read either with: any case, any indentation,
+# quoted or fenced or not. It is matched line by line as `str.splitlines`
+# cuts a file, with `\s` as Python reads it, because those are the plugin
+# reader's own rules (round 2 of PR #756, yellow 1). An empty value is the
+# default, and a notify row with no `Pact` value is ignored, so neither can
+# mean `always` (round 2 of PR #756, yellow 2).
+NOTIFY_ROW_SHAPE = re.compile(r"[\s>]*\|\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
 PACT_CHANGE_UNDONE = (
     "  a pact change is owed and was not recorded, so this run wrote no ledger "
     "file: nothing was re-stamped"
@@ -3719,14 +3724,20 @@ def record_pact_changes(moves, root, into, checked):
     config = plugin_module(CONFIG_READER, "specseal_config_for_pact_changes")
     if config is None:
         # This copy reads no `Pact notify` value either, so where the config
-        # holds anything shaped like a `Pact notify` row, or will not read, a
-        # moved row citing no clause may be owed under `always` and is left
-        # with the rows citing one (round 1 of PR #756, yellow 1). The shape
-        # is looser than the plugin's reader, so it leaves too much rather
-        # than too little; with no such row nothing can mean `always`.
+        # holds a `Pact` row and a `Pact notify` row that both carry a value,
+        # or will not read, a moved row citing no clause may be owed under
+        # `always` and is left with the rows citing one (round 1 of PR #756,
+        # yellow 1). The shape is looser than the plugin's reader, so it
+        # leaves too much rather than too little; without both rows nothing
+        # can mean `always` (round 2 of PR #756, yellow 2).
         declaration = os.path.join(seal_home(root), "config.md")
         said = read(declaration) if os.path.lexists(declaration) else ""
-        blind = said is None or bool(NOTIFY_ROW_SHAPE.search(said))
+        named = {
+            " ".join(m.group(1).lower().split())
+            for m in map(NOTIFY_ROW_SHAPE.match, (said or "").splitlines())
+            if m
+        }
+        blind = said is None or named >= {"pact", "pact notify"}
         left = 0
         for where, _row, _parts, anchors in entries:
             if anchors:

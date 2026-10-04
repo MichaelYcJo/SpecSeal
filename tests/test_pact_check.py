@@ -255,20 +255,35 @@ def test_s11_a_relationship_recorded_on_one_side_is_refused(world):
     ) in out, out
 
 
-def test_s3_a_notify_value_outside_the_vocabulary_is_exit_2(world):
-    """S3, the `pact-check` half: the reader's refusal, read strictly."""
+@pytest.mark.parametrize(
+    "notify, refusal",
+    [
+        (
+            [("Pact notify", "sometimes")],
+            "`Pact notify | sometimes` is not one of `always`, "
+            "`when the pact is touched`, `never`",
+        ),
+        (
+            [("Pact notify", "never"), ("Pact notify", "always")],
+            "`Pact notify` appears 2 times — one value",
+        ),
+    ],
+    ids=["outside the vocabulary", "written twice"],
+)
+def test_s3_a_notify_value_outside_the_vocabulary_is_exit_2(world, notify, refusal):
+    """S3, the `pact-check` half: the reader's refusal, read strictly. A row
+    written twice has no value either, and the `READ` line says so rather
+    than printing its first row (round 2 of PR #756, white 3)."""
     write(
         world["web"],
         "seal/config.md",
-        config(("Pact", PACT_URL), ("Pact notify", "sometimes")),
+        config(("Pact", PACT_URL), *notify),
     )
     cite(world, clause(V2))
     code, out = run(world)
     assert code == 2, out
-    assert (
-        f"REFUSED {SIGNATORY_URL} seal/config.md — `Pact notify | sometimes` is "
-        "not one of `always`, `when the pact is touched`, `never`"
-    ) in out, out
+    assert f"REFUSED {SIGNATORY_URL} seal/config.md — {refusal}" in out, out
+    assert "— `Pact notify`: will not parse;" in out, out
 
 
 def test_no_pact_here_and_no_origin_are_unusable_input(world):
