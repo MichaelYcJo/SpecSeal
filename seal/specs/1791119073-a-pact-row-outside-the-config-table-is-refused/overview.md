@@ -16,6 +16,7 @@ Now such a row is refused, and every caller leaves the moved row or says so.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | The refusal sentence | Spec's shape: "… is shaped as a `Pact notify` row and is not read as one — it stands outside the `\| Item \| Value \|` table or spells the item another way; write it as a row of that table". Built: no dash or semicolon of its own, a third cause ("or holds a character that cuts the line"), the remedy as `\| <item> \| … \|`, and every whitespace character but a space shown as `<U+XXXX>` | built | `spec.md` §*Data & interfaces*: "The builder chooses the final text, and S16 pins it". The writer's `LEFT` line puts ` — ` and `; ` after the sentence, and W9 and W11 lines print as a correct row unless the invisible character is shown (`phases/phase-1.md`) |
+| The shape's grammar | `spec.md` Scope 2: "a pipe, `Pact` or `Pact<\s+>notify`". Built after round 1 of PR #784: the leading pipe optional, the separator between the two words possibly empty, and each line read with its format characters (Unicode category Cf) removed, in both readers | built | Round 1's 🟡 1 and 🟡 2, executed by the warden: GFM renders a line with no leading pipe directly under the table as one of its rows, and renders a Cf character as nothing, so both were rows read as the default with no refusal |
 
 ## Not verified
 
@@ -39,3 +40,5 @@ the region sibling E edits stays unmoved.
   character other than a space as its code point.
 - *Inferred during implementation:* on GFM's cut a line is hidden only where
   every reader piece of it is hidden, which is the reading that refuses more.
+- *Inferred during implementation:* the shape reads a line with every format
+  character removed and needs no leading pipe (round 1 of PR #784).
