@@ -21,16 +21,19 @@ standard library's half was found by construction (round 1 of #741, on
 3.14): every public callable whose signature carries `encoding=None`, each
 then read for whether `None` means the locale. It does not for
 `TextIOWrapper.reconfigure` (keep the current one), `tarfile` (file names),
-`urllib.parse`, the `xml` writers, `xmlrpc`, `calendar` (each a fixed
-default), or `asyncio`'s subprocesses (which refuse text). An opener with no
+`urllib.parse`, the `xml` writers, `xml.etree.ElementInclude.default_loader`,
+`xmlrpc`, `calendar` (each a fixed default), or `asyncio`'s subprocesses
+(which refuse text). An opener with no
 `encoding` parameter at all, like `os.popen`, is not in that construction
 and is listed here by reading.
 
 - builtin `open`, `io.open`, `codecs.open`, `os.fdopen`, in a text mode;
-- `<expr>.open(...)` judged as `Path.open`, except on `os`, `webbrowser`,
-  `tarfile`, `shelve`, `dbm`, `wave`, PIL's `Image` and a `ZipFile(...)` or
-  `TarFile(...)` instance, which open no text; called on the class
-  (`Path.open(p)`), every position moves one to the right;
+- `<expr>.open(...)` judged as `Path.open`, or as `zipfile.Path.open`,
+  whose encoding comes one place earlier, on a `zipfile.Path`; except on
+  `os`, `webbrowser`, `tarfile`, `shelve`, `dbm`, `dbm.dumb`, `wave`, PIL's
+  `Image` and a `ZipFile(...)` or `TarFile(...)` built in the receiver
+  itself, which open no text, and on a bare name no import binds; called on
+  the class (`Path.open(p)`), every position moves one to the right;
 - `<expr>.read_text(...)` and `<expr>.write_text(...)`, the same way;
 - `subprocess.run` / `Popen` / `call` / `check_call` / `check_output` with
   `text=`, `universal_newlines=` or `errors=` and no `encoding`, the module
@@ -43,16 +46,19 @@ and is listed here by reading.
   `logging.basicConfig(filename=...)`, `logging.config.fileConfig`;
 - `io.TextIOWrapper`, `fileinput.input` / `FileInput` / `hook_compressed`,
   `argparse.FileType`, `doctest.testfile` / `DocFileTest` / `DocFileSuite`,
-  `xml.etree.ElementInclude.default_loader` unless it parses `"xml"`, and
-  the methods `.makefile()` and `.write_results_file()`.
+  and the methods `.makefile()` and `.write_results_file()`.
 
 **What no row can hold.** A static walk follows names, not values, so these
 pass and no K1 row could catch them: a name rebound to an opener
 (`f = open; f(p)`), a star import, `functools.partial(open, ...)`, an opener
 passed by reference (`map(Path.read_text, ps)`), `getattr`, `__import__` and
 a module loaded through `importlib`, `universal_newlines` given by position,
-and `configparser`'s `.read`, whose name is too common to match without
-types. Write the call plainly instead.
+`configparser`'s `.read`, whose name is too common to match without types,
+a file handler named in a string to `logging.config.dictConfig`, and a
+handler subclass whose constructor calls `super().__init__(p)`. Write the
+call plainly instead. The walk errs the other way too: a `ZipFile` or
+`TarFile` bound to a name first (`with ZipFile(z) as zf: zf.open(n)`) is not
+traced, so its `.open` is reported though it reads bytes.
 
 **K2 -- what the walk cannot prove counts as unnamed:** a mode that is not a
 literal, `encoding=None` written out, and a `*` or `**` splat on a K1 call
@@ -125,6 +131,7 @@ NOT_A_FILE_OPENER = {
     "zipfile.ZipFile",
     "shelve",
     "dbm",
+    "dbm.dumb",
     "wave",
     "PIL.Image",
 }
@@ -179,6 +186,9 @@ OPENERS = {
     # file's slot, so the positions are `open`'s.
     "os.fdopen": (1, 3),
     "<expr>.open": (0, 2),
+    # `zipfile.Path.open(mode, *args)` hands `args[0]` to `TextIOWrapper` as
+    # the encoding, one place earlier than `pathlib.Path.open`.
+    "zipfile.Path.open": (0, 1),
 }
 
 
@@ -327,16 +337,6 @@ def judge(call, bound):
         if splatted(call):
             return "logging.basicConfig(), splat"
         return "logging.basicConfig(filename=)" if keyword(call, "filename") else None
-    if target == "xml.etree.ElementInclude.default_loader":
-        kw = keyword(call, "parse")
-        parse = (
-            kw.value
-            if kw is not None
-            else (call.args[1] if len(call.args) > 1 else None)
-        )
-        if isinstance(parse, ast.Constant) and parse.value == "xml":
-            return None
-        return None if names_encoding(call, 2) else f"{target}()"
     if target and target.startswith("subprocess."):
         name = target.split(".", 1)[1]
         if name not in SUBPROCESS_TEXT or names_encoding(call):
@@ -375,9 +375,11 @@ def judge(call, bound):
         return None
     shift = 1 if dotted(func.value, bound) in UNBOUND_RECEIVERS else 0
     if func.attr == "open":
-        if owner(func.value, bound) in NOT_A_FILE_OPENER:
+        made_by = owner(func.value, bound)
+        if made_by in NOT_A_FILE_OPENER:
             return None
-        return judge_opener(call, "<expr>.open", shift)
+        opener = f"{made_by}.open" if f"{made_by}.open" in OPENERS else "<expr>.open"
+        return judge_opener(call, opener, shift)
     if func.attr == "read_text":
         if names_encoding(call, shift):
             return None
@@ -394,10 +396,14 @@ def judge(call, bound):
 
 
 def owner(receiver, bound):
-    """What a `.open` is called on: the dotted name of a receiver, or of the
-    class a receiver call constructs (`zipfile.ZipFile(z)`)."""
+    """What a `.open` is called on: the dotted name of a receiver, of the
+    class a receiver call constructs (`zipfile.ZipFile(z)`), or a bare name no
+    import binds, read as itself (`os` taken as a parameter). An instance
+    bound to a name first (`with ZipFile(z) as zf`) is not traced."""
     if isinstance(receiver, ast.Call):
         return dotted(receiver.func, bound)
+    if isinstance(receiver, ast.Name) and receiver.id not in bound:
+        return receiver.id
     return dotted(receiver, bound)
 
 
@@ -677,17 +683,13 @@ UNNAMED = {
         "doctest.DocFileSuite()",
     ),
     "socket makefile": ("s.makefile()", ".makefile()"),
-    "ElementInclude.default_loader, text": (
-        'from xml.etree import ElementInclude\nElementInclude.default_loader(h, "text")',
-        "xml.etree.ElementInclude.default_loader()",
-    ),
     "trace write_results_file": (
         "r.write_results_file(p, l, n, h)",
         ".write_results_file()",
     ),
     "zipfile.Path open is still judged": (
         "import zipfile\nzipfile.Path(z).open()",
-        "<expr>.open()",
+        "zipfile.Path.open()",
     ),
 }
 
@@ -751,6 +753,18 @@ NAMED = {
     "shelve.open is not a text file": "import shelve\nshelve.open(p)",
     "dbm.open is not a text file": "import dbm\ndbm.open(p)",
     "wave.open is binary": "import wave\nwave.open(p)",
+    # Round 2 of #741.
+    "ElementInclude.default_loader, text reads UTF-8 itself": (
+        'from xml.etree import ElementInclude\nElementInclude.default_loader(h, "text")'
+    ),
+    "os.open on a name no import binds": "def f(os):\n    return os.open(p, 0)",
+    "dbm.dumb.open is not a text file": "import dbm.dumb\ndbm.dumb.open(p)",
+    "zipfile.Path open, 2nd positional": (
+        'import zipfile\nzipfile.Path(z).open("r", "utf-8")'
+    ),
+    "zipfile.Path open unbound, 3rd positional": (
+        'import zipfile\nzipfile.Path.open(q, "r", "utf-8")'
+    ),
 }
 
 
