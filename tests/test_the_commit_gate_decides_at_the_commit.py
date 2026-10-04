@@ -429,11 +429,35 @@ def test_a_row_that_does_not_end_is_named_and_leaves_nothing_behind(tmp_path):
         timeout=1,
     )
     assert not ended
-    assert time.monotonic() - started < 8, "the bound waited for the loop"
+    bound = time.monotonic()
+    assert bound - started < 8, "the bound waited for the loop"
     if os.name != "nt":
-        alive.unlink(missing_ok=True)
-        time.sleep(0.5)
-        assert not alive.exists(), "the row's loop outlived the bound"
+        assert _stays_gone(alive, since=bound), "the row's loop outlived the bound"
+
+
+# #748. One window is ten of the test loop's 0.1 s periods, so a loop still
+# running touches the marker in every window. The deadline is five windows
+# after the bound, and an orphaned loop lives at least ten seconds from its
+# start, so a loop the group kill missed is still touching when it falls --
+# and a loaded machine only slows the loop, which lengthens its life.
+GONE_WINDOW = 1.0
+GONE_DEADLINE = 5.0
+
+
+def _stays_gone(marker, *, since):
+    """Whether `marker`, unlinked at the start of a window, is still absent
+    at its end in some window before `GONE_DEADLINE` after `since`.
+
+    Polled rather than slept once: a fixed half second after the bound
+    failed on a loaded machine with nothing wrong (#748). Unlinking again at
+    each window is what makes a `touch` already in flight when the group was
+    killed harmless -- it can bring the marker back once, never twice."""
+    while time.monotonic() - since < GONE_DEADLINE:
+        marker.unlink(missing_ok=True)
+        time.sleep(GONE_WINDOW)
+        if not marker.exists():
+            return True
+    return False
 
 
 # `docs/the-commit-gate-inside-git.md` §*Known limits of the commit gate

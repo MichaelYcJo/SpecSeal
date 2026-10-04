@@ -40,7 +40,7 @@ works outside the context entirely (hooks).
 | **smith** (Claude Code subagent) | `agent-contract` · `implement` · `writing-style` | Implements against the spec, then prints a three-line proof block: which policy files it opened, which ledger rows it touched, what it executed versus merely read. The block is a disclosure the skill requires, not something a hook verifies — but `none — <reason>` in a row is visible to you |
 | **warden** (subagent) | `agent-contract` · `code-review` · `writing-style` | Reviews spec compliance first, then quality. Once its report is verified the orchestrator writes the reviewed HEAD sha to `.git/specseal-reviewed`, which is what the commit gate looks for — the reviewer never writes its own mark |
 | **scribe** (subagent) | `agent-contract` · `legacy-parity` | Records what the original code does as `path#anchor` coordinates and returns facts, not verdicts. Appears only in repos that declare `seal/parity.md` |
-| **sealer** (subagent) | `agent-contract` | Runs the one broad gate — `broad-gate`, once, after the rounds settle — and writes the last round record's `Broad gate` cell. It reads no spec and no diff, and judges nothing: a failing check comes back with its own lines and the word `new` or `failing on base too`, and what that means is the reader's call |
+| **sealer** (subagent) | `agent-contract` | Runs the one broad gate — `broad-gate`, once, after the rounds settle — and writes the last round record's `Broad gate` cell. It reads no spec and no diff, and judges nothing: a failing check comes back with its own lines and the word `new` or `failing on base too` — or `new?` with the reason, where no run at the base measured the file — and what that means is the reader's call |
 | Skills | — | Twenty-four, in three groups. The five the agents follow are in the column to the left. Twelve more a session loads on its own when the work calls for them — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `settle`, `verify`. Seven you invoke by name; they are in the cheat sheet below |
 | Hooks | — | The gates themselves — auto-registered by the plugin, no settings wiring |
 | CLAUDE.md block | — | 12 always-on lines — four section headings (`Tooling`, `Safety`, `Session cost`, `Git`) over eight rules: one on tooling, three on safety, one on session cost, three on git. No response-language rule — that stays yours. Its one source is `templates/claude-md-block.md`; the repository's own `CLAUDE.md` carries a generated copy, and CI fails a pull request where the two differ |
@@ -57,6 +57,7 @@ smith forges → verify (scoped) → warden reviews → report to the user
                           │
         new breakage → back to the loop (three returns, then stop)
         failing on base too → named as a follow-up, does not block
+        new? → not measured at the base; run it there before either
                           ▼
                         PR / commit
 commit  → unless .git/specseal-reviewed matches HEAD, the hook puts the two

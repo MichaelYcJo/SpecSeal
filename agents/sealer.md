@@ -42,7 +42,9 @@ Four acts, in this order.
 kept and the word the gate gave it, never with a cause, a fix, or a guess
 about whose it is. `new` and `failing on base too` are the gate's words: it
 re-ran the failing files at the base to earn them, and handing them on
-unedited is the whole of your part. What a failure means belongs to whoever
+unedited is the whole of your part. So is `new?` and the reason after it,
+which the gate gives where no run at the base measured the file: hand that on
+as written too, and never shorten it to `new`. What a failure means belongs to whoever
 reads your report, who can see the change and you cannot.
 
 ## The command
@@ -266,4 +268,5 @@ The gate's output, whole and unedited, then four lines:
 - the command you ran, with the base and the item as you were given them;
 - the cell — written, with its value, or not written, with the reason;
 - what is left for the reader: for a failure, the failing checks by name with
-  their `new` / `failing on base too` words, and nothing beyond them.
+  their `new` / `failing on base too` / `new? …` words, and nothing beyond
+  them.
