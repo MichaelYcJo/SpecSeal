@@ -2758,8 +2758,7 @@ def test_every_walk_sequence_hands_over_what_the_file_holds(walks):
     leaving it. The parts `walked_move` and `owed_moves` hand over are the
     move that landed, from the hash before the run to the hash the file
     holds, and BROKEN at the hash the file holds where the last walk that
-    changed anything left it; a second run of `record_pact_changes`'s
-    last-word rule over the same coordinate appends nothing."""
+    changed anything left it."""
     held_hash, state, fresh = "h0", None, iter(f"h{n}" for n in range(1, 9))
     for outcome in walks:
         if outcome == "moved":
@@ -2779,11 +2778,60 @@ def test_every_walk_sequence_hands_over_what_the_file_holds(walks):
         [(held_hash, None)] if ends_left else []
     )
     assert parts == want, (walks, parts)
-    # A second run reads the file as the first left it: the coordinate is
-    # left again where the last walk left it, else unchanged.
-    recorded = parts[-1] if parts else None
-    again = (held_hash, None) if ends_left else None
-    assert again is None or again == recorded, (walks, parts)
+
+
+def test_a_coordinate_left_and_then_read_unchanged_records_nothing(repo):
+    """Second post-review pass of #791. A walk can leave a coordinate and a
+    later walk read it unchanged. X1 was stamped while handler was at v1,
+    quoting the citation hash its `Re-read ·` line held then; handler moved
+    and came back, so the run re-stamps that line back to the bytes X1
+    recorded. Two walks find the quoted hash gone and leave X1, the third
+    reads it unchanged, and the file ends where X1's hash says. MOVES holds
+    nothing for X1: a BROKEN from the walks that left it would write the
+    permanent record a trigger for a coordinate `--strict` reads clean. Red
+    with `still` a no-op."""
+    o = unit_hash(repo, "src/service.py", "other")
+    day = "2026-03-01"
+
+    def r1(h):
+        return (
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | {day} | |"
+        )
+
+    def reread(cite, h):
+        return (
+            f"| Re-read · the row it cites | `{cite}`, "
+            f"`src/service.py#handler@{h}` | read | {day} | Re-read {day} |"
+        )
+
+    def cite_for(h):
+        released(repo, [r1(h), reread(citation(r1(h), "R1 · handler adds one"), h)])
+        return ec.citation_for(str(repo), str(repo / R_FILE), 5)
+
+    def write(h, cite, x):
+        (repo / R_FILE).write_text(
+            f"## 0.1.0 — 2026-01-01\n\n{SECTION}\n\n{r1(h)}\n{reread(cite, h)}\n\n"
+            "### 1000000002-the-second-item\n\n"
+            f"| X1 · other, beside the re-read | `src/service.py#other@{o}`, "
+            f"`{x}` | read | {day} | |\n",
+            encoding="utf-8",
+        )
+
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    cite1 = cite_for(h1)
+    x = citation(reread(cite1, h1), f"@{cite1.rsplit('@', 1)[1]}")
+    write(h1, cite1, x)
+    assert run(["--strict", "."], repo).returncode == 0
+    before = (repo / R_FILE).read_text(encoding="utf-8")
+    edit_handler(repo)
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    write(h2, cite_for(h2), x)
+    (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+    moves = []
+    ec.reverify([str(repo / R_FILE)], str(repo), {}, None, day, moves)
+    assert (repo / R_FILE).read_text(encoding="utf-8") == before
+    assert [m for m in moves if m[1] == 10] == [], moves
+    assert run(["--strict", "."], repo).returncode == 0
 
 
 def test_one_unfrozen_run_names_a_citing_row_it_left_whole_once(repo):
