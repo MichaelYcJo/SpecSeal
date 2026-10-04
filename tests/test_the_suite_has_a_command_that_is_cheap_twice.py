@@ -77,8 +77,10 @@ def fake_venv(root, xdist=True, markdown_it=True, pillow=True, cmarkgfm=True):
     venv = root / ".venv"
     python = rt.venv_python(venv)
     python.parent.mkdir(parents=True)
-    python.write_text("")
-    (python.parent / ("pytest.exe" if os.name == "nt" else "pytest")).write_text("")
+    python.write_text("", encoding="utf-8")
+    (python.parent / ("pytest.exe" if os.name == "nt" else "pytest")).write_text(
+        "", encoding="utf-8"
+    )
     site = (
         venv / "Lib" / "site-packages"
         if os.name == "nt"
@@ -286,7 +288,7 @@ def test_an_environment_below_the_floor_is_refused(tmp_path, capsys):
     or this repository's own from before the floor moved -- ran the suite on a
     version nothing here supports, and said nothing."""
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text("version = 3.9.6\n")
+    (venv / "pyvenv.cfg").write_text("version = 3.9.6\n", encoding="utf-8")
     assert rt.ensure(venv) is None
     err = capsys.readouterr().err
     assert "3.9.6" in err, (
@@ -309,7 +311,9 @@ def test_an_environment_that_says_nothing_about_its_version_is_kept(tmp_path):
     venv = fake_venv(tmp_path)
     assert not (venv / "pyvenv.cfg").exists()
     assert rt.ensure(venv) == rt.venv_python(venv)
-    (venv / "pyvenv.cfg").write_text("home = /usr/bin\nprompt = '.venv'\n")
+    (venv / "pyvenv.cfg").write_text(
+        "home = /usr/bin\nprompt = '.venv'\n", encoding="utf-8"
+    )
     assert rt.ensure(venv) == rt.venv_python(venv)
 
 
@@ -323,9 +327,9 @@ def test_the_environment_hides_itself_from_git(tmp_path):
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     venv = tmp_path / ".venv"
     venv.mkdir()
-    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n")
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
     rt.hide_from_git(venv)
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = subprocess.run(
         ["git", "-C", str(tmp_path), "status", "--porcelain"],
         capture_output=True,
@@ -340,9 +344,9 @@ def test_an_existing_ignore_is_left_alone(tmp_path):
     editing another tool's file for no gain."""
     venv = tmp_path / ".venv"
     venv.mkdir()
-    (venv / ".gitignore").write_text("*\n# written by uv\n")
+    (venv / ".gitignore").write_text("*\n# written by uv\n", encoding="utf-8")
     rt.hide_from_git(venv)
-    assert "written by uv" in (venv / ".gitignore").read_text()
+    assert "written by uv" in (venv / ".gitignore").read_text(encoding="utf-8")
 
 
 def git_status(tmp_path):
@@ -375,7 +379,7 @@ def test_a_failed_build_still_leaves_no_trace_in_git(tmp_path, monkeypatch):
     monkeypatch.setattr(rt.subprocess, "run", run)
     assert rt.build(venv), "a failing build step still has to return a sentence"
     monkeypatch.undo()
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = git_status(tmp_path)
     assert ".venv" not in status, (
         f"the half-built virtualenv is visible to git: {status!r}"
@@ -389,9 +393,9 @@ def test_an_adopted_environment_is_hidden_too(tmp_path):
     is the one call in its life that could have written one."""
     REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text(f"version = {rt.FLOOR_TEXT}.0\n")
+    (venv / "pyvenv.cfg").write_text(f"version = {rt.FLOOR_TEXT}.0\n", encoding="utf-8")
     assert rt.ensure(venv) == rt.venv_python(venv)
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = git_status(tmp_path)
     assert ".venv" not in status, (
         f"the adopted virtualenv is visible to git: {status!r}"
@@ -408,9 +412,9 @@ def test_a_refused_environment_is_hidden_too(tmp_path):
     every `git status` they run."""
     REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n")
+    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n", encoding="utf-8")
     assert rt.ensure(venv) is None, "a below-floor environment is still refused"
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = git_status(tmp_path)
     assert ".venv" not in status, (
         f"the refused virtualenv is visible to git: {status!r}"
@@ -430,12 +434,12 @@ def test_a_directory_no_builder_can_finish_is_hidden_too(tmp_path, monkeypatch):
     REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
     venv = tmp_path / ".venv"
     venv.mkdir()
-    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n")
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
     monkeypatch.setattr(rt.shutil, "which", lambda _: None)
     monkeypatch.setattr(rt, "sys", FakeSys())
     assert rt.ensure(venv) is None, "a machine with neither tool still refuses"
     monkeypatch.undo()
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = git_status(tmp_path)
     assert ".venv" not in status, (
         f"the unfinishable virtualenv is visible to git: {status!r}"
@@ -527,7 +531,7 @@ def test_an_unwritable_venv_leaves_the_refusal_a_sentence(
     REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
     (tmp_path / "tests").mkdir()
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n")
+    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n", encoding="utf-8")
     monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
     venv.chmod(0o555)
     try:
@@ -575,7 +579,7 @@ def test_the_unwritable_sentence_is_the_same_on_every_platform(
 
     monkeypatch.setattr(pathlib.Path, "write_text", refuse)
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n")
+    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n", encoding="utf-8")
     assert rt.ensure(venv) is None, "the refusal is unchanged"
     err = capsys.readouterr().err
     assert "Traceback" not in err, err

@@ -44,7 +44,7 @@ def g(d, *args, check=True, **extra):
     return subprocess.run(
         ["git", "-C", str(d), *args],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         check=check,
         env=env(**extra),
         stdin=subprocess.DEVNULL,

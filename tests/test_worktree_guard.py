@@ -131,7 +131,7 @@ def test_switch_clean_single_allows(monkeypatch, capsys, repo):
 
 
 def test_switch_dirty_single_asks(monkeypatch, capsys, repo):
-    (repo / "f.txt").write_text("changed\n")
+    (repo / "f.txt").write_text("changed\n", encoding="utf-8")
     assert decide(monkeypatch, capsys, repo, "git switch feature/x")[0] == "ask"
 
 
@@ -442,7 +442,7 @@ def test_an_unwritable_marker_counts_as_already_asked(monkeypatch, capsys, repo)
 def test_the_token_does_not_answer_the_dirty_tree_question(monkeypatch, capsys, repo):
     """Different question: the branch is the same either way, and what is
     being asked is whether the uncommitted changes ride along."""
-    (repo / "f.txt").write_text("changed\n")
+    (repo / "f.txt").write_text("changed\n", encoding="utf-8")
     assert (
         decide(monkeypatch, capsys, repo, "git switch feature/x  # [shared-tree-ok]")[0]
         == "ask"
@@ -601,14 +601,16 @@ def lease_dir(repo):
 def test_fresh_foreign_lease_without_an_owner_is_unattributable(repo):
     """A bare-timestamp lease names no owner, so it is a question, not a deny.
     Owner-aware cases live in test_lease_liveness.py."""
-    (lambda d: open(f"{d}/other-session", "w").write("1"))(lease_dir(repo))
+    (lambda d: open(f"{d}/other-session", "w", encoding="utf-8").write("1"))(
+        lease_dir(repo)
+    )
     live, unattributable = wg.fresh_leases(str(repo), "me")
     assert live == []
     assert len(unattributable) == 1 and "[lease: other-se" in unattributable[0][1]
 
 
 def test_own_lease_is_ignored(repo):
-    (lambda d: open(f"{d}/me", "w").write("1"))(lease_dir(repo))
+    (lambda d: open(f"{d}/me", "w", encoding="utf-8").write("1"))(lease_dir(repo))
     assert wg.fresh_leases(str(repo), "me") == ([], [])
 
 
@@ -617,7 +619,7 @@ def test_stale_lease_is_ignored(repo):
     import time
 
     d = lease_dir(repo)
-    open(f"{d}/old-session", "w").write("1")
+    open(f"{d}/old-session", "w", encoding="utf-8").write("1")
     os.utime(f"{d}/old-session", (time.time() - 3600,) * 2)
     assert wg.fresh_leases(str(repo), "me") == ([], [])
 
@@ -1014,7 +1016,7 @@ def test_the_dirty_tree_row_names_what_was_measured(monkeypatch, capsys, repo):
     the lead says the token carried the user's answer; the list of changes and
     the verdict are unchanged. Both languages. Seen red at the base: the lead
     was *Single-stream tree* and no `[shared-tree-ok]` was named."""
-    (repo / "f.txt").write_text("changed on purpose\n")
+    (repo / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     for module, single in (
         (wg, "Single-stream tree, so the switch is allowed"),
         (None, "이 트리는 단건 작업이라 브랜치 전환을 허용할 수 있지만"),

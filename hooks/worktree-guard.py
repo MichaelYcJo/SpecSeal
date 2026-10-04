@@ -1226,7 +1226,7 @@ def dead_session_ids(top: str):
     for name in names:
         record = {}
         try:
-            with open(os.path.join(d, name)) as f:
+            with open(os.path.join(d, name), encoding="utf-8") as f:
                 loaded = json.load(f)
             if isinstance(loaded, dict):
                 record = loaded
@@ -1291,7 +1291,7 @@ def fresh_leases(top: str, own_session_id: str = "", scanned_pids=frozenset()):
             # which leaves the record empty and the lease unattributable.
             record = {}
             try:
-                with open(path) as f:
+                with open(path, encoding="utf-8") as f:
                     loaded = json.load(f)
                 if isinstance(loaded, dict):
                     record = loaded
@@ -1696,7 +1696,7 @@ def already_asked(top: str, session: str, scope: str) -> bool:
         return True
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, "w").close()
+        open(path, "w", encoding="utf-8").close()
     except OSError:
         return True
     return False

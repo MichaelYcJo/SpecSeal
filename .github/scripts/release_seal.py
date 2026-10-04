@@ -500,7 +500,7 @@ class Refused(Exception):
 
 def gh(*args):
     """`gh <args>`'s stdout, or `Refused` naming the call and what it said."""
-    out = subprocess.run(["gh", *args], capture_output=True, text=True)
+    out = subprocess.run(["gh", *args], capture_output=True, encoding="utf-8")
     if out.returncode:
         raise Refused(f"gh {' '.join(args[:2])} failed: {out.stderr.strip()}")
     return out.stdout
@@ -509,7 +509,7 @@ def gh(*args):
 def tagged(tag):
     """The commit `tag` names, which the panel's `tag` row shows."""
     out = subprocess.run(
-        ["git", "rev-parse", f"{tag}^{{commit}}"], capture_output=True, text=True
+        ["git", "rev-parse", f"{tag}^{{commit}}"], capture_output=True, encoding="utf-8"
     )
     if out.returncode:
         raise Refused(f"git rev-parse {tag} failed: {out.stderr.strip()}")

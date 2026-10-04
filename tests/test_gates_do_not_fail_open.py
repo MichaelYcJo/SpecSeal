@@ -183,7 +183,9 @@ def test_the_common_directory_reader_that_decoded_nothing_answers_empty(
     directory, so no local root, so not opted in — and never raises."""
     linked = tmp_path / "linked"
     linked.mkdir()
-    (linked / ".git").write_text("gitdir: /nowhere/.git/worktrees/linked\n")
+    (linked / ".git").write_text(
+        "gitdir: /nowhere/.git/worktrees/linked\n", encoding="utf-8"
+    )
 
     def decoded_nothing(*args, **kwargs):
         return subprocess.CompletedProcess(args, 0, stdout=None, stderr=None)

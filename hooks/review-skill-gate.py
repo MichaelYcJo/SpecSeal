@@ -125,13 +125,13 @@ def already_asked(cwd, session):
     # from prose, and an existing marker is never overwritten because of the
     # `os.path.exists` return below -- so this is a stray write, not a
     # bypass. `hooks/commit-review-gate.py:already_asked` guards its own id
-    # and is the shape to copy. Verified 2026-08-31 against already_asked@98bb724e.
+    # and is the shape to copy. Verified 2026-10-04 against already_asked@d2d3c5a1.
     path = os.path.join(gd, MARKER_DIR, str(session))
     if os.path.exists(path):
         return True
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, "w").close()
+        open(path, "w", encoding="utf-8").close()
     except OSError:
         return True
     return False

@@ -168,21 +168,21 @@ def is_ancestor(root, sha, ref):
     known = subprocess.run(
         ["git", "-C", root, "cat-file", "-e", f"{sha}^{{commit}}"],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if known.returncode:
         return None
     resolved = subprocess.run(
         ["git", "-C", root, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if resolved.returncode:
         return None
     out = subprocess.run(
         ["git", "-C", root, "merge-base", "--is-ancestor", sha, ref],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     return out.returncode == 0
 
