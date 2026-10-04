@@ -29,6 +29,8 @@ The rules are the two consent reads 0.16.0 had, joined:
     other direction is one refusal.
 """
 
+import collections
+import re
 import shlex
 
 KNOWN = ("[no-review]", "[no-parity]", "[worktree-ok]", "[shared-tree-ok]")
@@ -241,3 +243,239 @@ def is_plain(command):
         else:
             return False
     return git_at is None
+
+
+# --- which here-document bodies nothing on the line can run (#739) ----------
+#
+# The commit gate reads every heredoc body back as shell to ask whether it
+# commits, because `bash <<'EOF'` runs its body. The rule below names the few
+# shapes where nothing can, the way `is_plain` names a plain command: a
+# positive shape, and everything outside it keeps the reading that stops.
+# `seal/specs/1791076831-a-here-document-body-is-data-to-the-commit-gate/
+# spec.md` §*The rule (R)* is the contract; R2a to R2f below are its clauses.
+
+# The programs such a line may run: the plain ones, a sink, `gh`, and a Python
+# program read from stdin.
+DATA_PROGRAMS = PLAIN_PROGRAMS | {"tee", "gh", "python3", "python"}
+
+# A body these own is the text of their output (R2e).
+SINKS = frozenset({"cat", "tee"})
+
+# A body these own is a Python program, the class `python3 script.py` already
+# belongs to: the shell reading of one finds only shell-shaped text (R2e).
+STDIN_PROGRAMS = frozenset({"python3", "python"})
+
+# The `gh` subcommands that run no local git, read from `gh <group> <sub>
+# --help` at gh 2.100.0 (`questions.md` Q4). Left out, because each runs git
+# here and git runs hooks: `pr create` (pushes a branch that is not pushed),
+# `pr checkout`, `pr merge` and `pr close` (`--delete-branch` deletes and
+# switches the local branch), `issue develop` (`--checkout`), and `release
+# create` (it fetches a tag for `--notes-from-tag`). `api` has no subcommand.
+GH_REMOTE = {
+    "pr": frozenset(
+        {"checks", "comment", "diff", "edit", "list", "lock", "ready"}
+        | {"reopen", "revert", "review", "status", "unlock", "update-branch", "view"}
+    ),
+    "issue": frozenset(
+        {"close", "comment", "create", "delete", "edit", "list", "lock", "pin"}
+        | {"reopen", "status", "transfer", "unlock", "unpin", "view"}
+    ),
+    "release": frozenset(
+        {"delete", "delete-asset", "download", "edit", "list", "upload"}
+        | {"verify", "verify-asset", "view"}
+    ),
+}
+
+# Marks a word that held quoting, which `shlex` would otherwise remove: a
+# quoted or escaped program word is no bare literal (R2c).
+_QUOTED = "\x01"
+
+_SEPARATORS = ("", ";", "&&", "||")
+_REDIRECTIONS = frozenset({"<", ">", ">>", ">|", "<<", "<<<", ">&", "<&"})
+_WRITES = frozenset({">", ">>", ">|"})
+
+# A simple command as the rule reads it. `pipeline` numbers the pipeline it
+# stands in, so a body is followed to every stage its output reaches.
+_Command = collections.namedtuple(
+    "_Command", "program args redirections openers pipeline"
+)
+
+
+def _marked(text):
+    """`text` with `_QUOTED` in front of every quote or escape that opens
+    quoting outside one, read the way `shlex` reads it in POSIX mode."""
+    out, quote, i, n = [], None, 0, len(text)
+    while i < n:
+        ch = text[i]
+        if quote == "'":
+            quote = None if ch == "'" else quote
+            out.append(ch)
+            i += 1
+        elif quote == '"':
+            if ch == "\\":
+                out.append(text[i : i + 2])
+                i += 2
+                continue
+            quote = None if ch == '"' else quote
+            out.append(ch)
+            i += 1
+        elif ch == "\\":
+            out.append(_QUOTED + text[i : i + 2])
+            i += 2
+        elif ch in "'\"":
+            out.append(_QUOTED + ch)
+            quote = ch
+            i += 1
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def _commands(line):
+    """The simple commands of `line`, or None when it is not the plain line
+    R2c and R2d describe. `line` has its comments and bodies dropped."""
+    if _QUOTED in line or "`" in line or steps_around_hooks(line):
+        return None
+    # A `$` names a parameter and nothing else: `$(`, `${`, `$[`, `$((`,
+    # `$'…'` and `$"…"` all fail here, inside quotes or out.
+    if re.search(r"\$(?![A-Za-z0-9_])", line):
+        return None
+    bare = re.sub(r"\\.|'[^']*'|\"(?:\\.|[^\"\\])*\"", "", line)
+    if any(ch in bare for ch in "(){}"):
+        return None
+    lexer = shlex.shlex(_marked(line), posix=True, punctuation_chars=";&|<>\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        split = list(lexer)
+    except ValueError:
+        return None
+    commands, current, pipeline, k = [], None, 0, 0
+    while k < len(split):
+        word = split[k]
+        k += 1
+        if word and set(word) <= set(";&|<>\n"):
+            core = word.replace("\n", "")
+            if core in _SEPARATORS or core == "|":
+                if current is None and core:
+                    return None
+                if current is not None:
+                    commands.append(current)
+                current = None
+                pipeline += core != "|"
+                continue
+            if core not in _REDIRECTIONS or current is None:
+                return None
+            target = split[k] if k < len(split) else ""
+            k += 1
+            if not target or set(target) <= set(";&|<>\n"):
+                return None
+            if core.endswith("&") and not (target.isdigit() or target == "-"):
+                return None
+            if core == "<<":
+                # R2d: the opener is on the default descriptor.
+                before = (current.args or [current.program])[-1]
+                if before.isdigit():
+                    return None
+                current.openers.append(target.replace(_QUOTED, ""))
+            current.redirections.append((core, target.replace(_QUOTED, "")))
+            continue
+        if current is None:
+            if word not in DATA_PROGRAMS:
+                return None
+            current = _Command(word, [], [], [], pipeline)
+            continue
+        current.args.append(word.replace(_QUOTED, ""))
+    if current is not None:
+        commands.append(current)
+    return commands if all(map(_plain_on_a_data_line, commands)) else None
+
+
+def _plain_on_a_data_line(command):
+    """R2c for one simple command, past the program word itself."""
+    program, args = command.program, command.args
+    if program == "git":
+        k = 0
+        while k < len(args):
+            if args[k] == "-C":
+                k += 2
+            elif args[k] == "-c":
+                key = args[k + 1].partition("=")[0].lower() if k + 1 < len(args) else ""
+                if key not in PLAIN_CONFIG:
+                    return False
+                k += 2
+            else:
+                return args[k] in PLAIN_GIT
+        return False
+    if program == "gh":
+        return bool(args) and args[0] in ("pr", "issue", "release", "api")
+    if program in STDIN_PROGRAMS:
+        # R2e's second kind, and the only place a Python program may stand:
+        # it owns a body and reads its program from stdin.
+        return bool(command.openers) and (not args or args[0] == "-")
+    if program == "printf":
+        return not (args and args[0].startswith("-"))
+    return True
+
+
+def _runs_what_it_reaches(command):
+    """True when `command` can run a file this line wrote (R2f): a Python
+    program can, and git runs hooks, which a file the line wrote may be."""
+    if command.program in STDIN_PROGRAMS or command.program == "git":
+        return True
+    if command.program != "gh" or command.args[0] == "api":
+        return False
+    group = GH_REMOTE[command.args[0]]
+    return len(command.args) < 2 or command.args[1] not in group
+
+
+def _writes_a_file(command):
+    if command.program == "tee" and command.args:
+        return True
+    return any(op in _WRITES and t != "/dev/null" for op, t in command.redirections)
+
+
+def heredoc_data(command):
+    """One answer per body `cmdline.heredocs(drop_comments(command))` returns:
+    True where nothing on the line can run that body, so the commit gate does
+    not read it back as commands (#739, `spec.md` R2).
+
+    A body is data when all of these hold, and is read as today otherwise:
+      * its delimiter is quoted and its terminator arrived (R2a, R2b);
+      * the line, with comments and bodies dropped, is plain in the sense
+        above: every program a bare word in `DATA_PROGRAMS`, nothing a shell
+        parses again, no `&` but `&&` and a descriptor's, no subshell or
+        group, and `steps_around_hooks` finds nothing (R2c);
+      * the line's openers are the bodies' openers, one for one, each on the
+        default descriptor (R2d);
+      * the command owning it is `cat` or `tee`, or `python3` or `python`
+        whose first word is `-` or absent (R2e);
+      * for a sink, when its pipeline writes a file, nothing on the line can
+        run that file (R2f).
+    """
+    from cmdline import drop_comments, drop_heredoc_bodies, heredocs
+
+    text = drop_comments(command or "")
+    records = heredocs(text)
+    unread = [False] * len(records)
+    commands = _commands(drop_heredoc_bodies(text)) if records else None
+    if commands is None:
+        return unread
+    owners = [(c, word) for c in commands for word in c.openers]
+    if len(owners) != len(records) or any(
+        word != ("-" if r.dashed else "") + r.delimiter
+        for (_c, word), r in zip(owners, records, strict=True)
+    ):
+        return unread
+    runs = any(map(_runs_what_it_reaches, commands))
+    answers = []
+    for (owner, _word), record in zip(owners, records, strict=True):
+        data = record.quoted and record.terminated
+        data = data and (owner.program in SINKS or owner.program in STDIN_PROGRAMS)
+        if data and owner.program in SINKS and runs:
+            stages = [c for c in commands if c.pipeline == owner.pipeline]
+            data = not any(map(_writes_a_file, stages))
+        answers.append(data)
+    return answers

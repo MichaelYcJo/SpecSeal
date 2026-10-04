@@ -16,10 +16,55 @@ reached. Every other body is read exactly as before, which is what the second
 half of this module holds in place.
 """
 
+import shlex
+import subprocess
+
 import pytest
-from conftest import load_hook_module
+from conftest import decision_of, declare_routing, load_hook_module, run_hook
 
 reader = load_hook_module("cmdline.py", "cmdline_heredoc_data")
+gate = load_hook_module("commit-review-gate.py", "crg_heredoc_data")
+
+# What the base answered for each of #739's three calls: the refusal for a
+# command it cannot place, which names no repository a person can act on.
+CONSTRUCT = "contains something the gate cannot read as a plain command"
+
+
+def make_repo(path, declared=False):
+    """An opted-in repository with one commit and a staged change, and no git
+    hooks, so the PreToolUse reading is the one that judges."""
+    path.mkdir(parents=True)
+    run = lambda *a: subprocess.run(
+        ["git", "-C", str(path), *a], check=True, capture_output=True
+    )
+    run("init", "-q")
+    (path / "f").write_text("1\n", encoding="utf-8")
+    run("add", "f")
+    run("-c", "user.email=e@example.com", "-c", "user.name=e", "commit", "-qm", "b")
+    (path / "f").write_text("2\n", encoding="utf-8")
+    run("add", "f")
+    (path / "seal").mkdir()
+    (path / "seal" / "config.md").write_text(
+        "| Item | Value |\n|---|---|\n| Mode | shared |\n", encoding="utf-8"
+    )
+    if declared:
+        declare_routing(path)
+    return path
+
+
+def decide(command, cwd):
+    """The gate's decision and its reason, through `main()` as the harness
+    calls it."""
+    out = run_hook(
+        "commit-review-gate.py",
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "cwd": str(cwd),
+            "session_id": "heredoc-data",
+        },
+    )
+    return decision_of(out), out
 
 
 # --- the reader says what each body is (phase 1) ------------------------------
@@ -93,3 +138,230 @@ def test_the_two_old_views_are_views_of_the_records(command):
     for record in reader.heredocs(command):
         for line in record.text.split("\n") if record.text else ():
             assert line not in lines, (command, lines)
+
+
+# --- the gate reads only what can run (phase 2) -------------------------------
+
+# A body that the shell reading finds a commit in. A commit named only inside
+# single quotes or in a `#` line was already silent at the base, so each body
+# here carries one in command position or in a double-quoted backtick.
+PR_BODY = "quotes `git -C /x commit -m y`\ngit commit -m x"
+PY_BODY = "open('m.md', 'a').write(\"run `git commit` later\")\n# then git commit -m x"
+GH = "gh pr edit 1 --body-file pr.md; gh pr ready 1"
+
+
+def pr_command(opener="<<'EOF'", end="EOF"):
+    """#739's second call: a pull request body written to a file, then
+    handed to `gh`."""
+    return f"cat > pr.md {opener}\n{PR_BODY}\n{end}\n{GH}"
+
+
+def py_command(opener="<<'EOF'", end="EOF"):
+    """#739's first call: a Python program that appends a note to a file."""
+    return f"python3 - {opener}\n{PY_BODY}\n{end}"
+
+
+def test_a_pull_request_body_that_quotes_a_commit_is_silent(tmp_path):
+    """S1, #739's second row. Red at `101f9bd0`: a deny with the text for a
+    command the gate cannot place."""
+    session = make_repo(tmp_path / "session")
+    got, out = decide(pr_command(), session)
+    assert got == "silent", out
+
+
+def test_a_python_program_that_mentions_a_commit_is_silent(tmp_path):
+    """S2, #739's first row. Red at `101f9bd0` the same way."""
+    session = make_repo(tmp_path / "session")
+    got, out = decide(py_command(), session)
+    assert got == "silent", out
+
+
+def test_the_real_commit_after_a_python_body_is_judged_where_it_lands(tmp_path):
+    """S3, #739's third row. The body says nothing about where the commit
+    lands, so the one invocation left is the real one, with its `-C`: silent
+    for a declared repository, and a stop for an undeclared one that names
+    that repository instead of the unplaceable-construct text."""
+    session = make_repo(tmp_path / "session")
+    for repo, expected in (
+        (make_repo(tmp_path / "declared", declared=True), "silent"),
+        (make_repo(tmp_path / "undeclared"), "deny"),
+    ):
+        r = shlex.quote(str(repo))
+        command = (
+            f"python3 - \"$F\" <<'EOF' && git -C {r} add f && git -C {r} commit -m x\n"
+            f's = "`git commit`"\nEOF'
+        )
+        found, clean = gate.commit_invocations(command, str(session))
+        assert clean and [list(inv.chdirs) for inv in found] == [[str(repo)]], found
+        got, out = decide(command, session)
+        assert got == expected, out
+        assert CONSTRUCT not in out, out
+
+
+QUOTED_OPENERS = {
+    "<<-'EOF'": "\tEOF",
+    '<<"EOF"': "EOF",
+    "<<\\EOF": "EOF",
+    "<<E'O'F": "EOF",
+}
+
+
+@pytest.mark.parametrize("opener", sorted(QUOTED_OPENERS))
+def test_every_quoting_of_the_delimiter_is_data(tmp_path, opener):
+    """S4. `<<-` strips the tabs from the body and the terminator and changes
+    nothing else; red at `101f9bd0` for each."""
+    session = make_repo(tmp_path / "session")
+    end = QUOTED_OPENERS[opener]
+    for command in (pr_command(opener, end), py_command(opener, end)):
+        if opener.startswith("<<-"):
+            command = command.replace(PR_BODY, "\t" + PR_BODY.replace("\n", "\n\t"))
+        got, out = decide(command, session)
+        assert got == "silent", (command, out)
+
+
+@pytest.mark.parametrize("opener", ["<<EOF", "<<$'EOF'", "<<-EOF"])
+def test_an_unquoted_delimiter_keeps_the_body_read(tmp_path, opener):
+    """S5. The outer shell expands `$( … )` and backticks in such a body, and
+    reading it for those alone needs a scanner this work does not build."""
+    session = make_repo(tmp_path / "session")
+    for command in (pr_command(opener), py_command(opener)):
+        got, out = decide(command, session)
+        assert got in ("deny", "ask"), (command, out)
+
+
+def test_a_body_whose_terminator_never_arrives_stays_read(tmp_path):
+    """R2b. The body runs to the end of the input, and the lines a reader with
+    another delimiter would call commands are in it."""
+    session = make_repo(tmp_path / "session")
+    got, out = decide(f"cat > pr.md <<'EOF'\n{PR_BODY}\n{GH}", session)
+    assert got == "deny", out
+
+
+# Every consumer, wrapper and construct the rule leaves read (spec §*Shapes*).
+# Each one runs its body, or can be made to, or is a spelling the rule does
+# not recognise as plain.
+CONSUMERS_READ = [
+    "bash <<'EOF'",
+    "sh -s <<'EOF'",
+    "zsh <<'EOF'",
+    "cat <<'EOF' | sh",
+    "cat <<'EOF' | bash -s",
+    "cat <<'EOF' | python3 -",
+    "source /dev/stdin <<'EOF'",
+    ". /dev/stdin <<'EOF'",
+    "exec bash <<'EOF'",
+    "sudo bash <<'EOF'",
+    "env cat <<'EOF'",
+    "command cat <<'EOF'",
+    "/bin/cat <<'EOF'",
+    "\\cat <<'EOF'",
+    "'cat' <<'EOF'",
+    "X=1 cat <<'EOF'",
+    "$SH <<'EOF'",
+    "perl - <<'EOF'",
+    "node - <<'EOF'",
+    "xargs <<'EOF'",
+    "ssh host <<'EOF'",
+    "python3 -c 'import sys' <<'EOF'",
+    "python3 -Bc'import sys' <<'EOF'",
+    "python3 <<'EOF' -c 'import sys'",
+    "python3 x.py <<'EOF'",
+    "python3 $X <<'EOF'",
+    "python3 -u - <<'EOF'",
+    "cat 0<<'EOF'",
+    "cat 3<<'EOF'",
+    "cat <<'EOF' &",
+    "cat <<'EOF' >&python3",
+    "{ cat; } <<'EOF'",
+    "( cat ) <<'EOF'",
+    "if true; then cat <<'EOF'",
+    "for x in a; do cat <<'EOF'",
+    "f() { cat; }; f <<'EOF'",
+    "cat <<'EOF' > >(bash)",
+    "cat <<'EOF' $(true)",
+    "git -c core.hooksPath=/x status; cat <<'EOF'",
+]
+
+
+@pytest.mark.parametrize("head", CONSUMERS_READ)
+def test_a_body_something_can_run_is_still_read(tmp_path, head):
+    """S6. Green at `101f9bd0` and after: each stops for the commit in its
+    body. Run from a declared repository, so the body is the only thing that
+    can stop it."""
+    session = make_repo(tmp_path / "session", declared=True)
+    got, out = decide(f"{head}\ngit commit -m x\nEOF", session)
+    assert got in ("deny", "ask"), out
+
+
+FILE_RUNNERS = [
+    "bash f.sh",
+    "sh f.sh",
+    "./f.sh",
+    "source f.sh",
+    "make",
+    "python3 - <<'P'\nimport os; os.system('sh f.sh')\nP",
+    "git commit -m y",
+    "git add f.sh",
+    "gh pr create --body-file f.sh",
+    "gh pr checkout 1",
+]
+
+
+@pytest.mark.parametrize("runner", FILE_RUNNERS)
+def test_a_written_file_a_line_could_run_keeps_its_body_read(tmp_path, runner):
+    """S7. A sink that writes a file is data only where nothing on the line
+    can run that file: a shell or a Python program can, and git runs hooks,
+    which a file the line wrote may be. From a declared repository, so the
+    body is the only thing that can stop it."""
+    session = make_repo(tmp_path / "session", declared=True)
+    for writer in ("cat > f.sh <<'EOF'", "tee f.sh <<'EOF'", "cat <<'EOF' | tee f.sh"):
+        command = f"{writer}\ngit commit -m x\nEOF\n{runner}"
+        got, out = decide(command, session)
+        assert got in ("deny", "ask"), (command, out)
+
+
+NESTED = [
+    "bash <<<\"$(cat <<'EOF'\ngit commit -m x\nEOF\n)\"",
+    "source <(cat <<'EOF'\ngit commit -m x\nEOF\n)",
+    "eval \"$(cat <<'EOF'\ngit commit -m x\nEOF\n)\"",
+    "bash <<'O'\ncat > f <<'I'\ngit commit -m x\nI\nbash f\nO",
+    "sh -c \"$(cat <<'EOF'\ngit commit -m x\nEOF\n)\"",
+]
+
+
+@pytest.mark.parametrize("command", NESTED)
+def test_a_body_below_the_top_level_is_still_read(tmp_path, command):
+    """S8. A substitution's value goes wherever the command around it sends
+    it, and the reading inside cannot see where, so R1 keeps every body below
+    the top level read."""
+    session = make_repo(tmp_path / "session", declared=True)
+    got, out = decide(command, session)
+    assert got in ("deny", "ask"), out
+
+
+def test_a_written_file_nothing_on_the_line_runs_is_data(tmp_path):
+    """R2f's other side. A sink's file beside `gh` subcommands that run no
+    local git, beside `cd` and beside `echo`, is data; red at `101f9bd0`."""
+    session = make_repo(tmp_path / "session")
+    for after in (GH, "cd . && echo done", "gh api repos/x/y --input pr.md"):
+        command = f"cat > pr.md <<'EOF'\n{PR_BODY}\nEOF\n{after}"
+        got, out = decide(command, session)
+        assert got == "silent", (command, out)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"cat <<'A' > pr.md\n{PR_BODY}\nA\npython3 - <<'B'\n{PY_BODY}\nB",
+        f"cat <<'A' | grep -v x > /dev/null\n{PR_BODY}\nA",
+        f"cat <<'A' <<'B'\n{PR_BODY}\nA\n{PR_BODY}\nB",
+    ],
+)
+def test_two_bodies_and_a_pipeline_are_each_judged(tmp_path, command):
+    """R2d and R2f together: each body is matched to its own opener, a sink
+    feeding a plain pipeline is data, and a sink writing a file beside a
+    Python program is not."""
+    session = make_repo(tmp_path / "session")
+    got, out = decide(command, session)
+    expected = "deny" if "python3" in command else "silent"
+    assert got == expected, (command, out)

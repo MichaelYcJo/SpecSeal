@@ -194,13 +194,22 @@ def test_the_four_measured_shapes_are_refused_under_the_press(
 ):
     """S4. The session directory is opted in and undeclared, and W is
     declared, as in the measured run. Without the press each is what it was:
-    a deny, then an ask. Under it, a deny both times."""
+    a deny, then an ask. Under it, a deny both times.
+
+    Except one. "a patch whose body loops over a commit string" holds no
+    commit bash would run: a quoted body fed to a Python program read from
+    stdin, which #739 made data. It reads silent with the press and without,
+    as `tests/test_no_shape_the_base_stops_reads_silent.py` records for the
+    same row."""
     session = make_repo(tmp_path / "session")
     w = make_repo(tmp_path / "w", declared=True)
     press(projects, session)
     for name, command in measured(w).items():
         plain = [say(monkeypatch, capsys, command, session, PLAIN)[0] for _ in "12"]
         pressed = [say(monkeypatch, capsys, command, session)[0] for _ in "12"]
+        if name == "a patch whose body loops over a commit string":
+            assert plain == pressed == ["silent", "silent"], (name, plain, pressed)
+            continue
         assert plain == ["deny", "ask"], (name, plain)
         assert pressed == ["deny", "deny"], (name, pressed)
         forget_the_budget(session)

@@ -396,7 +396,16 @@ def commit_invocations(command, cwd=None):
                 if kind not in kinds[index]:
                     found += invs
 
-    for body in heredoc_bodies(drop_comments(command)):
+    # A body nothing on the line can run is data and is not read (#739): a
+    # quoted body fed to `cat`, `tee` or a Python program read from stdin, on
+    # a plain line, where no program can run a file the body reached.
+    # `tokens.heredoc_data` is the one rule for that shape, and every other
+    # body -- here, and every body the reading meets one level down -- is read
+    # as commands exactly as before.
+    data = tokens.heredoc_data(command)
+    for k, body in enumerate(heredoc_bodies(drop_comments(command))):
+        if k < len(data) and data[k]:
+            continue
         if _hides_a_commit(body):
             found.append(Invocation((), (), base=_unresolved_base(cwd)))
 

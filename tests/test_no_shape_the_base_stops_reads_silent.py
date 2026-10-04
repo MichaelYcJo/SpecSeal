@@ -19,6 +19,12 @@ round-2-report.md` and `round-3-report.md`, on
 controls included, beside the four shapes that prompted the person in the
 measured run and #662's reverse direction.
 
+One row has left it. #739, the owner's later and narrower decision, asks for a
+quoted heredoc body fed to a Python program read from stdin to be data, and
+"a patch whose body loops over a commit string" is exactly that shape. It
+stands in `test_the_one_row_that_left_the_corpus_reads_silent` below, which
+asserts the opposite of what it asserted here. Every other row still stops.
+
 Each command is issued twice without the press and twice with it, in a fresh
 session each way, because the base answers a first stop and a later one
 differently. None of the four answers may be silence. The case passes on the
@@ -168,11 +174,8 @@ def corpus(w, m, h):
             "measured: ; after cd, no heredoc",
             f"cd {q(w)} && true ; git add f && {BODY}",
         ),
-        (
-            "measured: a patch whose body loops over a commit string",
-            f"cd {q(w)} && python3 - <<'EOF'\ns = 'don\\'t'\n"
-            f"for c in ['cd {w}; {BODY}']:\n    print(c)\nEOF",
-        ),
+        # "measured: a patch whose body loops over a commit string" stood
+        # here and moved to the case after this function (#739).
         (
             "measured: a body line equal to the delimiter ends it early",
             f"cat > note.md <<'EOF'\nquoted:\nEOF\n{BODY}\nEOF",
@@ -221,6 +224,30 @@ def test_no_shape_the_base_stops_reads_silent(monkeypatch, capsys, projects, tmp
         for marker in (session / ".git" / "specseal-commit-choice").glob("*"):
             marker.unlink()
     assert not silent, "a command the base stops reads silent:\n" + "\n".join(silent)
+
+
+def test_the_one_row_that_left_the_corpus_reads_silent(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """#739 moved ONE row out of the corpus above, and only that one: "a
+    patch whose body loops over a commit string". It is a Python program read
+    from stdin, behind a quoted delimiter, on a plain line, and it holds no
+    commit bash would run -- the shape #739, the owner's later and narrower
+    decision, asks to be silent. The constraint this module records was stated
+    for the work of `1790644505`, whose subject was who a stop goes to, not
+    this reading (`seal/specs/1791076831-a-here-document-body-is-data-to-the-
+    commit-gate/questions.md` Q1, decided at the frame's default when the
+    owner approved it). Red at `101f9bd0`, where all four answers stopped."""
+    session = make_repo(tmp_path / "session")
+    w = make_repo(tmp_path / "w", declared=True)
+    command = (
+        f"cd {q(w)} && python3 - <<'EOF'\ns = 'don\\'t'\n"
+        f"for c in ['cd {w}; {BODY}']:\n    print(c)\nEOF"
+    )
+    answers = with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    )
+    assert answers == {"plain": ["silent"] * 2, "pressed": ["silent"] * 2}, answers
 
 
 def test_a_parity_arm_is_not_waived_by_a_newly_read_commit(
