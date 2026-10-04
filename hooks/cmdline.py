@@ -31,6 +31,7 @@ into silence, and that is the place to fix it; a `try` around the import here
 would only make the silence look deliberate.
 """
 
+import collections
 import os
 import re
 import shlex
@@ -381,12 +382,44 @@ def heredoc_bodies(command: str) -> list:
     dropped body hides a `git commit` needs the text this drops, not just the
     command with it gone.
     """
-    _stripped, bodies = _heredoc_split(command)
-    return bodies
+    _stripped, records = _heredoc_split(command)
+    return [record.text for record in records]
+
+
+# One heredoc body as the pass below met it (#739). `text` is what
+# `heredoc_bodies` returns for it. `quoted` is whether the shell expands
+# nothing in it, `terminated` whether its delimiter line arrived, and
+# `delimiter` and `dashed` are the word and the `<<-` that the line named, so
+# a reader of that line can tell which opener owns which body.
+Heredoc = collections.namedtuple("Heredoc", "text quoted terminated delimiter dashed")
+
+
+def heredocs(command: str) -> list:
+    """A `Heredoc` for every body `heredoc_bodies` returns, in the same order.
+
+    The commit gate asks of each body whether anything can run it, and three
+    facts here are what that question needs that the text alone does not
+    carry (`seal/specs/1791076831-a-here-document-body-is-data-to-the-commit-
+    gate/spec.md`, R2a, R2b, R2d).
+    """
+    _stripped, records = _heredoc_split(command)
+    return records
+
+
+def _quoted_delimiter(raw):
+    """True when the delimiter word, as written, keeps its body unexpanded.
+
+    bash expands nothing in a body whose delimiter has any part quoted:
+    `'EOF'`, `"EOF"`, `\\EOF`, `E'O'F`. A `$` anywhere in the word answers
+    False, because what bash makes of `$'EOF'` or `$"EOF"` there was never
+    measured, and the answer that keeps a body read is the one that stops.
+    """
+    return "$" not in raw and any(ch in raw for ch in "'\"\\")
 
 
 def _heredoc_split(command: str):
-    """(stripped, bodies) -- `drop_heredoc_bodies` and `heredoc_bodies` share one pass."""
+    """(stripped, records) -- `drop_heredoc_bodies`, `heredoc_bodies` and
+    `heredocs` share one pass."""
     out, i, n = [], 0, len(command)
     bodies = []
     quote, esc, comment, word_start, pending = None, False, False, True, []
@@ -562,9 +595,10 @@ def _heredoc_split(command: str):
                 j += 1
             while j < n and command[j] in " \t":
                 j += 1
+            start = j
             delim, j = _heredoc_word(command, j)
             if delim:
-                pending.append((delim, dashed))
+                pending.append((delim, dashed, _quoted_delimiter(command[start:j])))
                 out.append(command[i:j])
                 word_start = False
                 i = j
@@ -573,16 +607,19 @@ def _heredoc_split(command: str):
             out.append(ch)
             i += 1
             comment, word_start = False, True
-            for delim, dashed in pending:
-                body_lines = []
+            for delim, dashed, quoted in pending:
+                body_lines, terminated = [], False
                 while i < n:
                     end = command.find("\n", i)
                     line = command[i:] if end == -1 else command[i:end]
                     i = n if end == -1 else end + 1
                     if (line.lstrip("\t") if dashed else line).rstrip("\r") == delim:
+                        terminated = True
                         break
                     body_lines.append(line.rstrip("\r"))
-                bodies.append("\n".join(body_lines))
+                bodies.append(
+                    Heredoc("\n".join(body_lines), quoted, terminated, delim, dashed)
+                )
             pending = []
             continue
         out.append(ch)
