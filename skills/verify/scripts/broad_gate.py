@@ -1858,11 +1858,14 @@ STOPPED_EARLY_RE = re.compile(r"^!+ .+ !+$", re.M)
 # in 0.00s`, and read as pytest's it gave `new` for a file the base fails
 # (round 1's 🟡 1). A label is the category pytest or a plugin reports, and
 # one of pytest 9's own is two words — `2 failed, 1 subtests passed in
-# 0.01s` (round 2's 🟡 1) — so a label is one lowercase word or two. A run
-# whose line carries colour codes, a longer label, or no line at all (`-qq`)
-# is not read as pytest's, and its files read `new?`.
+# 0.01s` (round 2's 🟡 1). pytest lists its own categories first
+# (`KNOWN_TYPES` in `_pytest/terminal.py`) and a plugin's after them, and
+# every test reports one of its own, so the first label is one word and a
+# later one is one lowercase word or two. A run whose line carries colour
+# codes, a longer label, or no line at all (`-qq`) is not read as pytest's,
+# and its files read `new?`.
 PYTEST_SUMMARY_RE = re.compile(
-    r"^=*\s*\d+ [a-z]+(?: [a-z]+)?(?:, \d+ [a-z]+(?: [a-z]+)?)* in \d+(?:\.\d+)?s"
+    r"^=*\s*\d+ [a-z]+(?:, \d+ [a-z]+(?: [a-z]+)?)* in \d+(?:\.\d+)?s"
     r"(?: \(\d+:\d\d:\d\d\))?\s*=*$",
     re.M,
 )

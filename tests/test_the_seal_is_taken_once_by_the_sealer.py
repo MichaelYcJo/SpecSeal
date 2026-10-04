@@ -4120,6 +4120,12 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     for parts, phrase in readers.items():
         with open(os.path.join(ROOT, *parts), encoding="utf-8") as handle:
             assert phrase in handle.read(), f"{'/'.join(parts)} does not name `new?`"
+    # Round 2's ⬜ 2: the reason a reader acts on says the summary was not
+    # READ, since with colour forced on pytest prints one the gate does not.
+    with open(
+        os.path.join(ROOT, "skills", "verify", "SKILL.md"), encoding="utf-8"
+    ) as handle:
+        assert "printed a line the gate reads as pytest's summary" in handle.read()
     with open(GATE, encoding="utf-8") as handle:
         docstring = ast.get_docstring(ast.parse(handle.read()))
     assert "`new?` with the reason no run measured it" in docstring
