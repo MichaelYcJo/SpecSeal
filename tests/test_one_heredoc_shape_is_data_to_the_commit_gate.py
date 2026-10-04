@@ -11,6 +11,7 @@ session directory wherever it can, so that the body is the only thing on the
 command that could stop it.
 """
 
+import json
 import shlex
 import subprocess
 
@@ -127,7 +128,11 @@ def test_refusal_3_restated_is_judged_where_its_commit_lands(tmp_path):
         assert got == expected, out
         assert CONSTRUCT not in out, out
         if expected == "deny":
-            assert str(repo) in out, out
+            # The reason as the hook wrote it, decoded: on Windows the JSON
+            # escapes every backslash of the path, so the raw stdout never
+            # holds `str(repo)` verbatim.
+            reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+            assert str(repo) in reason, out
 
 
 # --- S3: refusals 2 and 3, as recorded: the cost Q2 accepts -------------------
