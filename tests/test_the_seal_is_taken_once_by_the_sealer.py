@@ -747,9 +747,10 @@ def config(row=True):
     string for a row under test, or False for a file with no such row."""
     text = "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
     if row:
-        # The suite runner first, so the base comparison can re-run it on
-        # the failing files alone. `-p no:cacheprovider` keeps pytest from
-        # writing `.pytest_cache` into a tree the gate later diffs.
+        # The suite runner alone, so the base comparison's first prefix is
+        # the runner and it re-runs only the failing files (#747).
+        # `-p no:cacheprovider` keeps pytest from writing `.pytest_cache`
+        # into a tree the gate later diffs.
         runner = row if isinstance(row, str) else SUITE_ROW
         text += f"| {ROW} | {runner} |\n"
     return text
@@ -4037,6 +4038,37 @@ def test_the_base_run_is_read_off_what_pytest_printed(text, files, words):
     gate = gate_module()
     expected = [getattr(gate, w) if w.isupper() else w for w in words]
     assert list(gate.verdicts_at_base(text, files).values()) == expected
+
+
+def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
+    """A9 (#747, contract §14). The two reasons are text a person reads and
+    acts on, so they are pinned whole, and each starts with the word that
+    marks it unmeasured. Every document that tells a reader what the gate's
+    words mean names `new?` beside the other two, so a sealer handing it on
+    and a smith reading it are both told it is not `new`."""
+    gate = gate_module()
+    assert gate.NO_RUNNER == (
+        "new? not measured: no part of the row printed a pytest summary at the "
+        "base (each part tried is kept as suite-at-base-<k>.txt)"
+    )
+    assert gate.STOPPED_EARLY == (
+        "new? not measured: the run at the base stopped before every test ran, "
+        "and it does not name this file"
+    )
+    readers = {
+        ("agents", "sealer.md"): "`new?`",
+        ("agents", "smith.md"): "`new?` is neither",
+        ("skills", "verify", "SKILL.md"): "**New?**",
+        ("README.md",): "new? → not measured at the base",
+        ("README.ko.md",): "new? → base 에서 재지 못했다",
+        ("templates", "config.md"): "each file reads `new?` with the reason",
+    }
+    for parts, phrase in readers.items():
+        with open(os.path.join(ROOT, *parts), encoding="utf-8") as handle:
+            assert phrase in handle.read(), f"{'/'.join(parts)} does not name `new?`"
+    with open(GATE, encoding="utf-8") as handle:
+        docstring = ast.get_docstring(ast.parse(handle.read()))
+    assert "`new?` with the reason no run measured it" in docstring
 
 
 def test_a_runner_first_row_runs_once_at_the_base(tmp_path):

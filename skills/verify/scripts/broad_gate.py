@@ -60,10 +60,12 @@ every check that failed, which is what a reader acts on.
 **On a failing test the comparison against the base is reactive and
 mechanical** (`skills/verify/SKILL.md` §*The broad gate*). Only when the
 repository's command fails AND its output names failing test files does the
-gate add a scratch worktree at `<base>`, run the row's first command on those
-files there, remove the worktree, and label each file `new` or `failing on
-base too`. It decides nothing about either word: both go in the report and
-the reader acts.
+gate add a scratch worktree at `<base>`, run the part of the row that runs
+pytest on those files there, remove the worktree, and label each file `new`,
+`failing on base too`, or `new?` with the reason no run measured it. That
+part is found by running each prefix of the row until one prints pytest's
+summary, never by its name or its place (#747). It decides nothing about any
+of the words: they go in the report and the reader acts.
 
 **Drawn on success only, and only where a person is looking** (#400). The
 stamp — the disc and a panel carrying the tree and its branch, the base and

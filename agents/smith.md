@@ -388,6 +388,8 @@ When the sealer reports a failure, the word beside each failing file already
 says whether it fails on the base commit as well: the gate re-ran those files
 there. `failing on base too` predates the work — a follow-up to name, not a
 defect to chase, and outside the scope you are allowed to change anyway.
+`new?` is neither: nothing at the base measured that file, and its reason
+says why. Run it at the base yourself before you treat it as either.
 Three returns through that gate and stop: a fourth says the narrow scope is
 missing a class of breakage, which is the architecture talking.
 
