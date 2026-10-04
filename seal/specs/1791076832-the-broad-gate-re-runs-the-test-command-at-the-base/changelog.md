@@ -5,9 +5,14 @@
   used to re-run the row's first `&&` part. In a row that lints first, that
   part is the linter, so no failure could show at the base and every failing
   file read `new`, whatever the base did. Now the gate cuts the row where its
-  shell does, at `&&`, `||`, `;`, `|` and `&` outside quotes and groups, with
-  no `;` under `cmd.exe`. It runs each prefix at the base with the failing
-  files added, and reads the first one that prints pytest's summary.
+  shell does, outside quotes and groups: at `&&`, `||`, `;` and `|` under
+  `/bin/sh`, and at `&&`, `||`, `&` and `|` under `cmd.exe`. A lone `&` under
+  `/bin/sh` is not a cut, because the part before it runs in the background.
+  The gate runs each prefix at the base with the failing files added, and
+  reads the first one that prints pytest's own summary line, so a line from
+  another tool, such as `cargo test`'s, is not taken for it. A failing file
+  named from a directory the row enters with `cd` is run at the base too,
+  where it used to read `new` without a run.
 
   A file that run names in a `FAILED` or `ERROR` line reads
   `failing on base too`, and one it does not name reads `new`. Where no part
@@ -18,7 +23,9 @@
   `templates/config.md` rule 3 no longer asks for the runner first. It
   describes both orders: runner first costs one run at the base, and lint
   first re-runs the earlier parts once for each prefix tried. A runner inside
-  a `( … )` group, or one whose output goes to a file, reads `new?`.
+  a `( … )` group, or one whose output goes to a file, reads `new?`. Rule 3
+  also names the one `new` the gate cannot check: a wrapper that prints
+  pytest's summary but drops the files given to it, such as a `make` target.
 
 - The test that checks a row which does not end leaves nothing behind no
   longer fails on a loaded machine (#748). It waited a fixed half second
