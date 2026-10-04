@@ -162,12 +162,14 @@ def _tree(base, skills_of, files):
     for name, skills in skills_of.items():
         listed = "".join(f"  - {s}\n" for s in skills)
         os.makedirs(os.path.join(base, "agents"), exist_ok=True)
-        with open(os.path.join(base, "agents", f"{name}.md"), "w") as handle:
+        with open(
+            os.path.join(base, "agents", f"{name}.md"), "w", encoding="utf-8"
+        ) as handle:
             handle.write(f"---\nname: {name}\nskills:\n{listed}---\n\n# {name}\n")
     for rel, text in files.items():
         path = os.path.join(base, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as handle:
+        with open(path, "w", encoding="utf-8") as handle:
             handle.write(text)
     return str(base)
 
@@ -251,7 +253,7 @@ def test_a_line_the_shared_rule_does_not_fence_hides_no_marker(tmp_path, not_a_f
 
 def test_the_definition_itself_is_read(tmp_path):
     root = _tree(tmp_path, {"a": []}, {})
-    with open(os.path.join(root, "agents", "a.md"), "a") as handle:
+    with open(os.path.join(root, "agents", "a.md"), "a", encoding="utf-8") as handle:
         handle.write("\n## Orchestrator: not the agent's\n\nX.\n")
     found = findings(root)
     assert len(found) == 1, found

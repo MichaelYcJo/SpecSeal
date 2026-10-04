@@ -616,9 +616,9 @@ PACT_ROW = "Pact"
 PACT_NOTIFY_ROW = "Pact notify"
 # The separator `Over the ceiling` already uses between its entries.
 PACT_SEPARATOR = ";"
-# What a signatory asks to be told about a change to the pact. Nothing acts on
-# the value until #647's step C; this reader validates it so the row has a
-# reader from the first day.
+# What a signatory asks to be told about a change to the pact: which of its
+# re-reads `evidence-check --reverify` records as pact changes, and which of
+# those `pact-check` reads (#647, steps C and D; `docs/the-pact.md`).
 NOTIFY_ALWAYS = "always"
 NOTIFY_TOUCHED = "when the pact is touched"
 NOTIFY_NEVER = "never"
@@ -747,7 +747,9 @@ def pact_declaration(text):
                 [] where no row names a pact
       notify    the `Pact notify` value, lowercased; `NOTIFY_DEFAULT` where a
                 `Pact` row stands with no `Pact notify`; None where no
-                `Pact` row does, because the notify row is then ignored
+                `Pact` row does, because the notify row is then ignored, and
+                None where the row is refused, outside the vocabulary or
+                written more than once
       refusals  one sentence per thing that would not parse, naming it
 
     **It refuses in sentences and stops nothing.** The two callers differ on
@@ -781,9 +783,13 @@ def pact_declaration(text):
     )
     refusals.extend(refused)
     if len(notify_rows) > 1:
+        # Refused, and no value: the first row is not the answer, so a
+        # caller that read it would rule `always` in or out on a row the
+        # signatory also contradicted (round 1 of PR #756, yellow 2).
         refusals.append(
             f"`{PACT_NOTIFY_ROW}` appears {len(notify_rows)} times — one value"
         )
+        return pacts, None, refusals
     notify = " ".join(notify_rows[0].split()).lower() if notify_rows else ""
     if not notify:
         notify = NOTIFY_DEFAULT
@@ -819,19 +825,313 @@ def declared_pacts(home):
     return pact_declaration(text)
 
 
+# --- one GFM table walker (#647, steps C and D) -----------------------------
+#
+# Three tables are read out of markdown by name: the pact's `| Signatory |`,
+# a signatory's record of pact changes, and the pact's record of pact
+# reviews. One walker reads all three, because three walkers are three break
+# lists to keep in step, and round 3 of #735 measured exactly that drift in
+# the one there was: an autolink row ended the table, and a signatory written
+# as one was read by nobody at exit 0.
+#
+# **It reads what cmark-gfm renders, or refuses.** It is held to the renderer
+# by `tests/test_one_table_walker_reads_what_gfm_renders.py`, a property case
+# over a corpus enumerated from the CommonMark and GFM block kinds: on every
+# shape the walker's cells equal cmark-gfm's, or the walker refuses. So every
+# arm below is one of two kinds. An END is a line the renderer was measured to
+# end the table at; a ROW is a line written `| … |` with the header's width.
+# Anything else is refused, with what it is, because a line the renderer reads
+# as a row and the walker reads as an end is a row nobody reads.
+
+# A line that ends a GFM table, after at most three spaces of indentation (a
+# fourth column is an indented code block, which ends it too). The HTML block
+# starts are CommonMark 4.6's seven kinds, measured against cmark-gfm one tag
+# name at a time; an autolink, `<https://…>`, is not one of them, and the
+# renderer reads it as one of the table's rows.
+ATX_HEADING = re.compile(r"#{1,6}(?:[ \t]|$)")
+THEMATIC_BREAK = re.compile(r"(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$")
+BLOCK_QUOTE = re.compile(r">")
+LIST_ITEM = re.compile(r"(?:[-+*]|[0-9]{1,9}[.)])(?:[ \t]|$)")
+HTML_KINDS = (
+    # 1: a raw-text element, ended by its closing tag.
+    (
+        re.compile(r"<(?:script|pre|style|textarea)(?:[ \t>]|$)", re.I),
+        re.compile(r"</(?:script|pre|style|textarea)>", re.I),
+    ),
+    # 2-5: a comment, a processing instruction, a declaration, CDATA.
+    (re.compile(r"<!--"), re.compile(r"-->")),
+    (re.compile(r"<\?"), re.compile(r"\?>")),
+    (re.compile(r"<![A-Za-z]"), re.compile(r">")),
+    (re.compile(r"<!\[CDATA\["), re.compile(r"\]\]>")),
+    # 6: a block-level tag name, open or closing; ended by a blank line.
+    (
+        re.compile(
+            r"</?(?:address|article|aside|base|basefont|blockquote|body|caption"
+            r"|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset"
+            r"|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6"
+            r"|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem"
+            r"|nav|noframes|ol|optgroup|option|p|param|section|source|summary"
+            r"|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t>]|/>|$)",
+            re.I,
+        ),
+        None,
+    ),
+    # 7: any other whole open or closing tag alone on its line.
+    (
+        re.compile(
+            r"(?:<[A-Za-z][A-Za-z0-9-]*"
+            r"(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*"
+            r"(?:[ \t]*=[ \t]*(?:[^ \t\"'=<>`]+|'[^'\n]*'|\"[^\"\n]*\"))?)*"
+            r"[ \t]*/?>|</[A-Za-z][A-Za-z0-9-]*[ \t]*>)[ \t]*$"
+        ),
+        None,
+    ),
+)
+# A delimiter row: one `:?-+:?` per cell, a pipe somewhere in it (a bare `---`
+# under a line is a setext heading, and GFM renders no table there), at most
+# three spaces of indentation and no tab before it.
+DELIMITER_ROW = re.compile(
+    r"^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$"
+)
+# A row written `| … |`, at most three spaces in; its cells are split by
+# every pipe `CELL` does not hold, so an escaped pipe stays inside its cell.
+TABLE_ROW = re.compile(rf"^ {{0,3}}\|(?P<cells>(?:{CELL}|\|)*)\|[ \t]*$")
+CELL_PIPE = re.compile(rf"((?:{CELL})*)(\|?)")
+# A pipe after an even run of backslashes: `CELL` reads the backslashes in
+# pairs and splits there, and cmark-gfm does not, because its cell scanner
+# reads `\|` as an escaped pipe wherever it stands (round 1 of PR #749,
+# white 6). A line holding one is no row this walker reads.
+EVEN_ESCAPED_PIPE = re.compile(r"(?<!\\)(?:\\\\)+\|")
+
+
+def table_cells(line):
+    """The cells of LINE as a tuple, each stripped and with `\\|` reduced to a
+    pipe, where LINE is written `| … |`; otherwise None, which is also the
+    answer for a line holding a pipe after an even run of backslashes, which
+    cmark-gfm splits differently (`EVEN_ESCAPED_PIPE`)."""
+    match = TABLE_ROW.match(line)
+    if not match or EVEN_ESCAPED_PIPE.search(line):
+        return None
+    cells = []
+    for piece in CELL_PIPE.finditer(match.group("cells")):
+        cells.append(unescaped(piece.group(1).strip()))
+        if not piece.group(2):
+            break
+    return tuple(cells)
+
+
+def html_start(content):
+    """`(kind, end)` for the HTML block CONTENT begins -- CONTENT being the
+    line past its indentation -- where `kind` is CommonMark 4.6's condition
+    number and `end` the pattern that ends the block, None for the two kinds
+    a blank line ends; `(None, None)` where CONTENT begins none."""
+    for number, (start, end) in enumerate(HTML_KINDS, 1):
+        if start.match(content):
+            return number, end
+    return None, None
+
+
+def table_end(line):
+    """Why LINE ends a GFM table above it, or None where cmark-gfm reads it as
+    one of the table's rows (or the walker cannot say which, and refuses)."""
+    if not line.strip():
+        return "a blank line"
+    if blocks.columns(line) >= 4:
+        return "an indented code block"
+    content = line.lstrip(" ")
+    if ATX_HEADING.match(content):
+        return "a heading"
+    if THEMATIC_BREAK.match(content):
+        return "a thematic break"
+    if BLOCK_QUOTE.match(content):
+        return "a block quote"
+    if LIST_ITEM.match(content):
+        return "a list item"
+    if html_start(content)[0]:
+        return "an HTML block"
+    return None
+
+
+def raw_html_open(lines):
+    """True where an HTML block of CommonMark 4.6's kinds 1-5 -- the kinds no
+    blank line ends -- is still open after LINES, so everything under it is
+    the block's raw text and GFM renders no table there (round 1 of PR
+    #749, yellow 5)."""
+    end = None
+    for line in lines:
+        if end is not None:
+            if end.search(line):
+                end = None
+            continue
+        if blocks.columns(line) >= 4:
+            continue
+        content = line.lstrip(" ")
+        number, closer = html_start(content)
+        if number is not None and number <= 5 and not closer.search(content, 1):
+            end = closer
+    return end is not None
+
+
+def a_list_above(lines):
+    """True where a list item stands in LINES since the last heading or
+    thematic break at the start of a line, so an indented header under it
+    can be more of that item: a blank line does not end a list item, and the
+    header's indent decides (round 2 of PR #749, yellow 15). The two
+    patterns are matched on the line as written, so a heading indented into
+    an item is the item's content and resets nothing."""
+    seen = False
+    for line in lines:
+        if blocks.columns(line) >= 4:
+            continue
+        content = line.lstrip(" ")
+        if ATX_HEADING.match(line) or THEMATIC_BREAK.match(line):
+            seen = False
+        elif LIST_ITEM.match(content):
+            seen = True
+    return seen
+
+
+def gfm_table(text, header):
+    """(rows, refusals) for the first GFM table in TEXT whose header row's
+    cells are HEADER, a tuple of names.
+
+      rows      [(line number, cells)] for every body row read, each cells a
+                tuple as wide as HEADER, in order
+      refusals  one sentence per thing that stopped the walk, naming it
+
+    A header is a line written `| a | b |`, at most three spaces in; the line
+    under it must be a delimiter row of the same width. Each line after that
+    is one of three things, and the walk takes none of them on guesswork:
+
+      an end       a blank line, a gap (`unfenced` hid a fence or a comment
+                   block there), a heading, a thematic break, a block quote,
+                   a list item, an HTML block, or a line four columns in. GFM
+                   ends the table there; a line written `| … |` after it and
+                   before the next heading is a row nobody reads, and is
+                   refused
+      a row        written `| … |` with the header's width
+      anything     refused, saying what it is: a delimiter row out of place,
+        else       a row of another width or without its outer pipes, or a
+                   line with no pipe, which GFM reads as one of the rows
+
+    **A header with a line directly above it is refused**, with the
+    blank-line remedy, whether or not `unfenced` hides that line, because
+    whether GFM renders a table there depends on block state no reader here
+    tracks -- a paragraph, a list item's lazy paragraph, a table above, a
+    setext underline, an HTML block, a fence inside one -- and the first
+    walker, which mirrored those rules line by line, read tables GFM does not
+    render (round 1 of PR #749, yellow 5; round 2, yellow 15). Judging
+    the line as written closes the limit this docstring used to name, a
+    fence `unfenced` hides inside an HTML block of kinds 6 and 7, because a
+    header inside such a block always has a non-blank line above it. So is a
+    header indented under a list item since the last heading or thematic
+    break (`a_list_above`), which a blank line does not end -- the shape the
+    list-item limit named here, `- x`, a blank line, then the header, is now
+    refused -- and a header under an HTML block of kinds 1-5 left open above
+    it (`raw_html_open`), which no blank line ends. **What this cannot see**
+    is block state none of those three carries; round 2's generator found
+    none over 600,000 documents.
+
+    Each refusal reads after a noun naming the file, as both callers of
+    `pact_signatories` print it after "the pact ".
+    """
+    name = " | ".join(header)
+    width = len(header)
+    shape = "a one-cell row" if width == 1 else f"a {width}-cell row"
+    written = "`|" + " … |" * width + "`"
+    lines = text.splitlines()
+    shown = list(unfenced(lines, text))
+    at = next(
+        (k for k, (_i, line) in enumerate(shown) if table_cells(line) == header),
+        None,
+    )
+    if at is None:
+        return [], [f"holds no `| {name} |` table"]
+    head_index = shown[at][0]
+    # The line as written, hidden or not: a line `unfenced` hides directly
+    # above the header is a line GFM may read the header into -- a fence
+    # inside an HTML block of kinds 6-7, or a list item the fence-only reading
+    # hid (round 2 of PR #749, yellow 15).
+    above = lines[head_index - 1] if head_index > 0 else ""
+    if shown[at][1][:1] == " " and a_list_above([ln for _i, ln in shown[:at]]):
+        return [], [
+            f"has a `| {name} |` header indented under a list item, which GFM "
+            "reads as more of that item where the indent reaches its text — "
+            "write the header at the start of its line"
+        ]
+    if above.strip():
+        return [], [
+            f"has a `| {name} |` header directly under `{above.strip()}`, "
+            "and GFM renders a table under a line only in some of the shapes "
+            "that line can take — leave a blank line above the header"
+        ]
+    if raw_html_open([line for _i, line in shown[:at]]):
+        return [], [
+            f"has a `| {name} |` header inside an HTML block opened above it "
+            "and never closed, so GFM renders no table there — close the block"
+        ]
+    delimiter = shown[at + 1] if at + 1 < len(shown) else None
+    if (
+        delimiter is None
+        or delimiter[0] != head_index + 1
+        or not DELIMITER_ROW.match(delimiter[1])
+        or "|" not in delimiter[1]
+    ):
+        return [], [
+            f"has a `| {name} |` header with no delimiter row under it, so "
+            "GFM renders no table there"
+        ]
+    cells = delimiter[1].strip().strip("|").count("|") + 1
+    if cells != width:
+        return [], [
+            f"has a `| {name} |` header over a delimiter row of {cells} "
+            "cells, so GFM renders no table there"
+        ]
+    rows, stray, ended, previous = [], None, False, delimiter[0]
+    for index, line in shown[at + 2 :]:
+        if not ended and (index != previous + 1 or table_end(line)):
+            ended = True
+        if ended:
+            if ATX_HEADING.match(line.lstrip(" ")) and blocks.columns(line) < 4:
+                break
+            if line.lstrip().startswith("|"):
+                stray = (
+                    f"has a `{name}` table that ends above `{line.strip()}`, "
+                    "a row the walk never reaches — it and every row below it "
+                    "would go unread"
+                )
+                break
+            continue
+        previous = index
+        if DELIMITER_ROW.match(line):
+            stray = _stops_at(name, line, "a delimiter row out of place")
+            break
+        found = table_cells(line)
+        if found is not None and len(found) == width:
+            rows.append((index + 1, found))
+            continue
+        if "|" in line:
+            stray = _stops_at(name, line, f"which is not {shape} written {written}")
+        else:
+            stray = (
+                f"has a `{name}` table that continues with `{line.strip()}`, "
+                "a line with no pipe that GFM reads as one of its rows — write "
+                f"it as {written}"
+            )
+        break
+    return rows, [stray] if stray is not None else []
+
+
+def _stops_at(name, line, why):
+    return (
+        f"has a `{name}` table that stops at `{line.strip()}`, {why} — every "
+        "row below it would go unread"
+    )
+
+
 # The pact's own table: every OTHER signatory, by origin remote URL, one per
 # row under a `| Signatory |` header (`templates/pact.md`).
-SIGNATORY_HEADER = re.compile(r"^\|\s*Signatory\s*\|\s*$")
-SIGNATORY_ROW = re.compile(rf"^\|\s*(?P<value>{CELL}*?)\s*\|\s*$")
-
-
-# A one-cell delimiter row, and the starts of the blocks that break a GFM
-# table: a heading, a block quote, an HTML block, a fence, a list item.
-SIGNATORY_DELIMITER = re.compile(r"^\|\s*:?-+:?\s*\|\s*$")
-TABLE_BREAK = re.compile(
-    r"^ {0,3}(?:#{1,6}(?:\s|$)|>|<|`{3,}|~{3,}|[-*+](?:\s|$)|\d{1,9}[.)](?:\s|$))"
-)
-HEADING_LINE = re.compile(r"^ {0,3}#{1,6}(?:\s|$)")
+SIGNATORY_HEADER = ("Signatory",)
 
 
 def pact_signatories(text):
@@ -839,106 +1139,93 @@ def pact_signatories(text):
     TEXT. `signatories` is `remote_entries`' parsed list, and a table that is
     absent or empty is a refusal, because a pact nobody signs is not a pact.
 
-    **Every way GFM ends or breaks the table is read as GFM reads it, or
-    refused** (round 2 of #647), so no signatory is dropped while the table
-    reads as complete:
-
-      a heading               ends the table; what is under it is a clause
-      the end of the file     ends the table
-      a blank line, a fence,  end the table; a `| … |` line after them and
-      an HTML block, a quote,   before the first heading is a signatory the
-      a list item               walk never reaches, and is refused
-      no delimiter row, or    GFM renders no table, so the header names
-      one of another width      nobody, and it is refused
-      a delimiter row below   refused: GFM reads it as a row of dashes
-        the first row
-      too few cells           an empty row, refused by `remote_entries`
-      too many cells, no      refused: GFM would read a cell or drop one,
-        closing or opening      and which is not this reader's to guess
-        pipe
-      a line with no pipe     refused: GFM reads it as one of the table's
-                                rows, and it should be written as one
-
-    The walk reads what `unfenced` shows it, so a fence or a comment block
-    is a gap in the line numbers, and a gap ends the table as the block it
-    hides does.
+    The table is read by `gfm_table`, so it is read as cmark-gfm renders it
+    or refused, and no signatory is dropped while the table reads as complete
+    (round 3 of #735). On top of the walk: a row with an empty cell is
+    refused by `remote_entries`, and so is every entry that is not one
+    remote URL.
     """
-    shown = list(unfenced(text.splitlines(), text))
-    at = next(
-        (k for k, (_i, line) in enumerate(shown) if SIGNATORY_HEADER.match(line)), None
-    )
-    if at is None:
-        return [], ["holds no `| Signatory |` table, so it names no signatory"]
-    head_index = shown[at][0]
-    delimiter = shown[at + 1] if at + 1 < len(shown) else None
-    if (
-        delimiter is None
-        or delimiter[0] != head_index + 1
-        or not CONFIG_SEPARATOR.match(delimiter[1].strip())
-    ):
-        return [], [
-            "has a `| Signatory |` header with no delimiter row under it, so "
-            "GFM renders no table there"
-        ]
-    if not SIGNATORY_DELIMITER.match(delimiter[1]):
-        width = delimiter[1].strip().strip("|").count("|") + 1
-        return [], [
-            f"has a `| Signatory |` header over a delimiter row of {width} "
-            "cells, so GFM renders no table there"
-        ]
-    values, stray, ended, previous = [], None, False, delimiter[0]
-    for index, line in shown[at + 2 :]:
-        if not ended and (index != previous + 1 or not line.strip()):
-            ended = True
-        if ended:
-            if HEADING_LINE.match(line):
-                break
-            if line.lstrip().startswith("|"):
-                stray = (
-                    f"has a `Signatory` table that ends above `{line.strip()}`, "
-                    "a row the walk never reaches — it and every signatory "
-                    "below it would go unread"
-                )
-                break
-            continue
-        previous = index
-        if HEADING_LINE.match(line):
-            break
-        if TABLE_BREAK.match(line):
-            ended = True
-            continue
-        if SIGNATORY_DELIMITER.match(line):
-            stray = _stops_at(line, "a delimiter row out of place")
-            break
-        match = SIGNATORY_ROW.match(line)
-        if match:
-            values.append(unescaped(match.group("value").strip()))
-            continue
-        if "|" in line:
-            stray = _stops_at(line, "which is not a one-cell row written `| … |`")
-        else:
-            stray = (
-                f"has a `Signatory` table that continues with `{line.strip()}`, "
-                "a line with no pipe that GFM reads as one of its rows — write "
-                "it as `| … |`"
-            )
-        break
+    rows, refusals = gfm_table(text, SIGNATORY_HEADER)
+    if refusals and refusals[0].startswith("holds no "):
+        return [], [refusals[0] + ", so it names no signatory"]
+    values = [cells[0] for _line, cells in rows]
     # Both callers print each refusal after "the pact ", so an entry's own
     # sentence gets a lead-in that reads after those words (round 2 of #647,
     # white 14); `remote_entries` keeps the sentences the `Pact` row prints.
     signatories, entry_refusals = remote_entries(values, "an empty row", named=False)
-    refusals = [
-        f"has a `Signatory` entry that will not read: {r}" for r in entry_refusals
-    ]
-    if stray is not None:
-        refusals.append(stray)
-    if not values:
-        refusals.append("has a `Signatory` table that lists nobody")
-    return signatories, refusals
+    out = [f"has a `Signatory` entry that will not read: {r}" for r in entry_refusals]
+    out.extend(_signatory(refusal) for refusal in refusals)
+    if not values and not any("renders no table" in r for r in refusals):
+        out.append("has a `Signatory` table that lists nobody")
+    return signatories, out
 
 
-def _stops_at(line, why):
-    return (
-        f"has a `Signatory` table that stops at `{line.strip()}`, {why} — every "
-        "signatory below it would go unread"
-    )
+# --- the record of pact changes a signatory keeps (#647, step C) ------------
+#
+# `seal/pact-changes/<work-item-id>.md` in a signatory: one row per ledger row
+# whose code moved under a pact clause it cites, written by
+# `evidence-check --reverify` and read by `pact-check` at the pact's
+# repository. Permanent, one file per work item, never folded, never edited
+# by hand (`docs/the-pact.md`).
+PACT_CHANGES = "pact-changes"
+PACT_CHANGE_HEADER = ("Clause", "Row", "Code", "Checked")
+# The `Clause` cell of a row recorded under `always` that cites no clause.
+NO_CLAUSE = "—"
+CHECKED_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
+
+def pact_changes(text):
+    """(rows, refusals) for a record of pact changes, read through
+    `gfm_table`: `rows` as `(line, clause, row, code, checked)`, one per row
+    whose four cells are filled and whose `Checked` is a date, and one
+    sentence per row that is not, reading after "the record "."""
+    rows, refusals = gfm_table(text, PACT_CHANGE_HEADER)
+    out = []
+    for line, (clause, row, code, checked) in rows:
+        if not (clause and row and code):
+            refusals.append(f"has a row at line {line} with an empty cell")
+            continue
+        if not CHECKED_DATE.fullmatch(checked):
+            refusals.append(
+                f"has a row at line {line} whose `Checked` is `{checked}`, not "
+                "a date written YYYY-MM-DD"
+            )
+            continue
+        out.append((line, clause, row, code, checked))
+    return out, refusals
+
+
+# --- the record of pact reviews the pact's repository keeps (#647, step D) --
+#
+# `seal/pact-reviews/<work-item-id>.md` at the pact's repository, begun from
+# `templates/pact-review.md`: one row per signatory's record of pact changes
+# a pact review takes, naming the signatory, the record as `<work-item-id>@
+# <content hash>`, and the verdict.
+PACT_REVIEWS = "pact-reviews"
+PACT_REVIEW_HEADER = ("Signatory", "Change", "Verdict")
+VERDICT_HOLDS = "holds"
+VERDICT_AMENDED = "amended"
+VERDICTS = (VERDICT_HOLDS, VERDICT_AMENDED)
+
+
+def pact_reviews(text):
+    """(rows, refusals) for a record of pact reviews, read through
+    `gfm_table`: `rows` as `(line, signatory, change, verdict)` for every row
+    whose three cells are filled, and one sentence per row that is not,
+    reading after "the record ". Whether a row can be true -- the signatory
+    listed, the record held, the verdict one of two -- is `pact-check`'s,
+    which has the pact and the signatories to ask."""
+    rows, refusals = gfm_table(text, PACT_REVIEW_HEADER)
+    out = []
+    for line, (signatory, change, verdict) in rows:
+        if not (signatory and change and verdict):
+            refusals.append(f"has a row at line {line} with an empty cell")
+            continue
+        out.append((line, signatory, change, verdict))
+    return out, refusals
+
+
+def _signatory(refusal):
+    """A walk refusal, in the words `pact-check` has always printed for the
+    `Signatory` table: a row it leaves unread is a signatory."""
+    return refusal.replace("every row below it", "every signatory below it")

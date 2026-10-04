@@ -321,6 +321,46 @@ unit can be cited by several rows, and the check names the coordinate once.
 Read every row that cites a drifted coordinate before typing the date, or
 narrow the write with `--ledger` to the files you did read.
 
+**In a signatory, the re-read also records a pact change** (#647,
+`docs/the-pact.md`). Where `seal/config.md` names a pact in a `Pact` row and a
+row whose hash this moves — in place, or into a `Re-read ·` row under
+`--into` — cites one of its clauses as a pact anchor, or a coordinate of such
+a row is BROKEN, one row per ledger row is appended to
+`seal/pact-changes/<work-item-id>.md` and a `recorded` line names it. `Pact
+notify | always` records every row whose code moved, with `—` for its clause,
+and `never` records nothing. The work item is the `--into` fragment's, else
+the one a `routing.md` declares for the branch; with neither, the row is
+named on a `LEFT` line and the run exits 1. A copy of this script with no
+`hooks/` beside it cannot read the `Pact` row: it names each row citing a
+pact on a `LEFT` line, and each other moved row where `seal/config.md` holds
+a `Pact` row and a `Pact notify` row that both carry a value, or will not
+read, records nothing, and exits 1. A `Pact
+notify` row written twice has no value, so it cannot rule `always` out
+either. Where the record is
+written, the ledger is written exactly as before. **The run records first
+and re-stamps after**: it plans every ledger write, writes the pact changes
+the plan owes, and only then writes the plan. Where a change is owed and
+cannot be recorded — on any of those paths, or where the record or the
+`Pact` rows will not read, or the record cannot be written — it writes no
+ledger file and says so, so the next run, the one that can record, still
+finds the drift. A run killed after recording leaves the ledger unstamped,
+and the next run re-stamps without recording twice. An `--into` that is
+there and will not read is refused before anything is written.
+
+**A line saying a ledger was written prints after it was.** Every
+`--reverify` run, in a signatory or not, holds the hash lines, the count
+line, the dated list, `wrote` and `citing rows written` until the record
+step is done and the file each names is written, so a run that writes no
+ledger file prints none of them. A ledger it would write, and the record,
+are read strictly: one holding a byte that is not UTF-8 is a `LEFT` line,
+left byte for byte, where a lenient read used to write the replacement
+character back over it. Code under a coordinate keeps the lenient read. A
+ledger file that cannot be written after the record is a `LEFT` line naming
+the cause, not a traceback; the rest are written, the exit is 1, and the
+next run re-stamps it. The order holds against the process dying, not
+against a power loss: nothing is `fsync`ed (`docs/the-pact.md` §*What this
+does not see*).
+
 ## A row inside a fence is an example, not a claim
 
 A ledger that explains its own row format shows an example row in a fenced
@@ -480,7 +520,30 @@ Git is asked which way a mismatch points and never whether an anchor is `OK`.
 Exit 0 when every signatory was read and every anchor is `OK`, 1 for the three
 mismatches or a checkout not found, 2 for `BROKEN`, a refused row or file, an
 anchor naming the pact that does not parse, a relationship recorded on one
-side only, or no origin remote.
+side only, or no origin remote. A token that begins an anchor — `pact:<name>`
+followed by `/` or `#`, or by the rest of an anchor with its `/` missing —
+and does not parse is that last kind; the refusal names both ways out, a
+quoted heading path with a hash, or a fenced code block for an example.
+Every path it prints is in POSIX form on every platform: relative to its
+repository inside one, and beginning `~/` where it lies under `~`.
+
+**It reads every signatory's pact changes too** — the
+`seal/pact-changes/<work-item-id>.md` records a signatory's `--reverify`
+writes (§*Re-verifying is recomputing the hash*), following that signatory's
+`Pact notify` as read now. A row citing a clause of this pact is `NOT TAKEN`,
+exit 1, until a pact review here takes it: the line names the record and
+line, the clause, the work item and the record's content hash, which is the
+value the review writes. A `—` row from a signatory whose notify is `always`
+is `NOTED` and moves no exit. A pact review is a work item at the pact's
+repository whose record, `seal/pact-reviews/<work-item-id>.md`
+(`templates/pact-review.md`), has one row per record it takes: the signatory,
+`<work-item-id>@<content hash>`, and `holds` or `amended`. A record is taken
+at that hash alone, so one that grows after its review reads `NOT TAKEN`
+again, naming both hashes. A review row naming a signatory the pact does not
+list, a record that signatory does not hold, another verdict, or `amended`
+for a clause that still has the recorded hash is refused at exit 2, as is a
+record that will not read or parse. The `READ` line and the summary count the
+pact changes read and taken.
 
 **It is local only.** A signatory's pull request can read one repository, so
 its CI prints the relationship and verifies nothing (`chain-check`'s pact

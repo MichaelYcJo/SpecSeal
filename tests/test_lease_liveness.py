@@ -34,7 +34,7 @@ def lease_dir(repo):
 
 def write_lease(repo, name, body):
     p = os.path.join(lease_dir(repo), name)
-    with open(p, "w") as f:
+    with open(p, "w", encoding="utf-8") as f:
         f.write(body)
     return p
 
@@ -283,7 +283,7 @@ def test_lease_records_a_parseable_record(repo):
     really was an ancestor. CI is what said so.
     """
     run_lease_hook(repo, "sess-x")
-    with open(os.path.join(lease_dir(repo), "sess-x")) as f:
+    with open(os.path.join(lease_dir(repo), "sess-x"), encoding="utf-8") as f:
         rec = json.load(f)
     assert rec["host"] == socket.gethostname()
     assert abs(rec["ts"] - time.time()) < 60
@@ -356,7 +356,7 @@ def run_main_in_process(repo, monkeypatch, session):
         ),
     )
     sl.main()
-    with open(os.path.join(lease_dir(repo), session)) as f:
+    with open(os.path.join(lease_dir(repo), session), encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -435,7 +435,7 @@ def transcripts_for(monkeypatch, tmp_path, cwd):
 def fresh_transcript(path):
     """A transcript whose tail is ACTIVE events — an exited session's tail
     looks exactly like this, which is the whole difficulty."""
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(json.dumps({"type": "assistant", "timestamp": iso(1)}) + "\n")
 
 

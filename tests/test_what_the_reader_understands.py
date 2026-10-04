@@ -156,7 +156,7 @@ def test_a_real_shell_really_lands_in_the_target(name, _command, probe, tmp_path
     target.mkdir()
     # The sourced-script rows name a script beside the target; the others
     # ignore it. Writing it unconditionally keeps the table one shape.
-    (tmp_path / "s.sh").write_text(f"cd {shlex.quote(str(target))}\n")
+    (tmp_path / "s.sh").write_text(f"cd {shlex.quote(str(target))}\n", encoding="utf-8")
     filled = probe.replace("%s/s.sh", shlex.quote(str(tmp_path / "s.sh")))
     if "%s" in filled:
         filled = filled % shlex.quote(str(target))

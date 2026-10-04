@@ -73,7 +73,7 @@ def spend_the_budget(repo, session=PRESSED):
     """Write the marker the gate writes at a session's first stop."""
     d = repo / ".git" / "specseal-commit-choice"
     d.mkdir(parents=True, exist_ok=True)
-    (d / session).write_text("")
+    (d / session).write_text("", encoding="utf-8")
 
 
 def forget_the_budget(repo):
@@ -111,7 +111,7 @@ def test_a_parity_stop_under_the_press_is_refused_too(
     """S1, the other arm. The review arm is waived so the parity arm alone
     stands; a parity prompt in an automation run breaks the same promise."""
     repo = make_repo(tmp_path / "repo")
-    (repo / "seal" / "parity.md").write_text("# parity\n")
+    (repo / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
     press(projects, repo)
     command = ": '[no-review]'; git commit -m x"
     for _ in range(2):
