@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #787 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `20cbdcd95d0bc42ba7d24ece8d87389c05a8da92..c91587ca5786b69bfecc934ff2fd5495c5ee2ea2`, 6 commits |
 | Contract changes | none |
 | New units | SHORT_SUMMARY_RE (depth 1); PRINTS_AN_EMPTY_RUN (depth 1); PRINTS_A_FAILED_LINE (depth 1); INNER_OUTPUT (depth 1); test_what_a_test_printed_is_not_read_as_pytests_own_lines (depth 1) |
