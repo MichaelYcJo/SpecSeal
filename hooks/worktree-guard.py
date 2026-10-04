@@ -534,8 +534,10 @@ def switch_kind(parsed):
     path that exists, or of a name that is no ref, is not a switch there. This
     reads no tree, so a `checkout` counts wherever its words alone can name a
     branch, in `classify`'s order: one carrying a creating option counts,
-    with or without a name; then one carrying `--` does not, whatever stands
-    before it; then one naming `-` or a word other than `.` does. That is the
+    with or without a name; then one with a word after its `--` does not,
+    whatever stands before it; then one naming `-` or a word other than `.`
+    does, a `--` with nothing after it included, because git reads that `--`
+    as saying only that the name is no file. That is the
     upper bound phase 3 of work item 1790993140 counted with (`questions.md`
     D3), and `docs/worktree-guard-spec.md` §*Which tree* states the same
     words. A `switch` counts wherever it names a word or `-`, `--` or no
@@ -558,7 +560,7 @@ def switch_kind(parsed):
         return "switch" if creates or names or after else None
     if creates:
         return "switch"
-    if after is not None:
+    if after:
         return None
     if any(n != "." for n in names):
         return "switch"
@@ -1019,14 +1021,17 @@ def classify(tokens, cwd: str):
         creating, names, after = read_switch_words(sub, args)
         if creating:
             return "create+switch"
-        if after is not None:
-            return None  # explicit path restore
+        if after:
+            return None  # explicit path restore: a pathspec follows `--`
         if "-" in names:
             return "switch"  # previous branch
         if not names:
             return None
         first = names[0]
-        if (
+        # A `--` with nothing after it (`git checkout <name> --`) only says the
+        # name before it is no file, and git switches to it (round 1 of work
+        # item 1791119071, red 1), so the path test is not asked of it.
+        if after is None and (
             first == "."
             or os.path.exists(os.path.join(cwd or ".", first))
             or os.path.exists(first)

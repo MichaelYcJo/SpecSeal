@@ -641,9 +641,10 @@ creation that none of the frozen segments the view was made from holds. Each
 side is read by its words alone, as git is handed them: a `switch` naming a
 word or `-` or carrying a creating option, a `checkout` carrying a creating
 option (`-b`, `-B` or `--orphan`, in any spelling git's option parser
-accepts), a `checkout` with no `--` among its words that names `-` or a word
-other than `.`, or a `worktree add`; an option's value is not a name, and a
-redirection is no word. The reading looks up no
+accepts), a `checkout` that names `-` or a word other than `.` before any
+`--` and has no word after one, or a `worktree add`; an option's value is not
+a name, and a redirection is no word. A `--` with nothing after it only says
+the name before it is no file, and git switches to that name. The reading looks up no
 tree (#689), so it asks whether or not
 the command moves the tree, and a restore or a detach whose words read as a
 switch is asked as one when the frozen reading misses it. For example,
@@ -749,7 +750,9 @@ at one prompt against a wrong allow breaking another session's tree.
     too. In no pair did such an operator stand where only that reading held
     the switch. The same cut leaves the frozen reading the words before it
     alone, so `git checkout feature/x <&1 -- README.md`, a restore, is judged
-    a switch to `feature/x`, as at the base;
+    a switch to `feature/x`, as at the base. A cut after a `--` leaves the
+    frozen reading a `--` with nothing after it, so `git checkout feature/x
+    -- <&1 README.md`, a restore, is judged a switch to `feature/x` too;
   - `git checkout -U 3 feature/x` reads `feature/x` as the name, although git
     refuses `-U` without `-p`, so a command git refuses is asked.
 - On Windows the count of other sessions is always unusable. It walks the
