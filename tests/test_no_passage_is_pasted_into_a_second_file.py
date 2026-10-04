@@ -421,18 +421,16 @@ def test_a_wrapped_section_name_is_one_token():
     )
 
 
-def test_only_claude_mds_generated_region_is_dropped():
-    """`CLAUDE.md`'s copy of the block shares nothing with its template,
-    because the copy is not read; the template itself is read whole."""
+def test_the_generated_block_fences_and_headings_are_not_read():
+    """The generated block is `CLAUDE.md`'s copy alone: it shares nothing
+    with its template, because the copy is not read, and the template itself
+    is read whole (round 1)."""
     texts = tree()
     rel = "templates/claude-md-block.md"
     assert len(words(texts[rel])) > 500, len(words(texts[rel]))
     assert ("CLAUDE.md", rel) not in shared_counts(
         {"CLAUDE.md": texts["CLAUDE.md"], rel: texts[rel]}
     )
-
-
-def test_fences_and_headings_are_not_read():
     run = " ".join(f"w{i}" for i in range(WINDOW))
     fenced = f"```\n{run}\n```\n"
     heading = f"## {run}\n"
