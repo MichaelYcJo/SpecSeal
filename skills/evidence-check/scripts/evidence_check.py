@@ -3881,11 +3881,13 @@ def reverify_into(
 # A signatory names the pact it signs in a `Pact` row of `seal/config.md` and
 # cites clauses as pact anchors in its ledger rows. When `--reverify` moves
 # the hash of a row citing a clause of a declared pact -- in place, or into a
-# `Re-read ·` row -- or leaves a coordinate of one BROKEN, the code a clause
-# binds moved, and the pact's repository is owed a look. The record is
-# written here, by the same command, because the re-read is the one act at
-# which a session acknowledges that code under a row moved: a step somebody
-# must remember is a step that gets skipped (`docs/the-pact.md`).
+# `Re-read ·` row -- finds the code under one moved where `--into` refuses it
+# a `Re-read ·` row for a stale `--checked`, or leaves a coordinate of one
+# BROKEN, the code a clause binds moved, and the pact's repository is owed a
+# look. The record is written here, by the same command, because the re-read
+# is the one act at which a session acknowledges that code under a row moved:
+# a step somebody must remember is a step that gets skipped
+# (`docs/the-pact.md`).
 
 ROUTING_READER = os.path.join(HERE, "..", "..", "..", "hooks", "routing.py")
 PACT_CHANGE_INTRO = (

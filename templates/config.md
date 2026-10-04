@@ -402,10 +402,11 @@ segment is the name a pact anchor carries, `pact:orders-api/"## A"@1a2b3c4d`,
 so two pacts whose URLs end in the same segment are refused as ambiguous.
 
 **`Pact notify` decides which of this signatory's changes the pact's
-repository hears about.** When `evidence-check --reverify` moves the hash of
-a ledger row here — or leaves a coordinate of one BROKEN — it records a pact
-change in `seal/pact-changes/<work-item-id>.md`, and `pact-check` at the
-pact's repository reads that record until a pact review there takes it:
+repository hears about.** `evidence-check --reverify` records a pact change
+in `seal/pact-changes/<work-item-id>.md` where `docs/the-pact.md` §*A
+signatory records a pact change* says, and that section's first sentence is
+the whole trigger. `pact-check` at the pact's repository reads that record
+until a pact review there takes it:
 
 | Value | Recorded here | Read there |
 |---|---|---|

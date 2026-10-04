@@ -2007,12 +2007,33 @@ def test_a_refusal_names_the_newest_of_the_readings_that_outrank_the_row(repo):
             "one BROKEN, the same command records a pact change, and that test "
             "is the whole trigger.",
         ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "A row `--into` refuses a `Re-read ·` row for a stale --checked is "
+            "recorded too, by the run that refuses it (#746).",
+        ),
+        (
+            "skills/evidence-check/SKILL.md",
+            "or `--into` refuses such a row a `Re-read ·` row for a stale "
+            "`--checked` while the code under it moved, one row per ledger row "
+            "is appended to",
+        ),
+        (
+            "templates/config.md",
+            "`evidence-check --reverify` records a pact change in "
+            "`seal/pact-changes/<work-item-id>.md` where `docs/the-pact.md` §*A "
+            "signatory records a pact change* says, and that section's first "
+            "sentence is the whole trigger.",
+        ),
     ],
     ids=[
         "the home: the refusal",
         "the home: after today",
         "the usage",
         "the pact's trigger",
+        "the usage: the signatory's record",
+        "the skill: the signatory's record",
+        "the config template: the trigger's home",
     ],
 )
 def test_the_home_and_the_usage_say_a_stale_row_is_left(where, sentence):
