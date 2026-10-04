@@ -2400,6 +2400,37 @@ def test_a_narrowed_unfrozen_run_names_no_citation_it_did_not_move(repo, shape):
     assert "its citation of" not in fix.stdout, fix.stdout
 
 
+def test_the_walk_order_survives_a_self_citation_and_a_cycle(repo):
+    """`cited_first` (#772). A file whose citing row cites a row of the same
+    file is not waiting on itself, so the file citing it still follows it;
+    two files citing each other keep the given order, and no file is lost."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    rows = [
+        f"| R{n} · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        for n in (1, 2)
+    ]
+
+    def reread(version, n):
+        cite = citation(rows[n - 1], f"R{n} · handler adds one", version=version)
+        return (
+            f"| Re-read · R{n} · handler adds one | `{cite}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        )
+
+    released(repo, [rows[0], reread("0.1.0", 1)], version="0.1.0")
+    fragment(repo, [reread("0.1.0", 1)], name=M_ITEM)
+    released(repo, [rows[1], reread("0.4.0", 1)], version="0.3.0")
+    released(repo, [rows[0], reread("0.3.0", 2)], version="0.4.0")
+    paths = [
+        str(repo / f"seal/ledger/{M_ITEM}.md"),
+        str(repo / "seal/releases/0.1.0.md"),
+        str(repo / "seal/releases/0.3.0.md"),
+        str(repo / "seal/releases/0.4.0.md"),
+    ]
+    order = ec.cited_first(paths, str(repo), {}, None)
+    assert order == [paths[1], paths[0], paths[2], paths[3]], order
+
+
 @pytest.mark.parametrize(
     "sentence",
     [
