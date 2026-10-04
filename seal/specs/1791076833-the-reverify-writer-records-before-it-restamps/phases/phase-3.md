@@ -21,7 +21,7 @@ as #741 allows.
 ## What this phase found
 
 **Q5, measured.** `bin/evidence-check .` at `25473301` named 57 released rows:
-56 DRIFTED and 0.18.0's P8, whose `hooks/config.py#TABLE_BREAK` is BROKEN
+56 DRIFTED and 0.18.0's P8, whose `hooks/config.py#TABLE_BREAK` is BROKEN · NAME NOT IN TREE
 because the one table walker replaced the walk it served. Every claim was read
 against the tree; the carry's additions (a `cmarkgfm` pin, the pact-review act,
 `pact-changes/` in the drawings, the walker) and phase 2's (the strict read,
