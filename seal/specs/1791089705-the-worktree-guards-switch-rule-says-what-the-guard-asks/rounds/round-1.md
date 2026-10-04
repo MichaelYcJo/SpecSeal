@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #765 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `80445412d4524ec57299a5aa171dc8b846282a77..608ad8412adfc2f6a8ac5132d8026f523816818f`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,9 +30,9 @@ The orchestrator verified the guard module, the hygiene modules and the line-end
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | the comment beside `judged=set()` says the default subtracts this case's own frozen half; the same commit moved that half off the frozen walk | `tests/test_guard_resolves_the_tree_it_judges.py:1221` | open | read: `frozen` at line 1230 is built from `split_segments_with_separators`, the comment names the frozen walk |
-| ⬜ 2 | the rule case's `frozen` is the whole command's segments, stricter than the per-view condition `POLICY_RULE` states | `tests/test_guard_resolves_the_tree_it_judges.py:1228` | open | read; executed: green at the target, so no generated shape separates the two today |
-| ⬜ 3 | the closing memo lists `evidence-check --strict` as executed with no result, and it exits 2 at the target | `seal/specs/1791089705-the-worktree-guards-switch-rule-says-what-the-guard-asks/overview.md:12` | open | executed: exit 2, the 10 wave-one rows; this item's fragment is clean. A paperwork correction |
+| ⬜ 1 | the comment beside `judged=set()` says the default subtracts this case's own frozen half; the same commit moved that half off the frozen walk | `tests/test_guard_resolves_the_tree_it_judges.py:1221` | answered | no change. The comment beside `judged=set()` names the frozen walk as the side the case compares, and the line it sits beside still makes that comparison. What C3 changed is where `frozen` is read from, and the docstring of the case states that. Editing the comment after the run's one round that opened nothing would commission a change no round reads; read: `frozen` at line 1230 is built from `split_segments_with_separators`, the comment names the frozen walk |
+| ⬜ 2 | the rule case's `frozen` is the whole command's segments, stricter than the per-view condition `POLICY_RULE` states | `tests/test_guard_resolves_the_tree_it_judges.py:1228` | answered | no change. The case's `frozen` set, the union of the command's segments, is stricter than `POLICY_RULE`'s per-view condition. The reviewer measured that the two do not part on any shape the case generates, so the stricter set can fail only where the per-view one would also have to be judged; read; executed: green at the target, so no generated shape separates the two today |
+| ⬜ 3 | the closing memo lists `evidence-check --strict` as executed with no result, and it exits 2 at the target | `seal/specs/1791089705-the-worktree-guards-switch-rule-says-what-the-guard-asks/overview.md:12` | answered | corrected in the record commit: `overview.md` now gives the strict check's exit 2, with every drifted row the wave-one squashes' and none this item's; executed: exit 2, the 10 wave-one rows; this item's fragment is clean. A paperwork correction |
 | 🟢 | the corrected sentence states `switch_kind`'s words, clause by clause and in its order | `docs/worktree-guard-spec.md:631` | confirmed | read against `hooks/worktree-guard.py:290-322`; executed: 82,742 generated commands, 0 differ; the base sentence differs on 6,136 |
 | 🟢 | the pin and each of the three new `KINDS` rows fail when what they hold changes | `tests/test_guard_resolves_the_tree_it_judges.py:1266` | confirmed | executed: four mutants, each red on its own row; the `before --` row is the only one red under the base sentence's reading |
 | 🟢 | C3 makes the rule case fail when the per-view subtraction is dropped, and loses no coverage of the judged subtraction | `tests/test_guard_resolves_the_tree_it_judges.py:1224` | confirmed | executed: red at the target, green with the base test; the judged-subtraction mutant reds the same seven cases before and after |
