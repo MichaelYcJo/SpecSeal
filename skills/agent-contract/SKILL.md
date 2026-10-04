@@ -239,11 +239,17 @@ running the shell, and the gate fails closed. So searching your patch for a
 commit and finding none does not clear it.
 
 The exception is one shape the gate matches byte for byte, and its body is
-data. Its first line is at most a `cd` to one word and `&&`, then `cat` or
-`tee` writing one file or `python3 -`, then a single-quoted delimiter of
-letters, digits and underscores with nothing after it; the command holds no
-carriage return, NUL or backslash before a newline, and no second `<<`; and
-nothing follows the terminator when the body is written to a file. Any
+data. Its first line has nothing before it, one space between every two
+tokens, and nothing after the delimiter. It is, in order: optionally `cd`,
+one word and `&&`; then the consumer, which is `cat` with `>` or `>>` and one
+word, `tee` or `tee -a` and one word, or `python3 -` followed by any number of
+words; then `<<` and a delimiter of letters, digits and underscores in single
+quotes. A word is either letters, digits, `_`, `.`, `/` and `-` that do not
+start with `-`, or one single-quoted word holding no quote and no newline.
+The body ends at the first line exactly equal to the delimiter. The command
+holds no carriage return, NUL or backslash before a newline, and no second
+`<<`; and nothing follows the terminator when the body is written to a file,
+while after `python3 -` the lines that follow are read as before. Any
 other spelling of the same body is read as shell, and the exception changes
 nothing about the first reason: an edit made through the shell still cannot
 fail the way an `Edit` call does

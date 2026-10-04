@@ -277,6 +277,19 @@ def test_the_rule_names_the_one_heredoc_shape_it_does_not_read():
         assert "one shape the gate matches byte for byte" in text, who
         assert "Any other spelling of the same body is read as shell" in text, who
         assert "changes nothing about the first reason" in text, who
+        # Round 1 of 1791089603, finding 4: a summary missing a slot sends a
+        # session to write a string the reader refuses, and each one costs an
+        # unattended run a stop. So every slot of the grammar is named.
+        for slot in (
+            "`cat` with `>` or `>>` and one word",
+            "`tee` or `tee -a` and one word",
+            "`python3 -` followed by any number of words",
+            "letters, digits and underscores in single quotes",
+            "letters, digits, `_`, `.`, `/` and `-` that do not start with `-`",
+            "one single-quoted word holding no quote and no newline",
+            "first line exactly equal to the delimiter",
+        ):
+            assert slot in text, (who, slot)
     policy = flat("docs", "commit-review-gate-spec.md")
     assert "the repository owner made that trade for one shape alone" in policy
     assert "`hooks/one_heredoc.py` matches byte for byte" in policy
