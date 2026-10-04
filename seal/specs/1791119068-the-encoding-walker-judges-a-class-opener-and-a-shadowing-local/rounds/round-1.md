@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #782 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `88434e8218fb90110946f9b76d15505fc0da45e5..ad9ecb24fa1b73707854c0d8145505ab25d55060`, 3 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (`ossaudiodev` missing from C3, and three records call the set complete) and 🟡 2 (class-called `Traversable.read_text` passes; fix, or defer with J1 narrowed) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 1 of #762 (PR #782), at 90e64515 against `release/v0.18.2` (94d7b2e0): spe
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | C3 omits `ossaudiodev` (3.12, Linux and FreeBSD), and the comment, the changelog and J1 each call the set complete | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:144` | open | executed: on 3.12 the construction's failed-import list holds `ossaudiodev`, and `ossaudiodev.open("w")` is reported; read: its documentation gives a module-level `open` of an audio device with no encoding parameter |
-| 🟡 2 | a class-called `Traversable.read_text(t)` reads the locale and passes, because `UNBOUND_RECEIVERS` does not list `Traversable`; same cause as #741's 🟡 1 | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:166` | open | executed: no site at the base or the target; the class enumeration on 3.12–3.14 finds `Traversable` as the only member that under-reports; pre-existing at the base |
-| ⬜ 3 | S3 names methods of `UNBOUND_RECEIVERS` classes only, and no check holds `OPEN_METHODS` keys to that list | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:914` | open | executed: a foreign `OPEN_METHODS` row reproduces the unshifted judgment while S3 stays green |
-| ⬜ 4 | D4's docstring sentence names a narrower scope only; the same scope and a sibling scope are excused too | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:66` | open | executed: three shapes, each with no site |
+| 🟡 1 | C3 omits `ossaudiodev` (3.12, Linux and FreeBSD), and the comment, the changelog and J1 each call the set complete | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:144` | **fixed** `02518dd6` | fixed at 02518dd6 — (`ossaudiodev` in `NOT_A_FILE_OPENER`, its `NAMED` case, and the comment and docstring list saying how modules that do not import on macOS were settled), 746bd406 (changelog and J1 say the same); executed: on 3.12 the construction's failed-import list holds `ossaudiodev`, and `ossaudiodev.open("w")` is reported; read: its documentation gives a module-level `open` of an audio device with no encoding parameter |
+| 🟡 2 | a class-called `Traversable.read_text(t)` reads the locale and passes, because `UNBOUND_RECEIVERS` does not list `Traversable`; same cause as #741's 🟡 1 | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:166` | **fixed** `02518dd6` | fixed at 02518dd6 — (`importlib.resources.abc.Traversable` and `importlib.abc.Traversable` in `UNBOUND_RECEIVERS`, two `UNNAMED` cases), 746bd406 (J1 states the shift for the classes the list holds, and how the list was settled); executed: no site at the base or the target; the class enumeration on 3.12–3.14 finds `Traversable` as the only member that under-reports; pre-existing at the base |
+| ⬜ 3 | S3 names methods of `UNBOUND_RECEIVERS` classes only, and no check holds `OPEN_METHODS` keys to that list | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:914` | **fixed** `02518dd6` | fixed at 02518dd6 — (S3 asserts every `OPEN_METHODS` key but `<expr>` is in `UNBOUND_RECEIVERS`); executed: a foreign `OPEN_METHODS` row reproduces the unshifted judgment while S3 stays green |
+| ⬜ 4 | D4's docstring sentence names a narrower scope only; the same scope and a sibling scope are excused too | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:66` | **fixed** `02518dd6` | fixed at 02518dd6 — (the docstring's rebinding limit names any binding in any scope), 746bd406 (J1's note matches); executed: three shapes, each with no site |
 | 🟢 | C1: a class-called `zipfile.Path.open` is judged with the shift, in all three spellings, and no dotted-name table holds a method of an `UNBOUND_RECEIVERS` class | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:349` | confirmed | executed: S1 red at the base and green at the target; S3's five tables listed; read: S2 and S3 red at the base by the base's positions |
 | 🟢 | C2: deleting the bare-name branch turns excuses into reports and introduces no new under-report | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:433` | confirmed | read: `owner` has one caller and None falls to `<expr>`; executed: S7's `tokenize` case is reported at the target |
 | 🟢 | C3: each of the eight added names takes no locale encoding | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:144` | confirmed | executed: present and carrying `open` on the local builds; read: `tokenize.open` source, and the documentation for `dbm.gnu`, `dbm.ndbm`, `dbm.sqlite3` and `os.open` |
