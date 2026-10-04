@@ -8,7 +8,9 @@
   for a call on the class is applied, and a test fails by name if a method's
   row is put where a function's belongs. `Traversable.read_text(t)`,
   from `importlib.resources.abc`, called on its class, passed the same way
-  and is now reported too.
+  and is now reported too, and so is the same method called on
+  `ResourceHandle` or `ResourceContainer`, which inherit it, and 3.12's
+  `pipes.Template.open(t, f, "r")`, whose mode was read as an encoding.
 - A local, a parameter or a loop variable that shares a module's name, such
   as `wave`, `tarfile` or `os`, no longer has its `.open()` excused for the
   spelling. Only a name the file imports is taken for the module, so a branch
