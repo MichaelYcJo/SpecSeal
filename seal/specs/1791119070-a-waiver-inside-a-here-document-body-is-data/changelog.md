@@ -11,9 +11,11 @@
   the gate already finds, so no new parsing was added. A token counts only
   where the command as written carries it as well, so the change can refuse
   a waiver and never grant one.
-- One stop is new. A token typed inside a body that a shell runs, in front of
+- A stop is new. A token typed inside a body that a shell runs, in front of
   a commit the body runs, no longer waives that commit, which now gets the
   verdict it would get with no token. Type the token in front of the Bash
   call's own command instead, outside the body, where it waives as before.
+  The same holds for a token after text the gate takes for a body and the
+  shell does not, a rarer shape no case has reproduced.
   The documented forms are unchanged: the no-op in front of the command, and
   the token in a comment.

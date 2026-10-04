@@ -76,7 +76,7 @@ token the hook honours is the one `given` read.
   `one_heredoc` grammar and the `unparsed` fallback keep what they read. A
   body is still read as shell for whether it commits.
 - **`hooks/cmdline.py` and `hooks/cmdline_base.py`.** They are called and not
-  edited. That keeps sibling D's edit to `cmdline_base.py#classify` clear of
+  edited. That keeps sibling D's edit to `hooks/worktree-guard.py#classify` clear of
   this one.
 - **Making `has_marker` and `given` one read.** They disagree on a command
   that does not split cleanly: one falls back to a substring test, the other

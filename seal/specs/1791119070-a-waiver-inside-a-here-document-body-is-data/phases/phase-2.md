@@ -37,7 +37,7 @@ rather than the writer's default sentence.
 **The frame did not hold on two coordinates, and `evidence-check --strict`
 exited 2 on this work item's own records.** `plan.md` §*Operational impact*
 placed `classify` in `hooks/cmdline_base.py`. The tree has no `classify` there; the
-only one is `hooks/worktree-guard.py#classify`. Sibling D's branch had no hook
+one beside `switch_kind` is `hooks/worktree-guard.py#classify`. Sibling D's branch had no hook
 commit to settle which one it meant. The same section wrote G6's anchor with
 the hash it predicted would move, which the record check reads as a drifted
 coordinate. Both were corrected in place at `d75638c7` and the sentences'
