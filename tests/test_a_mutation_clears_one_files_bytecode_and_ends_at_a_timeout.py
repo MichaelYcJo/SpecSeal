@@ -949,7 +949,7 @@ def test_the_command_a_session_types_reaches_the_script(tmp_path):
             red_on(tmp_path, target, "VALUE = 2"),
         ],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         timeout=60,
     )
     assert done.returncode == 0, done.stdout + done.stderr
@@ -1260,7 +1260,7 @@ def test_a_group_that_ended_on_its_own_at_the_bound_is_not_an_error():
         [sys.executable, "-c", "pass"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
+        encoding="utf-8",
         start_new_session=True,
     )
     proc.communicate(timeout=30)

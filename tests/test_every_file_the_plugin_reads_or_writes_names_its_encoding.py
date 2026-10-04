@@ -60,10 +60,6 @@ from conftest import (
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-# The roots the repository case does not judge yet. Phase 1 of #741 fixes the
-# product sites and leaves `tests/` to phase 2, which empties this.
-NOT_YET_JUDGED = ("tests/",)
-
 REPAIR = 'name `encoding="utf-8"`, or classify the unit in `ALLOWED` with its grounds'
 
 # Every unit that holds an unnamed K1 call on purpose, keyed by
@@ -71,7 +67,13 @@ REPAIR = 'name `encoding="utf-8"`, or classify the unit in `ALLOWED` with its gr
 # covers every unnamed site in its unit. A row is a classification and not a
 # permission: add one only where naming the encoding cannot serve, never to
 # turn this module green.
-ALLOWED = {}
+ALLOWED = {
+    "tests/test_the_release_seal_is_drawn.py#"
+    "test_the_png_carries_the_colours_and_is_clear_where_nothing_is_painted": (
+        "`Image.open(path)` is PIL's, which reads an image as bytes and has no "
+        "text mode and no encoding to name; K1's receiver rule names it anyway"
+    ),
+}
 
 # Hook entry points that do not open `__main__` with `console.to_utf8()`, by
 # path, with the grounds.
@@ -308,21 +310,22 @@ def unnamed_sites(source, path="<source>"):
 # --- the corpus ------------------------------------------------------------
 
 
-def tracked_python(root=ROOT, skip=NOT_YET_JUDGED):
-    """`(every tracked `.py` on disk, the tracked paths that are not)`, less
-    the roots in `skip`.
+def tracked_python(root=ROOT):
+    """`(every tracked `.py` on disk, the tracked paths that are not)`.
 
     Every tracked `.py` rather than a list of roots, so a fifth root is judged
-    on arrival rather than when somebody remembers to extend a list.
+    on arrival rather than when somebody remembers to extend a list. The
+    tests are in it: a fixture written in the locale's encoding is read back
+    wrong on the Windows leg, which is how #736 met this class.
     """
     out = git_listing(root, "ls-files", "*.py")
-    listed = [rel for rel in out if rel and not rel.startswith(skip)]
+    listed = [rel for rel in out if rel]
     return on_disk(root, listed)
 
 
-def sites_in(root=ROOT, skip=NOT_YET_JUDGED):
+def sites_in(root=ROOT):
     """`({"<path>#<qualname>": [(line, kind)]}, missing)` over the corpus."""
-    files, missing = tracked_python(root, skip)
+    files, missing = tracked_python(root)
     assert files, "git ls-files found no python at all"
     units = {}
     for rel in files:
@@ -586,7 +589,7 @@ def test_a_classification_of_nothing_is_reported(tmp_path):
         },
     )
     allowed = {"hooks/a.py#f": "grounds", "hooks/b.py#g": "grounds"}
-    units, missing = sites_in(root, skip=())
+    units, missing = sites_in(root)
     assert unclassified(units, allowed) == []
     assert classifications_of_nothing(units, missing, allowed) == ["hooks/b.py#g"]
 
@@ -603,7 +606,7 @@ def test_a_skipped_file_does_not_read_as_a_lost_classification(tmp_path):
         },
         deleted=["hooks/a.py"],
     )
-    units, missing = sites_in(root, skip=())
+    units, missing = sites_in(root)
     assert missing == ["hooks/a.py"], missing
     with pytest.raises(pytest.skip.Exception) as declined:
         classifications_of_nothing(units, missing, {"hooks/a.py#f": "grounds"})
@@ -617,7 +620,7 @@ def test_the_walk_reaches_a_root_nobody_listed(tmp_path):
     root = build_tracked_tree(
         tmp_path / "r", {"evals/new.py": "p.write_text(s)\n", "notes.txt": "x\n"}
     )
-    units, _ = sites_in(root, skip=())
+    units, _ = sites_in(root)
     assert unclassified(units, {}) == ["evals/new.py:1 (.write_text(), <module>)"]
 
 

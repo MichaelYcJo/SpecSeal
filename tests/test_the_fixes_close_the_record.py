@@ -333,7 +333,7 @@ def test_a_closed_record_reads_back_through_the_next_round(repo):
     )
     assert second is not None, out
     assert code == 0, out
-    assert fields(record := (repo / ROUNDS / "round-1.md").read_text())[
+    assert fields(record := (repo / ROUNDS / "round-1.md").read_text(encoding="utf-8"))[
         "Fixes checked by"
     ] == ("round-2")
 

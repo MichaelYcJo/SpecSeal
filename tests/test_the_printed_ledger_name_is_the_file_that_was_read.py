@@ -197,8 +197,12 @@ def test_the_name_over_a_symlink_opens_the_file_that_was_read(tmp_path):
     (tmp_path / "y").mkdir()
     (tmp_path / "x").mkdir()
     (tmp_path / "x" / "lnk").symlink_to(tmp_path / "y")
-    (tmp_path / "ledger.md").write_text("the file the pattern names\n")
-    (tmp_path / "x" / "ledger.md").write_text("the decoy relpath names\n")
+    (tmp_path / "ledger.md").write_text(
+        "the file the pattern names\n", encoding="utf-8"
+    )
+    (tmp_path / "x" / "ledger.md").write_text(
+        "the decoy relpath names\n", encoding="utf-8"
+    )
 
     pattern = os.path.join(root, "x", "lnk", "..", "ledger.md")
     (opened,) = ec.resolve_patterns([pattern])
