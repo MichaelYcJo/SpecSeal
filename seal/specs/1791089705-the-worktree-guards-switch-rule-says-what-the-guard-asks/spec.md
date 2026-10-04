@@ -156,9 +156,9 @@ base):
 
 | Row | File | Cites | Drifted by |
 |---|---|---|---|
-| K7 | `seal/releases/0.18.0.md`, §1790993140 | `docs/worktree-guard-spec.md#"### Which tree, when the command walks to it"@570099db` | S1–S3 |
-| `Re-read · M2` | `seal/releases/0.18.0.md`, §1791019475 | the same heading `@570099db` | S1–S3 |
-| K5 | `seal/releases/0.18.0.md`, §1790993140 | `hooks/worktree-guard.py#switch_kind@dd9e3aa1` | S4 |
+| K7 | `seal/releases/0.18.0.md`, §1790993140 | `docs/worktree-guard-spec.md#"### Which tree, when the command walks to it"`, stamped `570099db` in that row | S1–S3 |
+| `Re-read · M2` | `seal/releases/0.18.0.md`, §1791019475 | the same heading, stamped `570099db` in that row | S1–S3 |
+| K5 | `seal/releases/0.18.0.md`, §1790993140 | `hooks/worktree-guard.py#switch_kind`, stamped `dd9e3aa1` in that row | S4 |
 
 M2 in `seal/releases/0.16.0.md` cites the heading at `@a530d5c6` and is
 already read again by the `Re-read · M2` row above; it is reached through that
