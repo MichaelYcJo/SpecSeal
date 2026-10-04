@@ -5002,7 +5002,7 @@ def main():
                     print(line)
             for path, problem in failed:
                 print(
-                    f"  LEFT  {built_name(path, root)}  could not be written "
+                    f"  LEFT  {display_name(path, root)}  could not be written "
                     f"({problem.strerror or problem}) — it is as it was, and the "
                     "next run plans its writes again"
                 )
