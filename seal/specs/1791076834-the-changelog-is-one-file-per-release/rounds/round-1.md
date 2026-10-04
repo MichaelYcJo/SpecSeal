@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #770 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `516ed1d110f24f2b84b3e445244e742ccfea13cd..9bc9f5faee60c1629277087a079e613c3d2ee256`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 1 of work item `1791076834-the-changelog-is-one-file-per-release` (#728, P
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | eight added lines spliced into wrapped paragraphs without re-wrapping, 89 to 115 columns | `docs/branch-and-release.md:59` | open | read; the other seven coordinates are in the prose above; no check covers these files |
-| ⬜ 2 | release checklist §3 still describes the unstaged tree that §2 now stages | `docs/release-checklist.md:184` | open | read against `:84` and `:89` of the same file |
-| ⬜ 3 | the comment above `CHANGELOG` says a changelog under another name is read as any document, which `RELEASE_FILE` now contradicts | `skills/code-review/scripts/survivor_check.py:579` | open | read; the docstring at `:154-165` was updated and this comment was not |
+| ⬜ 1 | eight added lines spliced into wrapped paragraphs without re-wrapping, 89 to 115 columns | `docs/branch-and-release.md:59` | answered | no change. The eight lines, 89 to 115 columns, lie outside `test_docs_line_wrap.py`'s scope and break no check. Rewrapping them now would commission a change that no round reads, after a round that opened nothing needing a fix; read; the other seven coordinates are in the prose above; no check covers these files |
+| ⬜ 2 | release checklist §3 still describes the unstaged tree that §2 now stages | `docs/release-checklist.md:184` | answered | no change. The paragraph at `docs/release-checklist.md:184` explains a skipped-count line from the state before staging. §2's `git add -A` now prevents that state, so the paragraph describes a case that no longer arises. It does not direct any step, and a reader who meets the old state still gets a correct explanation. Its rewrite belongs with the next edit to §3; read against `:84` and `:89` of the same file |
+| ⬜ 3 | the comment above `CHANGELOG` says a changelog under another name is read as any document, which `RELEASE_FILE` now contradicts | `skills/code-review/scripts/survivor_check.py:579` | answered | no change. `survivor_check.py:579`'s comment predates `RELEASE_FILE`, which is defined directly below it. The module docstring states the current reading, and the behaviour is pinned; read; the docstring at `:154-165` was updated and this comment was not |
 | 🟢 | S1 holds: the release files joined reproduce the old changelog byte for byte | `changelog/` | confirmed | executed, 577,907 bytes both, against `edee5ca2` |
 | 🟢 | the new gather writes 0.18.1 and its index line, and `--check` passes after it | `.github/scripts/gather_changelog.py:476` | confirmed | executed in the scratch clone; hygiene and gather modules green on the post-gather tree |
 | 🟢 | the publisher's `section_body` reads the gathered release file | `.github/scripts/publish_release_note.py:151` | confirmed | executed on the gathered 0.18.1 file and on four migrated releases |
