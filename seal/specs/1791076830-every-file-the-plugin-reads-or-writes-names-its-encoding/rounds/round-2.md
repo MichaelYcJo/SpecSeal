@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #757 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `de9521829d034013f6e398bd758dc10f20727060..7bfee70ca36c1022dc8bb528eb2cb422ee86778d`, 4 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (the `ElementInclude.default_loader` row reports a call that reads UTF-8, and the docstring and spec call it a locale reader) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -34,11 +34,11 @@ Judge the smith's question: are the new K1 tables rows of the existing walker, o
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `xml.etree.ElementInclude.default_loader` is a K1 row, but with no encoding it reads text as UTF-8, so the walker reports a UTF-8 call and the docstring and `spec.md` call it a locale reader | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:330` | open | Read: the function's source on 3.12, 3.13 and 3.14 sets UTF-8 when `encoding` is falsy. Executed: the text call is reported at the target and was not before the range. Fix applied in the scratch clone: 115 passed, ruff clean |
-| ⬜ 2 | The docstring excuses `.open` on a `ZipFile` or `TarFile` instance, but only one built in the receiver is excused; `with ZipFile(z) as zf: zf.open(n)` and `dbm.dumb.open(p)` are still reported, and an unimported `os` lost its exclusion in this range | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:32` | open | Executed: the probe at the target and at `839d19a9`. None in the tree; the sentence is wider than the behaviour |
-| ⬜ 3 | `zipfile.Path.open` takes its encoding at position 1, but it is judged with `Path.open`'s position 2, so `zipfile.Path(z).open("r", "utf-8")` is reported | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:138` | open | Read: the 3.14 source passes the first extra argument to `TextIOWrapper` as the encoding. Executed: reported at the target. An over-report, none in the tree |
-| ⬜ 4 | *What no row can hold* omits `logging.config.dictConfig` with a handler class named in a string, and a handler subclass calling `super().__init__(p)`; both open the log in the locale's encoding | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:49` | open | Executed: both come back empty. None in the tree |
-| ⬜ 5 | Correction: the changelog says three one-liners are handed to a session, but one is the CI workflow; `spec.md:72` says round 1 found three, but it found two | `seal/specs/1791076830-every-file-the-plugin-reads-or-writes-names-its-encoding/changelog.md:3` | open | Read. Paperwork, so a correction |
+| 🟡 1 | `xml.etree.ElementInclude.default_loader` is a K1 row, but with no encoding it reads text as UTF-8, so the walker reports a UTF-8 call and the docstring and `spec.md` call it a locale reader | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:330` | **fixed** `347f2996` | fixed at 347f2996 — `d83d7711`; Read: the function's source on 3.12, 3.13 and 3.14 sets UTF-8 when `encoding` is falsy. Executed: the text call is reported at the target and was not before the range. Fix applied in the scratch clone: 115 passed, ruff clean |
+| ⬜ 2 | The docstring excuses `.open` on a `ZipFile` or `TarFile` instance, but only one built in the receiver is excused; `with ZipFile(z) as zf: zf.open(n)` and `dbm.dumb.open(p)` are still reported, and an unimported `os` lost its exclusion in this range | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:32` | **fixed** `347f2996` | fixed at 347f2996 — `01f7eda6`; Executed: the probe at the target and at `839d19a9`. None in the tree; the sentence is wider than the behaviour |
+| ⬜ 3 | `zipfile.Path.open` takes its encoding at position 1, but it is judged with `Path.open`'s position 2, so `zipfile.Path(z).open("r", "utf-8")` is reported | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:138` | **fixed** `347f2996` | fixed at 347f2996; Read: the 3.14 source passes the first extra argument to `TextIOWrapper` as the encoding. Executed: reported at the target. An over-report, none in the tree |
+| ⬜ 4 | *What no row can hold* omits `logging.config.dictConfig` with a handler class named in a string, and a handler subclass calling `super().__init__(p)`; both open the log in the locale's encoding | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:49` | **fixed** `347f2996` | fixed at 347f2996; Executed: both come back empty. None in the tree |
+| ⬜ 5 | Correction: the changelog says three one-liners are handed to a session, but one is the CI workflow; `spec.md:72` says round 1 found three, but it found two | `seal/specs/1791076830-every-file-the-plugin-reads-or-writes-names-its-encoding/changelog.md:3` | answered | corrected at `d83d7711`: the changelog says two one-liners reach the session, and `spec.md` names the CI workflow step beside them; Read. Paperwork, so a correction |
 | 🟢 | round 1's finding 1 is closed — the unbound Path methods are judged with the path first | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:376` | confirmed | Executed: five unbound spellings reported at the target and missed at `839d19a9`; the named and binary forms are not reported |
 | 🟢 | round 1's finding 2 is closed — the compressed openers, logging handlers, `fileinput`, `argparse`, `doctest` and `.makefile()` are rows, with correct positions | `tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py:142` | confirmed | Executed: each reported at the target and missed before the range, with their binary and named forms passing. Read: every position against the 3.14 signatures. The one wrong row is finding 1 of this round |
 | 🟢 | round 1's finding 3 is closed — the three shipped one-liners name UTF-8, and the walk's `.py` limit is stated | `skills/update/SKILL.md:45` | confirmed | Read; searched every tracked non-`.py` file for embedded Python that opens a file. These three are the only ones |
