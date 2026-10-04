@@ -39,7 +39,7 @@ rows; each cited row was read against the change:
   the rewritten sentence as its claim.
 
 D1–D4 are this item's own claims. The records arm then refused one record
-name, `_names_anew` in `plan.md`'s alternatives (a function of round 3's
+name, `_names_anew` in `plan.md`'s alternatives (a function of round 3's · NAME NOT IN TREE
 fence, which never merged), and that line now says `NAME NOT IN TREE`.
 `--strict` exits 0: 5,281 ok, nothing drifted, broken or malformed.
 

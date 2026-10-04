@@ -41,7 +41,7 @@ The R& shapes stay candidate C's, which reads no tree (`spec.md` *Out*,
 Alternative F), and a cut before `--` stays the frozen loop's misreading. The
 `worktree` arm, `-p`/`--pathspec-from-file`, aliases and a quoted `>` stay
 out as `spec.md` *Out* says. `plan.md` line 81 gained `NAME NOT IN TREE` on
-`_names_anew`, a name round 3's unmerged fence held, because the records arm
+`_names_anew`, a name round 3's unmerged fence held, because the records arm · NAME NOT IN TREE
 of `evidence-check` refused it.
 
 ## Fed back into the spec
