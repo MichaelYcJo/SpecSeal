@@ -286,6 +286,28 @@ def test_s3_a_notify_value_outside_the_vocabulary_is_exit_2(world, notify, refus
     assert "— `Pact notify`: will not parse;" in out, out
 
 
+def test_s10_a_notify_row_below_the_signatorys_table_is_exit_2(world):
+    """S10 of #759. A `Pact notify` row under a blank line that ended the
+    signatory's table was read as the default and the run was clean; it is
+    refused now, naming the line, and the notify reads as no value."""
+    write(
+        world["web"],
+        "seal/config.md",
+        config(("Pact", PACT_URL)) + "\n| Pact notify | always |\n",
+    )
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        f"REFUSED {SIGNATORY_URL} seal/config.md — `| Pact notify | always |` "
+        "is shaped as a `Pact notify` row and is not read as one, because it "
+        "stands outside the `| Item | Value |` table, spells the item another "
+        "way, or holds a character that cuts the line. Write it as "
+        "`| Pact notify | … |` inside that table"
+    ) in out, out
+    assert "— `Pact notify`: will not parse;" in out, out
+
+
 def test_no_pact_here_and_no_origin_are_unusable_input(world):
     """Exit 2 for the two ways the pact's repository cannot be read."""
     code, out = run(world, root=world["web"])

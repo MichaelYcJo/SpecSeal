@@ -936,6 +936,83 @@ def test_under_always_a_declaration_that_will_not_read_leaves_the_row(repo, rows
     assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
 
 
+# --- #759: a pact row the table walk does not reach --------------------------
+
+
+def stray_refusal(line, item):
+    return (
+        f"`{line}` is shaped as a `{item}` row and is not read as one, because "
+        "it stands outside the `| Item | Value |` table, spells the item "
+        "another way, or holds a character that cuts the line. Write it as "
+        f"`| {item} | … |` inside that table"
+    )
+
+
+def test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause(repo):
+    """S9. `| Pact notify | always |` under a blank line that ended the table
+    was read as the default, and a moved row citing no clause was re-stamped
+    unrecorded. It is refused now, so the row is left: exit 1, the ledger
+    byte-identical, and no record (#759)."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), ("Pact", PACT_URL))
+        + "\n| Pact notify | always |\n",
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger_rows = [row("O1", "", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, ledger_rows)
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1, out
+    assert (
+        f"LEFT seal/ledger/{ITEM}.md:1 moved, and `Pact notify` may be "
+        "`always`, and the `Pact` rows will not read: "
+        + stray_refusal("| Pact notify | always |", "Pact notify")
+        + " — no pact change was recorded and nothing was re-stamped; fix the "
+        "row and run it again"
+    ) in " ".join(out.split()), out
+    assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+    assert not (repo / "seal" / "pact-changes").exists(), out
+
+
+def test_s5_a_pact_row_below_the_table_leaves_a_row_citing_its_clause(repo):
+    """S5, the writer half. A `Pact` row under the table's end and none in
+    it: the default notify, and no pact named, so a moved row citing the
+    pact's clause was re-stamped unrecorded. Refused now, it is left (#759)."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared")) + f"\n| Pact | {PACT_URL} |\n",
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger_rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, ledger_rows)
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1, out
+    assert (
+        f"LEFT seal/ledger/{ITEM}.md:1 cites a pact clause, and the `Pact` "
+        "rows will not read: " + stray_refusal(f"| Pact | {PACT_URL} |", "Pact")
+    ) in " ".join(out.split()), out
+    assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+    assert not (repo / "seal" / "pact-changes").exists(), out
+
+
+def test_s6_a_notify_row_below_the_table_with_no_pact_restamps(repo):
+    """S6, the writer half. No `Pact` value anywhere, so the stray notify row
+    is ignored, as one inside the table is, and a moved row citing no clause
+    is re-stamped at exit 0."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared")) + "\n| Pact notify | always |\n",
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger = cite(repo, [row("O1", "", f"src/orders.py#serialize@{old}")])
+    new = move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert f"@{new}" in ledger.read_text(encoding="utf-8"), out
+
+
 def test_a_valid_declaration_that_rules_always_out_still_records_nothing(repo):
     """The other side: a valid `when the pact is touched` rules `always`
     out, so a moved row citing no clause owes nothing and the run re-stamps

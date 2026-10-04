@@ -201,6 +201,24 @@ def test_a_row_that_will_not_parse_is_a_notice_and_never_a_failure(
     assert "`pact-check` at the pact's repository exits 2 on it" in out, out
 
 
+def test_s11_a_notify_row_below_the_table_is_a_notice_naming_it(tmp_path):
+    """S11 of #759. A `Pact notify` row the table walk does not reach is
+    refused by the reader; here that is a notice carrying the sentence, the
+    notify prints as no value, and the exit status does not move."""
+    rows = config(("Pact", PACT_URL)) + "\n| Pact notify | always |\n"
+    code, out = run(tree(tmp_path, "signed", rows, SPEC))
+    plain_code, _ = run(tree(tmp_path, "plain", config(), SPEC))
+    assert code == plain_code == 0, out
+    assert (
+        "a `Pact` row this CI does not verify: `| Pact notify | always |` is "
+        "shaped as a `Pact notify` row and is not read as one, because it "
+        "stands outside the `| Item | Value |` table, spells the item another "
+        "way, or holds a character that cuts the line. Write it as "
+        "`| Pact notify | … |` inside that table. Printed rather than refused"
+    ) in out, out
+    assert "(`Pact notify`: a value that will not parse)" in out, out
+
+
 def test_an_anchor_naming_an_undeclared_pact_is_a_notice(tmp_path):
     """S6. A spec citing a pact no `Pact` row names is printed, not
     refused."""
