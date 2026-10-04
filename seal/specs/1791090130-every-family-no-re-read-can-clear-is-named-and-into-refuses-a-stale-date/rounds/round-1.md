@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #771 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `1640bf9a4ef0ea7d5fd5a4bb72613edb0e611fa6..2df484018cd19bdf2f74dc328aa030bcc7610bcd`, 3 commits |
+| Contract changes | none |
+| New units | _frozen_released_o1 (depth 1); test_a_row_refused_for_a_stale_date_records_its_move_once (depth 1); test_a_row_dated_after_today_has_its_move_recorded_before_its_correction (depth 1); test_a_stale_row_with_a_broken_coordinate_says_what_was_recorded (depth 1) |
 | Needs a fix | yes — 🟡 1 (the stale-date line, the ledger home, the changelog, F1 and the L4 correction say nothing is recorded for a refused row while the same run records its BROKEN coordinates), 🟡 2 (the after-today arm's Corrected repair leaves the owed pact change unrecorded for good) |
 | Loses a record or crashes | yes — 🟡 2: a row whose newest reading is dated after today has its move under a pact clause dropped by the refusing run, and the Corrected row the line asks for takes it out of every later re-read, so the pact change is never recorded and the tree checks clean |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -39,10 +39,10 @@ The orchestrator verified the changed modules plus hygiene (782 passed) and ruff
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The stale-date `LEFT` line, the ledger home, the changelog, F1 and the L4 correction all say nothing is recorded for a refused row, while the same run records that row's BROKEN coordinates from `released_drift`'s `broken` list | `skills/evidence-check/scripts/evidence_check.py:3645` | open | executed, P1: the line *nothing was written or recorded for this row* prints two lines above *recorded … a pact change for seal/releases/0.1.0.md:5*, and the record holds the `evict` BROKEN row; `docs/the-evidence-ledger.md:148`, `changelog.md:8` read |
-| 🟡 2 | A row refused because its newest reading is dated after today is sent to a `Corrected ·` repair, which takes it out of every later re-read, so its move under a pact clause is never recorded and the tree then checks clean | `skills/evidence-check/scripts/evidence_check.py:3591` | open | executed, P2: run 1 exit 1 and no record, the `Corrected ·` row written as the line says, run 2 exit 0 and no record, `--strict` exit 0; at the base the move was recorded |
-| ⬜ 3 | The changelog says a case holds each of the five things *in every mode, narrowed and not*; the fifth is held under the two freeze modes for a folded citing row and by one unnarrowed run without the freeze | `seal/specs/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date/changelog.md:21` | open | read against `test_a_folded_citation_whose_released_line_changed_is_left_at_exit_0` and `test_an_unfrozen_restamp_of_a_released_row_moves_the_line_its_re_read_cites`; the ledger home's paragraph states the fifth's modes correctly; a correction to the run's paperwork |
-| ⬜ 4 | Spec A10 says to extend `test_a_family_rooted_in_a_fragment_is_owed_no_released_re_read`; the build wrote a sibling, and `overview.md`'s divergence table does not list it | `seal/specs/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date/overview.md:18` | open | read: `phases/phase-2.md` records the choice and its reason; the sibling covers the axes; a correction to the run's paperwork |
+| 🟡 1 | The stale-date `LEFT` line, the ledger home, the changelog, F1 and the L4 correction all say nothing is recorded for a refused row, while the same run records that row's BROKEN coordinates from `released_drift`'s `broken` list | `skills/evidence-check/scripts/evidence_check.py:3645` | **fixed** `4834f19e` | fixed at 4834f19e; executed, P1: the line *nothing was written or recorded for this row* prints two lines above *recorded … a pact change for seal/releases/0.1.0.md:5*, and the record holds the `evict` BROKEN row; `docs/the-evidence-ledger.md:148`, `changelog.md:8` read |
+| 🟡 2 | A row refused because its newest reading is dated after today is sent to a `Corrected ·` repair, which takes it out of every later re-read, so its move under a pact clause is never recorded and the tree then checks clean | `skills/evidence-check/scripts/evidence_check.py:3591` | **fixed** `4834f19e` | fixed at 4834f19e; executed, P2: run 1 exit 1 and no record, the `Corrected ·` row written as the line says, run 2 exit 0 and no record, `--strict` exit 0; at the base the move was recorded |
+| ⬜ 3 | The changelog says a case holds each of the five things *in every mode, narrowed and not*; the fifth is held under the two freeze modes for a folded citing row and by one unnarrowed run without the freeze | `seal/specs/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date/changelog.md:21` | answered | corrected at `d481638f`: the changelog names the modes in which the fifth family holds; read against `test_a_folded_citation_whose_released_line_changed_is_left_at_exit_0` and `test_an_unfrozen_restamp_of_a_released_row_moves_the_line_its_re_read_cites`; the ledger home's paragraph states the fifth's modes correctly; a correction to the run's paperwork |
+| ⬜ 4 | Spec A10 says to extend `test_a_family_rooted_in_a_fragment_is_owed_no_released_re_read`; the build wrote a sibling, and `overview.md`'s divergence table does not list it | `seal/specs/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date/overview.md:18` | answered | corrected at `d481638f`: the overview's divergence table records that A8 and A10 became sibling cases; read: `phases/phase-2.md` records the choice and its reason; the sibling covers the axes; a correction to the run's paperwork |
 | 🟢 | S1 to S3: the per-row refusal, the strict comparison and the `LEFT` line's elements | `skills/evidence-check/scripts/evidence_check.py:3506` | confirmed | executed: the two modules pass at the target (437); with `edee5ca2`'s checker 27 of the stale-date cases fail; read: the check precedes every `moves.append` in the loop |
 | 🟢 | The shared date rule: `family_view` grades and `later_reading` refuses by `reading_date` and one `newest` field | `skills/evidence-check/scripts/evidence_check.py:2924` | confirmed | read: `newest_by` is filled from the `newest` and `last` that grade the coordinate; the unit case passes |
 | 🟢 | S4 and S5: five things named, each with a case | `docs/the-evidence-ledger.md:178` | confirmed | executed: every case passes at the target; the mutation reds are `phases/phase-2.md`'s account, not re-run |
