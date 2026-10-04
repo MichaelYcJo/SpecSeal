@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #771 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `5853965728be4cab3087b88ffe1c0a58179672e9..09c64b8e2ddab0295020335cd92e8e6a53d79707`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -35,12 +35,12 @@ The fix added no unit.
 | 🟢 | round 2's ⬜ 7 is closed — the section comment says the refused row records its pact change | `tests/test_a_signatory_records_a_pact_change.py:1585` | confirmed | read; the cases under it assert the record and pass at the target |
 | carried | round 2's ⬜ 6, an outranked coordinate recorded as a move to its own hash | `skills/evidence-check/scripts/evidence_check.py:3602` | deferred #774 | already deferred in round 2; #774 is open with the matching title |
 | 🟢 | the merge of `release/v0.18.1` resolved no conflict in this item's files | `71a394b5` | confirmed | executed: `git show --remerge-diff 71a394b5` prints no hunk |
-| ⬜ 8 | `templates/config.md` and the record writer's section comment still name a moved hash or a BROKEN coordinate as when a pact change is recorded, leaving the refused row out | `templates/config.md:405` | open | read; the same class as round 2's yellow 5, enumerated by `git grep`; neither says *whole trigger*, the second copy is `evidence_check.py:3706` |
-| ⬜ 9 | the usage's new signatory sentence and the skill's new clause are pinned by nothing, though the account says a pin holds them | `skills/evidence-check/scripts/evidence_check.py:77` | open | read: the pin's four parameters; executed: the two proposed parameters pass at the target and fail with `538f7e6e`'s files; the skill copy is `skills/evidence-check/SKILL.md:328` |
-| ⬜ 10 | the pact paragraph's `Enforced by:` line names none of the cases that hold its new trigger clause | `docs/the-pact.md:145` | open | read; `fold-check` reads presence and resolution only; no `Enforced by:` line changed anywhere in `78d795fa..HEAD` |
-| ⬜ 11 | F2's Evidence cell describes phase 1's three pins, while the claim now adds the pact doc, the skill and the usage's signatory paragraph; no coordinate holds the usage sentence | `seal/ledger/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date.md:2` | open | read; a correction to the run's paperwork |
-| ⬜ 12 | round 2's record says its deferral is proposed while #774 is filed | `seal/specs/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date/rounds/round-2.md:140` | open | read; `gh issue view 774` returns the issue, OPEN; no file under the work item names it |
-| ⬜ 13 | the re-read row the fix wrote affirms a released claim about a Notes trace that its cited skill section does not state | `seal/ledger/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date.md:11` | open | read: `SKILL.md:283-365` names no Notes trace, and the checker writes one only on an `--into` row (`evidence_check.py:3659`); inherited from two earlier readings |
+| ⬜ 8 | `templates/config.md` and the record writer's section comment still name a moved hash or a BROKEN coordinate as when a pact change is recorded, leaving the refused row out | `templates/config.md:405` | deferred #775 | #775 — an incomplete trigger sentence in two places; neither claims to be the whole trigger; the run ends at this record; read; the same class as round 2's yellow 5, enumerated by `git grep`; neither says *whole trigger*, the second copy is `evidence_check.py:3706` |
+| ⬜ 9 | the usage's new signatory sentence and the skill's new clause are pinned by nothing, though the account says a pin holds them | `skills/evidence-check/scripts/evidence_check.py:77` | deferred #775 | #775 — two of three copies unpinned; the reviewer's paste-ready parameters are on #775's path; read: the pin's four parameters; executed: the two proposed parameters pass at the target and fail with `538f7e6e`'s files; the skill copy is `skills/evidence-check/SKILL.md:328` |
+| ⬜ 10 | the pact paragraph's `Enforced by:` line names none of the cases that hold its new trigger clause | `docs/the-pact.md:145` | deferred #775 | #775 — a rule question about a folded sentence's `Enforced by:` line, for the repository owner; read; `fold-check` reads presence and resolution only; no `Enforced by:` line changed anywhere in `78d795fa..HEAD` |
+| ⬜ 11 | F2's Evidence cell describes phase 1's three pins, while the claim now adds the pact doc, the skill and the usage's signatory paragraph; no coordinate holds the usage sentence | `seal/ledger/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date.md:2` | answered | no change. F2's Evidence cell lists the pins phase 1 planted, and the coordinates added since are in the row's anchors. The cell is incomplete as prose, and the anchors the checker reads are complete; read; a correction to the run's paperwork |
+| ⬜ 12 | round 2's record says its deferral is proposed while #774 is filed | `seal/specs/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date/rounds/round-2.md:140` | answered | corrected at `09c64b8e`: round 2's Deferred row names #774; read; `gh issue view 774` returns the issue, OPEN; no file under the work item names it |
+| ⬜ 13 | the re-read row the fix wrote affirms a released claim about a Notes trace that its cited skill section does not state | `seal/ledger/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date.md:11` | deferred #775 | #775 — the `Re-read ·` row for 0.18.0:79 inherits its evidence from the two readings before it; re-reading that claim against the code that writes Notes is #775's; read: `SKILL.md:283-365` names no Notes trace, and the checker writes one only on an `--into` row (`evidence_check.py:3659`); inherited from two earlier readings |
 
 ## Paste-ready fixes
 
