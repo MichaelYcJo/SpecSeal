@@ -133,7 +133,15 @@ NOT_A_FILE_OPENER = {
     "shelve",
     "dbm",
     "dbm.dumb",
+    "dbm.gnu",
+    "dbm.ndbm",
+    "dbm.sqlite3",
     "wave",
+    "aifc",
+    "sunau",
+    "tokenize",
+    "posix",
+    "nt",
     "PIL.Image",
 }
 # Classes whose methods, called on the class, take the path first, so the
@@ -412,8 +420,6 @@ def owner(receiver, bound):
     bound to a name first (`with ZipFile(z) as zf`) is not traced."""
     if isinstance(receiver, ast.Call):
         return dotted(receiver.func, bound)
-    if isinstance(receiver, ast.Name) and receiver.id not in bound:
-        return receiver.id
     return dotted(receiver, bound)
 
 
@@ -781,7 +787,6 @@ NAMED = {
     "ElementInclude.default_loader, text reads UTF-8 itself": (
         'from xml.etree import ElementInclude\nElementInclude.default_loader(h, "text")'
     ),
-    "os.open on a name no import binds": "def f(os):\n    return os.open(p, 0)",
     "dbm.dumb.open is not a text file": "import dbm.dumb\ndbm.dumb.open(p)",
     "zipfile.Path open, 2nd positional": (
         'import zipfile\nzipfile.Path(z).open("r", "utf-8")'
@@ -789,6 +794,18 @@ NAMED = {
     "zipfile.Path open unbound, 3rd positional": (
         'import zipfile\nzipfile.Path.open(q, "r", "utf-8")'
     ),
+    # #762: every standard-library module whose module-level `open` takes no
+    # locale encoding, enumerated over every importable module on 3.12 to 3.14.
+    "dbm.gnu.open is not a text file": "import dbm.gnu\ndbm.gnu.open(p)",
+    "dbm.ndbm.open is not a text file": "import dbm.ndbm\ndbm.ndbm.open(p)",
+    "dbm.sqlite3.open is not a text file": "import dbm.sqlite3\ndbm.sqlite3.open(p)",
+    "aifc.open is binary": "import aifc\naifc.open(p)",
+    "sunau.open is binary": "import sunau\nsunau.open(p)",
+    "tokenize.open reads the encoding the file declares": (
+        "import tokenize\ntokenize.open(p)"
+    ),
+    "posix.open is os.open": "import posix\nposix.open(p, 0)",
+    "nt.open is os.open": "import nt\nnt.open(p, 0)",
 }
 
 
@@ -802,6 +819,50 @@ def test_each_unnamed_shape_is_reported(shape):
 @pytest.mark.parametrize("shape", sorted(NAMED))
 def test_each_named_shape_is_not_reported(shape):
     assert unnamed_sites(NAMED[shape]) == []
+
+
+# #762: a receiver no import binds is a value the walk cannot prove (K2),
+# whatever it is spelled, so its `.open()` is judged as `Path.open`.
+# `(source, kind, qualname)`: the source holds the call on its last line.
+UNIMPORTED_RECEIVERS = {
+    "a local named after a module": (
+        "wave = make(p)\nwave.open()",
+        "<expr>.open()",
+        "<module>",
+    ),
+    "a parameter named after a module": (
+        "def f(tarfile):\n    return tarfile.open()",
+        "<expr>.open()",
+        "f",
+    ),
+    "a loop variable named after a module": (
+        'for shelve in d:\n    shelve.open("w")',
+        "<expr>.open()",
+        "<module>",
+    ),
+    "a parameter named os": (
+        "def f(os):\n    return os.open(p, 0)",
+        "<expr>.open(), mode not a literal",
+        "f",
+    ),
+    "a module the walk excuses, not imported": (
+        "dbm.gnu.open(p)",
+        "<expr>.open(), mode not a literal",
+        "<module>",
+    ),
+    "a bare module name the walk excuses, not imported": (
+        "tokenize.open(p)",
+        "<expr>.open(), mode not a literal",
+        "<module>",
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(UNIMPORTED_RECEIVERS))
+def test_a_receiver_no_import_binds_is_judged_under_every_spelling(shape):
+    source, kind, qualname = UNIMPORTED_RECEIVERS[shape]
+    line = source.count("\n") + 1
+    assert unnamed_sites(source) == [(line, kind, qualname)]
 
 
 def tables_matched_by_dotted_name():
