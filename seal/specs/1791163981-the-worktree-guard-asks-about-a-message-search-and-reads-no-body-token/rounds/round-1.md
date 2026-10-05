@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #803 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `85e77dc8cfd35b2e8f4e9f82d52a1fbcce84215f..22563bc6a730a30fc94b30ae352ec656f107e709`, 5 commits |
 | Contract changes | tracked_in_any_remote → round-1-report.md, round-1.md; classify → classify, merge, main, 1791163981-the-worktree-guard-asks-about-a-message-search-and-reads-no-body-token.md, questions.md, overview.md, round-1-report.md, round-1.md, check_text, family_view, released_drift, pytest |
 | New units | _OBJECT_NAME (depth 1); _object_named (depth 1); _refs (depth 1); _fetched_as (depth 1); _the_bases_lookup (depth 1); _no_guess (depth 1); _a_dirty_clone_beside (depth 1); test_a_newly_read_checkout_in_front_takes_no_question_away (depth 1); _a_repository (depth 1); _where_git_checkout_lands (depth 1); test_a_message_search_holding_two_dots_is_read_as_a_switch (depth 1); test_the_object_lookup_reads_a_word_rev_parse_reads_as_a_range (depth 1); test_a_guess_through_any_fetch_refspec_is_read_as_a_switch (depth 1); test_the_first_newly_read_checkout_is_the_one_judged (depth 1) |
