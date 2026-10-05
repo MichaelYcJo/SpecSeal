@@ -19,13 +19,15 @@
   run's `suite-at-base-*.txt`.
 
   A file reads `failing on base too` only where the report places a failing
-  or erroring test on that file and no other, by the file's path and at the
-  run's one offset between pytest's rootdir and the directory the row runs
-  pytest in. The gate also appends `-o junit_family=xunit1`, which makes
-  pytest write each test's file as a path, so a package or a class named
-  like a module is never taken for it. A same-named module elsewhere in the
-  tree is placed only where every test in the report shares the directories
-  in front of it. A file reads `new` only where the report names that file's
+  or erroring test on that file and no other, by the file's path read
+  against the files the base tracks. The gate also appends
+  `-o junit_family=xunit1`, which makes pytest write each test's file as a
+  path, so a package or a class named like a module is never taken for it.
+  Where the base tracks a same-named file the path could also name, from
+  another rootdir or another directory the row could run pytest in, the file
+  reads `new?`. That path is where a test's function is defined, so a test a
+  class inherits from another module is placed by its dotted name instead,
+  on the module that collected it. A file reads `new` only where the report names that file's
   tests and none failed. Anything else reads `new?` with a reason: a failing
   test that could be this file or another one, or a file the report names no
   test of (`pytest's report at the base does not place a test on this file
@@ -42,8 +44,9 @@
   and a runner given `-p no:junitxml`. Such a part used to print pytest's
   summary over something else, and every file read `new` for a run that
   never ran it. Where another part of the row does run pytest, see the next
-  entry. Write such a part so it passes its arguments on, `--junitxml`
-  included.
+  entry. Write such a part so it passes its arguments on, `--junitxml` and
+  `-o junit_family=…` included: a wrapper that forwards only the options it
+  knows reads `new?`.
 
 - A `Broad gate` row that runs pytest in more than one part, such as
   `pytest -q && cd sub && pytest -q`, now reads `new?` for every failing file
@@ -62,5 +65,10 @@
   pytest pays nothing; this repository's own row runs its two `uvx ruff`
   prefixes once more. Not counted, and named in `templates/config.md` rule
   3: a runner behind a part that fails at the base under collection alone,
-  or behind `||`, a runner given `-p no:junitxml`, and a later runner inside
-  a part that drops its arguments (#807).
+  or behind `||`, a runner given `-p no:junitxml`, a runner whose own
+  command line names `--junitxml`, one started without `PYTEST_ADDOPTS`, and
+  a later runner inside a part that drops its arguments (#807). In such a
+  row a file the base tracks under both runners' directories reads `new?`.
+  One it tracks under the measured runner's directory only is still
+  measured there, and can read `new` or `failing on base too` from the
+  wrong runner.

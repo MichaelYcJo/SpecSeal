@@ -32,20 +32,28 @@ reads `new?`.
 ## Not done
 
 A file that holds no test at the base, beside another collected module of
-the same name, could read `failing on base too`. Round 1 of review ran two
-shapes of it (a package named like the module, and a same-named module
-deeper in the tree), and its fix pass closed both: a test is placed by the
-path the `xunit1` report gives it, and a positive offset only where every
-test in the report shares it. One shape stays open and is named in rule 3:
-pytest's rootdir below the directory the row runs pytest in, with a
-same-named module a directory up that the row also collects. Where a report
-carries no `file` attribute at all, the dotted fallback still cannot tell a
-class from a package of the same name at offset 0; every pytest the fix pass
-ran writes the attribute.
+the same name, could read `failing on base too`. Rounds 1 and 2 of review
+ran five shapes of it: a package named like the module, a same-named module
+deeper in the tree (with and without a test outside it), a shorter
+same-named path, and pytest's rootdir below the run directory. Round 2's fix
+pass closed all five by reading each report path against the files the base
+tracks, so no offset is guessed. What stays open:
 
-Two runners that drop the gate's arguments stay uncounted, named in rule 3
-and filed as #807: one given `-p no:junitxml`, and a later one inside a part
-that drops its arguments.
+- **A test placed by its dotted name.** Where a report carries no `file`, or
+  the `file` is where an inherited test was defined, the test is placed by
+  its dotted name, which cannot tell a module from a package of the same
+  name; rule 3 says so. Every pytest the fix passes ran writes `file`.
+- **A test file the base does not track** (one generated at run time) makes
+  every file of that run read `new?`: no rootdir fits every path. This is
+  the strict direction, stated in rule 3.
+
+Four runners stay uncounted, named in rule 3 and filed as #807: one given
+`-p no:junitxml`, one whose own command line names `--junitxml`, one started
+without `PYTEST_ADDOPTS`, and a later one inside a part that drops its
+arguments. Where the base tracks the file under both runners' directories,
+the file reads `new?`. Where it tracks it under the measured runner's only,
+#761's p1b stands: `failing on base too` from the wrong runner (measured in
+round 2's fix pass, and the same at a3aa139a).
 
 Measuring a two-runner row file by file (`plan.md` Alternative F) and the
 runners collection alone cannot reach (`spec.md` Axis B) stay out, as the

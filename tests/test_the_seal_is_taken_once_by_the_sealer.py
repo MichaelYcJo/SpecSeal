@@ -4139,8 +4139,9 @@ REPORTS = [
         ["ON_BASE"],
         id="rootdir-below",
     ),
-    # No ini file: the rootdir is the arguments' common directory, `tests`,
-    # which is this module's own fixture rows.
+    # A rootdir of `tests` (an ini file there, the row run from the root),
+    # offset -1. This module's fixture rows have their rootdir at the
+    # repository root and name `tests.test_two` (#789 round 2's ⬜ 4).
     pytest.param(
         junit([("test_two", "test_two", "failure"), ("test_one", "test_one", "")]),
         ["tests/test_two.py", "tests/test_one.py"],
@@ -4271,7 +4272,8 @@ REPORTS = [
         ["UNPLACED"],
         id="file-a-package-named-like-the-module",
     ),
-    # The fixtures' shape with a path: the rootdir is `tests`, offset -1.
+    # A rootdir of `tests` with a path, offset -1. The fixture rows' rootdir
+    # is the repository root, offset 0 (#789 round 2's ⬜ 4).
     pytest.param(
         junit(
             [
@@ -4359,6 +4361,135 @@ def test_the_base_run_is_read_off_pytests_report(
     gate = gate_module()
     expected = [getattr(gate, w) if w.isupper() else w for w in words]
     got = gate.report_words(report, files, code, stopped, alone=alone)
+    assert list(got.values()) == expected
+
+
+def test_an_inherited_tests_file_is_kept_only_where_its_name_starts_with_it():
+    """#789 round 2's 🟡 2. `xunit1`'s `file` is where a test's function is
+    defined. `TestThree` inherits its failing test from `tests/test_two.py`,
+    so that file is not its own and it is placed by its dotted name (Q4b:
+    `tests/test_two.py` reads `new`). `TestTwo` inherits a failing test from
+    `tests/helpers.py`, and is placed on `tests/test_two.py` by its name
+    (Q4c: `failing on base too`). Shapes from the round's kept reports."""
+    gate = gate_module()
+    inherited_elsewhere = junit(
+        [
+            (
+                "tests.test_three.TestThree",
+                "test_shared",
+                "failure",
+                "tests/test_two.py",
+            ),
+            ("tests.test_two.TestTwo", "test_shared", "", "tests/test_two.py"),
+        ]
+    )
+    assert gate.report_words(inherited_elsewhere, ["tests/test_two.py"], 1, False) == {
+        "tests/test_two.py": gate.NEW
+    }
+    inherited_from_a_helper = junit(
+        [
+            ("tests.test_two.TestTwo", "test_inherited", "failure", "tests/helpers.py"),
+            ("tests.test_two", "test_ok", "", "tests/test_two.py"),
+        ]
+    )
+    assert gate.report_words(
+        inherited_from_a_helper, ["tests/test_two.py"], 1, False
+    ) == {"tests/test_two.py": gate.ON_BASE}
+
+
+# A report's paths read against the base's tracked files (#789 round 2's 🟡
+# 1). Each is `(report, files appended, tracked paths, words)`; the layouts
+# are the round's Q1, Q3, Q10, Q10b and Q11, and the fixtures' own.
+TREE_READINGS = [
+    pytest.param(
+        junit(
+            [
+                (
+                    "tests.x.tests.test_two",
+                    "test_deep",
+                    "failure",
+                    "tests/x/tests/test_two.py",
+                )
+            ]
+        ),
+        ["tests/test_two.py"],
+        {"tests/test_one.py", "tests/test_two.py", "tests/x/tests/test_two.py"},
+        ["UNPLACED"],
+        id="q1-a-deeper-module-every-test-sits-under",
+    ),
+    pytest.param(
+        junit([("tests.test_two", "test_two", "failure", "tests/test_two.py")]),
+        ["a/tests/test_two.py"],
+        {"a/tests/test_two.py", "tests/test_two.py"},
+        ["UNPLACED"],
+        id="q3-a-shorter-same-named-path",
+    ),
+    pytest.param(
+        junit(
+            [
+                ("sub.tests.test_two", "test_two", "failure", "sub/tests/test_two.py"),
+                ("sub.tests.test_one", "test_one", "", "sub/tests/test_one.py"),
+            ]
+        ),
+        ["tests/test_two.py", "tests/test_one.py"],
+        {"sub/pytest.ini", "sub/tests/test_two.py", "sub/tests/test_one.py"},
+        ["ON_BASE", "NEW"],
+        id="q10-cd-sub-ini-at-the-root",
+    ),
+    pytest.param(
+        junit([("sub.tests.test_two", "test_two", "failure", "sub/tests/test_two.py")]),
+        ["tests/test_two.py"],
+        {"sub/tests/test_two.py", "tests/test_two.py"},
+        ["UNPLACED"],
+        id="q10b-the-root-tracks-the-file-too",
+    ),
+    pytest.param(
+        junit([("tests.test_two", "test_two", "failure", "tests/test_two.py")]),
+        ["sub/tests/test_two.py"],
+        {"sub/pytest.ini", "sub/tests/test_two.py"},
+        ["ON_BASE"],
+        id="q11-ini-in-sub-row-at-the-root",
+    ),
+    pytest.param(
+        junit(
+            [
+                ("tests.test_two", "test_two", "failure", "tests/test_two.py"),
+                ("tests.test_one", "test_one", "", "tests/test_one.py"),
+            ]
+        ),
+        ["tests/test_two.py", "tests/test_one.py"],
+        {"tests/test_two.py", "tests/test_one.py"},
+        ["ON_BASE", "NEW"],
+        id="the-fixtures-rootdir-at-the-root",
+    ),
+    # A test file the base does not track (generated, say): no rootdir fits
+    # every path, so nothing is placed and nothing reads `new`.
+    pytest.param(
+        junit(
+            [
+                ("tests.test_two", "test_two", "", "tests/test_two.py"),
+                ("tests.test_gen", "test_gen", "failure", "tests/test_gen.py"),
+            ]
+        ),
+        ["tests/test_two.py"],
+        {"tests/test_two.py"},
+        ["UNPLACED"],
+        id="an-untracked-test-file",
+    ),
+]
+
+
+@pytest.mark.parametrize("report, files, tree, words", TREE_READINGS)
+def test_a_report_path_is_read_against_the_bases_tracked_files(
+    report, files, tree, words
+):
+    """#789 round 2's 🟡 1. pytest's rootdir is the directory under which
+    every report path is tracked, and the directory the row runs pytest in
+    the one under which every handed file is; a placement counts only where
+    each is one directory and the two name one file."""
+    gate = gate_module()
+    expected = [getattr(gate, w) for w in words]
+    got = gate.report_words(report, files, 1, False, tree=frozenset(tree))
     assert list(got.values()) == expected
 
 
@@ -5226,9 +5357,10 @@ def test_a_package_named_like_the_file_is_not_placed_on_it(tmp_path):
 def test_a_same_named_module_deeper_in_the_tree_is_not_placed_on_the_file(tmp_path):
     """#789 round 1's 🟡 1 (P2, the closing memo's Not done). The failing
     `tests/x/tests/test_two.py` matched `tests/test_two.py`, which holds no
-    test at the base, at offset 1 from the rootdir `tests`. One run has one
-    offset, and `test_one.py` does not sit under `x`, so the placement is
-    refused."""
+    test at the base, at offset 2 from the rootdir, the repository root.
+    Read against the base's tracked files, the report's path and the handed
+    file name two different files, so the placement is refused (#789 round
+    2's 🟡 1)."""
     repo = base_then_feature(
         tmp_path / "repo",
         SUITE_ROW,
@@ -5272,6 +5404,115 @@ def test_a_runner_that_drops_its_arguments_before_another_is_counted(tmp_path):
     assert (keep / "runners-at-base-1.xml").is_file()
 
 
+def test_a_same_named_module_every_test_sits_beside_is_not_placed_on_the_file(
+    tmp_path,
+):
+    """#789 round 2's 🟡 1 (Q1). Every test the base's report names sits
+    under `tests/x/tests`, so every test shared the offset that placed
+    `tests/x/tests/test_two.py`'s failure on `tests/test_two.py`, which holds
+    no test at the base. Read against the base's tracked files, the report's
+    path and the handed file name two different files."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        SUITE_ROW,
+        {
+            "tests/test_one.py": "X = 1\n",
+            "tests/test_two.py": "X = 1\n",
+            "tests/x/__init__.py": "",
+            "tests/x/tests/__init__.py": "",
+            "tests/x/tests/test_two.py": FAILING_TEST.replace("test_two", "test_deep"),
+        },
+        {
+            "tests/test_two.py": FAILING_TWO,
+            "tests/x/tests/test_two.py": PASSING_TEST.replace("test_one", "test_deep"),
+        },
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().UNPLACED, (
+        out.stdout
+    )
+
+
+def test_a_shorter_same_named_path_is_not_placed_on_the_file(tmp_path):
+    """#789 round 2's 🟡 1 (Q3). pytest's rootdir is the directory the row
+    runs in, and the failing `tests/test_two.py` equals the handed
+    `a/tests/test_two.py` less its first directory, so it was placed there
+    at offset -1."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{SUITE_ROW} a",
+        {
+            "a/__init__.py": "",
+            "a/tests/__init__.py": "",
+            "a/tests/test_two.py": "X = 1\n",
+            "tests/test_two.py": FAILING_TEST,
+        },
+        {"a/tests/test_two.py": FAILING_TWO, "tests/test_two.py": PASSING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "a/tests/test_two.py") == gate_module().UNPLACED, (
+        out.stdout
+    )
+
+
+MIXIN = (
+    "class Shared:\n"
+    "    value = 1\n\n"
+    "    def test_shared(self):\n"
+    "        assert self.value == 1, 'planted'\n"
+)
+
+
+def test_a_test_another_module_inherits_is_not_placed_on_the_defining_file(tmp_path):
+    """#789 round 2's 🟡 2 (Q4b). `xunit1` writes the file a test's function
+    is defined in: `tests/test_three.py`'s inherited test failed at the base
+    under `file="tests/test_two.py"` and gave that file `failing on base
+    too`, though every test it collects passes there."""
+    three = (
+        "from test_two import Shared\n\n\nclass TestThree(Shared):\n    value = {}\n"
+    )
+    own = MIXIN + "\n\nclass TestTwo(Shared):\n    value = 1\n"
+    repo = base_then_feature(
+        tmp_path / "repo",
+        SUITE_ROW,
+        {"tests/test_two.py": own, "tests/test_three.py": three.format(2)},
+        {
+            "tests/test_two.py": own + "\n\n" + FAILING_TWO,
+            "tests/test_three.py": three.format(1),
+        },
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().NEW, out.stdout
+
+
+def test_a_test_a_file_inherits_from_a_helper_is_placed_on_that_file(tmp_path):
+    """#789 round 2's 🟡 2 (Q4c), the strict side: the base fails
+    `tests/test_two.py` through a test it inherits from `tests/helpers.py`,
+    and `xunit1` names the helper, so the file read `new`."""
+    helpers = (
+        "class Base:\n    v = 1\n\n    def test_inherited(self):\n"
+        "        assert self.v == 1, 'planted'\n"
+    )
+    two = (
+        "from helpers import Base\n\n\nclass TestTwo(Base):\n    v = 2\n\n\n"
+        "def test_ok():\n    pass\n"
+    )
+    repo = base_then_feature(
+        tmp_path / "repo",
+        SUITE_ROW,
+        {"tests/helpers.py": helpers, "tests/test_two.py": two},
+        {"tests/test_two.py": two + "\n\n" + FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE, (
+        out.stdout
+    )
+
+
 def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
     """S7 (#761, contract §14). The candidate's run costs a run per such
     file, and it has two limits a row's author can meet. Rule 3 is the one
@@ -5306,16 +5547,22 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "A file the report places a failing or erroring test on, and no other "
         "file, reads `failing on base too`, and a file whose tests the report "
         "names with none failing reads `new`.",
-        # #789 round 1's 🟡 1: placement by path at the run's one offset, and
-        # the negative-offset shape that stays open.
+        # #789 round 2's 🟡 1 and 🟡 2: placement read against the base's
+        # tracked files, which replaces round 1's offset and its negative
+        # limit, and the inherited test placed by its dotted name.
         "A test is placed on a file by the path pytest's report gives it (the "
-        "gate also appends `-o junit_family=xunit1`, which writes that path), at "
-        "one offset between pytest's rootdir and the directory the row runs "
-        "pytest in; a file named at two offsets, or at one not every test in "
-        "the report shares, reads `new?`.",
-        "Where pytest's rootdir sits below that directory, a same-named file a "
-        "directory up that the row also collects can still be placed on a file "
-        "the base holds no test in.",
+        "gate also appends `-o junit_family=xunit1`, which writes that path), "
+        "read against the files the base tracks: pytest's rootdir is a "
+        "directory under which every such path is a tracked file, the directory "
+        "the row runs pytest in is one under which every file the run was handed "
+        "is, and the test is placed on the file only where each is one directory "
+        "and the two name one file.",
+        "Where the base tracks a second directory that fits either, the file "
+        "reads `new?`, and so does every file of a run whose report names a test "
+        "file the base does not track.",
+        "That path is the file a test's function is defined in, so a test a "
+        "class inherits from another module is placed by its dotted name "
+        "instead, which cannot tell a module from a package of the same name.",
         # #789 round 1's 🟡 2: which runners that drop the arguments are
         # counted, and the two named as limits (#807).
         "A part that does not hand the appended arguments on to pytest — a "
@@ -5324,14 +5571,26 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "writes no report where the gate asked for one, so where no other part "
         "of the row runs pytest each file reads `new?` where it used to read "
         "`new` for a file it never ran.",
+        # #789 round 2's 🟡 3: the four runners the pass cannot count (#807),
+        # and what such a row reads once paths are read against the tree.
         "Where another part does, the collection pass counts a runner before the "
-        "one that wrote the report through `PYTEST_ADDOPTS`, but two shapes stay "
-        "uncounted (#807): a runner given `-p no:junitxml`, which refuses the "
-        "option from either source, and a runner after the one that wrote the "
-        "report inside a part that drops its arguments; such a row is read as "
-        "one with a single runner, and a file can read `new` or `failing on base "
-        "too` from the other runner's directory.",
-        "Write such a part so it passes its arguments on, `--junitxml` included",
+        "one that wrote the report through `PYTEST_ADDOPTS`, which counts it only "
+        "where it writes the report that variable asks for.",
+        "Four shapes stay uncounted (#807): a runner given `-p no:junitxml`, "
+        "which refuses the option from either source; one whose own command line "
+        "names `--junitxml`, which wins over `PYTEST_ADDOPTS`; one started in an "
+        "environment that does not carry `PYTEST_ADDOPTS`; and a runner after the "
+        "one that wrote the report inside a part that drops its arguments.",
+        # Measured in round 2's fix pass: in #761's p1b layout, where the base
+        # does not track the file under the uncounted runner's directory,
+        # the measured runner still gives `failing on base too`.
+        "Such a row is read as one with a single runner: a file the base "
+        "tracks under both runners' directories reads `new?`, and one it tracks "
+        "under the measured runner's directory only is measured there, so it "
+        "can read `new` or `failing on base too` from the wrong runner.",
+        # #789 round 2's ⬜ 5: the family option is appended too.
+        "Write such a part so it passes its arguments on, `--junitxml` and "
+        "`-o junit_family=…` included",
         # #789, replacing #761 round 1's 🟡 2 two-runner sentence: the
         # behaviour, its cost, and what collection alone does not reach.
         "A row that runs pytest in more than one part — `pytest -q && cd sub "
@@ -5356,9 +5615,10 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "Collection alone does not reach a runner behind a part that exits "
         "non-zero at the base under it — a lint that fails there, an earlier "
         "runner with a collection error or one that collects nothing — nor one "
-        "behind `||`; such a row is read as one with a single runner, and a file "
-        "a later runner named can read `new` or `failing on base too` from the "
-        "first runner's directory.",
+        "behind `||`; such a row is read as one with a single runner: a file "
+        "a later runner named reads `new?` where the base tracks it under both "
+        "runners' directories, and can read `new` or `failing on base too` from "
+        "the first runner's directory where the base tracks it there only.",
         "runner first costs one run at the base and a run of each prefix after "
         "it in the collection pass (below), and lint first re-runs the parts "
         "before the runner once per prefix tried and once more per prefix in "
