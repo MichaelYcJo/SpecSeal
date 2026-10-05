@@ -45,6 +45,13 @@ What it reads, for every routing declaration this pull request adds or changes:
                              `Pact` row names, or the signatories
                              `seal/pact.md` lists (`pact_notices`). This CI
                              reads one repository; `pact-check` reads them all
+  a changelog fragment left  PRINTED, never refused, for a chain item: every
+  behind (#797)              first-parent commit after round 1's Target SHA
+                             that changed a path outside `seal/` and outside a
+                             `tests` directory after the item's `changelog.md`
+                             last changed, with the round whose `Fix range`
+                             holds it (`fragment_left_behind`). The exit status
+                             is the one the tree has without it
 
 REACHABLE, and why it is not "an ancestor of HEAD". It was, and the branching
 model destroys that property on purpose: `CONTRIBUTING.md` has feature branches
@@ -4096,6 +4103,251 @@ def pact_notices(routing, root, declarations):
     return notices
 
 
+# A work item's changelog fragment, as the release gathers it
+# (`docs/the-record-layout.md` §*A change writes fragments, never a shared
+# file*), and the section of that document that owns the rule the arm below
+# prints. The notice names the section by this title, and
+# `tests/test_a_fragment_left_behind_is_named.py` pins it to the heading.
+CHANGELOG_FRAGMENT = "changelog.md"
+FRAGMENT_DOC = "docs/the-record-layout.md"
+FRAGMENT_RULE = "A commit after the build brings its changelog fragment along"
+# The directory name a test-only path sits under. `round_record.py`'s
+# `TESTS_DIR` and `under_tests` are the twin: this module cannot import that
+# one (the import runs the other way), so the predicate is stated again here
+# in the same words, a component anywhere above the file.
+TESTS_DIR = "tests"
+# How many behaviour paths a named commit lists before it counts the rest. The
+# commit is what the reader opens; the paths say why it was named.
+PATHS_NAMED = 3
+
+
+def behaviour_path(routing, path):
+    """True for a path outside the `seal/` root and outside a `tests` dir.
+
+    A negative definition rather than a list of this repository's
+    directories, because this check ships to every opted-in repository and a
+    list is one layout. #797's own list had already left out `bin/` and
+    `agents/` before it shipped.
+    """
+    parts = path.split("/")
+    return parts[0] != routing.optin.HOME and TESTS_DIR not in parts[:-1]
+
+
+def range_ends(reader, root, rel):
+    """(a, b), the full commits of a record's `Fix range`, or None.
+
+    None wherever the row is absent, says `none`, will not parse, or names
+    an end this repository cannot see. `fix_range` reports each of those
+    states; this only asks which commits a range holds, through the same
+    `FIX_RANGE_RE`.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return None
+    rows = table_rows(reader, reader.readable(text))
+    found = FIX_RANGE_RE.search(reader.visible(field(rows, FIX_RANGE) or ""))
+    if found is None:
+        return None
+    a, b = resolves_to(root, found.group(1)), resolves_to(root, found.group(2))
+    return (a, b) if a and b else None
+
+
+def last_round_end(reader, root, rel):
+    """The commit the last round's work ends at, or None.
+
+    Its `Fix range`'s second end where the range resolves, and its newest
+    `Target SHA` where the row says `none`: a round that commissioned no
+    fixes ends at what it reviewed. Any other state of the row names no end,
+    and a commit then is not called *after the last round*.
+    """
+    ends = range_ends(reader, root, rel)
+    if ends is not None:
+        return ends[1]
+    text = read_record(root, rel)
+    if text is None:
+        return None
+    cell = field(table_rows(reader, reader.readable(text)), FIX_RANGE)
+    if cell is None or not says_none(reader.visible(cell).strip()):
+        return None
+    shas = target_shas(reader, root, rel)
+    return resolves_to(root, shas[-1]) if shas else None
+
+
+def walk_tip(root, target):
+    """The commit the walk starts from: HEAD, or the pull request's own head
+    where HEAD is the merge a `pull_request` checkout makes of it.
+
+    `actions/checkout` with no `ref:` checks a pull request out as its head
+    already merged into the base, and that merge's FIRST parent is the base.
+    A first-parent walk from it reads the base's commits since the fork -- a
+    sibling's squash, named as *after the last round* -- and never the work
+    item's own, which sit behind the second parent (#797 round 1). So where
+    HEAD is a merge whose first parent does not descend from round 1's
+    target, the parent that does is the branch, and the walk starts there.
+
+    A merge whose first parent DOES descend from the target is the branch's
+    own integration of its base, and HEAD stays the tip: the merge itself is
+    skipped and the sibling's commits stay off the first-parent walk.
+    """
+    line = git(root, "rev-list", "--parents", "-n", "1", "HEAD") or ""
+    parents = line.split()[1:]
+    if len(parents) > 1 and not is_ancestor(root, target, parents[0]):
+        for parent in parents[1:]:
+            if is_ancestor(root, target, parent):
+                return parent
+    return "HEAD"
+
+
+def commits_after(root, target, tip="HEAD"):
+    """[(full, short, paths)], oldest first: the first-parent, non-merge
+    commits in `<target>..<tip>` and the paths each changed, or None.
+
+    `--no-renames`, because with rename detection `--name-only` lists a move
+    by its destination alone: a behaviour file moved under `tests/` or
+    `seal/` listed only the path `behaviour_path` rejects, and was never
+    named (#797 round 1). Detection also follows the reader's own
+    `diff.renames`, so a local run and CI listed different paths for one
+    commit. Without it both sides are listed on every machine, and a fragment
+    moved into place is still touched, since the added side is its path.
+    """
+    out = git(
+        root,
+        "log",
+        "--first-parent",
+        "--no-merges",
+        "--no-renames",
+        "--name-only",
+        "-z",
+        "--format=%x01%H %h",
+        f"{target}..{tip}",
+    )
+    if out is None:
+        return None
+    commits = []
+    for chunk in out.split("\x01")[1:]:
+        header, _, rest = chunk.partition("\0")
+        full, _, short = header.partition(" ")
+        if rest.startswith("\n"):
+            rest = rest[1:]
+        commits.append((full, short, [p for p in rest.split("\0") if p]))
+    commits.reverse()
+    return commits
+
+
+def fragment_left_behind(reader, routing, root, item, records):
+    """([], notices) — the commits after the build that a fragment lagged (#797).
+
+    **A notice, never a refusal, and the exit status is the one the tree has
+    without it** — the shape `pact_notices` has. Measured over 42 work items
+    for #797, a refusal would have stopped 24 runs, at least 9 of them for a
+    fragment that needed no change, and the honest answer has no spelling a
+    refusal could accept short of a new record field.
+
+    ONE question per work item. Round 1's `Target SHA` is where the build
+    ended, so the walk is the first-parent, non-merge commits from it to
+    the branch's tip (`walk_tip`: HEAD, or the pull request's head inside
+    CI's merge ref), and the build's own commits are never read. The fragment's last
+    change in that walk is the line: every commit after it that changed a
+    behaviour path (`behaviour_path`) is named, with the round whose `Fix
+    range` holds it, *after the last round* past the last record's end, or
+    *outside every round's fix range* for the rest. A per-range question was
+    the ticket's reading and was rejected: it keeps naming a range whose
+    fragment a later range brought along, where this one clears the moment
+    the fragment changes.
+
+    The first SHA the row names is the build's end: a second one is a HEAD
+    that moved while round 1 ran, which is after the build.
+
+    **Silent where there is no line to draw**, and each is a state rather
+    than a fault:
+
+      no `round-1.md`            nothing says where the build ended. A
+                                 `straight to the PR` item never reaches this
+                                 function, for the same reason
+      round 1's target           squashed away, or off the branch after a
+      unresolvable, or not an    rebase. Walking `<target>..HEAD` from a
+      ancestor of HEAD           commit HEAD does not descend from reads the
+                                 build itself as late
+      no `changelog.md` at HEAD  whether the item owes a fragment is not this
+                                 question, and local mode commits none
+
+    The fragment is read at HEAD under `--worktree` too: the walk is over
+    commits, and a fragment edited and not yet committed is named until the
+    commit that brings it along, which is the commit the rule asks for.
+
+    WHAT IT CANNOT SEE, written here rather than found later. A behaviour
+    change made only inside a merge commit's conflict resolution is skipped
+    with the merge. A test-only commit in a repository whose tests live
+    outside a `tests` directory is named although nothing was owed — one
+    line, no stop. And whether a named commit changed anything a release
+    note states is a reader's judgment: the notice says nothing is owed
+    where the fragment still says what ships.
+    """
+    # A record git does not carry has no `Target SHA` to read, so an absent
+    # `round-1.md` is the unresolvable target below and needs no test of its
+    # own.
+    shas = target_shas(reader, root, f"{item}/{routing.ROUNDS_DIR}/round-1.md")
+    target = resolves_to(root, shas[0]) if shas else None
+    if target is None or not is_ancestor(root, target, "HEAD"):
+        return [], []
+    if CHANGELOG_FRAGMENT not in tracked_files(root, item):
+        return [], []
+    tip = walk_tip(root, target)
+    commits = commits_after(root, target, tip) or []
+    fragment = f"{item}/{CHANGELOG_FRAGMENT}"
+    touched = [i for i, (_f, _s, paths) in enumerate(commits) if fragment in paths]
+    since = touched[-1] + 1 if touched else 0
+    late = []
+    for full, short, paths in commits[since:]:
+        behaviour = [p for p in paths if behaviour_path(routing, p)]
+        if behaviour:
+            late.append((full, short, behaviour))
+    if not late:
+        return [], []
+
+    held = []
+    for rel in records:
+        ends = range_ends(reader, root, rel)
+        inside = git(root, "rev-list", f"{ends[0]}..{ends[1]}") if ends else None
+        if inside is not None:
+            number = routing.round_number(os.path.basename(rel))
+            held.append((number, set(inside.split())))
+    end = last_round_end(reader, root, records[-1])
+    # From the walk's own tip. For every commit the walk lists `<end>..HEAD`
+    # gives the same answer, since HEAD reaches whatever the tip reaches; the
+    # tip is used so that one value says where this item's history ends.
+    after = (
+        set((git(root, "rev-list", f"{end}..{tip}") or "").split()) if end else set()
+    )
+
+    named = []
+    for full, short, behaviour in late:
+        where = next(
+            (f"round {number}'s fix range" for number, s in held if full in s),
+            "after the last round" if full in after else None,
+        )
+        where = where or "outside every round's fix range"
+        shown = ", ".join(behaviour[:PATHS_NAMED])
+        if len(behaviour) > PATHS_NAMED:
+            shown += f" and {len(behaviour) - PATHS_NAMED} more"
+        named.append(f"`{short}` ({where}: {shown})")
+    return [], [
+        (
+            fragment,
+            0,
+            "this work item's changelog fragment last changed before "
+            f"{plural(len(late), 'commit', 'commits')} after the build that "
+            f"changed what it ships: {', '.join(named)}. The release gathers "
+            f"`{fragment}` "
+            "as it stands, so a sentence those commits made false ships as a "
+            "false release note. Where the fragment still says what ships, "
+            "nothing is owed; where it does not, bring it along in a commit "
+            f"of its own. `{FRAGMENT_DOC}` §*{FRAGMENT_RULE}* owns the rule. "
+            "A notice: nothing here refuses",
+        )
+    ]
+
+
 def frame_mark(reader, text):
     """(when, who) from the mark at the foot of `spec.md`, or None.
 
@@ -4843,6 +5095,16 @@ def main(argv=None):
             )
             errors.extend(late_errors)
             notices.extend(late_notices)
+
+        # ONCE per work item, after the walk, where the arms above read each
+        # record: whether the fragment kept up with the commits after the
+        # build is a question about the branch, and the records only say which
+        # round each commit belongs to. Notices alone (#797).
+        left_errors, left_notices = fragment_left_behind(
+            reader, routing, root, item, records
+        )
+        errors.extend(left_errors)
+        notices.extend(left_notices)
 
     for rel, line, message in notices:
         print(reader.annotate("notice", rel, line, message))
