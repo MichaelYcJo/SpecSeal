@@ -143,7 +143,11 @@ its own collection runs, appended to the value it already has.
   collection run per later prefix, once per comparison, and only on a
   failing gate. Where the runner does not read `PYTEST_ADDOPTS` (an
   environment a wrapper scrubs), that run collects nothing and runs the
-  tests, so it costs a real run. Rule 3 states it.
+  tests, so it costs a real run. Rule 3 states it. *Changed by round 1's
+  fix pass (inferred during implementation): two more arguments, and the
+  collection pass also runs every prefix before the runner, so a lint-first
+  row pays a run of each, this repository's two `uvx ruff` prefixes
+  included; every part that is not pytest runs as written.*
 - **Kept files.** `--keep-output` now also holds a `.xml` beside every
   `suite-at-base-*.txt`, and `runners-at-base-<j>.txt` and `.xml` for the
   collection pass. `NO_RUNNER` names them, and the **New?** bullet's "open
