@@ -125,14 +125,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 #
 # This guard reads through `hooks/cmdline_base.py`, the reader frozen at
 # `86256492`, and never chooses a segment or a tree through `cmdline.py` (#689;
-# the one question it asks that module is below): the splitter, `parse_git`,
+# the one question about kinds it asks that module is below, and `has_token`
+# has it take heredoc bodies out, #780): the splitter, `parse_git`,
 # `adds_a_worktree`, the walk and `Unresolved` all come from there, so what it
 # recognises and where it judges are the release base's by construction. Two
 # rules are read past the base. Since #764 and #738, on the owner's answer of
 # 2026-10-04, a `checkout`'s and a `switch`'s own words, as git is handed
 # them (`read_switch_words`). Since #790, a `checkout`'s name, looked up the
 # way `git checkout` resolves it (`is_ref`, `tracked_in_any_remote`). The
-# segments and words it reads still come from here. The name `cmdline` is kept so the rest of this file reads as it did.
+# segments and words it reads still come from here. The name `cmdline` is
+# kept so the rest of this file reads as it did.
 # `worktree_consent` imports the same module, so the two share one `Unresolved`.
 import cmdline_base as cmdline
 import console

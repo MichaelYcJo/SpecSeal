@@ -1302,8 +1302,9 @@ def test_the_guard_policy_says_what_it_reads_past_the_base():
         "the redirections off"
     ) in text
     assert (
-        "The second, since #790 on the owner's placement of it in milestone "
-        "`release: 0.18.3` on 2026-10-05: a `checkout`'s name is looked up the "
+        "The second, since #790 on the owner's placement of it in the "
+        "milestone of the release that ships it, on 2026-10-05: a `checkout`'s "
+        "name is looked up the "
         "way `git checkout` resolves it. The name is a branch to switch to "
         "where it names a commit once resolved and peeled, as every "
         "single-revision form does, a message search (`git checkout ':/fix "

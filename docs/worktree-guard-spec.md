@@ -590,37 +590,38 @@ in an environment is no longer a cost, it is an outage.
 
 The tree judged is the one the command acts on, by every row of §A — the
 tracked-changes row included, which until round 1 of work item 1790550712 read
-the session's own directory instead. `git -C <path>` names it
-outright, and a `cd` earlier in the command moves the shell to it — this guard
-is the reason a session is in that shape at all, since it refuses a switch and
-tells the user to work in a separate worktree, so the session stays where it
-was while the commands do not. The whole command is read the way the release
-base `86256492` read it, and not the way the commit gate reads it since #674
-(#689): which segments are git, the `-C` values each names, where every `cd`
-lands. Two rules are read past the base. The first, since #764 and #738 on
-the owner's answer of 2026-10-04: a `checkout`'s and a `switch`'s own words
-are read as git's option parser sees them once bash has taken the redirections
-off. So a
+the session's own directory instead. `git -C <path>` names it outright, and a
+`cd` earlier in the command moves the shell to it — this guard is the reason a
+session is in that shape at all, since it refuses a switch and tells the user
+to work in a separate worktree, so the session stays where it was while the
+commands do not. The whole command is read the way the release base `86256492`
+read it, and not the way the commit gate reads it since #674 (#689): which
+segments are git, the `-C` values each names, where every `cd` lands. Two
+rules are read past the base. The first, since #764 and #738 on the owner's
+answer of 2026-10-04: a `checkout`'s and a `switch`'s own words are read as
+git's option parser sees them once bash has taken the redirections off. So a
 creating option counts in any spelling git accepts (`-bNAME`, `-qb NAME`,
-`--orphan=NAME`, `--cre NAME`), an option's value is not a name (`git
-checkout --conflict merge feature/x` names `feature/x`), and a redirection is
-no word (`git checkout 2>/dev/null feature/x`, `git checkout
-feature/x>/dev/null`). The second, since #790 on the owner's placement of it
-in milestone `release: 0.18.3` on 2026-10-05: a `checkout`'s name is looked up
-the way `git checkout` resolves it. The name is a branch to switch to where it
-names a commit once resolved and peeled, as every single-revision form does,
-a message search (`git checkout ':/fix typo'`) included; where it is
-`<a>...<b>` with exactly one merge base, a side left empty meaning `HEAD`; and
-where a remote-tracking branch of any remote ends in it, which is git's guess.
-The base's lookup is still asked first, so no name it read as a branch goes
-quiet. The guess reads every remote on the default of `questions.md` P1 in
-work item 1791163981, taken under the owner's `automation` routing. Which
-segments are git, the `-C` values each names and
-where every `cd` lands stay the base's, and `hooks/cmdline_base.py` is
-unchanged. This guard and the consent writer read it through
-`hooks/cmdline_base.py`, which is that commit's `hooks/cmdline.py` copied byte
-for byte. Neither chooses a segment or a tree through `hooks/cmdline.py`; the
-guard asks that module one question, below, and its answer never names a tree.
+`--orphan=NAME`, `--cre NAME`), an option's value is not a name (`git checkout
+--conflict merge feature/x` names `feature/x`), and a redirection is no word
+(`git checkout 2>/dev/null feature/x`, `git checkout feature/x>/dev/null`).
+The second, since #790 on the owner's placement of it in the milestone of the
+release that ships it, on 2026-10-05: a `checkout`'s name is looked up the way
+`git checkout` resolves it. The name is a branch to switch to where it names a
+commit once resolved and peeled, as every single-revision form does, a message
+search (`git checkout ':/fix typo'`) included; where it is `<a>...<b>` with
+exactly one merge base, a side left empty meaning `HEAD`; and where a
+remote-tracking branch of any remote ends in it, which is git's guess. The
+base's lookup is still asked first, so no name it read as a branch goes quiet.
+The guess reads every remote on the default of `questions.md` P1 in work item
+1791163981, taken under the owner's `automation` routing. Which segments are
+git, the `-C` values each names and where every `cd` lands stay the base's,
+and `hooks/cmdline_base.py` is unchanged. This guard and the consent writer
+read it through `hooks/cmdline_base.py`, which is that commit's
+`hooks/cmdline.py` copied byte for byte. Neither chooses a segment or a tree
+through `hooks/cmdline.py`; the guard asks that module one question about a
+command's kinds, below, and its answer never names a tree. Since #780 the
+guard's consent read also has it take a command's here-document bodies out
+(§*Choice sites*), which names no tree either.
 
 The reason is that this guard takes one answer where the gate takes all of
 them. It judges the first segment of each kind and the first directory in it
