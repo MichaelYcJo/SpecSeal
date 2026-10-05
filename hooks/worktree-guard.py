@@ -1067,13 +1067,8 @@ def tracked_in_any_remote(name: str, cwd: str) -> bool:
         )
     except Exception:
         return False
-    if r.returncode != 0 or not name:
-        return False
-    tail = "/" + name
-    shortest = len("refs/remotes/x") + len(tail)
-    return any(
-        ref.endswith(tail) and len(ref) >= shortest for ref in r.stdout.splitlines()
-    )
+    # A failed listing prints nothing, so it finds nothing.
+    return any(ref.endswith("/" + name) for ref in r.stdout.splitlines())
 
 
 def classify(tokens, cwd: str):
