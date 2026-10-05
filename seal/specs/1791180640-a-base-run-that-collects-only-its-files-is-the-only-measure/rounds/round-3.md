@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #814 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `125bd927d1506822263aa89adfa60993a370fb8f..125bd927d1506822263aa89adfa60993a370fb8f`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (a later runner that collects nothing at the base passes the proof for a silent measuring runner; a regression against a3aa139a) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ The verifying round over round 2's fixes (275cd1a0..d9ce4e1a), and the last roun
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A later runner that collects no test at the base (no test in its directory, or every test deselected) passes the proof for a silent measuring runner: zero node ids against a zero trailer, `failing on base too` where a3aa139a read `new?` / `new`; rule 3's swallow sentence is false for it | `skills/verify/scripts/broad_gate.py:2058` | open | executed: swallow0 and swallow-desel end to end under pytest 8.1.2, 8.3.5 and 9.1.1 at both gates; regression against a3aa139a; the fix executed with the narrow run; two cases red at 95422c35 |
-| ⬜ 2 | `overview.md` says no exception to "no new permissive word" is left, and the changelog fragment's swallow bullet overstates the target | `seal/specs/1791180640-a-base-run-that-collects-only-its-files-is-the-only-measure/overview.md` | open | read; falsified by 🟡 1; a correction to the run's paperwork |
-| ⬜ 3 | The `COMPANY` reason says the group's run "failed" where it collected no test (exit 5) | `skills/verify/scripts/broad_gate.py:1953` | open | executed: two-empty reads `COMPANY` at 95422c35 and `new?` at a3aa139a; not a regression, not permissive |
+| 🟡 1 | A later runner that collects no test at the base (no test in its directory, or every test deselected) passes the proof for a silent measuring runner: zero node ids against a zero trailer, `failing on base too` where a3aa139a read `new?` / `new`; rule 3's swallow sentence is false for it | `skills/verify/scripts/broad_gate.py:2058` | deferred #815 | #815 — the run is capped; fixed post-review on this branch, and #815 is what that fix closes; executed: swallow0 and swallow-desel end to end under pytest 8.1.2, 8.3.5 and 9.1.1 at both gates; regression against a3aa139a; the fix executed with the narrow run; two cases red at 95422c35 |
+| ⬜ 2 | `overview.md` says no exception to "no new permissive word" is left, and the changelog fragment's swallow bullet overstates the target | `seal/specs/1791180640-a-base-run-that-collects-only-its-files-is-the-only-measure/overview.md` | deferred #815 | #815 — the records follow the post-review fix; read; falsified by 🟡 1; a correction to the run's paperwork |
+| ⬜ 3 | The `COMPANY` reason says the group's run "failed" where it collected no test (exit 5) | `skills/verify/scripts/broad_gate.py:1953` | deferred #815 | #815 — the reason's sentence follows the post-review fix; the word stays `new?`; executed: two-empty reads `COMPANY` at 95422c35 and `new?` at a3aa139a; not a regression, not permissive |
 | 🟢 | round 2's blocking finding is closed — a count another file makes up no longer keeps the word | `skills/verify/scripts/broad_gate.py:2364` | confirmed | executed: cancel, cancel2, outweigh, flaky2 read `COMPANY` for every file; read: no file of a failed group reaches the proof |
 | 🟢 | round 2's 🟡 2 is closed for its layout — swallow reads `MULTI_RUNNER` | `skills/verify/scripts/broad_gate.py:2058` | confirmed | executed at 95422c35; the class's remainder is 🟡 1 |
 | 🟢 | round 2's 🟡 3 is closed — the `COMPANY` reason claims no count | `skills/verify/scripts/broad_gate.py:1953` | confirmed | read; ⬜ 3 is a narrower point |
