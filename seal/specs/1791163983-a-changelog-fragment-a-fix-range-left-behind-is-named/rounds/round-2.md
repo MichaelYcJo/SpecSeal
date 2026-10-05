@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #802 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `c13039fa115d58789832ddaba2f4efcdd166ed51..71c7303768fb8e1fac1656bff6fe221e5a85b35d`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,8 +30,8 @@ The verifying round over round 1's fixes (f96ea9a2..65ff34c6): did each fix clos
 | 🟢 | the notice never changes the exit status after the fix range | `skills/code-review/scripts/chain_check.py:4295` | confirmed | executed: every probe compared the exit code with the arm patched out, all equal |
 | 🟢 | a shallow checkout leaves the arm silent, and this repository's CI is not shallow | `.github/workflows/hygiene.yml:30` | confirmed | executed: probe I at depth 1 is silent with exit unchanged; the job checks out with `fetch-depth: 0` |
 | carried | round 1's confirmations — the ancestor guard's silent state, the first `Target SHA`, the RIDER re-stamp, the owner links and `RULES` row | `skills/code-review/scripts/chain_check.py:4291` | confirmed | the fix range leaves the guard, the SHA choice and `agents/` unchanged; rule 15's cases pass in the module run (236 passed); probe G silent |
-| ⬜ 1 | `walk_tip` asks only HEAD's parents, so a merge made from the base side below HEAD sends the walk down the base: the sibling is named and the fix is lost | `skills/code-review/scripts/chain_check.py:4194` | open | executed, probe H. No party in this process makes that merge, and the arm only prints, so it ships no defect. Not listed under the docstring's *WHAT IT CANNOT SEE* |
-| ⬜ 2 | the fragment says a sibling's squash is *never* named, which ⬜ 1's shape contradicts, and line 13 is left unwrapped | `seal/specs/1791163983-a-changelog-fragment-a-fix-range-left-behind-is-named/changelog.md:13` | open | read; a correction to the run's paperwork; the ledger's S1 row carries the same *never* |
+| ⬜ 1 | `walk_tip` asks only HEAD's parents, so a merge made from the base side below HEAD sends the walk down the base: the sibling is named and the fix is lost | `skills/code-review/scripts/chain_check.py:4194` | deferred #805 | #805 — no party in this process makes a base-side merge below HEAD, and the arm only prints; the ancestry-path remedy gives up first-parent order and is a design call, filed; executed, probe H. No party in this process makes that merge, and the arm only prints, so it ships no defect. Not listed under the docstring's *WHAT IT CANNOT SEE* |
+| ⬜ 2 | the fragment says a sibling's squash is *never* named, which ⬜ 1's shape contradicts, and line 13 is left unwrapped | `seal/specs/1791163983-a-changelog-fragment-a-fix-range-left-behind-is-named/changelog.md:13` | answered | corrected at 71c73037: the fragment and the S1 ledger row say a sibling's squash is not named on a branch checkout or CI's merge ref, and name the base-side merge below HEAD as #805; the line is wrapped; read; a correction to the run's paperwork; the ledger's S1 row carries the same *never* |
 
 ## Paste-ready fixes
 
