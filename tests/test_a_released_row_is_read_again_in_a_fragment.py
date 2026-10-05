@@ -2792,12 +2792,13 @@ def test_every_walk_sequence_hands_over_what_the_file_holds(walks):
     assert parts == want, (walks, parts)
 
 
-def left_then_unchanged(repo):
+def left_then_unchanged(repo, stale=False):
     """X1 was stamped while handler was at v1, quoting the citation hash its
     `Re-read ·` line held then; handler moved and came back, so the run
     re-stamps that line back to the bytes X1 recorded. Two walks find the
-    quoted hash gone and leave X1, and the third reads it unchanged. Returns
-    R_FILE's text as X1's hash says it ends."""
+    quoted hash gone and leave X1, and the third reads it unchanged, or,
+    where X1's hash is STALE, re-stamps it. Returns R_FILE's text as X1's
+    hash says it ends."""
     o = unit_hash(repo, "src/service.py", "other")
     day = "2026-03-01"
 
@@ -2833,7 +2834,7 @@ def left_then_unchanged(repo):
     before = (repo / R_FILE).read_text(encoding="utf-8")
     edit_handler(repo)
     h2 = unit_hash(repo, "src/service.py", "handler")
-    write(h2, cite_for(h2), x)
+    write(h2, cite_for(h2), x.rsplit("@", 1)[0] + "@0000beef" if stale else x)
     (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     return before
 
@@ -3329,15 +3330,20 @@ def test_every_walk_sequence_prints_what_the_file_holds(walks):
     assert ((held_hash, None) in ec.owed_moves(state)) == (why is not None), walks
 
 
-def test_a_left_line_a_later_walk_takes_back_is_not_printed(repo):
+@pytest.mark.parametrize("last", ["unchanged", "moved"])
+def test_a_left_line_a_later_walk_takes_back_is_not_printed(repo, last):
     """S9 (#792's comment), `left_then_unchanged`'s tree through `main`. Two
-    walks leave X1 and the third reads it unchanged, so no line says X1 is
-    left, and `--strict` reads it clean. Red at a3aa139a, which printed walk
-    0's `the anchored statement is gone … left` and nothing after it."""
-    before = left_then_unchanged(repo)
+    walks leave X1 and the third reads it unchanged, or re-stamps it where
+    its hash was stale, so no line says X1 is left, and `--strict` reads it
+    clean. Red at a3aa139a, which printed walk 0's `the anchored statement is
+    gone … left` and nothing after it."""
+    before = left_then_unchanged(repo, stale=last == "moved")
     fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
     assert fix.returncode == 0, fix.stdout
-    assert (repo / R_FILE).read_text(encoding="utf-8") == before
+    if last == "unchanged":
+        assert (repo / R_FILE).read_text(encoding="utf-8") == before
+    else:
+        assert "0000beef -> " in fix.stdout, fix.stdout
     assert "— left" not in fix.stdout and "; left" not in fix.stdout, fix.stdout
     assert run(["--strict", "."], repo).returncode == 0
 
@@ -3498,3 +3504,58 @@ def test_reverifys_docstring_no_longer_says_a_later_walk_is_silent():
     assert "names nothing the first one named" not in " ".join(
         ec.reverify.__doc__.split()
     )
+
+
+def test_a_row_left_whole_for_want_of_a_date_cell_is_named_as_left_by_the_run(
+    repo,
+):
+    """#792, reason (ii)'s second shape. A released row outside every family
+    sits in a table with no date column, so `--checked` leaves it whole and
+    it stays DRIFTED. The family `LEFT` line says the run left it, beside the
+    line naming why, and names no `--ledger` remedy. Red at a3aa139a."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (repo / "seal" / "releases").mkdir(parents=True)
+    (repo / R_FILE).write_text(
+        f"## 0.1.0 — 2026-01-01\n\n{SECTION}\n\n"
+        "| Clause | Code grounds | Verified behavior | Notes |\n|---|---|---|---|\n"
+        f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | |\n",
+        encoding="utf-8",
+    )
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    assert f"  LEFT  {R_FILE}:7  its hash moved and the row has no date cell" in (
+        fix.stdout
+    )
+    family = [line for line in fix.stdout.splitlines() if "still DRIFTED" in line]
+    assert len(family) == 1, fix.stdout
+    assert "this run left src/service.py#handler where it stands" in family[0]
+    assert "--ledger" not in family[0], family[0]
+
+
+def test_an_older_reading_outside_the_narrowing_names_no_ledger_remedy(repo):
+    """#792, reason (i) is about the newest readings. A10's folded
+    correction is the newest reading of its coordinate, and the run leaves
+    it; an older `Re-read ·` of it sits in a fragment the narrowing left
+    out. A run without `--ledger` would re-stamp that older one and clear
+    nothing, so the line names only the run's own leaving. Red with every
+    reading counted, not only the newest."""
+    file = a_correction_whose_statement_is_gone(repo)
+    text = (repo / file).read_text(encoding="utf-8")
+    row = text.splitlines()[4]
+    cite = ec.citation_for(str(repo), str(repo / file), 5)
+    stated = row.split('"x * 2"@', 1)[1].split("`", 1)[0]
+    fragment(
+        repo,
+        [
+            f"| Re-read · other doubles | `{cite}`, "
+            f'`src/service.py#other>"x * 2"@{stated}` | read | 2026-01-15 | '
+            "Re-read 2026-01-15 |"
+        ],
+        name=B_ITEM,
+    )
+    fix = run(["--reverify", "--checked", "2026-03-01", "--ledger", file, "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    family = [line for line in fix.stdout.splitlines() if "still DRIFTED" in line]
+    assert len(family) == 1 and family[0].startswith(f"  LEFT  {file}:5"), fix.stdout
+    assert "this run left" in family[0] and "--ledger" not in family[0], family[0]

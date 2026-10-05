@@ -3264,10 +3264,10 @@ def reverify(
             for ledger in again:
                 yield ledger, walk > 0
 
-    # `{key: (state, line)}` for every coordinate a walk met, in the order
-    # the walks first met them: each walk's outcome folded by
-    # `walked_outcome`, printed once the walks end. ROW_OF is each key's
-    # `(file identity, row number, coordinate)`, for LEFT_BY_RUN.
+    # `{key: (state, line)}`: each walk's outcome for a coordinate, folded by
+    # `walked_outcome` and printed once the walks end. ROW_OF is each key's
+    # `(file identity, row number, coordinate)`, in the order the walks first
+    # met them, which is the order the lines print in.
     outcomes, row_of = {}, {}
 
     def walked(key, old, new, why=None):
@@ -3429,7 +3429,6 @@ def reverify(
                     new_hash = content_hash(gfm_lines(target)[a - 1 : b])
                     if new_hash != m.group("hash"):
                         pending.append((m.start(), left_as, m.group("hash"), new_hash))
-                        walked(key, m.group("hash"), new_hash)
                     else:
                         still(key, new_hash)
                     edits.append(
@@ -3508,7 +3507,6 @@ def reverify(
                 continue
             shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             pending.append((m.start(), shown, m.group("hash"), got))
-            walked(key, m.group("hash"), got)
             if holds:
                 deferred.add(m.start())
             (held_edits if holds else edits).append(
@@ -3576,9 +3574,13 @@ def reverify(
                     )
                 )
             kept.extend(spliced)
-        for offset, _coord, _old, new in pending:
-            if new is not None and bisect.bisect_right(starts, offset) in left_whole:
-                whole[key_at[offset]] = row_of[key_at[offset]]
+        for offset, _coord, old, new in pending:
+            if new is not None:
+                # A walk that re-stamps the coordinate, or would but for a
+                # row left whole, takes back a `left` line an earlier walk's.
+                walked(key_at[offset], old, new)
+                if bisect.bisect_right(starts, offset) in left_whole:
+                    whole[key_at[offset]] = row_of[key_at[offset]]
         if moves is not None:
             # A citing row's citation is a ledger line, not code under the
             # row: re-stamping it is not a pact change (D3, #772), and the
@@ -3651,7 +3653,8 @@ def reverify(
 
     # Each coordinate's `left` line, once, from the fold (#792): it claims no
     # write, so it is printed now rather than held in TOLD.
-    for key, (_state, why) in outcomes.items():
+    for key in row_of:
+        why = outcomes.get(key, (None, None))[1]
         if why is not None:
             print(why)
             whole.setdefault(key, row_of[key])
