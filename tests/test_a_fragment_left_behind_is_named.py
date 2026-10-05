@@ -227,6 +227,23 @@ def test_a_fix_range_that_leaves_the_fragment_behind_is_named(
     )
 
 
+def test_a_head_that_moved_while_round_one_ran_is_after_the_build(
+    repo, monkeypatch, capsys
+):
+    """The row may name two SHAs, the second a HEAD that moved mid-review
+    (`templates/sdd-round.md`). The first is where the build ended, so a
+    behaviour commit between the two is after it."""
+    target = built(repo)
+    moved = change(repo, "hooks/x.py", message="while round 1 ran")
+    write(repo, f"{ROUNDS}/round-1.md", record(1, f"{target} and {moved}"))
+    commit(repo, "round 1")
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    line = notice(out)
+    assert line is not None, out
+    assert moved[:7] in line, line
+
+
 # --- S2: the fragment is brought along --------------------------------------
 
 
