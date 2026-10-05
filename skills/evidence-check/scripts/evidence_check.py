@@ -3060,8 +3060,11 @@ def left_alone(view):
     `--strict` does not check again. A row is `(file identity, line)`.
 
     Judged once, never live: a walk writes ledger lines and no code, so no
-    coordinate's grading moves during the run, and only a date the run adds
-    could reorder a family's readings mid-walk."""
+    code coordinate's grading moves during the run, and only a date the run
+    adds could reorder a family's readings mid-walk. A coordinate naming a
+    line of a ledger the run writes is the exception, because the walk can
+    move that line, and `reverify` never judges it held (round 1, yellow
+    2)."""
     held, superseded = {}, set()
     for top, members in view.families.items():
         if top in view.superseded:
@@ -3150,8 +3153,11 @@ def reverify(
     repository carries, and it is not re-stamped, dated, named, or handed to
     MOVES. On a row the run dates for another coordinate, a held one is
     re-stamped as well: the date makes that row the newest reading of each
-    coordinate on it. A citation is a ledger line no family grades, and it
-    is re-stamped as before.
+    coordinate on it, and one with no one place to re-stamp on such a row is
+    left and named, as any such coordinate is. A coordinate naming a line of
+    a ledger this run writes is never judged held, because the walk can move
+    that line. A citation is a ledger line no family grades, and it is
+    re-stamped as before.
 
     **TOLD, where given, holds back every line that says a ledger was
     written** -- a per-coordinate hash line, `N rows re-verified`, the
@@ -3228,6 +3234,10 @@ def reverify(
     held_at, superseded = left_alone(
         family_view(view, root, maps, default_repo, scan_cache)
     )
+    # The files this run may rewrite. A coordinate naming a line of one is
+    # graded against a line the walk can move, so the judgment made before
+    # the first walk does not hold for it (round 1, yellow 2).
+    writes = {planned_key(p) for p in ledgers}
     once, again, bound = cited_first(ledgers, root, maps, default_repo)
     # Whether the last walk of AGAIN changed what it plans (`cited_first`).
     moved = [False]
@@ -3314,6 +3324,9 @@ def reverify(
         # The offsets of the moves of coordinates a family holds (#785). Each
         # rides its row only where the run dates the row for another move.
         deferred, held_edits = set(), []
+        # `(offset, key, match)` for each held coordinate no one place holds:
+        # history where its row is not dated, left where it is (below).
+        unplaced = []
         ident = file_identity(ledger)
         # `(start, end, replacement, what to print)` for every hash this
         # ledger's rows would take. Collected rather than spliced as found,
@@ -3340,10 +3353,14 @@ def reverify(
                 if (ident, spot[0]) in superseded:
                     # `--strict` does not check it again: nothing to re-read.
                     continue
-                holds = spot[1] in held_at.get((ident, spot[0]), ())
+                named, at = place(root, maps, default_repo, m.group("path"))
+                holds = spot[1] in held_at.get((ident, spot[0]), ()) and (
+                    named is None or planned_key(os.path.join(named, at)) not in writes
+                )
                 if holds and current_hash(m, root, maps, default_repo) is None:
                     # A newest reading resolves it, so this reading of it is
-                    # history whether or not it resolves.
+                    # history, unless the run dates its row (below).
+                    unplaced.append((m.start(), key, m))
                     continue
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
@@ -3572,6 +3589,20 @@ def reverify(
                     )
                 )
             kept.extend(spliced)
+        # A held coordinate no one place holds, on a row the run dates: the
+        # date makes that row its newest reading, so it is left as any
+        # coordinate no one place holds is, named and handed to MOVES (round
+        # 1, yellow 1).
+        for offset, key, m in unplaced:
+            if bisect.bisect_right(starts, offset) in joined:
+                walked(
+                    key,
+                    m.group("hash"),
+                    None,
+                    f"  {coordinate_of(m)}  its row is dated by this run, and no "
+                    "one place holds it — left",
+                )
+                pending.append((offset, coordinate_of(m), m.group("hash"), None))
         for offset, _coord, old, new in pending:
             if new is not None:
                 # A walk that re-stamps the coordinate, or would but for a

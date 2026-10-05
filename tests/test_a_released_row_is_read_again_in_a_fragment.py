@@ -3240,6 +3240,85 @@ def test_a_held_coordinate_with_two_places_is_left_alone(repo):
     assert "src/service.py#handler" not in fix.stdout, fix.stdout
 
 
+@pytest.mark.parametrize("checked", ["2026-04-01", None], ids=["dated", "undated"])
+def test_a_held_coordinate_with_two_places_on_a_dated_row_is_left_and_named(
+    repo, capsys, checked
+):
+    """Round 1, yellow 1: the rider rule meeting the resolution guard. B
+    holds `handler` through one of its two places; A carries it at an older
+    hash beside `other`, which drifted with no reading holding it. Dated for
+    `other`, A becomes the newest reading of `handler`, at a hash neither
+    place holds: the run names it `left` and hands MOVES a BROKEN part, as
+    for any coordinate no one place holds. Undated, A is not the newest
+    reading, and `handler` stays silent. Red at 0667af2e, which was silent
+    on the dated row too."""
+    o0 = unit_hash(repo, "src/service.py", "other")
+    h0 = at_version(repo, 1)
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    h1 = at_version(repo, 2)
+    a = fragment(
+        repo,
+        [re_read_of(r, h1, "2026-02-01", extra=f", `src/service.py#other@{o0}`")],
+        name=A_ITEM,
+    )
+    places, _ = ec.resolve_unit("src/service.py", "handler", TWICE)
+    x, y = places[0]
+    held = ec.content_hash(ec.gfm_lines(TWICE)[x - 1 : y])
+    b = fragment(repo, [re_read_of(r, held, "2026-03-01")], name=B_ITEM)
+    (repo / "src" / "service.py").write_text(
+        TWICE.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    moves = []
+    ec.reverify([str(a), str(b)], str(repo), {}, None, checked, moves)
+    out = capsys.readouterr().out
+    said = [
+        line
+        for line in out.splitlines()
+        if line.startswith("  src/service.py#handler  ") and line.endswith("left")
+    ]
+    broken = ("src/service.py#handler", h1, None) in [m[2:] for m in moves]
+    assert (len(said), broken) == ((1, True) if checked else (0, False)), (
+        out,
+        moves,
+    )
+
+
+def test_a_held_ledger_coordinate_the_run_moves_is_re_stamped(repo):
+    """Round 1, yellow 2. #785's judgment is made before the walk, on the
+    premise that a walk moves no code. A coordinate naming a line of a ledger
+    the run writes is the exception: Q and B both name R1's line, B newer and
+    holding it, and the run re-stamps R1 in place, which moves that line. Q
+    and B are re-stamped with it, as before #785, and `--strict` reads the
+    tree clean. Red at 0667af2e, which left both at the stale hash."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+    released(repo, [r1])
+    lc = citation(r1, "R1 · handler adds one")
+    second = "### 1000000002-the-second-item"
+    q = f"| Q · beside R1 | `{lc}` | read | 2026-01-01 | |"
+    released(repo, [q], version="0.2.0", section=second)
+    cq = citation(q, "Q · beside R1", version="0.2.0", section=second)
+    fragment(
+        repo,
+        [
+            f"| Re-read · Q · beside R1 | `{cq}`, `{lc}` | read | 2026-02-01 | "
+            "Re-read 2026-02-01 |"
+        ],
+        name=B_ITEM,
+    )
+    assert run(["--strict", "."], repo).returncode == 0
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
+
+
 @pytest.mark.parametrize(
     "where, sentence",
     [
