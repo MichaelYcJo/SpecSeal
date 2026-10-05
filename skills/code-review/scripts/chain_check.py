@@ -4313,6 +4313,9 @@ def fragment_left_behind(reader, routing, root, item, records):
             number = routing.round_number(os.path.basename(rel))
             held.append((number, set(inside.split())))
     end = last_round_end(reader, root, records[-1])
+    # From the walk's own tip. For every commit the walk lists `<end>..HEAD`
+    # gives the same answer, since HEAD reaches whatever the tip reaches; the
+    # tip is used so that one value says where this item's history ends.
     after = (
         set((git(root, "rev-list", f"{end}..{tip}") or "").split()) if end else set()
     )

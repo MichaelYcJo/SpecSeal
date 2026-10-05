@@ -511,6 +511,42 @@ def test_a_merge_on_the_branch_keeps_the_branch_as_the_tip(repo, monkeypatch, ca
     assert fix[:7] in line, line
 
 
+def test_of_several_merged_heads_the_one_descending_from_round_one_is_the_tip(
+    repo, monkeypatch, capsys
+):
+    """`walk_tip` asks each later parent, not the second alone: a merge of
+    the base, an unrelated head and the branch starts the walk at the branch,
+    never at the unrelated head."""
+    target = built(repo)
+    start = open_round(repo, 1, target)
+    fix = change(repo, "hooks/x.py", message="fix")
+    close_round(repo, 1, target, start, fix)
+    git(repo, "switch", "-q", "base")
+    git(repo, "switch", "-qc", "unrelated")
+    stray = change(repo, "hooks/stray.py", message="an unrelated head")
+    git(repo, "switch", "-q", "--detach", "base")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "merge",
+        "-q",
+        "--no-ff",
+        "-m",
+        "an octopus",
+        "unrelated",
+        "feature",
+    )
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    line = notice(out)
+    assert line is not None, out
+    assert fix[:7] in line, line
+    assert stray[:7] not in line, line
+
+
 def test_an_honest_fragment_on_the_ci_merge_ref_is_not_named(repo, monkeypatch, capsys):
     """Round 1's 🔴 1, the other direction: an item that brought its fragment
     along was told a sibling's squash had left it behind."""
