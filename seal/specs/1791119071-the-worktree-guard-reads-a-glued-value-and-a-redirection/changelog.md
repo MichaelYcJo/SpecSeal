@@ -15,7 +15,9 @@
   guard still checks the name against the tree (`git checkout
   README.md>/dev/null` restores and is not asked). The guard now goes quiet
   only where git switches nothing: a `-b` written after `--`, which git takes
-  as a file name, and an option's value where a name would stand.
+  as a file name, and an option's value where a name would stand. A bare
+  `--` after the name (`git checkout NAME --`) switches in git and is asked;
+  a `--` with a path after it stays a restore.
   `docs/worktree-guard-spec.md` says which rule is now read past the frozen
   0.16.0 reading, on the owner's answer, and §*Known limits* names what is
   left: a static table of options a later git may outgrow, a quoted `>` in a

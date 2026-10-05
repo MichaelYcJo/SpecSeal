@@ -9,8 +9,11 @@
   clause and recorded no pact change, and the re-stamp cleared the drift that
   was the only trigger for the record. The reader now takes a row of the
   `| Item | Value |` table whose item is exactly `Pact` or `Pact notify`. Any
-  other line that names a pact and holds a `|` is refused in a sentence naming
-  the line: below the table, in a second table, in a block quote, in a fence
+  other line that names a pact and can carry a value is refused in a sentence
+  naming the line. A line can carry a value when it holds a `|`, when it sits
+  directly above a table's delimiter row (a one-column table's header needs no
+  `|`), or anywhere in a file that holds an HTML table cell's tag. That covers a
+  line below the table, in a second table, in a block quote, in a fence
   or an HTML comment, or cut by a character only Python ends a line at. A row
   of the table whose item names a pact in another spelling is refused too.
   "Names a pact" is the letters `p`, `a`, `c`, `t` in order with only
@@ -18,15 +21,18 @@
   so markup, invisible format characters and references inside the word are
   read through, and `impact` is not a pact. A refusal leaves `Pact notify`
   with no value: `--reverify` leaves the moved row at exit 1, `pact-check` at
-  the pact's repository exits 2, and a signatory's CI prints a notice. A line
-  with no `|` is not refused, so the pact can be named in prose. A letter
-  written between the word's letters, such as `P<b></b>act`, or a look-alike
-  letter from another script is not caught; `docs/the-pact.md` says so.
+  the pact's repository exits 2, and a signatory's CI prints a notice. Any
+  other line can name the pact in prose. `templates/config.md` §*Pact* is
+  written so that the template copied whole as `seal/config.md` reads clean.
+  A letter written between the word's letters, such as `P<b></b>act`, a
+  look-alike letter from another script or its own, and YAML front matter are
+  not caught; `docs/the-pact.md` says so.
 
 - A vendored copy of `evidence_check.py` reads `seal/config.md` by the same
   word and the same predicate as the plugin's reader. It leaves a moved row
   citing no clause wherever a line names a pact and is neither a plain
-  `| Pact | … |` nor a plain `| Pact notify | … |` row, as well as where both
+  `| Pact | … |` nor a plain `| Pact notify | … |` row, reading a two-cell row
+  by its item alone and a table's header line whole, as well as where both
   plain rows carry a value. Before, it looked for one row shape line by line
   and missed a notify row spelled with markup, a format character, or a
   character only Python ends a line at, and re-stamped the row unrecorded.
