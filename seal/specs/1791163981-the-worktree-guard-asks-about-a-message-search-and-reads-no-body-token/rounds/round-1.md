@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #803 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `85e77dc8cfd35b2e8f4e9f82d52a1fbcce84215f..22563bc6a730a30fc94b30ae352ec656f107e709`, 5 commits |
+| Contract changes | tracked_in_any_remote → round-1-report.md, round-1.md; classify → classify, merge, main, 1791163981-the-worktree-guard-asks-about-a-message-search-and-reads-no-body-token.md, questions.md, overview.md, round-1-report.md, round-1.md, check_text, family_view, released_drift, pytest |
+| New units | _OBJECT_NAME (depth 1); _object_named (depth 1); _refs (depth 1); _fetched_as (depth 1); _the_bases_lookup (depth 1); _no_guess (depth 1); _a_dirty_clone_beside (depth 1); test_a_newly_read_checkout_in_front_takes_no_question_away (depth 1); _a_repository (depth 1); _where_git_checkout_lands (depth 1); test_a_message_search_holding_two_dots_is_read_as_a_switch (depth 1); test_the_object_lookup_reads_a_word_rev_parse_reads_as_a_range (depth 1); test_a_guess_through_any_fetch_refspec_is_read_as_a_switch (depth 1); test_the_first_newly_read_checkout_is_the_one_judged (depth 1) |
 | Needs a fix | yes — 🟡 1 (a message search holding `..`), 🟡 2 (the guess through a fetch refspec), 🟡 3 (candidate C subtracts a hidden switch, against the changelog's claim) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Spec compliance first against `spec.md` (#790 alternative J: the base lookup kep
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A message search whose text holds `..` (both halves resolving) reads as no branch: `rev-parse` splits it as a range; git checkout detaches | `hooks/worktree-guard.py:1044` | open | executed: git detached, base and build `None`; fix executed green |
-| 🟡 2 | The guess matches `refs/remotes/*/<name>` by name; git maps through each remote's fetch refspec. A destination outside `refs/remotes/` or a partial glob is silent, and §*Known limits* says "never the other way" | `hooks/worktree-guard.py:1101` | open | executed: git created and switched on both shapes, base and build `None`; fix executed green |
-| 🟡 3 | Candidate C subtracts a hidden switch once a newly read checkout is the judged switch, so a command the base asked about is silent; the changelog says nothing goes quiet | `hooks/worktree-guard.py:2699` | open | executed through `main()`: base `ask`, build silent |
-| ⬜ 4 | Module-level `tokens` beside many `tokens` parameters | `hooks/worktree-guard.py:162` | open | read; no defect today |
+| 🟡 1 | A message search whose text holds `..` (both halves resolving) reads as no branch: `rev-parse` splits it as a range; git checkout detaches | `hooks/worktree-guard.py:1044` | **fixed** `3909e1ca` | fixed at 3909e1ca; executed: git detached, base and build `None`; fix executed green |
+| 🟡 2 | The guess matches `refs/remotes/*/<name>` by name; git maps through each remote's fetch refspec. A destination outside `refs/remotes/` or a partial glob is silent, and §*Known limits* says "never the other way" | `hooks/worktree-guard.py:1101` | **fixed** `3909e1ca` | fixed at 3909e1ca; executed: git created and switched on both shapes, base and build `None`; fix executed green |
+| 🟡 3 | Candidate C subtracts a hidden switch once a newly read checkout is the judged switch, so a command the base asked about is silent; the changelog says nothing goes quiet | `hooks/worktree-guard.py:2699` | **fixed** `3909e1ca` | fixed at 3909e1ca; executed through `main()`: base `ask`, build silent |
+| ⬜ 4 | Module-level `tokens` beside many `tokens` parameters | `hooks/worktree-guard.py:162` | answered | no defect ships: `_without_bodies` is the only reader of the module-level `tokens`, and no function whose `tokens` parameter shadows it reads the module; renaming the import would move every test that patches it for no change in behaviour; read; no defect today |
 | 🟢 | The base lookup is asked first and unchanged; the new steps only add a yes (`classify` monotone) | `hooks/worktree-guard.py:1084` | confirmed | read, and A4's case passes at the target in the orchestrator's run |
 | 🟢 | `has_token` ANDs the raw read with the body-free read, and falls back to the frozen reader on any failure | `hooks/worktree-guard.py:755` | confirmed | read; executed: 17 bash-checked shapes and 9 fallback shapes, no typed token lost |
 | 🟢 | Every behavioural case the phases call red at `a3aa139a` is red there | `tests/test_guard_resolves_the_tree_it_judges.py` | confirmed | executed: 37 failed, 57 passed with the base's guard, `tokens.py`, policy and READMEs put back |
