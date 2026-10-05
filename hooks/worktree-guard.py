@@ -1074,11 +1074,9 @@ def _object_named(name: str, cwd: str):
 
     `git cat-file --batch-check` reads each input line as one object name,
     with no range or parent shorthand read in front of it, which is how `git
-    checkout` reads its name. A name holding a newline would be two lines,
-    so it is no name here. Where the lookup finds nothing it prints the name
-    and `missing`, which is no object name."""
-    if "\n" in name:
-        return None
+    checkout` reads its name. Where the lookup finds nothing it prints the
+    name and `missing`, which is no object name, and a name holding a newline
+    is two lines, whose two answers are not one object name either."""
     try:
         r = subprocess.run(
             ["git", "cat-file", "--batch-check=%(objectname)"],
@@ -1176,8 +1174,8 @@ def _fetched_as(name: str, cwd: str) -> set:
     """The refs `refs/heads/NAME` is fetched into, through every remote's
     `remote.<remote>.fetch` refspec, as git's checkout guess maps it: an
     exact source names its destination, a source with one `*` matches what it
-    stands for and puts it in place of the destination's `*`, and a negative
-    refspec or one with no destination maps nothing."""
+    stands for and puts it in place of the destination's `*`, and a refspec
+    with no `:` maps nothing (a negative refspec has none)."""
     try:
         r = subprocess.run(
             ["git", "config", "--get-regexp", r"^remote\..*\.fetch$"],
@@ -1193,7 +1191,7 @@ def _fetched_as(name: str, cwd: str) -> set:
     for line in r.stdout.splitlines():
         spec = line.partition(" ")[2].strip().lstrip("+")
         src, colon, dst = spec.partition(":")
-        if not colon or not dst or src.startswith("^"):
+        if not colon:
             continue
         if "*" not in src:
             if src == source:
@@ -1201,7 +1199,7 @@ def _fetched_as(name: str, cwd: str) -> set:
             continue
         head, _, tail = src.partition("*")
         middle = source[len(head) : len(source) - len(tail)]
-        if middle and source == head + middle + tail:
+        if source == head + middle + tail:
             mapped.add(dst.replace("*", middle, 1))
     return mapped
 
