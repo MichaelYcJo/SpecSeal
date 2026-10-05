@@ -53,5 +53,9 @@ frame left them; rule 3 names the second.
 
 ## Fed back into the spec
 
-none — the divergences above are recorded here and in `phases/phase-1.md`;
-no clause was added to `spec.md`.
+Two notes in `spec.md`, both marked *inferred during implementation* and
+added by round 1's fix pass: Scope 4's "a row whose runner is its last part
+never pays it" no longer holds, because the collection pass also runs every
+prefix before the runner; and Scope 7's "one collection run per prefix"
+became what the pass runs as written. No frame sentence was reworded. The
+divergences above are recorded here and in `phases/phase-1.md`.
