@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #814 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `165a6ca85e9e8ac72232163e9d42db24fe8ff809..36e5fb46f7a3d5565491a23ef51fe326331fa5fe`, 5 commits |
+| Contract changes | none |
+| New units | COMPANY (depth 1); RAN_RE (depth 1); PRE_EXISTING (depth 1); TEARDOWN_FAILS (depth 1); test_a_file_the_base_fails_only_alone_is_not_called_failing_on_base_too (depth 1); BOX (depth 1); BOXED (depth 1); test_a_first_runner_without_the_gates_environment_costs_the_word (depth 1) |
 | Needs a fix | yes — 🔴 1 (a file the base fails only alone reads failing on base too) and 🔴 2 (a first runner without the gate's environment hands the measurement to the next runner) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Spec compliance first against `spec.md` (a solo base run per failing candidate, 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A file the base passes beside the other failing files and fails alone (sibling `sys.path`, sibling state, a session teardown error) reads `failing on base too`; a3aa139a gave `new` | `skills/verify/scripts/broad_gate.py:2291` | open | executed: layouts A, A2, B through three gates' `compare_at_base`; four regression cases red at cdb57895; regression against a3aa139a |
-| 🔴 2 | A first runner without the gate's environment (container-style) is passed over, the host runner after it measures, and its proof sees one trailer: `failing on base too` where a3aa139a gave `new`; rule 3's "as they were before" is false for it | `skills/verify/scripts/broad_gate.py:2008` | open | executed: layout C (emulated box) through three gates; regression against a3aa139a |
-| ⬜ 3 | Rule 3's `pytest -q tests` example reads `new?` only under pytest 9; 8.1–8.3 collect only the handed file and the word is measured | `templates/config.md:333` | open | executed: proof reader over 8.1.1, 8.3.5, 9.1.1 |
-| ⬜ 4 | PR body says no exception outside S3–S5; phase 2 records two and this round adds more | PR #814 body | open | read; the orchestrator owns the body |
+| 🔴 1 | A file the base passes beside the other failing files and fails alone (sibling `sys.path`, sibling state, a session teardown error) reads `failing on base too`; a3aa139a gave `new` | `skills/verify/scripts/broad_gate.py:2291` | **fixed** `fd98c2c8` | fixed at fd98c2c8; executed: layouts A, A2, B through three gates' `compare_at_base`; four regression cases red at cdb57895; regression against a3aa139a |
+| 🔴 2 | A first runner without the gate's environment (container-style) is passed over, the host runner after it measures, and its proof sees one trailer: `failing on base too` where a3aa139a gave `new`; rule 3's "as they were before" is false for it | `skills/verify/scripts/broad_gate.py:2008` | **fixed** `fd98c2c8` | fixed at fd98c2c8; executed: layout C (emulated box) through three gates; regression against a3aa139a |
+| ⬜ 3 | Rule 3's `pytest -q tests` example reads `new?` only under pytest 9; 8.1–8.3 collect only the handed file and the word is measured | `templates/config.md:333` | **fixed** `fd98c2c8` | fixed at fd98c2c8; executed: proof reader over 8.1.1, 8.3.5, 9.1.1 |
+| ⬜ 4 | PR body says no exception outside S3–S5; phase 2 records two and this round adds more | PR #814 body | answered | corrected at 3742b12c: `overview.md` and `phases/phase-2.md` say the only exception left is the S3–S5 shape; the pull request body is corrected by the orchestrator; read; the orchestrator owns the body |
 | ❓ | Two `failing on base too` gains outside the S3–S5 shape (warnings-only group; interrupted group's `test_two`) | `tests/test_the_seal_is_taken_once_by_the_sealer.py:4752` | ❓ out of verified scope | each is true for the file alone and the first is the row's own truth; whether the acceptance rule admits them is the orchestrator's call against the owner's rule; the strict variant of fix 1 reverts both (measured: 3 failed, 498 passed) |
 | 🟢 | The proof reader: one trailer, names, sum, errors, colour, deselection, `-n 2` | `skills/verify/scripts/broad_gate.py:1979` | confirmed | executed across pytest 8.1.1, 8.3.5, 9.1.1, 13 shapes each |
 | 🟢 | The planted corpus leaks nothing and matches phase 2's table | `tests/test_the_seal_is_taken_once_by_the_sealer.py:5814` | confirmed | executed: 53 of 55 parameters, 64 file words, at a3aa139a, fb698f90, cdb57895 |
