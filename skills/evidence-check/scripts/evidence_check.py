@@ -115,6 +115,7 @@ import subprocess
 import sys
 import tempfile
 import types
+import unicodedata
 
 # `--help` ends with the docstring's last section. Partitioned rather than
 # indexed, so an interpreter run with `-OO`, where a module has no docstring,
@@ -4046,14 +4047,93 @@ CODE_PART = re.compile(
 # still there for the run that can record it (round 1 of PR #749, red 1;
 # round 2, red 10 and yellow 11).
 NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
-# Anything shaped like a `Pact` or a `Pact notify` row with a value, for a
-# copy with no `hooks/` to read either with: any case, any indentation,
-# quoted or fenced or not. It is matched line by line as `str.splitlines`
-# cuts a file, with `\s` as Python reads it, because those are the plugin
-# reader's own rules (round 2 of PR #756, yellow 1). An empty value is the
-# default, and a notify row with no `Pact` value is ignored, so neither can
-# mean `always` (round 2 of PR #756, yellow 2).
-NOTIFY_ROW_SHAPE = re.compile(r"[\s>]*\|\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
+# `hooks/config.py#PACT_WORD`, copied for a copy with no `hooks/`: the word a
+# line names a pact by, the letters `p`, `a`, `c`, `t` with anything but a
+# letter between them and no letter before the `p`. That comment says why;
+# `tests/test_a_signatory_declares_its_pact.py` holds the two equal (#759).
+PACT_WORD = re.compile(r"(?<![^\W\d_])p[\W\d_]*a[\W\d_]*c[\W\d_]*t", re.I)
+# `hooks/config.py#HTML_CELL`, copied for a copy with no `hooks/`: an HTML
+# table cell's opening tag, in whose file a line naming a pact needs no `|`
+# (round 1 of PR #793, yellow 2).
+HTML_CELL = re.compile(r"<t[dh][\s/>]", re.I)
+# `hooks/config.py#UNDER_A_HEADER`, copied for a copy with no `hooks/`: a
+# line GFM may read as the delimiter row under a table's header, block-quote
+# markers, a vertical tab or form feed and a one-column row with no pipe
+# included, a run of dashes alone left out. That comment says why (round 2
+# of PR #793, yellow 1; round 3); `tests/test_a_signatory_declares_its_pact.py`
+# holds the two equal.
+UNDER_A_HEADER = re.compile(
+    r"^(?![ \t>]*-+[ \t]*$)[\s>]*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$"
+)
+
+
+def names_a_pact(text, piped=True):
+    """`hooks/config.py#names_a_pact`, copied for a copy with no `hooks/`:
+    `PACT_WORD` in TEXT as written or decoded (`html.unescape`, then NFKC),
+    and, where PIPED, a `|` in either. That docstring says why both readings
+    and why the pipe; `tests/test_a_signatory_declares_its_pact.py` holds
+    the two answering alike (#759)."""
+    decoded = unicodedata.normalize("NFKC", html.unescape(text))
+    if piped and "|" not in text and "|" not in decoded:
+        return False
+    return bool(PACT_WORD.search(text) or PACT_WORD.search(decoded))
+
+
+def notify_may_be_always(said):
+    """True where a copy with no `hooks/` cannot rule out that SAID, the
+    text of `seal/config.md`, makes `Pact notify` mean `always`: SAID is
+    None (it would not read), some line names a pact and is neither a plain
+    `| Pact | … |` row nor a plain `| Pact notify | … |` row, reading a
+    two-cell row other than a table's header by its item alone, or a plain
+    row of each carries a value.
+
+    **It reads the lines the plugin's reader reads, by the same word.** The
+    plugin refuses every GFM line naming a pact that is not a walked pact
+    row in the one spelling, and a refusal leaves the moved rows. This copy
+    has no walk, so it cannot tell the live table from any other line: it
+    judges each line by the line's own shape, `CONFIG_ROW_RE`, on a line no
+    `str.splitlines`-only character cuts. A row of that shape has its item
+    read alone, as the plugin reads a walked row's; any other line is read
+    whole and needs a `|`, unless the file holds an HTML table cell
+    (`HTML_CELL`), which carries a value with no pipe (#759; round 1 of PR
+    #793, yellow 2).
+
+    **A table's header is read whole, and needs no pipe.** A line directly
+    above one `UNDER_A_HEADER` matches is a header: a transposed table names
+    the item there and puts the value in the row below, so its item alone
+    says nothing (round 1 of PR #793, yellow 3), and a one-column table's
+    header holds no `|` (round 3 of PR #793).
+
+    Where the plugin refuses and this copy does not, nothing can mean
+    `always`: a plain `Pact` row outside the table, a plain row with no
+    value, a `Pact` row written twice, a plain `Pact notify` row with no
+    `Pact` value, or a two-cell row whose item names no pact, whose value
+    this copy does not read as the plugin does not read a walked row's. An
+    empty value is the default, and a notify row with no `Pact` value is
+    ignored (round 2 of PR #756, yellow 2)."""
+    if said is None:
+        return True
+    valued = set()
+    lines = gfm_lines(said)
+    piped = HTML_CELL.search(said) is None
+    for at, line in enumerate(lines):
+        under = lines[at + 1] if at + 1 < len(lines) else ""
+        header = UNDER_A_HEADER.match(under) is not None
+        plain = line.splitlines() == [line] and not header
+        match = CONFIG_ROW_RE.match(line) if plain else None
+        if match is None:
+            if names_a_pact(line, piped and not header):
+                return True
+            continue
+        item = match.group("item").replace("\\|", "|")
+        if item in ("Pact", "Pact notify"):
+            if match.group("value").strip():
+                valued.add(item)
+        elif names_a_pact(item, piped=False):
+            return True
+    return valued == {"Pact", "Pact notify"}
+
+
 PACT_CHANGE_UNDONE = (
     "  a pact change is owed and was not recorded, so this run wrote no ledger "
     "file: nothing was re-stamped"
@@ -4136,23 +4216,15 @@ def record_pact_changes(moves, root, into, checked):
     config = plugin_module(CONFIG_READER, "specseal_config_for_pact_changes")
     if config is None:
         # This copy reads no `Pact notify` value either, so where the config
-        # holds a `Pact` row and a `Pact notify` row that both carry a value,
-        # or will not read, a moved row citing no clause may be owed under
-        # `always` and is left with the rows citing one (round 1 of PR #756,
-        # yellow 1). The shape is looser than the plugin's reader, so it
-        # leaves too much rather than too little; without both rows nothing
-        # can mean `always` (round 2 of PR #756, yellow 2). It is read
-        # strictly, as `declared_pacts` reads it: a lenient read turns a byte
-        # that is not UTF-8 into U+FFFD, which can hide the row the plugin
-        # refuses to rule out (round 3 of PR #756, yellow 1).
+        # may make it `always` (`notify_may_be_always`), a moved row citing
+        # no clause may be owed and is left with the rows citing one (round 1
+        # of PR #756, yellow 1; #759). It is read strictly, as
+        # `declared_pacts` reads it: a lenient read turns a byte that is not
+        # UTF-8 into U+FFFD, which can hide the row the plugin refuses to
+        # rule out (round 3 of PR #756, yellow 1).
         declaration = os.path.join(seal_home(root), "config.md")
         said = read(declaration, strict=True) if os.path.lexists(declaration) else ""
-        named = {
-            " ".join(m.group(1).lower().split())
-            for m in map(NOTIFY_ROW_SHAPE.match, (said or "").splitlines())
-            if m
-        }
-        blind = said is None or named >= {"pact", "pact notify"}
+        blind = notify_may_be_always(said)
         left = 0
         for where, _row, _parts, anchors in entries:
             if anchors:

@@ -1304,13 +1304,18 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
         (
             "docs/the-pact.md",
             "and each other moved row where `seal/config.md` holds a `Pact` row and "
-            "a `Pact notify` row that both carry a value, or will not read, says it "
-            "recorded nothing, and re-stamps nothing",
+            "a `Pact notify` row that both carry a value, holds a line that names a "
+            "pact by the plugin's word and is neither row in the one spelling, "
+            "reading a two-cell row other than a table's header by its item alone, "
+            "as the plugin reads a walked row, or will not read, says it recorded "
+            "nothing, and re-stamps nothing",
         ),
         (
             "skills/evidence-check/SKILL.md",
             "and each other moved row where `seal/config.md` holds a `Pact` row and "
-            "a `Pact notify` row that both carry a value, or will not read, records "
+            "a `Pact notify` row that both carry a value, or will not read, or "
+            "carries a line naming a pact that is neither plain row, a two-cell row "
+            "other than a table's header being read by its item alone, records "
             "nothing, and exits 1. A `Pact notify` row written twice has no value",
         ),
         (
@@ -1547,6 +1552,160 @@ def test_a_vendored_copy_whose_config_will_not_read_leaves_the_row(
             os.chmod(config, 0o644)
     assert code == 1 and "may be `always`" in out, out
     assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+
+
+# --- #759: a pact row is read in one plain spelling --------------------------
+#
+# The plugin's reader refuses every line of `seal/config.md` that names a pact
+# and is not a walked `Pact` or `Pact notify` row in the plain spelling, so
+# the writer leaves the moved rows that refusal leaves unknown (S6 of work
+# item 1791128260). A copy with no `hooks/` reads the same lines by the same
+# word and the same predicate (S9).
+
+ONE_SPELLING = (
+    "names a pact and is not a `Pact` or `Pact notify` row in the one "
+    "spelling read: write it as `| Pact | … |` or `| Pact notify | … |` inside "
+    "the `| Item | Value |` table, or take it out of this file"
+)
+# What the sentence adds where a line with no `|` is refused only because the
+# file holds an HTML table cell's tag (round 2 of PR #793, yellow 2).
+IN_A_CELL_FILE = (
+    "; this file holds an HTML table cell's tag, so a line with no `|` is refused too"
+)
+
+
+@pytest.mark.parametrize(
+    "rows, below, cites, why",
+    [
+        (
+            (("Pact", PACT_URL),),
+            "\n| Pact notify | always |\n",
+            "",
+            "moved, and `Pact notify` may be `always`",
+        ),
+        ((), f"\n| Pact | {PACT_URL} |\n", f"`{CLAUSE}`, ", "cites a pact clause"),
+        (
+            (("Pact", PACT_URL),),
+            "\n<table><tr><td>Pact notify</td><td>always</td></tr></table>\n",
+            "",
+            "moved, and `Pact notify` may be `always`",
+        ),
+    ],
+    ids=[
+        "a notify row below the table",
+        "a Pact row below the table",
+        "an HTML table row, round 1 of PR #793",
+    ],
+)
+def test_s6_a_pact_line_below_the_table_leaves_the_moved_row(
+    repo, rows, below, cites, why
+):
+    """S6. A pact line under a blank line that ended the table was read as
+    the default, and the moved row was re-stamped unrecorded. It is refused
+    now, so the row is left: exit 1, the `LEFT` line naming the refused
+    line, the ledger byte-identical, and no record. A `Pact` line refuses
+    with no `Pact` row in the table too, and its clause's row is left."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), *rows) + below, encoding="utf-8"
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger_rows = [row("O1", cites, f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, ledger_rows)
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1, out
+    assert (
+        f"LEFT seal/ledger/{ITEM}.md:1 {why}, and the `Pact` rows will not "
+        f"read: `{below.strip()}` {ONE_SPELLING}"
+        + (IN_A_CELL_FILE if "<td>" in below else "")
+        + " — no pact change was recorded and nothing was re-stamped; fix the "
+        "row and run it again"
+    ) in " ".join(out.split()), out
+    assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+    assert not (repo / "seal" / "pact-changes").exists(), out
+
+
+# The eight characters `str.splitlines` ends a line at and GFM does not.
+SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+
+
+@pytest.mark.parametrize(
+    "below",
+    [
+        "\n| Pact notify | always |\n",
+        *(f"| Pact notify | {ch}always |\n" for ch in SPLITLINES_ONLY),
+        "Pact notify | always |\n",
+        "| Pact\u200bnotify | always |\n",
+        "| Pact notify\ufeff | always |\n",
+        "| **Pact notify** | always |\n",
+        "| Pact&#32;notify | always |\n",
+        "| [Pact notify]() | always |\n",
+        "| Pact-notify | always |\n",
+        "| Pact<?x?>notify | always |\n",
+        '| [Pact notify](x "a)b") | always |\n',
+        "| `Pact notify` | always |\n",
+        "| `Pact` notify | always |\n",
+        "| Pact notify` | always |\n",
+        "| [Pact notify](it's) | always |\n",
+        "| <!-->Pact notify<!-- --> | always |\n",
+        "| Pact&notify | always |\n",
+        "\n```\n| Pact notify | always |\n```\n",
+        "\n<table><tr><td>Pact notify</td><td>always</td></tr></table>\n",
+        f"\n| Pact | Pact notify |\n|---|---|\n| {PACT_URL} | always |\n",
+        "\n| Mode | Pact notify |\n---|---\n| shared | always |\n",
+        "\n| Mode | Pact notify |\n---\x0b|---\n| shared | always |\n",
+        "\n> x\n| Mode | Pact notify |\n> ---|---\n> | shared | always |\n",
+        "\nPact notify\n:-:\nalways\n",
+    ],
+    ids=[
+        "below the table",
+        *(f"cut at U+{ord(ch):04X}" for ch in SPLITLINES_ONLY),
+        "no leading pipe, directly under the table",
+        "a format character inside the item",
+        "a format character after the item",
+        "in bold",
+        "with a character reference",
+        "as a link",
+        "with a hyphen",
+        "with a processing instruction",
+        "as a link whose title holds a parenthesis",
+        "a code span",
+        "part of the item in a code span",
+        "a lone backtick",
+        "round 4, yellow 1: a destination holding an apostrophe",
+        "round 4, yellow 2: an empty comment",
+        "round 4, yellow 3: a legacy name with no semicolon",
+        "in a closed fence",
+        "round 1 of PR #793, yellow 2: an HTML table row",
+        "round 1 of PR #793, yellow 3: a transposed table",
+        "round 2 of PR #793, yellow 1: a delimiter row with no outer pipes",
+        "round 3 of PR #793, yellow 1: a vertical tab in the delimiter row",
+        "round 3 of PR #793, yellow 1: a header a block quote continues",
+        "round 3 of PR #793, yellow 2: a one-column table with no pipe",
+    ],
+)
+def test_s9_a_vendored_copy_leaves_where_the_plugin_refuses_a_pact_line(
+    repo, tmp_path, below
+):
+    """S9 (a). Where the plugin's reader refuses a line naming a pact, a
+    copy with no `hooks/` leaves the moved row too: it reads the same lines
+    by the same word, and it has no walk, so a plain `Pact notify` row
+    anywhere beside a `Pact` value is enough. The full S2 corpus runs
+    through its decision in `tests/test_a_signatory_declares_its_pact.py`;
+    these run it end to end."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), ("Pact", PACT_URL)) + below,
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger_rows = [row("O2", "", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, ledger_rows)
+    move_serialize(repo)
+    code, out = _vendored(repo, tmp_path)
+    assert code == 1, out
+    assert "moved, and `Pact notify` may be `always`" in out, out
+    assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+    assert not (repo / "seal" / "pact-changes").exists(), out
 
 
 @pytest.mark.parametrize("shape", ["ledger unreadable", "could not be written"])

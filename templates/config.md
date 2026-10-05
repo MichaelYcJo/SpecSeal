@@ -386,15 +386,17 @@ is a signatory, and every one except the pact's repository names the pact
 here. The pact's repository needs no row: it is identified by holding
 `seal/pact.md`.
 
-```markdown
-| Pact | git@example.com:org/orders-api.git |
-| Pact notify | when the pact is touched |
-```
+Both rows are written in the table at the top of this file, and nowhere
+else in it:
 
-| Row | Value | Absent |
-|---|---|---|
-| `Pact` | the origin remote URL of the pact's repository; a signatory of pacts held in more than one repository lists them separated by `;` | no pact is held elsewhere |
-| `Pact notify` | `always` · `when the pact is touched` · `never` | `when the pact is touched` where a `Pact` row stands, and ignored where none does |
+- **`Pact`**: the origin remote URL of the pact's repository, such as
+  `git@example.com:org/orders-api.git`; a signatory of pacts held in more
+  than one repository lists them separated by `;`. Absent: no pact is held
+  elsewhere.
+- **`Pact notify`**: `always` · `when the pact is touched` · `never`.
+  Absent: `when the pact is touched` where a `Pact` row stands, and ignored
+  where none does. Written anywhere but the table above, or spelled any
+  other way, it is refused, not absent.
 
 **The URL is compared normalised**, so `git@example.com:org/orders-api.git`
 and `https://example.com/org/orders-api` name one repository. Its last path
@@ -408,17 +410,34 @@ signatory records a pact change* says, and that section's first sentence is
 the whole trigger. `pact-check` at the pact's repository reads that record
 until a pact review there takes it:
 
-| Value | Recorded here | Read there |
-|---|---|---|
-| `when the pact is touched` | a row citing a clause of a pact the `Pact` row names | as `NOT TAKEN`, exit 1, until a pact review takes it |
-| `always` | that, and every other row whose code moved, with `—` for its clause | a `—` row as `NOTED`, which moves no exit |
-| `never` | nothing | nothing, whatever an earlier value recorded |
+- **`when the pact is touched`** records a row citing a clause of a pact
+  the `Pact` row names, and the pact's repository reads it as `NOT TAKEN`,
+  exit 1, until a pact review takes it.
+- **`always`** records that, and every other row whose code moved, with `—`
+  for its clause; the pact's repository reads a `—` row as `NOTED`, which
+  moves no exit.
+- **`never`** records nothing, and the pact's repository reads nothing,
+  whatever an earlier value recorded.
 
 **A row that will not parse is refused in a sentence**, never read as absent.
 At this repository's pull request `chain-check` prints the sentence and its
 exit status does not move: a signatory's CI prints and does not verify.
 `pact-check`, run at the pact's repository, reads the same rows through the
 same reader, `hooks/config.py#pact_declaration`, and exits 2 on them.
+
+**Both rows are read only where the table above holds them, spelled exactly
+`Pact` and `Pact notify`.** Any other line of `seal/config.md` that names a
+pact and holds a pipe is refused the same way: one written under the
+table, a fenced or commented example, or a row of the table whose item says
+`pact notify`, `**Pact notify**` or `` `Pact` ``. Keep both rows in that
+table. A sentence with no pipe in it may name the pact freely, which is why
+this section is written without one: this file can be copied whole. A file
+that also holds an HTML table cell's tag, a `td` or `th` opened with a `<`,
+anywhere, a comment or a code span included, refuses such a sentence too, so
+keep that tag out of this file. So does a line directly under the sentence
+that GFM reads as a table's delimiter row, such as `:-:`, `---:` or dashes
+between two pipes, which makes the sentence a one-column table's header; a
+line of dashes alone is a heading's underline and refuses nothing.
 
 ## The fold's values
 
