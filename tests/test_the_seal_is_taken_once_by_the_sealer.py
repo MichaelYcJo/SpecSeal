@@ -873,11 +873,13 @@ def repo(tmp_path, _template):
     return d
 
 
-def run_gate(repo, *extra, keep=None, wrapper=False, session=None):
+def run_gate(repo, *extra, keep=None, wrapper=False, session=None, cwd=None):
     """`broad_gate.py --base base --root <repo> --shape`, its outputs kept
     under `keep`; returns the completed process. stdout is a pipe, so a
     sealed run signals rather than draws; `session` is the Claude Code
-    session the run belongs to, and None runs it with no session at all."""
+    session the run belongs to, and None runs it with no session at all.
+    `cwd` is the directory the gate is started in, which a relative `keep`
+    is read from."""
     keep = keep or repo.parent / "out"
     env = env_without_a_pull_request()
     if session is not None:
@@ -904,6 +906,7 @@ def run_gate(repo, *extra, keep=None, wrapper=False, session=None):
         errors="replace",
         timeout=300,
         env=env,
+        cwd=cwd,
     )
 
 
@@ -4966,6 +4969,46 @@ def test_a_part_that_drops_the_gates_arguments_gives_no_word(tmp_path, row, posi
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
     assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RUNNER, out.stdout
+
+
+def test_a_report_an_earlier_run_left_settles_nothing(tmp_path):
+    """#789. `--keep-output` can name a directory an earlier gate run wrote
+    into, and a report left there at a prefix's path would settle a prefix
+    that wrote nothing. Here the earlier report fails `tests/test_two.py` at
+    the lint stand-in's prefix; the base passes it, so it reads `new`."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        LINT_FIRST_ROW,
+        {"tests/test_two.py": PASSING_TWO},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    keep = tmp_path / "out"
+    keep.mkdir()
+    (keep / "suite-at-base-1.xml").write_text(
+        junit([("tests.test_two", "test_two", "failure")]), encoding="utf-8"
+    )
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().NEW, out.stdout
+
+
+def test_a_relative_kept_directory_still_receives_the_report_under_a_cd(tmp_path):
+    """#789. The gate hands pytest the report's path, and a `cd` part moves
+    the directory pytest resolves a relative path from, so the path is made
+    absolute first. Here `--keep-output` is relative and the row runs from
+    `sub`, where the base fails the file."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"cd sub && {SUITE_ROW}",
+        {"sub/tests/test_two.py": FAILING_TEST},
+        {"sub/tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo, keep="out", cwd=tmp_path)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE, (
+        out.stdout
+    )
+    assert (tmp_path / "out" / "suite-at-base-2-1.xml").is_file()
 
 
 def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
