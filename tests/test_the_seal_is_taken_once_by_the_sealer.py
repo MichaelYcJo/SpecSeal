@@ -4161,6 +4161,14 @@ PROOFS = [
         id="a-row-at-qqq-bare",
     ),
     pytest.param(
+        "tests/test_two.py: 2\n\n"
+        "==================== 2 tests collected in 65.00s (0:01:05) "
+        "====================\n",
+        "tests/test_two.py",
+        None,
+        id="a-run-over-a-minute",
+    ),
+    pytest.param(
         ONE_SESSION + SECOND_SESSION,
         "tests/test_two.py",
         "MULTI_RUNNER",
@@ -4213,8 +4221,8 @@ PROOFS = [
     ),
     pytest.param(
         "tests/test_a.py: 2\ntests/test_b.py: 1\n\n"
-        "===================== 3 tests collected, 1 error in 0.06s "
-        "======================\n",
+        "========================== 3 tests collected in 0.06s "
+        "==========================\n",
         "tests/test_a.py",
         "COLLECTED_BEYOND",
         id="a-listing-of-another-file",
@@ -5188,6 +5196,53 @@ def test_a_cd_rows_proof_holds_where_pytests_rootdir_is_its_directory(
     expected = getattr(gate, word)
     expected = expected if word == "ON_BASE" else expected.format(n=1)
     assert verdict_of(out.stdout, "tests/test_two.py") == expected, out.stdout
+
+
+# A conftest that ends every run with exit 3 whatever its tests did, the way
+# a plugin's own check can.
+EXITS_THREE = (
+    "def pytest_sessionfinish(session, exitstatus):\n    session.exitstatus = 3\n"
+)
+
+
+@pytest.mark.parametrize(
+    "at_base, kept",
+    [
+        pytest.param(
+            {"tests/test_two.py": PASSING_TWO, "tests/test_three.py": PASSING_TWO},
+            {
+                "tests/test_three.py": "suite-at-base-1-1.txt",
+                "tests/test_two.py": "suite-at-base-1-2.txt",
+            },
+            id="tests-none-failing",
+        ),
+        pytest.param(
+            {"tests/test_two.py": "VALUE = 1\n"},
+            {"tests/test_two.py": "suite-at-base-1-1.txt"},
+            id="no-test",
+        ),
+    ],
+)
+def test_a_run_whose_report_names_no_failure_and_exits_otherwise_is_not_measured(
+    tmp_path, at_base, kept
+):
+    """S4's table, its two `new?` rows (#789). The base's conftest ends
+    every run with exit 3. A group whose report counts tests and none
+    failing decides nothing on that exit, so each file runs alone; a file
+    run alone whose report names no failing test, with tests or without, and
+    an exit that is neither 0 nor pytest's 4 or 5 for nothing collected,
+    reads `new?` naming the exit and the kept run."""
+    feature = {path: FAILING_TWO for path in kept}
+    repo = base_then_feature(
+        tmp_path / "repo", FILES_ROW, {"conftest.py": EXITS_THREE, **at_base}, feature
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    for path, name in kept.items():
+        assert verdict_of(out.stdout, path) == gate.NOT_ENDED.format(
+            code=3, kept=name
+        ), out.stdout
 
 
 @pytest.mark.parametrize("xdist", UNDER)
