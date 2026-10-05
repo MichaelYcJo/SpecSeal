@@ -4789,7 +4789,11 @@ def test_a_run_of_several_that_counted_only_warnings_sends_each_file_alone(
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert verdict_of(out.stdout, "tests/test_one.py") == gate.COMPANY.format(n=1), (
+    # Files run alone are numbered in the order the branch's `FAILED` lines
+    # named them, and under xdist that is the order the workers finished in.
+    listed = re.findall(r"^\s+(tests/test_\w+\.py)  ", out.stdout, re.M)
+    n = listed.index("tests/test_one.py") + 1
+    assert verdict_of(out.stdout, "tests/test_one.py") == gate.COMPANY.format(n=n), (
         out.stdout
     )
     assert verdict_of(out.stdout, "tests/test_two.py") == gate.NEW, out.stdout
