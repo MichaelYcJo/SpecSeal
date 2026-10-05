@@ -815,15 +815,16 @@ def _without_bodies(command: str) -> str:
     """COMMAND with its here-document bodies taken out and its comments kept,
     for `has_token`.
 
-    `tokens.without_bodies` where `hooks/cmdline.py` loaded, which is the
-    body reader every consent read shares (#773). Where it did not, or where
-    that read raises, the frozen reader's `drop_heredoc_bodies`, the one
+    `tokens.without_bodies`, the body reader every consent read shares
+    (#773). It imports `hooks/cmdline.py` when it runs, so where that module
+    cannot load, or where the read raises for any other reason, the frozen
+    reader's `drop_heredoc_bodies` finds the bodies instead, the one
     `_judgment_text` already uses. Falling back to the command as written
     would bring #780 back whenever that module is broken, and reading no
     token at all would leave the single-stream creation deny, which has no
     `ask` behind it, with no way past (`plan.md` G and H of work item
     1791163981)."""
-    if wide is not None and tokens is not None:
+    if tokens is not None:
         try:
             return tokens.without_bodies(command)
         except (Exception, SystemExit):

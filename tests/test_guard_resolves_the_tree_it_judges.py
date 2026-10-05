@@ -2247,24 +2247,43 @@ def _raises(command):
     raise RuntimeError("the wider body reader is broken")
 
 
-@pytest.mark.parametrize("break_it", ["wide", "without_bodies"])
+def _a_guard_whose_wider_reader_exits_at_load(monkeypatch, tmp_path):
+    """The guard loaded from a copy of `hooks/` whose `cmdline.py` raises
+    `SystemExit` at load, as
+    `test_a_wider_reader_that_exits_at_load_costs_only_the_question` makes
+    it, so `tokens.without_bodies` fails on its own import."""
+    hooks = tmp_path / "hooks"
+    shutil.copytree(os.path.join(os.path.dirname(__file__), "..", "hooks"), hooks)
+    (hooks / "cmdline.py").write_text("raise SystemExit(3)\n", encoding="utf-8")
+    monkeypatch.delitem(sys.modules, "cmdline", raising=False)
+    monkeypatch.syspath_prepend(str(hooks))
+    spec = importlib.util.spec_from_file_location(
+        "wg_exiting_reader_780", hooks / "worktree-guard.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.wide is None
+    return module
+
+
+@pytest.mark.parametrize("break_it", ["cmdline exits at load", "without_bodies"])
 def test_a_broken_wider_reader_reads_no_body_token_and_keeps_a_typed_one(
-    monkeypatch, break_it
+    monkeypatch, tmp_path, break_it
 ):
-    """`spec.md` A8. Where `hooks/cmdline.py` did not load, as
-    `test_a_broken_wider_reader_costs_only_the_question` makes it, or where
+    """`spec.md` A8. Where `hooks/cmdline.py` does not load, or where
     `hooks/tokens.py#without_bodies` raises, the bodies are found by the
     frozen reader `_judgment_text` uses. A body token is still not read and a
     typed one still is (`plan.md` G and H). The body half is red at
     `a3aa139a`."""
-    if break_it == "wide":
-        monkeypatch.setattr(wg, "wide", None)
-    else:
+    guard = wg
+    if break_it == "without_bodies":
         monkeypatch.setattr(wg.tokens, "without_bodies", _raises)
+    else:
+        guard = _a_guard_whose_wider_reader_exits_at_load(monkeypatch, tmp_path)
     for name, (command, token) in BODY_TOKENS.items():
-        assert not wg.has_token(command, token), name
+        assert not guard.has_token(command, token), name
     for name, (command, token) in TYPED_BESIDE_A_BODY.items():
-        assert wg.has_token(command, token), name
+        assert guard.has_token(command, token), name
 
 
 def _the_bases_token_read(command, token):
@@ -2301,15 +2320,15 @@ TOKEN_COMMANDS = (
 
 
 @pytest.mark.parametrize("token", ["[worktree-ok]", "[shared-tree-ok]"])
-@pytest.mark.parametrize("break_it", [None, "wide"])
+@pytest.mark.parametrize("break_it", [None, "without_bodies"])
 def test_the_token_read_never_reads_more_than_the_base(monkeypatch, token, break_it):
     """`spec.md` A9. Over every command of A6-A8, the two the splitter cannot
     finish until the body goes, and the existing token cases, `has_token` is
-    True only where `a3aa139a`'s was, with the wider reader loaded and
-    without it. It holds by the AND in `spec.md` §*Scope* In 5; red with the
+    True only where `a3aa139a`'s was, with the wider body reader working
+    and raising. It holds by the AND in `spec.md` §*Scope* In 5; red with the
     read over the body-free text alone (`plan.md` F)."""
     if break_it:
-        monkeypatch.setattr(wg, "wide", None)
+        monkeypatch.setattr(wg.tokens, "without_bodies", _raises)
     read = [command for command in TOKEN_COMMANDS if wg.has_token(command, token)]
     assert read, "no command carried the token where both reads find it"
     more = [command for command in read if not _the_bases_token_read(command, token)]
