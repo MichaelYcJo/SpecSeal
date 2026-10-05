@@ -87,6 +87,11 @@ can fix by writing them differently.
 | test_a_file_the_base_carries_only_at_the_root_is_not_measured_under_a_cd | `NO_RUNNER` | `new`, renamed …_is_measured_alone_under_a_cd | the file's run alone in `sub` exits 4 with no test: the base has no test there |
 | test_a_run_of_several_that_counted_only_warnings_is_not_measured | `NO_RUNNER` twice | `tests/test_one.py` `failing on base too`, `tests/test_two.py` `new`, renamed …_sends_each_file_alone | the base fails `sub/tests/test_one.py` under the one runner the row has, and its proof lists that file alone under `sub`'s own ini; `sub/tests/test_two.py` does not exist at the base |
 
+*Corrected at fd98c2c8 by round 1's fix pass:* the third row's
+`tests/test_one.py` and the files-only `tests/test_two.py` of the
+cannot-collect case, listed in the first table, read `new?` with
+`COMPANY` now (`phases/phase-2.md`, the correction).
+
 The middle row of the second table is a `failing on base too` where
 a3aa139a gave `new?`. It is not a placement: the run collected one file in
 the directory the branch's runner named it from, and the base fails that

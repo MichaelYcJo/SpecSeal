@@ -22,9 +22,14 @@
   No test runs under collection alone, so nothing a test prints can get in
   the way, and a second runner the row starts later reads the same variable.
   The word needs that run to show one pytest session that listed the file
-  and nothing else. Failing files the base has at the repository root still
-  run together first, but that run can only say `new`, where every test it
-  collected passed. Otherwise each runs alone.
+  and nothing else, and no runner that ran tests anyway, which is what a
+  runner started without the gate's environment does. Failing files the
+  base has at the repository root still run together first, but that run
+  can only say `new`, where every test it collected passed. Otherwise each
+  runs alone, and the word also needs the row's own context to agree: where
+  the files run together failed fewer tests than they fail one by one, the
+  failure alone may not be the base's failure in the row, and none of those
+  files reads `failing on base too`.
 
 ### Changed
 
@@ -33,13 +38,21 @@
   red suite through. These rows now read `new?` for every file the base
   fails, where 0.18.2 often gave the right `failing on base too`:
 
-  - a row whose runner also names a directory or other paths, like
-    `pytest -q tests`, because its run of one file collects the others too;
+  - a row whose runner also names a directory that collects more than the
+    file, like `pytest -q tests/unit` with a failing file outside
+    `tests/unit`, or `pytest -q tests` under pytest 9 (pytest 8.1 to 8.3
+    collect only the handed file there, so that row earns the word);
   - a row whose pytest rootdir is not the directory it runs pytest in, like
     `cd sub && pytest` with the ini file at the repository root;
   - pytest older than 8.1, which does not know `verbosity_test_cases`;
   - a row that sets `PYTEST_ADDOPTS` itself, or runs at `-qqqq`;
-  - a row that runs pytest more than once.
+  - a row that runs pytest more than once, a runner started without the
+    gate's environment (`tox`, `env -i`, a container) included, wherever it
+    stands in the row;
+  - a file the base fails only when it runs without the other failing
+    files: a sibling puts a module on `sys.path` or sets state at import, a
+    session fixture's error lands on each session's last test. Every failing
+    file of such a run reads `new?`, a pre-existing one included.
 
   A row earns the measured word back by letting the files the gate appends
   be pytest's only paths, for example `pytest -q` with `testpaths` in the
@@ -55,7 +68,8 @@
   file that the base fails but that ran beside other files, or under a row
   that ran pytest twice, names its `collected-at-base-<n>.txt`, and a run
   that ended with an exit pytest does not give for passing tests names its
-  exit and its `suite-at-base-<k>-<n>.txt`. `templates/config.md` rule 3 and
+  exit and its `suite-at-base-<k>-<n>.txt`. A file the base fails only
+  alone names the run of the files together and its own run alone. `templates/config.md` rule 3 and
   `skills/verify/SKILL.md` say how each is read and what the extra runs
   cost.
 
@@ -65,8 +79,10 @@
   worktree go when it is removed; writes outside it stay.
 
 Two limits are unchanged and named in rule 3. A second runner the extra run
-cannot reach, or reaches without the gate's environment (started by `tox`,
-`env -i` or a container, behind `||`, or behind a part that fails under
-collection alone), leaves the row read as having one runner. And in a row
-that runs pytest twice, a file the base passes under the first runner reads
-`new` from that runner.
+cannot reach, or that prints nothing it can read (behind `||`, behind a part
+that fails under collection alone, at `-qqqq`, or started without the gate's
+environment at `-qq` or quieter), leaves the row read as having one runner.
+And in a row that runs pytest twice, a file the base passes under the first
+runner reads `new` from that runner. One new limit is named beside them: in
+a group whose files depend on each other both ways, so that the counts
+cancel, the words stand.

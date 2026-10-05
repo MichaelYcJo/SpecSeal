@@ -47,7 +47,7 @@ listing it. In the same matrix a3aa139a gave `failing on base too` to
 `tests/test_g.py`, a file the base passes, 52 times; here none of the 384
 words does.
 
-**Two existing cases also gained the word, and both are the base's**
+**Two existing cases also gained the word at this phase, and both are the base's — corrected below: both read `new?` since fd98c2c8**
 (`phases/phase-1.md` lists them): `tests/test_one.py` of
 test_a_run_of_several_that_counted_only_warnings_sends_each_file_alone, and
 `tests/test_two.py` of test_a_file_the_base_cannot_collect_is_measured_alone
@@ -106,6 +106,31 @@ word is the word here.
 through `base_then_feature` and the gate in a subprocess, 279 runs at each of
 the first two and 87 at the third, with a supplement for the two-runner rows'
 files-only variant. The probe file was deleted afterwards.
+
+### Corrected at fd98c2c8 by round 1's fix pass
+
+Round 1 of review found two more classes this phase's corpus did not hold,
+both regressions against a3aa139a, and the orchestrator chose the strict
+variant of the fix. The statements above are corrected here rather than
+rewritten, so the record still says what phase 2 saw.
+
+- **The two existing cases that gained the word no longer do.** The
+  warnings-only group's `tests/test_one.py` and the interrupted group's
+  `tests/test_two.py` (files-only row) read `new?` with `COMPANY`: the
+  files run together at the base failed fewer tests than they fail one by
+  one, so the row as written did not show the failure. The interrupted
+  group's `tests/test_three.py` moves the same way, from the `failing on
+  base too` a3aa139a also gave it to `new?`.
+- **Round 1's layouts** — a sibling that puts a module on `sys.path` (A),
+  a sibling that sets state at import (A2), a session fixture's teardown
+  error (B), and a first runner that keeps its report and environment to
+  itself (C) — read `new?` at fd98c2c8, where a3aa139a read `new` for the
+  file it got wrong. Each is planted.
+- **The corpus re-run at fd98c2c8** (the 46 layouts here, round 1's four,
+  and the 96-run matrix, each under both rows, against a3aa139a's gate):
+  491 words, and the only `failing on base too` a3aa139a did not give are
+  the same 18 matrix words named above, the S3–S5 shape. No layout leaks.
+  The planted corpus case keeps every word of the table below.
 
 ### The corpus, word by word
 
