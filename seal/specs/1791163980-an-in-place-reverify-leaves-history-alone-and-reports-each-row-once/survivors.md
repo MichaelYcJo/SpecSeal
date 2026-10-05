@@ -4,7 +4,9 @@ This range moved the tree of
 `test_a_coordinate_left_and_then_read_unchanged_records_nothing` into a helper
 that two cases share, so its docstring's description of the tree moved with
 it and was reworded. The places below share words with the sentences that
-moved, and each is true as it stands.
+moved, and each is true as it stands. The rows from the third on excuse
+places in this item's first verifying pass that quote the claim-tie wording
+#810 corrected; each is true of the commit it describes.
 
 | Path | Quote | Grounds |
 |---|---|---|
