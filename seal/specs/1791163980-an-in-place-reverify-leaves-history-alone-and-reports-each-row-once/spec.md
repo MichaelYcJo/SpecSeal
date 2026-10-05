@@ -52,6 +52,11 @@ does not owe a re-read of it.**
   lines, never code, so a code coordinate's grading cannot change during the
   run. Only the dates change, and a date the run adds can promote a reading
   to newest. A live judgment would make the result depend on walk order.
+  *Inferred during implementation, round 1 (yellow 2):* a coordinate naming
+  a line of a ledger the run writes is the exception, because the walk can
+  move that line, so it is never judged held. A held coordinate no one place
+  holds, on a row the run dates, is left and named as any such coordinate is
+  (yellow 1).
 - **Unchanged:**
   - a row outside every family is its own newest reading;
   - a coordinate whose family is drifted: every member whose hash moves is

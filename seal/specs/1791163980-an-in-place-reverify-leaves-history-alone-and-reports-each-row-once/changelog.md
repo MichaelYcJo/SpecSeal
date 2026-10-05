@@ -11,9 +11,12 @@
   that a superseded family carries, keeps its hash and its date, is named on
   no line, and records no pact change. On a row the run dates for another
   coordinate, a held coordinate takes the new hash too, because the date
-  makes that row its newest reading. Without the freeze, a run narrowed to a
-  released file whose family a fragment already holds now exits 0, where it
-  re-stamped the released row and then named the fragment's citation of it.
+  makes that row its newest reading; where no one place holds it, it is named
+  `left` and recorded BROKEN, as any such coordinate is. A coordinate naming a
+  line of a ledger the run rewrites is never treated as held, because the run
+  can move that line. Without the freeze, a run narrowed to a released file
+  whose family a fragment already holds now exits 0, where it re-stamped the
+  released row and then named the fragment's citation of it.
 
 - An in-place `--reverify` prints each coordinate's `left` line once, after
   its walks (#792). A file the run walks more than once printed its `left`
