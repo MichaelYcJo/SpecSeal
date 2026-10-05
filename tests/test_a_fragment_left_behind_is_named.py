@@ -462,6 +462,7 @@ def test_a_target_head_does_not_descend_from_is_silent(repo, monkeypatch, capsys
     elsewhere = change(repo, "f.py", message="the build before a rebase")
     git(repo, "switch", "-q", "feature")
     built(repo)
+    change(repo, "hooks/x.py", message="the build's last commit")
     open_round(repo, 1, elsewhere)
 
     _code, out = judged(repo, monkeypatch, capsys)
