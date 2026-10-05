@@ -280,7 +280,7 @@ covers round 2's own `--junitxml` member (Q8).
    - `compare_at_base`'s docstring, rewritten whole, and the comments over
      every constant that stays. The module docstring keeps "`new?` with the
      reason no run measured it", which is pinned;
-   - `test_the_one_counterfeit_the_gate_cannot_see_is_named` pins a shape
+   - `test_the_one_counterfeit_the_gate_cannot_see_is_named` pins a shape · NAME NOT IN TREE
      that is no longer a counterfeit. It becomes the case that the shape
      reads `NO_RUNNER` (S8), and its sentence pins go with the rule-3
      rewrite.
@@ -339,7 +339,7 @@ was run against a3aa139a's `broad_gate.py` and failed there (§15).
 | S5 | #789 member 3, no rule of pytest's own | S3's base under `-rN` and `-rP` without `-s`; and S4's passing base under `-rP` | executed; seen red |
 | S6 | #789 member 3, no summary line | FILES_ROW with `-qq`: a passing base reads `new` (a3aa139a: `NO_RUNNER`); S1's failing base reads `failing on base too`, which shows the proof's `-vv` | executed; seen red on the first param |
 | S7 | #789 member 1 and #807: a second runner | The base fails `tests/test_y.py` at the root. Rows: `FILES_ROW && cd sub && FILES_ROW` (p1b), `FILES_ROW && sh -c 'cd sub && FILES_ROW'` (P7), `sh -c '{SUITE_ROW}' && FILES_ROW` (P3, a dropper first), and a first runner given `-p no:junitxml` and one given its own `--junitxml` (Q8). Then the file reads MULTI_RUNNER in each | executed; seen red where a3aa139a gave `failing on base too` (p1b, P7) and on the reason elsewhere |
-| S8 | A part that drops the gate's arguments | `sh -c '{FILES_ROW}'` (POSIX only, skipped with its reason on Windows), and `FILES_ROW -p no:junitxml` alone, with a passing base. Then `NO_RUNNER`, never `new` | executed; replaces `test_the_one_counterfeit_the_gate_cannot_see_is_named`; seen red (`new`) |
+| S8 | A part that drops the gate's arguments | `sh -c '{FILES_ROW}'` (POSIX only, skipped with its reason on Windows), and `FILES_ROW -p no:junitxml` alone, with a passing base. Then `NO_RUNNER`, never `new` | executed; replaces `test_the_one_counterfeit_the_gate_cannot_see_is_named`; seen red (`new`) · NAME NOT IN TREE |
 | S9 | Parts that are not pytest | `python -c pass && FILES_ROW` (lint-first) and `FILES_ROW && python -c "<append a marker>"` (runner-first), with a failing base. Then `failing on base too` in both, and the marker shows the part after the runner ran once in the proof pass | executed; seen red on the marker |
 | S10 | A cd row | `cd sub && FILES_ROW` with an ini in `sub` reads `failing on base too`; with the ini at the root it reads the beyond reason (M8) | executed; seen red on the second param |
 | S11 | A file that fails to import at the base | FILES_ROW: `failing on base too`, proven through its `ERROR` line; `SUITE_ROW` with another failing module: the beyond reason | executed; seen red on the second |
