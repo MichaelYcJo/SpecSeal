@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #804 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `3f90f333bd91751870d88788fcfa4ec414a4ea65..78becaaf72d259e62b5022554bb0558d6447c405`, 6 commits |
 | Contract changes | offsets → round-1-report.md, round-1.md, report_words |
 | New units | JUNIT_FAMILY (depth 1); test_a_package_named_like_the_file_is_not_placed_on_it (depth 1); test_a_same_named_module_deeper_in_the_tree_is_not_placed_on_the_file (depth 1); test_a_runner_that_drops_its_arguments_before_another_is_counted (depth 1) |
