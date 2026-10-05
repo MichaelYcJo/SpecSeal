@@ -750,12 +750,15 @@ CONFLICT_SENTENCES = (
 
 # #715: a re-read or a correction of a released row is a citing row in the
 # branch's fragment, and #488's three outcomes stand for a repository without
-# the freeze -- re-stamped in place with a dated note, corrected in place
-# first, and a row whose claim went with the code removed for the fragment.
+# the freeze -- re-stamped in place with the reading's date added to its
+# `Checked` cell, corrected in place first, and a row whose claim went with
+# the code removed for the fragment. The in-place writer writes no note: the
+# date is the whole trace (#781).
 RE_READ_SENTENCES = (
     "A re-read or a correction is a citing row in the branch's own fragment.",
     "a `Corrected ·` row whose grounds hold the citation alone",
-    "re-stamps a re-read row in place with a dated note",
+    "re-stamps a re-read row in place, adding the date of the reading to its "
+    "`Checked` cell",
     "corrects a false claim in place with a `Corrected <date>` note",
     "removes a row whose claim went with its code, writing the new claim into "
     "the branch's own fragment",

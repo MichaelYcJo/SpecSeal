@@ -171,15 +171,15 @@ version's file on a `release/vX.Y.Z` base (#540). A `Corrected ·` row a merge
 drops while the released row it cites stands is reported as a loss.
 
 **Without the row, a released row is kept true where it stands.** A
-repository that does not declare the freeze re-stamps a re-read row in place
-with a dated note, corrects a false claim in place with a `Corrected <date>`
-note, and removes a row whose claim went with its code, writing the new claim
-into the branch's own fragment. That is what every installed copy does until
-it adds the row. Where citing rows exist anyway, a `--reverify` narrowed with
-`--ledger` names, by its root row, each family that a file it read holds a
-member of, released or fragment, where no in-place re-stamp of the files it
-read clears that family, whichever members carry the drifted coordinate, and
-exits 1. The root is named even where the
+repository that does not declare the freeze re-stamps a re-read row in place,
+adding the date of the reading to its `Checked` cell, corrects a false claim
+in place with a `Corrected <date>` note, and removes a row whose claim went
+with its code, writing the new claim into the branch's own fragment. That is
+what every installed copy does until it adds the row. Where citing rows exist
+anyway, a `--reverify` narrowed with `--ledger` names, by its root row, each
+family that a file it read holds a member of, released or fragment, where no
+in-place re-stamp of the files it read clears that family, whichever members
+carry the drifted coordinate, and exits 1. The root is named even where the
 narrowing left its file out, because the root is the row a `Re-read ·` cites.
 The line names a remedy per coordinate, by why the family is still owed one
 (#792). Only where a newest reading of it sits in a file the run did not
