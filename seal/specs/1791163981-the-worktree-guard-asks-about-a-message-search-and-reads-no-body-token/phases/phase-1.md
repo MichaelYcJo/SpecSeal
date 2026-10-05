@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | the commit that adds this file; `plan.md`'s Status cell for phase 1 names it |
+| Commit | 5c7cf3ca |
 | Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
