@@ -45,7 +45,10 @@ the attribute.
 an ini file, so pytest takes the arguments' common directory as the rootdir
 and names `tests/test_two.py` `test_two`. Offset -1 is therefore the common
 case in this module, and the either-direction match is what every
-end-to-end case leans on.
+end-to-end case leans on. *Corrected 2026-10-05 by round 2 of review (⬜ 4):
+this was read off pytest's documented rule and never measured. Every kept
+fixture report names `tests.test_two` and `file="tests/…"`, so the rootdir is
+the repository root and the offset is 0.*
 
 **Divergence — what a failure placed on no appended file means.** `spec.md`
 Scope 3 says a failing test that could be placed "on none of them" gives
