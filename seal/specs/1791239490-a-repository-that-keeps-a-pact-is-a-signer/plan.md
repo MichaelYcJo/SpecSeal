@@ -25,14 +25,14 @@ stands. That is the last phase, written in one pass.
 
 ## Technical context
 
-- **The reader.** `hooks/config.py#pact_signatories` (line 1326) reads the
+- **The reader.** `hooks/config.py#pact_signatories` (line 1326) reads the · NAME NOT IN TREE
   pact's table through `gfm_table(text, SIGNATORY_HEADER)` (line 1183) and
   already branches on a refusal that starts `holds no ` (line 1338), which is
   the one refusal that means *no such table* rather than *a table that will
   not read*. The compatibility reading hangs off that branch: a `Signer`
   table absent, try the old tuple; where that reads, use it and report which
   header was read. `pact_reviews` (line 1397) has the same shape over
-  `PACT_REVIEW_HEADER` (line 1394). `_signatory` (line 1417) rewords a walk
+  `PACT_REVIEW_HEADER` (line 1394). `_signatory` (line 1417) rewords a walk · NAME NOT IN TREE
   refusal for the pact's table.
 - **The callers.** `skills/evidence-check/scripts/pact_check.py#main`
   (line 532 reads the table, 664–665 prints `N of M signator{y|ies} read`),
@@ -49,7 +49,7 @@ stands. That is the last phase, written in one pass.
 - **The sweep.** `tests/test_one_word_one_meaning.py` lines 561–691:
   `PACT_SWEPT`, `PACT_SECTIONS` (names the `skills/evidence-check/SKILL.md`
   heading at line 583, which this work renames), `PACT_LINES`,
-  `PACT_PRINTED` (names `pact_signatories` at line 611 and `_signatory` at
+  `PACT_PRINTED` (names `pact_signatories` at line 611 and `_signatory` at · NAME NOT IN TREE
   line 629), `PACT_LOOSE` (line 635). `SEAL_EXCLUDED` (line 245) is the
   precedent for a named span excluded from a sweep; the file's own comment
   at lines 240–244 says why a span and not a file.
@@ -153,20 +153,20 @@ the fixture `signatory()`.
 `test_a_signatory_prints_its_pact_and_its_exit_status_does_not_move`,
 `test_the_pacts_repository_prints_how_many_signatories_it_lists`.
 `test_a_pact_review_takes_a_pact_change.py`:
-`test_a_review_of_another_signatory_takes_nothing_here`,
-`test_a_review_row_naming_a_signatory_since_dropped_stays_refused`.
+`test_a_review_of_another_signatory_takes_nothing_here`, · NAME NOT IN TREE
+`test_a_review_row_naming_a_signatory_since_dropped_stays_refused`. · NAME NOT IN TREE
 `test_a_signatory_declares_its_pact.py`:
 `test_the_pact_lists_its_signatories_and_a_comment_is_not_the_table`,
 `test_a_signatory_row_the_walk_cannot_read_is_refused`.
 `test_pact_check.py`: `test_s12_a_signatory_citing_the_current_clause_is_clean`,
 `test_s7_a_notify_row_below_the_signatorys_table_is_exit_2`,
-`test_two_siblings_with_the_signatorys_origin_are_not_guessed_between`,
+`test_two_siblings_with_the_signatorys_origin_are_not_guessed_between`, · NAME NOT IN TREE
 `test_a_signatory_row_the_table_walk_cannot_read_is_exit_2`,
 `test_a_signatory_with_no_seal_root_is_one_sided`,
 `test_a_signatory_config_that_will_not_read_is_unreadable`,
 `test_a_signatory_row_below_a_blank_line_is_refused`,
-`test_a_signatory_written_as_an_autolink_is_never_passed_over`; and the
-constant `SIGNATORY_URL`. Each `docs/the-pact.md` `Enforced by:` line that
+`test_a_signatory_written_as_an_autolink_is_never_passed_over`; and the · NAME NOT IN TREE
+constant `SIGNATORY_URL`. Each `docs/the-pact.md` `Enforced by:` line that · NAME NOT IN TREE
 names one of these is renamed in the same commit.
 
 ### What the compatibility cases must keep
@@ -186,8 +186,8 @@ because `gfm_table` names the header it was asked for.
   review record written with `| Signatory | Change | Verdict |` read as they
   did, and `pact-check` prints one line per such file naming the rename. No
   exit status moves on the old header anywhere.
-- **Identifiers.** `hooks/config.py#pact_signatories` → `pact_signers`,
-  `SIGNATORY_HEADER` gone, `_signatory` → `_signer`. The plugin's own three
+- **Identifiers.** `hooks/config.py#pact_signatories` → `pact_signers`, · NAME NOT IN TREE
+  `SIGNATORY_HEADER` gone, `_signatory` → `_signer`. The plugin's own three · NAME NOT IN TREE
   scripts are the only callers; a vendored copy of `evidence_check.py` does
   not call them.
 - **Test files renamed.** Four files under `tests/`; anything outside this

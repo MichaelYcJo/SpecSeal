@@ -25,7 +25,7 @@ record as it was written.
 | `CLAUDE.md` §*The goal a design is chosen against* | a pact written in 0.18.0 keeps working without a person editing it; the rename is a printed line, never a refusal |
 | `CLAUDE.md` §*Repo rule — a thing more than one party can have is named with whose* and `tests/test_one_word_one_meaning.py` | one word, one meaning: `party` is taken by `docs/the-agent-set.md` and `skills/implement/orchestration.md` for the agents, which is why `signer` and not `party`. The check, not the rule, is the repair: the sweep refuses `signatory` after this work |
 | `docs/the-pact.md` §*The words* | the definition sentence is the policy's, and it changes here: *every repository of such a work item is a signer*. The three names stay the owner's, now given twice (#647, #822) |
-| `docs/the-evidence-ledger.md` §*A released row is read again in the branch's fragment*, and `seal/config.md` row `Ledger frozen from \| 1790993141` | this work item's id is above the cutoff, so **no released ledger file is edited**. A released row whose anchor this rename moves — a test file name, a test function, `hooks/config.py#pact_signatories`, a heading — is re-pointed by a `Corrected ·` row in `seal/ledger/1791239490-a-repository-that-keeps-a-pact-is-a-signer.md` that carries every coordinate the claim still rests on. `correction-check` refuses the range otherwise. This overrides the spawn prompt's reading of `CLAUDE.md`'s REMOVED-in-place sentence, which `docs/the-evidence-ledger.md` §*Without the row, a released row is kept true where it stands* says is the rule for a repository without the freeze |
+| `docs/the-evidence-ledger.md` §*A released row is read again in the branch's fragment*, and `seal/config.md` row `Ledger frozen from \| 1790993141` | this work item's id is above the cutoff, so **no released ledger file is edited**. A released row whose anchor this rename moves — a test file name, a test function, `hooks/config.py#pact_signatories`, a heading — is re-pointed by a `Corrected ·` row in `seal/ledger/1791239490-a-repository-that-keeps-a-pact-is-a-signer.md` that carries every coordinate the claim still rests on. `correction-check` refuses the range otherwise. This overrides the spawn prompt's reading of `CLAUDE.md`'s REMOVED-in-place sentence, which `docs/the-evidence-ledger.md` §*Without the row, a released row is kept true where it stands* says is the rule for a repository without the freeze · NAME NOT IN TREE |
 | `docs/the-record-layout.md` §*A change writes fragments, never a shared file* | the changelog entry is `seal/specs/<id>/changelog.md` with no `## ` line; the ledger rows are the fragment above |
 | `seal/config.md` row `Fold shape from \| 0`, `tests/test_a_folded_statement_names_what_enforces_it.py` | every statement under `docs/` is a bold sentence, grounds and one `Enforced by:` line whose targets resolve. Renaming a test file or function renames every `::node` that cites it in `docs/the-pact.md`, and the new statement about the old header is written in that shape with this work item's marker |
 | `skills/agent-contract/SKILL.md` §14, §15 | every printed line that changes — `pact-check`'s summary, `chain-check`'s count, the rename line — is pinned by a case seen red first |
@@ -52,10 +52,10 @@ record as it was written.
    `skills/code-review/scripts/chain_check.py`; and every test.
 2. **The identifiers.** `hooks/config.py`: `SIGNATORY_HEADER` →
    `SIGNER_HEADER = ("Signer",)`, `pact_signatories` → `pact_signers`,
-   `_signatory` → `_signer`, `PACT_REVIEW_HEADER = ("Signer", "Change",
+   `_signatory` → `_signer`, `PACT_REVIEW_HEADER = ("Signer", "Change", · NAME NOT IN TREE
    "Verdict")`; and their callers in `pact_check.py`, `chain_check.py` and the
-   tests. Local names (`signatory`, `signatories`, `signatory_at`,
-   `SIGNATORY_URL`) follow.
+   tests. Local names (`signatory`, `signatories`, `signatory_at`, · NAME NOT IN TREE
+   `SIGNATORY_URL`) follow. · NAME NOT IN TREE
 3. **The test names and file names.** `tests/test_a_signatory_declares_its_pact.py`
    → `test_a_signer_declares_its_pact.py`;
    `tests/test_a_signatory_records_a_pact_change.py` →
@@ -169,7 +169,7 @@ record as it was written.
 - `chain_check.py#pact_notices`: `plural(len(signers), "signer", "signers")`
   and, where `header` is the old one, the rename sentence appended to the
   pact's notice.
-- Ledger coordinates this work moves: `hooks/config.py#pact_signatories` →
+- Ledger coordinates this work moves: `hooks/config.py#pact_signatories` → · NAME NOT IN TREE
   `#pact_signers`; `skills/evidence-check/SKILL.md#"## \`pact-check\` — the
   signatories against the pact"` → `… the signers …`; `docs/the-pact.md`
   headings *How a signatory names the pact*, *A signatory records a pact

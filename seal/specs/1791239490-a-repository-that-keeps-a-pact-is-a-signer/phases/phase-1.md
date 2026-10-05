@@ -50,7 +50,7 @@ work's to decide and record, and that nobody answers a question mid-run.
   appended sentence supplies one.
 - **`tests/test_one_word_one_meaning.py` moved in this phase, not phase 2,
   for its identifiers and the pinned sentence only.** `PACT_PRINTED` named
-  `pact_signatories` and `_signatory`, which this phase removed, and the
+  `pact_signatories` and `_signatory`, which this phase removed, and the · NAME NOT IN TREE
   pinned definition sentence is the one `docs/the-pact.md` changed here.
   Leaving them for phase 2 would have committed a red module. The sweep
   itself is phase 2's.
@@ -89,6 +89,6 @@ failed on `header == ("Signer",)`.
 
 | Removed item | Where it must land |
 |---|---|
-| `hooks/config.py#pact_signatories`, `SIGNATORY_HEADER`, `_signatory` | `#pact_signers`, `SIGNER_HEADER`, `#_signer`; the released ledger rows citing the first are re-pointed in phase 3 |
+| `hooks/config.py#pact_signatories`, `SIGNATORY_HEADER`, `_signatory` | `#pact_signers`, `SIGNER_HEADER`, `#_signer`; the released ledger rows citing the first are re-pointed in phase 3 · NAME NOT IN TREE |
 | the four `tests/test_a_signatory*.py` / `…_of_the_signatory.py` file names and the fifteen function names | the renamed files and functions; every `docs/the-pact.md` `Enforced by:` line follows in this commit, and the released ledger rows citing them are re-pointed in phase 3 |
 | three `docs/the-pact.md` headings with the old word | the renamed headings; released rows citing them, phase 3 |
