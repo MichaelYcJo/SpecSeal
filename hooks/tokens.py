@@ -26,7 +26,8 @@ The rules are the two consent reads 0.16.0 had, joined:
     token inside one silenced a commit nobody waived. `without_bodies` is the
     text a consent read reads, and a token counts only where the command as
     written carries it too, so leaving the bodies out can only refuse. A new
-    consent read starts here, and the commit gate's `has_marker` already does;
+    consent read starts here, and the commit gate's `has_marker` and, since
+    #780, the worktree guard's `has_token` already do;
   * **a parenthesis riding on a word is not part of it** --
     `(git worktree add ../wt f [worktree-ok])` (the guard's `has_token`);
   * **an unbalanced quote reads nothing** -- the guard's choice over the
