@@ -17,6 +17,7 @@ half-edited; the rows naming it are in this work item's overview.
 import ast
 import os
 import re
+import subprocess
 
 from conftest import review_chain_text
 
@@ -707,9 +708,9 @@ def test_the_pacts_words_keep_one_meaning():
 PACT_RENAMED = re.compile(r"signator(?:y|ies)", re.IGNORECASE)
 # The two places that DISCUSS the old word rather than use it, each named by
 # the span it removes, on the `SEAL_EXCLUDED` precedent: the policy's
-# statement about the old header, from its fold marker to the next marker,
-# and the one unit of `hooks/config.py` that writes the old tuple and the
-# rename sentence (a `PACT_PRINTED` member, read alone).
+# statement about the old header, from its fold marker to the end of that
+# statement, and the one unit of `hooks/config.py` that writes the old tuple
+# and the rename sentence (a `PACT_PRINTED` member, read alone).
 PACT_RENAMED_SPANS = {
     "docs/the-pact.md": "<!-- specs/1791239490-a-repository-that-keeps-a-pact-is-a-signer -->",
     "hooks/config.py renamed_header": None,
@@ -721,6 +722,22 @@ PACT_RENAMED_SPANS = {
 FOLD_MARKER = re.compile(r"<!-- specs/[^ ]+ -->")
 
 
+def without_the_policy_span(where, text):
+    """TEXT, flattened, with the policy's statement about the old header
+    taken out: from its fold marker to the next heading or the next fold
+    marker, whichever comes first, so the exemption ends where the statement
+    does (round 1 of #822, white 2)."""
+    span = PACT_RENAMED_SPANS["docs/the-pact.md"]
+    head, marker, rest = text.partition(span)
+    assert marker, f"{where}: the excluded span `{span}` is gone"
+    stops = [i for i in (rest.find("<" + "!--"), rest.find(" ## ")) if i != -1]
+    assert stops, (
+        f"{where}: the excluded span is the last statement in the file, "
+        "so this exclusion now removes everything after it"
+    )
+    return head + rest[min(stops) :]
+
+
 def test_no_pact_text_names_a_signer_the_way_0_18_did():
     """The absence half of #822's rename, swept over every text
     `pact_texts()` reads, with the two spans that say the old word to keep it
@@ -729,18 +746,10 @@ def test_no_pact_text_names_a_signer_the_way_0_18_did():
     seen = set()
     for where, text in pact_texts():
         if where in PACT_RENAMED_SPANS:
-            span = PACT_RENAMED_SPANS[where]
             seen.add(where)
-            if span is None:
+            if PACT_RENAMED_SPANS[where] is None:
                 continue
-            head, marker, rest = text.partition(span)
-            assert marker, f"{where}: the excluded span `{span}` is gone"
-            _span, next_marker, tail = rest.partition("<!--")
-            assert next_marker, (
-                f"{where}: the excluded span is the last statement in the file, "
-                "so this exclusion now removes everything after it"
-            )
-            text = head + next_marker + tail
+            text = without_the_policy_span(where, text)
         text = FOLD_MARKER.sub("", text)
         said = PACT_RENAMED.findall(text)
         assert not said, (
@@ -757,3 +766,73 @@ def test_no_pact_text_names_a_signer_the_way_0_18_did():
         if PACT_RENAMED.search(name)
     ]
     assert not named, f"a test file is named with the word 0.19.0 renamed: {named}"
+
+
+# S11 of #822, held rather than measured once (round 1 of #822, white 3). The
+# case above reads the texts that carry the pact's words; this one reads every
+# tracked file, so a file the rename touched outside that set cannot take the
+# word back. What it leaves alone, and why:
+#
+# - records, which keep the word they were written with: the released
+#   changelogs and ledgers, the work items' directories, and the ledger
+#   fragments, whose rows quote released claims;
+# - the compatibility cases, which spell the old header because a case taking
+#   it from `hooks/config.py#renamed_header` would pass with that constant
+#   changed while every 0.18.x pact stopped reading; and this module, whose
+#   pattern and comments name the word in order to refuse it;
+# - the two spans `PACT_RENAMED_SPANS` names, and fold markers.
+RENAMED_RECORDS = (
+    "changelog/",
+    "seal/ledger.md",
+    "seal/ledger/",
+    "seal/releases/",
+    "seal/specs/",
+)
+RENAMED_COMPAT = (
+    "tests/test_a_pact_review_takes_a_pact_change.py",
+    "tests/test_a_signer_declares_its_pact.py",
+    "tests/test_a_signers_ci_prints_its_pact.py",
+    "tests/test_one_table_walker_reads_what_gfm_renders.py",
+    "tests/test_one_word_one_meaning.py",
+    "tests/test_pact_check.py",
+)
+
+
+def test_no_live_text_says_the_word_0_19_0_renamed():
+    """No tracked file outside the records and the compatibility cases says
+    the old word, the two spans that keep a 0.18.x header reading taken out
+    first. Each exception is asserted to exist, so one that moves is named
+    rather than left exempting nothing."""
+    done = subprocess.run(
+        ["git", "-C", ROOT, "ls-files", "-z"],
+        capture_output=True,
+        check=True,
+    )
+    tracked = [p for p in done.stdout.decode("utf-8").split("\0") if p]
+    for rel in (*RENAMED_COMPAT, "docs/the-pact.md", "hooks/config.py"):
+        assert rel in tracked, f"{rel} is excepted below and no longer tracked"
+    said = []
+    for rel in tracked:
+        if rel.startswith(RENAMED_RECORDS) or rel in RENAMED_COMPAT:
+            continue
+        path = os.path.join(ROOT, rel)
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            text = handle.read()
+        if rel == "docs/the-pact.md":
+            text = without_the_policy_span(rel, " ".join(text.split()))
+        elif rel == "hooks/config.py":
+            unit = next(
+                node
+                for node in ast.walk(ast.parse(text))
+                if getattr(node, "name", None) == "renamed_header"
+            )
+            lines = text.splitlines()
+            text = "\n".join(lines[: unit.lineno - 1] + lines[unit.end_lineno :])
+        text = FOLD_MARKER.sub("", text)
+        said.extend(f"{rel}: {m.group(0)}" for m in PACT_RENAMED.finditer(text))
+    assert not said, (
+        "the word 0.19.0 renamed is live text again — it is `signer` since "
+        f"0.19.0 (#822): {said}"
+    )
