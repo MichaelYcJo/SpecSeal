@@ -34,6 +34,12 @@
   remedy where neither is found, as for a ledger the run cannot read. The
   exit code is unchanged.
 
+- `--reverify` names a claim whose minor content two places hold (#808).
+  The check calls such a row BROKEN, because two units sharing one line is
+  a tie the recorded hash cannot break, and `--reverify` read it as
+  unchanged and said nothing. It now prints the check's reason on a `left`
+  line and records the BROKEN in a signatory's pact changes.
+
 - `docs/the-evidence-ledger.md` says what an in-place re-read writes without
   the freeze (#781): the date of the reading, added to the row's `Checked`
   cell. It used to promise a dated note, which the writer never wrote.

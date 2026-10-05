@@ -56,7 +56,10 @@ does not owe a re-read of it.**
   a line of a ledger the run writes is the exception, because the walk can
   move that line, so it is never judged held. A held coordinate no one place
   holds, on a row the run dates, is left and named as any such coordinate is
-  (yellow 1), unless one of its places holds what the row recorded (round 2).
+  (yellow 1), unless one of its places, for a claim exactly one, holds what
+  the row recorded (round 2); where its only place is one the declaration
+  rule is unsure of and it has no claim, it is re-pointed onto the one
+  destination that reconstructs its hash, as the ordinary path does (#808).
 - **Unchanged:**
   - a row outside every family is its own newest reading;
   - a coordinate whose family is drifted: every member whose hash moves is
