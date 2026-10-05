@@ -8,9 +8,14 @@
   could not read `git checkout main...topic` at all; and it guessed a
   remote-only branch from `origin` alone. The guard now asks git the way
   `git checkout` resolves a name: the name resolved and peeled to a commit,
-  `<a>...<b>` where it has exactly one merge base, and a remote-tracking
-  branch of any remote. The old lookup is still asked first, so nothing the
-  guard asked about before goes quiet. It still reads no `checkout.guess` or
+  read whole by git's object lookup where `rev-parse` would split it as a
+  range (a search for `v1..v2`); `<a>...<b>` where it has exactly one merge
+  base; and a remote-only branch of any remote, found through each remote's
+  fetch refspec as git finds it. The old lookup is still asked first, and a
+  `checkout` only the new lookups read is judged only where the guard read
+  no other switch in the command, without taking away the question it asked
+  about a switch it could not place, so nothing the guard asked about before
+  goes quiet. It still reads no `checkout.guess` or
   `checkout.defaultRemote`, so a few commands git refuses, such as a guessed
   name under `--detach` or one two remotes hold, are asked too;
   `docs/worktree-guard-spec.md` §*Known limits* lists them.
