@@ -313,11 +313,21 @@ def test_a_fix_range_this_tree_does_not_carry_is_refused(repo):
 # --- S7, no record after the stop without a reframe -------------------------
 
 
-def stopped(repo):
-    """Round 3 reads `second` and closes on `deferred the frame`."""
+def stopped(repo, touched=False):
+    """Round 3 reads `second` and closes on `deferred the frame`. `touched`
+    puts a commit changing `u` inside that close's range, which no correct
+    stop writes and which the record after it must still not count."""
     _code, out, text, c = three_rounds(repo)
     assert row(text).startswith("second"), (row(text), out)
-    deferred_to_the_frame(repo, 3, c, [1])
+    if not touched:
+        deferred_to_the_frame(repo, 3, c, [1])
+        return
+    write(repo, "mod.py", MOD_FIXED_AGAIN.replace("return 100", "return 1000"))
+    end = commit(repo, "a change inside the stop's range")
+    rows = "| 1 | deferred the frame | the frame |\n"
+    code, out, _record = close(repo, 3, fix_table(rows), f"{c[:8]}..{end[:8]}")
+    assert code != 2, out
+    commit(repo, "close round 3")
 
 
 FRAMED = "Framed 2026-10-06 by framer, before the build.\n"
@@ -352,11 +362,14 @@ def test_a_reframe_naming_another_round_does_not_permit_the_record(repo):
     assert text is None
 
 
-def test_a_reframed_record_is_written_and_starts_the_count_at_no(repo):
+@pytest.mark.parametrize("touched", [False, True])
+def test_a_reframed_record_is_written_and_starts_the_count_at_no(repo, touched):
     """S7's other arm: with the line, the record is written, and a finding in
     `u` — the unit round 2's fixes wrote — reads `no`, because round 3 wrote
-    no fixes for it to land in."""
-    stopped(repo)
+    no fixes for it to land in. `touched` is the same with a code commit in
+    the stop's range: a `second` is the end of its run whatever its range
+    holds, so the redesign's first record starts the count at `no`."""
+    stopped(repo, touched)
     write(repo, f"{ITEM}/spec.md", "# a spec\n\n" + FRAMED + REFRAMED)
     commit(repo, "the frame, redrawn")
     code, out, text = generate(repo, n=4, report_text=round_report(finding("`u`")))

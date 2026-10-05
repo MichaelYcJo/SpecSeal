@@ -2365,8 +2365,6 @@ def landings(reader, root, target, keyed, previous):
             "the wrong tree to count in. Fetch them, or run this where the fix "
             "pass committed. Nothing was written"
         )
-    if a == b:
-        return []
     units = fix_pass_units(reader, root, a, b)
     if not units:
         return []
