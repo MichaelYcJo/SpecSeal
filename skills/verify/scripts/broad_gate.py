@@ -1943,20 +1943,18 @@ MULTI_RUNNER = (
     "collected-at-base-{n}.txt), so the gate cannot tell which runner the "
     "failure is from. A row earns the measured word by running pytest once"
 )
-# Formatted with the number of the file's run alone (#789 round 1, round 2).
-# A file of a group of several failing files: the files ran together at the
-# base in one run, that run failed, and each then ran alone. A file's run
-# alone is not the row's run -- a module a sibling puts on `sys.path`, state a
-# sibling sets at import, a session fixture's error on each session's last
-# test, a flaky test -- and nothing that run gives says which file failed in
-# it, so such a file never earns `failing on base too` (the owner's decision
-# of 2026-10-05).
+# A file of a group of several failing files whose run together at the base
+# failed (#789 rounds 1 and 2, the owner's decision of 2026-10-05). That run
+# says no file failed in it -- a count was tried, and another file's failures
+# made it up -- and a file's run alone is not the row's run: a module a
+# sibling puts on `sys.path`, state a sibling sets at import, a session
+# fixture's error on each session's last test, a flaky test. So no file of
+# such a group earns `failing on base too`, and none is run alone.
 COMPANY = (
-    f"{NOT_MEASURED}: the base fails this file run alone, but it is one of "
-    "several failing files whose run together at the base failed, and a "
-    "file's run alone is not the row's run (kept as suite-at-base-<k>.txt and "
-    "suite-at-base-<k>-{n}.txt), so the failure alone may not be the base's "
-    "failure in the row"
+    f"{NOT_MEASURED}: this file is one of several failing files whose run "
+    "together at the base failed (kept as suite-at-base-<k>.txt), and that run "
+    "does not say which of them failed in it; a file's run alone is not the "
+    "row's run, so no file of it is measured alone"
 )
 # pytest's outcome line for a session that RAN tests, bare under `-q` or
 # between `=` rules: `1 passed in 0.01s`, `1 failed, 2 passed in 0.12s`,
@@ -2057,7 +2055,7 @@ def proof_refused(text, path):
         return MULTI_RUNNER
     alone, selected, errors = trailers[0].groups()
     collected = int(alone or selected or 0)
-    if any("::" not in name for name, _ in LISTED_RE.findall(plain)):
+    if LISTED_RE.search(plain):
         return MULTI_RUNNER
     ids = NODE_RE.findall(plain)
     if any(name != path for name in ids) or len(ids) != collected:
@@ -2201,8 +2199,9 @@ def compare_at_base(root, base, command, files, keep):
     carry is a candidate, and that check gives no word. Every other failing
     file runs in one group first, and the group decides one thing: where its
     report counts at least one test, none failing, and the run exited 0,
-    every file of it reads `new`. In every other case each of its files runs
-    alone too. A group of one file is a file run alone from the start.
+    every file of it reads `new`. In every other case every file of it reads
+    `COMPANY` (below). A group of one file is a file run alone from the
+    start.
 
     **A file run alone reads its own table**, at the prefix that settled it:
 
@@ -2210,9 +2209,7 @@ def compare_at_base(root, base, command, files, keep):
         runs it, has no test in that file — gives `new`;
       - a report with tests and none failing gives `new` on exit 0;
       - either of those with any other exit gives `NOT_ENDED`;
-      - a report with a failing or erroring test goes to the proof pass,
-        where the file ran alone from the start, and reads `COMPANY` where
-        it is a file of a group of several (below).
+      - a report with a failing or erroring test goes to the proof pass.
 
     **The proof pass.** The whole row runs once more at the base, the file
     inserted after the prefix that measured it and the rest of the row as
@@ -2236,14 +2233,14 @@ def compare_at_base(root, base, command, files, keep):
 
     **A group of several failing files never earns `failing on base too`**
     (#789 rounds 1 and 2, the owner's decision of 2026-10-05). Its files ran
-    together at the base and that run failed; each then runs alone, and a
-    file's run alone is not the row's run. A sibling puts a module on
-    `sys.path` or sets state at import, a session fixture's error lands on
-    each session's last test, a flaky test fails in one run and not the
-    other, and no count from the group's run says which file failed in it:
-    comparing counts was tried, and another file's failures made up the
-    count. So a file of such a group that the base fails alone reads
-    `COMPANY`, with no proof pass, and one it passes alone reads `new`.
+    together at the base and that run did not give each `new`; no count
+    from it says which file failed in it -- comparing counts was tried, and
+    another file's failures made up the count -- and a file's run alone is
+    not the row's run: a sibling puts a module on `sys.path` or sets state at
+    import, a session fixture's error lands on each session's last test, a
+    flaky test fails in one run and not the other. So every file of such a
+    group reads `COMPANY`, none is run alone, and none is proven. Only a
+    file that runs alone from the start can earn the word.
 
     **What it does not reach is named in `templates/config.md` rule 3**
     rather than claimed: a second runner behind `||`, behind a part that
@@ -2267,7 +2264,7 @@ def compare_at_base(root, base, command, files, keep):
     run alone as `suite-at-base-<k>-<n>.txt`, each report as the `.xml`
     beside it, and each proof pass as `collected-at-base-<n>.txt`. `<n>`
     numbers the files run alone in the order they run: candidates first,
-    then the group's files.
+    then the one file the root's tree carries, where it is alone.
     """
     scratch = tempfile.mkdtemp(prefix="broad-gate-base-")
     added = git(root, "worktree", "add", "--detach", scratch, base)
@@ -2302,10 +2299,6 @@ def compare_at_base(root, base, command, files, keep):
         if len(others) == 1:
             work.append((others, None))
         verdicts, number, n = {}, {}, 0
-        # The files of a group of several whose run did not decide them. Each
-        # runs alone, and none of them is proven: a run alone is not the
-        # row's run (`COMPANY`, #789 round 2).
-        in_company = set()
         for group, proving_at in work:
             if proving_at is not None:
                 (path,) = group
@@ -2368,13 +2361,10 @@ def compare_at_base(root, base, command, files, keep):
                 if tests and not failing and code == 0:
                     verdicts.update({f: NEW for f in group})
                 else:
-                    in_company.update(group)
-                    work += [([f], None) for f in group]
+                    verdicts.update({f: COMPANY for f in group})
                 continue
             (path,) = group
-            if failing and path in in_company:
-                verdicts[path] = COMPANY.format(n=number[path])
-            elif failing:
+            if failing:
                 work.append((group, prefix))
             elif (code == 0 and tests) or (
                 code in NOTHING_COLLECTED_EXITS and not tests

@@ -4307,6 +4307,18 @@ PROOFS = [
         None,
         id="a-linter-and-a-formatter-before-it",
     ),
+    # Measured under the proof's `-o verbosity_test_cases=-1`: a parametrized
+    # id holding a blank or `::` is still the file's, up to the first `::`.
+    pytest.param(
+        "collecting ... collected 3 items\n"
+        "tests/test_i.py::test_i\ntests/test_i.py::test_p[a b]\n"
+        "tests/test_i.py::test_p[c::d]\n"
+        "========================== 3 tests collected in 0.01s "
+        "==========================\n",
+        "tests/test_i.py",
+        None,
+        id="parametrized-ids-holding-a-blank-and-a-double-colon",
+    ),
     # #789 round 2's 🟡 2, measured: the measuring runner's output went to a
     # file, and the one session the proof sees is the next runner's, listed
     # by file from the variable. It is not the session that measured.
@@ -4381,12 +4393,11 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "as collected-at-base-2.txt), so the gate cannot tell which runner the "
         "failure is from. A row earns the measured word by running pytest once"
     )
-    assert gate.COMPANY.format(n=2) == (
-        "new? not measured: the base fails this file run alone, but it is one "
-        "of several failing files whose run together at the base failed, and a "
-        "file's run alone is not the row's run (kept as suite-at-base-<k>.txt "
-        "and suite-at-base-<k>-2.txt), so the failure alone may not be the "
-        "base's failure in the row"
+    assert gate.COMPANY == (
+        "new? not measured: this file is one of several failing files whose "
+        "run together at the base failed (kept as suite-at-base-<k>.txt), and "
+        "that run does not say which of them failed in it; a file's run alone "
+        "is not the row's run, so no file of it is measured alone"
     )
     readers = {
         ("agents", "sealer.md"): "`new?`",
@@ -4581,15 +4592,16 @@ def test_a_part_that_fails_at_the_base_before_the_runner_measures_nothing(tmp_pa
         pytest.param(SUITE_ROW, "COMPANY", id="a-directory-beside-them"),
     ],
 )
-def test_a_file_the_base_cannot_collect_is_measured_alone(tmp_path, row, word):
+def test_a_file_the_base_cannot_collect_beside_another_is_not_measured(
+    tmp_path, row, word
+):
     """A6 (#747), and S11 (#789). The base cannot collect `test_three`, which
     pytest reports as an error and an interrupted run, and it fails
-    `test_two`. Run together they decide nothing, so each runs alone. Where
-    the row hands pytest only the file, each proof lists its file alone, but
-    they are two failing files of one run at the base, and a file's run alone
-    is not the row's run: the row as written never ran `test_two`. Both read
-    `new?` under either row, with no proof pass (#789 rounds 1 and 2), and
-    are numbered in the order the branch's `FAILED` lines named them."""
+    `test_two`. Their run together fails and does not say which, and the
+    row as written never ran `test_two`. Each used to run alone, and under
+    the files-only row each proof listed its file alone. A file's run alone
+    is not the row's run: both read `new?` under either row (#789 rounds 1
+    and 2)."""
     repo = base_then_feature(
         tmp_path / "repo",
         row,
@@ -4786,18 +4798,15 @@ def test_a_candidate_whose_run_at_the_base_crashes_is_not_measured(tmp_path):
 
 
 @pytest.mark.parametrize("xdist", UNDER)
-def test_a_run_of_several_that_counted_only_warnings_sends_each_file_alone(
-    tmp_path, xdist
-):
+def test_a_run_of_several_that_counted_only_warnings_measures_neither(tmp_path, xdist):
     """#761 round 1's 🟡 1, measured since #789. As the limit case, and the
     base's `sub/tests/test_one.py` fails while an ini key pytest does not
     know gives every run a warning. The run of the two files collects
-    nothing, and that used to leave both `new?`. A report with no test
-    decides nothing for a run of two, so each runs alone. `test_two`, which
-    the base lacks in `sub`, reads `new`. `test_one`, which the base fails
-    alone, reads `new?`: the run of the two together failed no test, fewer
-    than the files fail one by one, so the row as written did not show the
-    failure (#789 round 1)."""
+    nothing, and both read `new?`. A report with no test does not decide a
+    run of two, and a group of several failing files is never measured
+    file by file: each reads `new?` with the group's reason (#789 rounds 1
+    and 2). For a while `test_one` read `failing on base too` and then the
+    count reason, and `test_two` `new`, from runs alone."""
     repo = base_then_feature(
         tmp_path / "repo",
         f"cd sub && {suite_row(xdist)}",
@@ -4814,14 +4823,8 @@ def test_a_run_of_several_that_counted_only_warnings_sends_each_file_alone(
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    # Files run alone are numbered in the order the branch's `FAILED` lines
-    # named them, and under xdist that is the order the workers finished in.
-    listed = re.findall(r"^\s+(tests/test_\w+\.py)  ", out.stdout, re.M)
-    n = listed.index("tests/test_one.py") + 1
-    assert verdict_of(out.stdout, "tests/test_one.py") == gate.COMPANY.format(n=n), (
-        out.stdout
-    )
-    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NEW, out.stdout
+    assert verdict_of(out.stdout, "tests/test_one.py") == gate.COMPANY, out.stdout
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.COMPANY, out.stdout
 
 
 # A base test that fails after printing what an inner pytest run printed: a
@@ -4995,9 +4998,9 @@ def test_an_inner_run_on_stderr_under_s_is_not_read_as_the_runs_own(tmp_path, xd
     the inner run's rule stood after pytest's own and its `FAILED` line was
     read as the run's: `tests/test_g.py`, which the base passes, read
     `failing on base too`, and `tests/test_err.py`, which it fails, read
-    `new`. The run of each file alone is read off its report, so the inner
-    run's file reads `new`. The two fail together on the branch, a group of
-    several, so the file the base does fail reads `new?` (#789 round 2)."""
+    `new`. Neither word comes from text now. The two fail together on the
+    branch, a group of several failing files, and the base's run of them
+    together fails: both read `new?` (#789 round 2)."""
     repo = base_then_feature(
         tmp_path / "repo",
         f"{files_row(xdist)} -s",
@@ -5007,11 +5010,9 @@ def test_an_inner_run_on_stderr_under_s_is_not_read_as_the_runs_own(tmp_path, xd
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    listed = re.findall(r"^\s+(tests/test_\w+\.py)  ", out.stdout, re.M)
-    n = listed.index("tests/test_err.py") + 1
     assert words_of(out) == {
-        "tests/test_err.py": gate.COMPANY.format(n=n),
-        "tests/test_g.py": gate.NEW,
+        "tests/test_err.py": gate.COMPANY,
+        "tests/test_g.py": gate.COMPANY,
     }, out.stdout
 
 
@@ -5040,8 +5041,12 @@ def test_an_inner_run_on_stdout_beside_a_passing_base_gives_no_word(tmp_path, ca
 @pytest.mark.parametrize(
     "flag, at_base, words",
     [
-        pytest.param("-rN", FAILING_BASE_INNER_ON_STDERR, ("COMPANY", "NEW"), id="rN"),
-        pytest.param("-rP", FAILING_BASE_INNER_ON_STDERR, ("COMPANY", "NEW"), id="rP"),
+        pytest.param(
+            "-rN", FAILING_BASE_INNER_ON_STDERR, ("COMPANY", "COMPANY"), id="rN"
+        ),
+        pytest.param(
+            "-rP", FAILING_BASE_INNER_ON_STDERR, ("COMPANY", "COMPANY"), id="rP"
+        ),
         pytest.param(
             "-rP", PASSING_BASE_INNER_ON_STDOUT, ("NEW", "NEW"), id="rP-passing-base"
         ),
@@ -5055,8 +5060,9 @@ def test_a_run_with_no_rule_of_its_own_is_read_off_its_report(
     the output was the one an inner run printed in a test's captured output,
     and its `FAILED` line was read as the run's own. The branch's run writes
     no `FAILED` line of its own either, so its failing test prints the two
-    the list of files is read from. The two are a group of several, so the
-    file the base fails reads `new?` (#789 round 2)."""
+    the list of files is read from. Where the base fails one of them, the
+    two are a group of several failing files whose run together failed, and
+    both read `new?` (#789 round 2)."""
     repo = base_then_feature(
         tmp_path / "repo", f"{FILES_ROW} {flag}", at_base, BOTH_FAIL_NAMED
     )
@@ -5066,7 +5072,7 @@ def test_a_run_with_no_rule_of_its_own_is_read_off_its_report(
     expected = dict(
         zip(
             ("tests/test_err.py", "tests/test_g.py"),
-            (getattr(gate, w).format(n=1) for w in words),
+            (getattr(gate, w) for w in words),
             strict=True,
         )
     )
@@ -5288,11 +5294,8 @@ EXITS_THREE = (
     "at_base, kept",
     [
         pytest.param(
-            {"tests/test_two.py": PASSING_TWO, "tests/test_three.py": PASSING_TWO},
-            {
-                "tests/test_three.py": "suite-at-base-1-1.txt",
-                "tests/test_two.py": "suite-at-base-1-2.txt",
-            },
+            {"tests/test_two.py": PASSING_TWO},
+            {"tests/test_two.py": "suite-at-base-1-1.txt"},
             id="tests-none-failing",
         ),
         pytest.param(
@@ -5352,23 +5355,19 @@ def test_a_file_the_base_holds_no_test_in_reads_new(tmp_path, xdist):
         ),
         pytest.param(
             FAILING_THREE,
-            ("COMPANY", "NEW"),
-            ["suite-at-base-1-1.txt", "suite-at-base-1-2.txt", "suite-at-base-1.txt"],
+            ("COMPANY", "COMPANY"),
+            ["suite-at-base-1.txt"],
             [],
             id="the-base-fails-one",
         ),
     ],
 )
-def test_a_group_decides_only_new_and_sends_every_other_file_alone(
-    tmp_path, three_at_base, words, kept, proofs
-):
+def test_a_group_decides_only_new(tmp_path, three_at_base, words, kept, proofs):
     """S13 (#789). Two failing files the base carries run together first.
-    Where the base passes both, that one run gives each `new` and no file
-    runs alone. Where it fails one, the group decides nothing, each file
-    runs alone in the order the branch named them. The file the base passes
-    alone reads `new`; the one it fails reads `new?` with no proof pass: a
-    group of several failing files never earns `failing on base too` (#789
-    round 2, the owner's decision)."""
+    Where the base passes both, that one run gives each `new`. Where it
+    fails one, the run says nothing about which, and no file of it runs
+    alone: both read `new?`. A group of several failing files never earns
+    `failing on base too` (#789 round 2, the owner's decision)."""
     repo = base_then_feature(
         tmp_path / "repo",
         FILES_ROW,
@@ -5382,9 +5381,7 @@ def test_a_group_decides_only_new_and_sends_every_other_file_alone(
     for path, word in zip(
         ("tests/test_three.py", "tests/test_two.py"), words, strict=True
     ):
-        assert verdict_of(out.stdout, path) == getattr(gate, word).format(n=1), (
-            out.stdout
-        )
+        assert verdict_of(out.stdout, path) == getattr(gate, word), out.stdout
     assert kept_at_base(keep) == kept
     assert collected_at_base(keep) == proofs
 
@@ -5461,29 +5458,22 @@ TEARDOWN_FAILS = (
 def test_a_file_the_base_fails_only_alone_is_not_called_failing_on_base_too(
     tmp_path, at_base, on_feature
 ):
-    """#789 round 1's 🔴 1. A group of failing files decides nothing, each
-    file runs alone, and a file the base passes beside the others but fails
-    alone (a sibling puts its module on `sys.path`, a sibling sets state at
-    import, a session fixture's teardown error lands on the last test of
-    each session) used to read `failing on base too`: its proof does list it
-    alone. The group ran every test its files hold alone and failed fewer
-    than they fail one by one, so some failure alone is not the base's in
-    the row, and no count says whose: every file of the group reads `new?`
-    with the reason, numbered as its run alone. A file of the group with no
-    count alone, which ran in no report of its own, leaves the others'
-    words unchecked the same way, and reads `NO_RUNNER` itself."""
+    """#789 round 1's 🔴 1. A file the base passes beside the others but
+    fails alone (a sibling puts its module on `sys.path`, a sibling sets
+    state at import, a session fixture's teardown error lands on the last
+    test of each session, a file that dies alone at import) used to read
+    `failing on base too` from its run alone, whose proof does list it
+    alone. A file's run alone is not the row's run, so a group of several
+    failing files is never measured file by file: every file of it reads
+    `new?` with the group's reason (#789 round 2)."""
     repo = base_then_feature(tmp_path / "repo", FILES_ROW, at_base, on_feature)
     out = run_gate(repo, keep=tmp_path / "out")
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
     for path in ("tests/test_a.py", "tests/test_b.py"):
         assert verdict_of(out.stdout, path) != gate.ON_BASE, out.stdout
-    assert verdict_of(out.stdout, "tests/test_a.py") == gate.COMPANY.format(n=1), (
-        out.stdout
-    )
-    no_count = "os._exit" in at_base["tests/test_b.py"]
-    expected = gate.NO_RUNNER if no_count else gate.COMPANY.format(n=2)
-    assert verdict_of(out.stdout, "tests/test_b.py") == expected, out.stdout
+    for path in ("tests/test_a.py", "tests/test_b.py"):
+        assert verdict_of(out.stdout, path) == gate.COMPANY, out.stdout
 
 
 # A container, emulated: it forwards its arguments, keeps its report inside
@@ -6011,29 +6001,29 @@ REGRESSED_WORDS = {
     ("P3-no-junitxml", "files"): {"tests/test_two.py": "multi:1"},
     ("P7-p1b", "own"): {
         "tests/test_x.py": "new",
-        "tests/test_y.py": "company:2",
-        "tests/test_z.py": "company:3",
+        "tests/test_y.py": "company",
+        "tests/test_z.py": "company",
     },
     ("P7-p1b", "files"): {
         "tests/test_x.py": "new",
-        "tests/test_y.py": "company:2",
-        "tests/test_z.py": "new",
+        "tests/test_y.py": "company",
+        "tests/test_z.py": "company",
     },
     ("P7-both", "own"): {
         "tests/test_x.py": "new",
-        "tests/test_y.py": "company:2",
-        "tests/test_z.py": "company:3",
+        "tests/test_y.py": "company",
+        "tests/test_z.py": "company",
     },
     ("P7-both", "files"): {
         "tests/test_x.py": "new",
-        "tests/test_y.py": "company:2",
-        "tests/test_z.py": "new",
+        "tests/test_y.py": "company",
+        "tests/test_z.py": "company",
     },
     ("P7-mixed", "own"): {
-        "tests/test_y.py": "company:2",
-        "tests/test_w.py": "company:1",
+        "tests/test_y.py": "company",
+        "tests/test_w.py": "company",
     },
-    ("P7-mixed", "files"): {"tests/test_y.py": "company:2", "tests/test_w.py": "new"},
+    ("P7-mixed", "files"): {"tests/test_y.py": "company", "tests/test_w.py": "company"},
     ("Q1", "own"): {"tests/test_two.py": "beyond:1"},
     ("Q1", "files"): {"tests/test_two.py": "new"},
     ("Q3", "own"): {"a/tests/test_two.py": "beyond:1"},
@@ -6071,8 +6061,8 @@ REGRESSED_WORDS = {
     ("N1b", "own"): {"tests/test_api.py": "beyond:1"},
     ("N1b", "files"): {"tests/test_api.py": "new"},
     ("N1c", "own"): {
-        "tests/test_api.py": "new",
-        "tests/test_api/test_users.py": "company:1",
+        "tests/test_api.py": "company",
+        "tests/test_api/test_users.py": "company",
     },
     ("N3", "own"): {"vendor/tests/test_two.py": "beyond:1"},
     ("N3", "files"): {"vendor/tests/test_two.py": "new"},
@@ -6095,7 +6085,7 @@ def word_for(gate, spec):
     if kind == "multi":
         return gate.MULTI_RUNNER.format(n=int(n))
     if kind == "company":
-        return gate.COMPANY.format(n=int(n))
+        return gate.COMPANY
     return {"new": gate.NEW, "on": gate.ON_BASE}[kind]
 
 
