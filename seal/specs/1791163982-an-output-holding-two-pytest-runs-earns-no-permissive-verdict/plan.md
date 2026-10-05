@@ -4,6 +4,8 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
+Approved 2026-10-05 by the orchestrator under the owner's `automation` routing, when `smith` was spawned.
+
 ## Summary
 
 The base comparison stops reading its words off pytest's printed text. It
