@@ -5262,30 +5262,33 @@ def test_a_file_the_base_holds_no_test_in_reads_new(tmp_path, xdist):
 
 
 @pytest.mark.parametrize(
-    "three_at_base, words, kept",
+    "three_at_base, words, kept, proofs",
     [
         pytest.param(
             FAILING_THREE.replace("assert False", "assert True"),
             ("NEW", "NEW"),
             ["suite-at-base-1.txt"],
+            [],
             id="the-base-passes-both",
         ),
         pytest.param(
             FAILING_THREE,
             ("ON_BASE", "NEW"),
             ["suite-at-base-1-1.txt", "suite-at-base-1-2.txt", "suite-at-base-1.txt"],
+            ["collected-at-base-1.txt"],
             id="the-base-fails-one",
         ),
     ],
 )
 def test_a_group_decides_only_new_and_sends_every_other_file_alone(
-    tmp_path, three_at_base, words, kept
+    tmp_path, three_at_base, words, kept, proofs
 ):
     """S13 (#789). Two failing files the base carries run together first.
     Where the base passes both, that one run gives each `new` and no file
     runs alone. Where it fails one, the group decides nothing, each file
     runs alone in the order the branch named them, and the words are each
-    file's own."""
+    file's own. The proof pass of the file the base fails is numbered as
+    that file's run alone, though it runs after the other file's."""
     repo = base_then_feature(
         tmp_path / "repo",
         FILES_ROW,
@@ -5301,6 +5304,7 @@ def test_a_group_decides_only_new_and_sends_every_other_file_alone(
     ):
         assert verdict_of(out.stdout, path) == getattr(gate, word), out.stdout
     assert kept_at_base(keep) == kept
+    assert collected_at_base(keep) == proofs
 
 
 def test_a_report_an_earlier_run_left_settles_nothing(tmp_path):
