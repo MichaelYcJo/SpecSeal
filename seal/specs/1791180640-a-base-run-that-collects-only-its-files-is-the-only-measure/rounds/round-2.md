@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #814 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `275cd1a0f19709f46e3099d9c8b0740022f653a0..d9ce4e1a4650fec6cbda05e64d11a0d01ab79612`, 6 commits |
 | Contract changes | none |
 | New units | OWN_LISTING (depth 1); NODE_RE (depth 1); test_a_file_the_base_cannot_collect_beside_another_is_not_measured (depth 1); test_a_group_decides_only_new (depth 1); POLLUTER (depth 1); NEEDS_MODE (depth 1); HURT_BY_MODE (depth 1); test_a_count_another_file_makes_up_does_not_earn_the_word (depth 1); test_a_measuring_runner_whose_output_the_gate_never_sees_earns_no_word (depth 1) |
