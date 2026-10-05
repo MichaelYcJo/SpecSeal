@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #802 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `f96ea9a21c21e151c51c0f8adc761ae5c7973d1f..65ff34c67f29a3fa67958abb7d29b9c955961cba`, 4 commits |
+| Contract changes | commits_after → round-1-report.md, round-1.md, fragment_left_behind |
+| New units | walk_tip (depth 1); ci_merge_ref (depth 1); test_the_ci_merge_ref_names_the_items_commit_and_not_the_siblings (depth 1); test_a_merge_on_the_branch_keeps_the_branch_as_the_tip (depth 1); test_of_several_merged_heads_the_one_descending_from_round_one_is_the_tip (depth 1); test_an_honest_fragment_on_the_ci_merge_ref_is_not_named (depth 1); test_a_behaviour_file_moved_out_of_what_ships_is_named (depth 1) |
 | Needs a fix | yes — 🔴 1 (in CI the walk follows the base, so the notice names siblings' squashes and never the item's own commits) and 🟡 2 (a behaviour file renamed under `tests/` or `seal/` is not named). |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Spec compliance first against `spec.md` (a notice only, homed in `chain_check`, 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | in CI the first-parent walk follows the base (the checkout is the pull request merged into the base), so the notice names siblings' squashes and never the item's own commits | `skills/code-review/scripts/chain_check.py:4187` | open | executed: branch checkout names the fix; the merge ref names nothing with the base unmoved, and names the sibling's squash, for a lagging and an honest item, once one landed. `docs/the-record-layout.md:102` and the fragment say it reaches a person in CI |
-| 🟡 2 | a behaviour file moved under `tests/` or `seal/` is not named: `--name-only` lists a rename's destination alone, and rename detection follows the reader's `diff.renames` | `skills/code-review/scripts/chain_check.py:4184` | open | executed: `R100 hooks/big.py tests/big.py`, no notice. Not among the docstring's stated blind spots |
-| ⬜ 3 | the owner section and the fragment name two attributions; the notice also writes *outside every round's fix range* | `docs/the-record-layout.md:97` | open | read; `changelog.md:9` carries the same sentence |
+| 🔴 1 | in CI the first-parent walk follows the base (the checkout is the pull request merged into the base), so the notice names siblings' squashes and never the item's own commits | `skills/code-review/scripts/chain_check.py:4187` | **fixed** `71bf2d8a` | fixed at 71bf2d8a; executed: branch checkout names the fix; the merge ref names nothing with the base unmoved, and names the sibling's squash, for a lagging and an honest item, once one landed. `docs/the-record-layout.md:102` and the fragment say it reaches a person in CI |
+| 🟡 2 | a behaviour file moved under `tests/` or `seal/` is not named: `--name-only` lists a rename's destination alone, and rename detection follows the reader's `diff.renames` | `skills/code-review/scripts/chain_check.py:4184` | **fixed** `71bf2d8a` | fixed at 71bf2d8a; executed: `R100 hooks/big.py tests/big.py`, no notice. Not among the docstring's stated blind spots |
+| ⬜ 3 | the owner section and the fragment name two attributions; the notice also writes *outside every round's fix range* | `docs/the-record-layout.md:97` | **fixed** `65ff34c6` | fixed at 65ff34c6; read; `changelog.md:9` carries the same sentence |
 | 🟢 | the silent state for a round 1 target HEAD does not descend from | `skills/code-review/scripts/chain_check.py:4255` | confirmed | a rebase leaves the old target resolving; the guard's case was corrected until its mutation went red; both prose carriers list it |
 | 🟢 | the first SHA of a two-SHA `Target SHA` is the build's end | `skills/code-review/scripts/chain_check.py:4253` | confirmed | the second is a HEAD that moved mid-review (`templates/sdd-round.md`), so the first reads more commits, never fewer; pinned by a case |
 | 🟢 | the `agents/smith.md` RIDER re-stamp | `agents/smith.md:122` | confirmed | executed: `rider_check.py` 20 ok; one, one and true at both the target and the base |
