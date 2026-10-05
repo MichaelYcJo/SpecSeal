@@ -1314,7 +1314,12 @@ def test_an_unfrozen_narrowed_reverify_names_a_family_it_could_not_clear(repo):
     assert out.returncode == 1, out.stdout
     left = [line for line in out.stdout.splitlines() if "LEFT" in line]
     assert left and "seal/releases/0.1.0.md:5" in left[0], out.stdout
+    # The newest reading sits in the fragment the narrowing left out, so the
+    # `--ledger` remedy is the true one, and the run left nothing itself
+    # (#792, S11).
     assert "newest reading" in left[0], left[0]
+    assert left[0].endswith("run it without `--ledger`"), left[0]
+    assert "this run left" not in left[0], left[0]
 
 
 def test_a_checked_cell_the_calendar_does_not_have_does_not_outrank_a_re_read(repo):
@@ -2700,14 +2705,12 @@ def test_a_ledger_coordinate_restamped_on_two_walks_is_one_move(repo):
     assert run(["--strict", "."], repo).returncode == 0
 
 
-def test_a_restamp_a_later_walk_leaves_is_a_move_and_then_broken(repo):
-    """Post-review of #791. X1's coordinate names the `Re-read ·` line of its
-    own self-citing release, by a claim quoting that line's citation hash. A
-    walk moves X1 to the line as that walk found it, and the next walk
-    re-stamps the citation, so the quoted text is gone and X1 is left. The
-    file keeps the hash that walk wrote. MOVES holds that move and then
-    BROKEN at the hash the file holds; BROKEN from the hash the ledger held
-    before the run drops a re-stamp that landed. Red at 5ef5d315."""
+def moved_then_left(repo):
+    """X1's coordinate names the `Re-read ·` line of its own self-citing
+    release, by a claim quoting that line's citation hash. A walk moves X1 to
+    the line as that walk found it, and the next walk re-stamps the citation,
+    so the quoted text is gone and X1 is left. Returns X1's coordinate as
+    written; `handler` is edited, so the run has its moves to make."""
     h = unit_hash(repo, "src/service.py", "handler")
     o = unit_hash(repo, "src/service.py", "other")
     r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
@@ -2732,6 +2735,15 @@ def test_a_restamp_a_later_walk_leaves_is_a_move_and_then_broken(repo):
     )
     assert run(["--strict", "."], repo).returncode == 0
     edit_handler(repo)
+    return line
+
+
+def test_a_restamp_a_later_walk_leaves_is_a_move_and_then_broken(repo):
+    """Post-review of #791, in `moved_then_left`'s tree. The file keeps the
+    hash the walk that moved X1 wrote. MOVES holds that move and then BROKEN
+    at the hash the file holds; BROKEN from the hash the ledger held before
+    the run drops a re-stamp that landed. Red at 5ef5d315."""
+    line = moved_then_left(repo)
     moves = []
     ec.reverify([str(repo / R_FILE)], str(repo), {}, None, "2026-03-01", moves)
     after = (repo / R_FILE).read_text(encoding="utf-8")
@@ -2780,16 +2792,12 @@ def test_every_walk_sequence_hands_over_what_the_file_holds(walks):
     assert parts == want, (walks, parts)
 
 
-def test_a_coordinate_left_and_then_read_unchanged_records_nothing(repo):
-    """Second post-review pass of #791. A walk can leave a coordinate and a
-    later walk read it unchanged. X1 was stamped while handler was at v1,
-    quoting the citation hash its `Re-read ·` line held then; handler moved
-    and came back, so the run re-stamps that line back to the bytes X1
-    recorded. Two walks find the quoted hash gone and leave X1, the third
-    reads it unchanged, and the file ends where X1's hash says. MOVES holds
-    nothing for X1: a BROKEN from the walks that left it would write the
-    permanent record a trigger for a coordinate `--strict` reads clean. Red
-    with `still` a no-op."""
+def left_then_unchanged(repo):
+    """X1 was stamped while handler was at v1, quoting the citation hash its
+    `Re-read ·` line held then; handler moved and came back, so the run
+    re-stamps that line back to the bytes X1 recorded. Two walks find the
+    quoted hash gone and leave X1, and the third reads it unchanged. Returns
+    R_FILE's text as X1's hash says it ends."""
     o = unit_hash(repo, "src/service.py", "other")
     day = "2026-03-01"
 
@@ -2827,8 +2835,17 @@ def test_a_coordinate_left_and_then_read_unchanged_records_nothing(repo):
     h2 = unit_hash(repo, "src/service.py", "handler")
     write(h2, cite_for(h2), x)
     (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+    return before
+
+
+def test_a_coordinate_left_and_then_read_unchanged_records_nothing(repo):
+    """Second post-review pass of #791, in `left_then_unchanged`'s tree: the
+    file ends where X1's hash says. MOVES holds nothing for X1: a BROKEN from
+    the walks that left it would write the permanent record a trigger for a
+    coordinate `--strict` reads clean. Red with `still` a no-op."""
+    before = left_then_unchanged(repo)
     moves = []
-    ec.reverify([str(repo / R_FILE)], str(repo), {}, None, day, moves)
+    ec.reverify([str(repo / R_FILE)], str(repo), {}, None, "2026-03-01", moves)
     assert (repo / R_FILE).read_text(encoding="utf-8") == before
     assert [m for m in moves if m[1] == 10] == [], moves
     assert run(["--strict", "."], repo).returncode == 0
@@ -3271,3 +3288,213 @@ def test_the_documents_say_a_held_reading_is_left_alone(where, sentence):
     with open(os.path.join(ROOT, where), encoding="utf-8") as handle:
         text = " ".join(handle.read().split())
     assert sentence in text, sentence
+
+
+# --- each coordinate's outcome is printed once, after the walks (#792) -------
+
+
+@pytest.mark.parametrize(
+    "walks",
+    [
+        sequence
+        for n in (2, 3)
+        for sequence in itertools.product(WALK_OUTCOMES, repeat=n)
+    ],
+    ids=lambda walks: ", ".join(walks),
+)
+def test_every_walk_sequence_prints_what_the_file_holds(walks):
+    """#792's comment, enumerated by construction beside the MOVES case. One
+    coordinate walked two or three times, each walk moving it, reading it
+    unchanged, or leaving it for a reason of that walk's own. The printed
+    lines are the fold MOVES is: a hash line where a move landed, and a
+    `left` line, with that walk's reason, where the last walk left it. A walk
+    reading the coordinate unchanged takes the line back, as it takes back
+    BROKEN in MOVES (#791). Red with the first walk's reason kept."""
+    held_hash, seen, fresh = "h0", None, iter(f"h{n}" for n in range(1, 9))
+    for n, outcome in enumerate(walks):
+        if outcome == "moved":
+            new = next(fresh)
+            seen = ec.walked_outcome(seen, held_hash, new)
+            held_hash = new
+        elif outcome == "left":
+            seen = ec.walked_outcome(seen, held_hash, None, f"walk {n} left it")
+        else:
+            seen = ec.walked_outcome(seen, held_hash, held_hash)
+    state, why = seen
+    assert (state[1] is not None) == ("moved" in walks), (walks, state)
+    last = len(walks) - 1
+    want = f"walk {last} left it" if walks[last] == "left" else None
+    assert why == want, (walks, why)
+    # The line and the record's BROKEN part are one decision.
+    assert ((held_hash, None) in ec.owed_moves(state)) == (why is not None), walks
+
+
+def test_a_left_line_a_later_walk_takes_back_is_not_printed(repo):
+    """S9 (#792's comment), `left_then_unchanged`'s tree through `main`. Two
+    walks leave X1 and the third reads it unchanged, so no line says X1 is
+    left, and `--strict` reads it clean. Red at a3aa139a, which printed walk
+    0's `the anchored statement is gone … left` and nothing after it."""
+    before = left_then_unchanged(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    assert (repo / R_FILE).read_text(encoding="utf-8") == before
+    assert "— left" not in fix.stdout and "; left" not in fix.stdout, fix.stdout
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+def a_correction_whose_statement_is_gone(repo):
+    """A10's tree, folded: a `Corrected ·` row in `seal/releases/0.2.0.md`
+    roots its own family, and its one coordinate names a statement `other`
+    no longer has. Returns the file it sits in."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    text = (repo / "src" / "service.py").read_text(encoding="utf-8")
+    places, _ = ec.resolve_unit("src/service.py", "other", text)
+    (inside,) = ec.minor_region("src/service.py", text, places[0], '"x * 2"')
+    stated = ec.content_hash(ec.gfm_lines(text)[inside[0] - 1 : inside[1]])
+    where = placed(
+        repo,
+        f"| Corrected · other doubles | `{citation(r, 'R1 · handler adds one')}`, "
+        f'`src/service.py#other>"x * 2"@{stated}` | read | 2026-02-01 | '
+        "Corrected 2026-02-01 by work item 2000000001 |",
+        "folded",
+        "0.2.0",
+        "2000000001-c",
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    return where
+
+
+@pytest.mark.parametrize(
+    "tree, narrowed",
+    [
+        ("a move, then left", False),
+        ("a correction whose statement is gone", False),
+        ("a correction whose statement is gone", True),
+    ],
+    ids=[
+        "S10: a move then left, every ledger",
+        "S10: A10 folded, every ledger",
+        "S12: A10 folded, narrowed to its file",
+    ],
+)
+def test_a_coordinate_the_run_left_itself_names_no_ledger_remedy(repo, tree, narrowed):
+    """S10 and S12 (#792). The run leaves a coordinate itself, on a row in a
+    file it writes, and no reading outside the run is newer: the family
+    `LEFT` line names the coordinate and says the run left it, and names no
+    `--ledger` remedy, which could not clear it. The line naming why it was
+    left is printed once, and the exit stays 1. Red at a3aa139a, which told
+    the person to run it without `--ledger`."""
+    if tree == "a move, then left":
+        line = moved_then_left(repo)
+        coord, where = line.rsplit("@", 1)[0], f"{R_FILE}:10"
+        flags = []
+    else:
+        file = a_correction_whose_statement_is_gone(repo)
+        coord, where = 'src/service.py#other>"x * 2"', f"{file}:5"
+        flags = ["--ledger", file] if narrowed else []
+    fix = run(["--reverify", "--checked", "2026-03-01", *flags, "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    family = [
+        line for line in fix.stdout.splitlines() if line.startswith(f"  LEFT  {where}")
+    ]
+    assert len(family) == 1, fix.stdout
+    assert f"this run left {coord} where it stands" in family[0], family[0]
+    assert "--ledger" not in family[0], family[0]
+    said = [
+        line
+        for line in fix.stdout.splitlines()
+        if line.startswith(f"  {coord}  ") and line.endswith("left")
+    ]
+    assert len(said) == 1, fix.stdout
+
+
+def test_a_family_no_remedy_clears_is_named_without_one(repo):
+    """Questions Q3, the measured shape: the family's newest reading sits in
+    a ledger the run walks and cannot read strictly, so neither reason
+    holds. The family `LEFT` line names the coordinate and says it is still
+    DRIFTED, and names no remedy it cannot support; the `ledger unreadable`
+    line beside it names the file. Red at a3aa139a, which named the
+    `--ledger` remedy."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    bad = repo / "seal" / "ledger" / f"{A_ITEM}.md"
+    bad.parent.mkdir(parents=True)
+    bad.write_bytes(
+        (re_read_of(r, h, "2026-02-01") + "\n")
+        .encode("utf-8")
+        .replace(b"| read |", b"| caf\xe9 |")
+    )
+    edit_handler(repo)
+    fix = run(["--reverify", "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    assert f"  LEFT  seal/ledger/{A_ITEM}.md  ledger unreadable" in fix.stdout
+    family = [line for line in fix.stdout.splitlines() if "still DRIFTED" in line]
+    assert len(family) == 1, fix.stdout
+    assert "src/service.py#handler" in family[0], family[0]
+    assert "--ledger" not in family[0] and "this run left" not in family[0], family[0]
+
+
+@pytest.mark.parametrize(
+    "where, sentence",
+    [
+        (
+            "docs/the-evidence-ledger.md",
+            "The line names a remedy per coordinate, by why the family is still "
+            "owed one (#792).",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "Only where a newest reading of it sits in a file the run did not "
+            "write does it say to run without `--ledger`.",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "Where the run left the coordinate itself, its claim quoting text the "
+            "run rewrote or its row left whole for want of a date cell, the line "
+            "says so and points at the line naming why, and a run over every "
+            "ledger names such a family too.",
+        ),
+        ("docs/the-evidence-ledger.md", "Where neither is found it names no remedy."),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "**Every `left` line goes through `walked_outcome`** (#792): kept per "
+            "coordinate under the key its hash line uses, the last walk's reason "
+            "winning, and printed once the walks end, in the order they first met "
+            "the coordinates.",
+        ),
+    ],
+    ids=[
+        "the home: per coordinate",
+        "the home: --ledger only outside",
+        "the home: left by the run",
+        "the home: neither",
+        "reverify's docstring: the fold",
+    ],
+)
+def test_the_documents_say_each_outcome_is_printed_once(where, sentence):
+    """§14 for #792: the paragraph a person reads beside a family `LEFT`
+    line, and the docstring a contributor adding a `left` reason reads."""
+    with open(os.path.join(ROOT, where), encoding="utf-8") as handle:
+        text = " ".join(handle.read().split())
+    assert sentence in text, sentence
+
+
+def test_reverifys_docstring_no_longer_says_a_later_walk_is_silent():
+    """#792's comment: `a walk after the first names nothing the first one
+    named` described the defect. Red at a3aa139a."""
+    assert "names nothing the first one named" not in " ".join(
+        ec.reverify.__doc__.split()
+    )

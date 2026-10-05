@@ -3034,6 +3034,22 @@ def owed_moves(held):
     return owed
 
 
+def walked_outcome(seen, old, new, why=None):
+    """`(state, why)` for one coordinate after one more walk (#792).
+
+    SEEN is the pair before this walk, or None where no walk met the
+    coordinate yet; OLD, NEW are `walked_move`'s, and WHY the `left` line
+    this walk would print where it leaves the coordinate (NEW None). STATE is
+    `walked_move`'s fold, the one MOVES is handed, so the printed lines and
+    the record cannot disagree: a hash line where a move landed, and WHY
+    kept, the last walk's that left it, only while STATE says the last walk
+    that changed anything left the coordinate. A walk reading it unchanged,
+    or moving it, takes the line back."""
+    state = walked_move(seen and seen[0], old, new)
+    # BROKEN after this walk is this walk leaving it, so the reason is its.
+    return state, (why if state[2] else None)
+
+
 def left_alone(view):
     """`(held, superseded)`: what an in-place `reverify` leaves where it
     stands, judged from `family_view`'s VIEW before the first walk (#785).
@@ -3118,7 +3134,14 @@ def cited_first(ledgers, root, maps, default_repo):
 
 
 def reverify(
-    ledgers, root, maps, default_repo=None, checked=None, moves=None, told=None
+    ledgers,
+    root,
+    maps,
+    default_repo=None,
+    checked=None,
+    moves=None,
+    told=None,
+    left_by_run=None,
 ):
     """Rewrite the hash of every row whose anchor resolves, where a re-read
     of it is owed. Explicit, by hand.
@@ -3168,10 +3191,23 @@ def reverify(
     #772), so a citation of a released line this run re-stamps is hashed
     against the line the run writes, and one run leaves no citation it moved
     DRIFTED. A file citing itself, and every file no order places, is walked
-    again until a walk changes nothing it plans, and a walk after the first
-    names nothing the first one named. A citing row's
+    again until a walk changes nothing it plans. A citing row's
     citation, re-stamped, appends no move: it is a ledger line, not code
     under the row (D3).
+
+    **Every `left` line goes through `walked_outcome`** (#792): kept per
+    coordinate under the key its hash line uses, the last walk's reason
+    winning, and printed once the walks end, in the order they first met the
+    coordinates. A coordinate a later walk read unchanged or moved prints
+    none. A `left` line claims no write, so it is printed here, before the
+    record step, and never held in TOLD. A line printed straight from a walk
+    would be the one no later walk can take back.
+
+    **LEFT_BY_RUN, where given, is a list this appends to**: `(file identity,
+    row number, coordinate)` for each coordinate whose last walk left it, and
+    for each one on a row `--checked` left whole. `main` reads it to say which
+    family a `--ledger` narrowing could not clear and which this run left
+    itself (#792).
     """
     unreadable = []
     malformed = []
@@ -3212,7 +3248,8 @@ def reverify(
 
     def still(key, hash_):
         """Fold a walk that read KEY's coordinate unchanged into its part,
-        where an earlier walk gave it one (#791)."""
+        where an earlier walk gave it one (#791), and into its outcome."""
+        walked(key, hash_, hash_)
         if key in parts:
             where, held = parts[key]
             parts[key] = (where, walked_move(held, hash_, hash_))
@@ -3227,14 +3264,19 @@ def reverify(
             for ledger in again:
                 yield ledger, walk > 0
 
-    def quiet(*_args, **_kwargs):
-        return None
+    # `{key: (state, line)}` for every coordinate a walk met, in the order
+    # the walks first met them: each walk's outcome folded by
+    # `walked_outcome`, printed once the walks end. ROW_OF is each key's
+    # `(file identity, row number, coordinate)`, for LEFT_BY_RUN.
+    outcomes, row_of = {}, {}
+
+    def walked(key, old, new, why=None):
+        outcomes[key] = walked_outcome(outcomes.get(key), old, new, why)
+
+    # The coordinates on rows `--checked` left whole, for LEFT_BY_RUN.
+    whole = {}
 
     for ledger, repeat in walks():
-        # A walk after the first says nothing the first walk said: every
-        # line below was printed or listed then, and what it adds is the
-        # citations the first walk hashed against a line not yet planned.
-        say = quiet if repeat else print
         text = read(ledger, strict=True)
         if text is None:
             # `/` on every platform, as every path the writer prints.
@@ -3292,6 +3334,7 @@ def reverify(
             spot = (bisect.bisect_right(starts, m.start()), coordinate_of(m))
             nth[spot] = nth.get(spot, 0) + 1
             key = key_at[m.start()] = (planned_key(ledger), *spot, nth[spot])
+            row_of[key] = (ident, *spot)
             holds = False
             # A citation is a ledger line, which no family grades, so both
             # judgments are about the code coordinates beside it (#785).
@@ -3309,7 +3352,12 @@ def reverify(
             repo, rel = place(root, maps, default_repo, raw_path)
             left_as = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             if repo is None:
-                say(f"  {left_as}  path escapes the repository — left")
+                walked(
+                    key,
+                    m.group("hash"),
+                    None,
+                    f"  {left_as}  path escapes the repository — left",
+                )
                 continue
             body = read(os.path.join(repo, rel))
             places, resurrected = (
@@ -3344,9 +3392,12 @@ def reverify(
                     # local look-alike (round 4, 🔴 4) — the check reports
                     # such a row EXTERNAL or file-not-found, and reverify
                     # must agree with the check rather than out-heal it.
-                    say(
+                    walked(
+                        key,
+                        m.group("hash"),
+                        None,
                         f"  {left_as}  not in any known checkout — pass "
-                        "--map/--default-repo; left"
+                        "--map/--default-repo; left",
                     )
                     continue
                 # One unit reconstructing the RECORDED hash is what licenses
@@ -3378,6 +3429,7 @@ def reverify(
                     new_hash = content_hash(gfm_lines(target)[a - 1 : b])
                     if new_hash != m.group("hash"):
                         pending.append((m.start(), left_as, m.group("hash"), new_hash))
+                        walked(key, m.group("hash"), new_hash)
                     else:
                         still(key, new_hash)
                     edits.append(
@@ -3401,14 +3453,22 @@ def reverify(
                         )
                     )
                 else:
-                    say(
+                    walked(
+                        key,
+                        m.group("hash"),
+                        None,
                         f"  {left_as}  {left_because(places, resurrected)}, and "
-                        "no destination is provable — left"
+                        "no destination is provable — left",
                     )
                     pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if body is None:
-                say(f"  {left_as}  the file could not be read — left")
+                walked(
+                    key,
+                    m.group("hash"),
+                    None,
+                    f"  {left_as}  the file could not be read — left",
+                )
                 # Recorded as BROKEN, as a coordinate no one place holds is
                 # (round 2 of PR #749, yellow 14).
                 pending.append((m.start(), left_as, m.group("hash"), None))
@@ -3417,7 +3477,12 @@ def reverify(
                 # Never silence. The check calls this row BROKEN and tells the
                 # reader to look; running the heal command and getting nothing
                 # back reads as a heal that happened (round 6, 🟢).
-                say(f"  {left_as}  {left_because(places, resurrected)} — left")
+                walked(
+                    key,
+                    m.group("hash"),
+                    None,
+                    f"  {left_as}  {left_because(places, resurrected)} — left",
+                )
                 pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if claim:
@@ -3426,9 +3491,12 @@ def reverify(
                     # The check prints `— re-verify` for exactly this row, so
                     # answering it with nothing was the worst of the silences
                     # (round 7, 🟢).
-                    say(
+                    walked(
+                        key,
+                        m.group("hash"),
+                        None,
                         f"  {left_as}  the anchored statement is gone from "
-                        f"{locator} — the check calls this DRIFTED; left"
+                        f"{locator} — the check calls this DRIFTED; left",
                     )
                     pending.append((m.start(), left_as, m.group("hash"), None))
                     continue
@@ -3440,6 +3508,7 @@ def reverify(
                 continue
             shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             pending.append((m.start(), shown, m.group("hash"), got))
+            walked(key, m.group("hash"), got)
             if holds:
                 deferred.add(m.start())
             (held_edits if holds else edits).append(
@@ -3507,6 +3576,9 @@ def reverify(
                     )
                 )
             kept.extend(spliced)
+        for offset, _coord, _old, new in pending:
+            if new is not None and bisect.bisect_right(starts, offset) in left_whole:
+                whole[key_at[offset]] = row_of[key_at[offset]]
         if moves is not None:
             # A citing row's citation is a ledger line, not code under the
             # row: re-stamping it is not a pact change (D3, #772), and the
@@ -3577,6 +3649,14 @@ def reverify(
             )
         return lines
 
+    # Each coordinate's `left` line, once, from the fold (#792): it claims no
+    # write, so it is printed now rather than held in TOLD.
+    for key, (_state, why) in outcomes.items():
+        if why is not None:
+            print(why)
+            whole.setdefault(key, row_of[key])
+    if left_by_run is not None:
+        left_by_run.extend(whole.values())
     told_now(told, report)
     for path in unreadable:
         print(f"  LEFT  {path}  ledger unreadable")
@@ -3871,6 +3951,68 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
             # re-stamped (round 2, 🟡 12).
             drifted.setdefault(top, {}).setdefault(coord, m)
     return view, drifted, broken
+
+
+def why_still_drifted(view, key, coords, written, stayed):
+    """`(outside, left, neither)`: the coordinates COORDS of the row KEY a
+    re-read is still owed, split by why the in-place run did not clear them
+    (#792). VIEW is `released_drift`'s, read against the open plan; WRITTEN
+    the file identities the run wrote; STAYED the `(file identity, row
+    number, coordinate)` triples `reverify` left (LEFT_BY_RUN).
+
+    Only a coordinate's newest readings decide it, as the family paragraph
+    says: OUTSIDE where one sits in a file the run did not write, which a run
+    without `--ledger` would write; LEFT where the run left it on one in a
+    file it wrote; NEITHER where no such reading is found, which takes no
+    remedy, because none this command offers is known to clear it. KEY
+    outside every family is its own newest reading. A coordinate can be in
+    OUTSIDE and LEFT both."""
+    outside, left, neither = [], [], []
+    for coord in coords:
+        graded = view.readings.get(key, {}).get(coord)
+        rows = [key]
+        if graded:
+            dated = {
+                g[0]: reading_date(*view.files[g[0][0]][3][g[0][1]]) for g in graded
+            }
+            newest = max(dated.values())
+            rows = [row for row, date in dated.items() if date == newest]
+        out = [row for row in rows if row[0] not in written]
+        own = [row for row in rows if (*row, coord) in stayed]
+        if out:
+            outside.append(coord)
+        if own:
+            left.append(coord)
+        if not out and not own:
+            neither.append(coord)
+    return outside, left, neither
+
+
+def still_drifted_line(where, label, outside, left, neither):
+    """The family `LEFT` line `main`'s unfrozen arm prints for a row still
+    owed a re-read, naming for each coordinate only the remedy that clears it
+    (#792): `--ledger` where a newest reading sits in a file the run did not
+    write, the run's own `left` line where it left the coordinate itself, and
+    none where neither is found."""
+    clauses = []
+    if outside:
+        clauses.append(
+            f"the newest reading of {', '.join(outside)} in its family sits in a "
+            "file this run did not write; run it without `--ledger`"
+        )
+    if left:
+        one = len(left) == 1
+        clauses.append(
+            f"this run left {', '.join(left)} where "
+            f"{'it stands' if one else 'they stand'}, and the line naming "
+            f"{'it' if one else 'each'} above says why"
+        )
+    if neither:
+        clauses.append(
+            f"the newest reading of {', '.join(neither)} in its family does not "
+            "hold the code"
+        )
+    return f"  LEFT  {where}  {label} — still DRIFTED: " + "; ".join(clauses)
 
 
 INTO_VERIFIED = (
@@ -5615,8 +5757,16 @@ def main():
 
         try:
             if into is None and cutoff is None:
+                stayed = []
                 code = reverify(
-                    ledgers, root, maps, default_repo, args.checked, moves, told
+                    ledgers,
+                    root,
+                    maps,
+                    default_repo,
+                    args.checked,
+                    moves,
+                    told,
+                    left_by_run=stayed,
                 )
                 # Re-stamping in place cannot clear a family whose newest reading
                 # sits in a file the narrowing left out, so the run names, by its
@@ -5633,13 +5783,20 @@ def main():
                     if file_identity(p) not in known
                 ]
                 done, owed, _ = released_drift(ledgers, view, root, maps, default_repo)
+                # The remedy is chosen per coordinate, by why it is still owed,
+                # never by whether `--ledger` was passed: a run naming every
+                # file is narrowed and writes them all, and a coordinate the
+                # run left itself is not cleared by a wider run (#792).
+                written = {file_identity(p) for p in ledgers}
+                stayed = set(stayed)
                 for key in sorted(owed, key=lambda k: (done.files[k[0]][0], k[1])):
                     path, _, _, table = done.files[key[0]]
                     print(
-                        f"  LEFT  {built_name(path, root)}:{key[1]}  "
-                        f"{row_label(table[key[1]][1])} — still DRIFTED: the newest "
-                        f"reading of {', '.join(owed[key])} in its family sits in a "
-                        "file this run did not write; run it without `--ledger`"
+                        still_drifted_line(
+                            f"{built_name(path, root)}:{key[1]}",
+                            row_label(table[key[1]][1]),
+                            *why_still_drifted(done, key, owed[key], written, stayed),
+                        )
                     )
                 # A citation of a line this run re-stamped, in a file the
                 # narrowing left out, is left DRIFTED: named, never silent

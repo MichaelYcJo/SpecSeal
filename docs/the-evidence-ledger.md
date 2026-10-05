@@ -181,6 +181,13 @@ member of, released or fragment, where no in-place re-stamp of the files it
 read clears that family, whichever members carry the drifted coordinate, and
 exits 1. The root is named even where the
 narrowing left its file out, because the root is the row a `Re-read ·` cites.
+The line names a remedy per coordinate, by why the family is still owed one
+(#792). Only where a newest reading of it sits in a file the run did not
+write does it say to run without `--ledger`. Where the run left the
+coordinate itself, its claim quoting text the run rewrote or its row left
+whole for want of a date cell, the line says so and points at the line naming
+why, and a run over every ledger names such a family too. Where neither is
+found it names no remedy.
 
 **Five things `--reverify` leaves at exit 0 while `--strict` exits 2.** This
 holds without the freeze, under it, and under it with `--into`, over every
