@@ -3039,15 +3039,13 @@ def walked_outcome(seen, old, new, why=None):
 
     SEEN is the pair before this walk, or None where no walk met the
     coordinate yet; OLD, NEW are `walked_move`'s, and WHY the `left` line
-    this walk would print where it leaves the coordinate (NEW None). STATE is
-    `walked_move`'s fold, the one MOVES is handed, so the printed lines and
-    the record cannot disagree: a hash line where a move landed, and WHY
-    kept, the last walk's that left it, only while STATE says the last walk
-    that changed anything left the coordinate. A walk reading it unchanged,
-    or moving it, takes the line back."""
-    state = walked_move(seen and seen[0], old, new)
-    # BROKEN after this walk is this walk leaving it, so the reason is its.
-    return state, (why if state[2] else None)
+    this walk prints where it leaves the coordinate (NEW None), else None.
+    STATE is `walked_move`'s fold, the one MOVES is handed, so the printed
+    lines and the record are one decision: a hash line where a move landed,
+    and a `left` line, this walk's, exactly where the last walk left the
+    coordinate and STATE is BROKEN. A walk reading it unchanged, or moving
+    it, takes back the line an earlier walk's leaving gave it."""
+    return walked_move(seen and seen[0], old, new), why
 
 
 def left_alone(view):
