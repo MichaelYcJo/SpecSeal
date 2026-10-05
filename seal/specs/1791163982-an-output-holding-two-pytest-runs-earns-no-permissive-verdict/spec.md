@@ -181,7 +181,11 @@ the gate cannot give it an argument of its own. **Out**, below.
    parts *k* and *j*, and the words already read are replaced. This happens
    once per comparison, not per file, because how many runners a row has is
    a property of the row. A row whose runner is its last part (this
-   repository's, and every lint-first row) never pays it.
+   repository's, and every lint-first row) never pays it. *Changed by round
+   1's fix pass (inferred during implementation): every prefix other than
+   the settled one is run, an earlier one with the report's path carried in
+   `PYTEST_ADDOPTS`, so a lint-first row pays a run of each prefix before
+   its runner; rule 3 states it.*
 5. **What 0.18.2 built is kept**: the candidate split (`git cat-file -e
    HEAD:<f>` nominates and decides nothing), one group of the others and one
    solo run per candidate, the order, the `suite-at-base-<k>[-<n>].txt`
@@ -213,7 +217,10 @@ the gate cannot give it an argument of its own. **Out**, below.
      replaced by "a row that runs pytest in more than one part reads `new?`
      for every failing file". It also gains the collection pass's cost (one
      collection run per prefix after the runner, once, only on a failing
-     gate) and the limit of Axis B, word for word as it ships.
+     gate) and the limit of Axis B, word for word as it ships. *Round 1's
+     fix pass replaced that cost with what the pass runs: every non-pytest
+     part of its prefixes runs as written at the base, once per prefix that
+     holds it.*
    - `NO_RUNNER` reworded to say no part of the row wrote the report the
      gate asked pytest for, with the kept names. `MULTI_RUNNER`, `UNPLACED`
      and `NOTHING_TOGETHER` added. Each is pinned whole in

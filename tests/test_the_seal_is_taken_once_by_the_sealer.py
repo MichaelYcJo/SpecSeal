@@ -4474,9 +4474,10 @@ def test_a_file_named_below_a_cd_is_run_at_the_base_and_not_called_new(tmp_path)
 
 def test_a_runner_first_row_runs_once_at_the_base(tmp_path):
     """A3 (#747). Where the runner is the row's first part, the first prefix
-    writes pytest's report and is the only one run with the files: the parts
-    after it cost the base comparison one collection run each, which counts
-    the row's runners (#789, `runners-at-base-<j>.txt`)."""
+    writes pytest's report and is the only one run with the files. Each
+    prefix after it runs once more in the pass that counts the row's runners
+    (#789, `runners-at-base-<j>.txt`), where every part that is not pytest
+    runs as written (#789 round 1's 🟡 3)."""
     repo = base_then_feature(
         tmp_path / "repo",
         f"{SUITE_ROW} && {LINT}",
