@@ -132,6 +132,23 @@ rewritten, so the record still says what phase 2 saw.
   the same 18 matrix words named above, the S3–S5 shape. No layout leaks.
   The planted corpus case keeps every word of the table below.
 
+### Corrected by round 2's fix pass
+
+Round 2 of review found two more regressions against a3aa139a: a group
+whose count another file made up, and a measuring runner whose output never
+reached the gate. The owner decided the first: a group of several failing
+files never earns `failing on base too`. At the round 2 fix head every file
+of a group whose run at the base did not give `new` reads `new?`, and the
+proof needs the measuring runner's own node ids.
+
+- **The S3–S5 shape is no longer an exception.** Its 18 matrix words read
+  `new?`: the outer file is one of two failing files of one run at the base.
+- **The corpus re-run at the round 2 fix head** (the 46 layouts here, round
+  1's four and round 2's ten, and the 96-run matrix, each under both rows,
+  against a3aa139a's gate): 516 words, and no `failing on base too` that
+  a3aa139a did not give. The table below is phase 2's and stays as it was
+  measured then.
+
 ### The corpus, word by word
 
 `own` is the row the record ran the layout with, `files` the same row
