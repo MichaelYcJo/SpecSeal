@@ -119,7 +119,7 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-10-04 against "## Phases"@46d4ea35. -->
+        Verified 2026-10-05 against "## Phases"@1029389b. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
@@ -202,6 +202,10 @@ incorporation. This file only adds what the skill does not carry.
    `fixed` asserts. The Verdict cell holds the word alone in both cases;
    only `deferred` carries its own suffix.
    The build's phases keep theirs.
+   A fix that changes what the work item ships brings the work item's
+   `changelog.md` along in its range, and `chain-check` names one that did
+   not: `docs/the-record-layout.md` §*A commit after the build brings its
+   changelog fragment along* owns that rule.
 
    **Once the fixes are committed, ask what they left standing**, over the
    same range the fix table names:

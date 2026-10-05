@@ -45,6 +45,13 @@ and the record's verdict cells, `Fix range`, `Contract changes` and
 `phases/phase-N.md` and no `plan.md` row — `agents/smith.md` owns that rule,
 and this sentence is the link to it.
 
+**Two commits after the build are yours, not the smith's**: a fix written after
+the last round, and the commit that integrates a sibling's squash. Each one that
+changes what the work item ships brings the work item's `changelog.md` along, the
+way the smith's fix pass does, and `chain-check` names one that did not.
+`docs/the-record-layout.md` §*A commit after the build brings its changelog
+fragment along* owns that rule.
+
 **Both ends of `--range` are commits, and `HEAD` is refused (#344).** `HEAD`,
 `@`, a branch and a tag all resolve today and name something else tomorrow, so
 a record stating one says a different set of commits every time it is read —

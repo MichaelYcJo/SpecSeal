@@ -583,6 +583,11 @@ ladder, and why a new issue is not the default*);
 pass adds the unit that pins it, and that unit ships unreviewed* owns that
 rule.
 
+A fix that changes what the work item ships brings the work item's
+`changelog.md` along, because the release gathers that fragment as it stands;
+`docs/the-record-layout.md` §*A commit after the build brings its changelog
+fragment along* owns that rule.
+
 ### 6. Close before merge — drain the rows, keep the records
 
 Before the PR merges, every unresolved (⬜) row must move out:
