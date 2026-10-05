@@ -707,6 +707,23 @@ by <who>, after round <N>.` under the `Framed` line.
 `skills/code-review/orchestration.md` §*A fix of a fix twice sends the work
 item back to its framer* owns the rule and the exit.
 
+`chain_check.fix_of_a_fix` counts the rows as declared, on every record, behind
+`REFRAME_FROM`; after a squash nothing could re-derive a landing.
+
+| The record | The check |
+|---|---|
+| no row, work item begun on or after `REFRAME_FROM` | **fails** |
+| no row, begun before it or with no timestamp prefix | prints |
+| empty, a bare `first` or `second`, or any other word | **fails**, at any age |
+| the second landing of a run reading `first` | **fails** — the count says `second` |
+| a third landing in one run | **fails**, naming the record it went past |
+| a `second` whose verdicts closed on a fix | **fails** — a fix pass ran after the stop |
+| the first record after a `second`, with no `Reframed … after round <N>.` naming it | **fails** |
+| a `Reframed` line whose `<who>` is a placeholder or disagrees with `Planning` | **fails**, as the `Framed` line's does |
+
+The floor's two walks and the generator's printed bound read the same run, so
+the redesign's rounds are not later records of the run that stopped.
+
 ## What ran the round — `Ran by`
 
 A record says what the round was asked, what it found, and which commit it
