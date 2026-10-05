@@ -593,8 +593,9 @@ def test_the_corpus_is_counted():
 def test_the_old_header_is_read_through_the_second_attempt(above):
     """#822: a pact written in 0.18.x heads its table `| Signatory |`. The
     walker reads it as cmark-gfm renders it, through `pact_signers`' second
-    attempt, and says which header it read; the old table is not read where
-    a `Signer` table stands above it, under a heading of its own."""
+    attempt, and says which header it read. Where a `Signer` table stands
+    above it, under a heading of its own, the old table is not read, and it
+    is refused rather than left unread (round 1's yellow 1)."""
     u = "https://example.com/org/a"
     text = f"# Pact\n\n{above}| Signatory |\n|---|\n| {u} |\n"
     assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
@@ -607,8 +608,10 @@ def test_the_old_header_is_read_through_the_second_attempt(above):
         + text.split("\n\n", 1)[1]
     )
     signers, refusals, header = config.pact_signers(both)
-    assert refusals == [] and header == ("Signer",), (both, refusals)
+    assert header == ("Signer",), (both, header)
     assert [s[0] for s in signers] == [v], (both, signers)
+    assert len(refusals) == 1, (both, refusals)
+    assert "also holds a `| Signatory |` header" in refusals[0], (both, refusals)
 
 
 def test_a_half_written_tag_does_not_hide_the_table_from_the_oracle():

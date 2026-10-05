@@ -22,8 +22,10 @@
   exit class, so the exit is what the new header gives. At the pact's
   repository `chain-check`'s notice carries the same sentence and its exit
   status does not move. A file holding a table under the new header is read
-  from it alone. Rename the header when the file is next edited; no command
-  rewrites a pact.
+  from it alone, and an old header beside it is refused (`pact-check` exit
+  2, a notice from `chain-check`), because its rows would otherwise go
+  unread: move them into the new table and delete the old one. Rename the
+  header when the file is next edited; no command rewrites a pact.
 
 - For a script that calls the plugin's readers: `hooks/config.py`'s
   `pact_signatories` is `pact_signers`, `SIGNATORY_HEADER` is

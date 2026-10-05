@@ -32,13 +32,14 @@ into files nobody regenerates: a pact's `| Signatory |` table, and a pact
 review record's `| Signatory | Change | Verdict |`, which is permanent. A
 file holding no table under the new header is read under the old one
 exactly as it would be under the new; a file holding one is read from it
-alone. `pact-check` prints one line naming the file, both headers and
+alone, and an old header beside it is refused, because its rows would
+otherwise go unread. `pact-check` prints one line naming the file, both headers and
 0.19.0 before that file's other lines, and its exit is what the new header
 gives; at the pact's repository `chain-check`'s notice carries the same
 sentence and its exit does not move. No command rewrites a pact: the line
 says to rename the header when the file is next edited, and every text
 this plugin ships says `signer`.
-Enforced by: tests/test_pact_check.py::test_s2_a_pact_headed_as_0_18_wrote_it_reads_the_same_and_names_it, tests/test_a_pact_review_takes_a_pact_change.py::test_s5_a_review_record_written_in_0_18_still_takes_its_change, tests/test_a_signers_ci_prints_its_pact.py::test_a_pact_headed_as_0_18_wrote_it_is_counted_and_the_rename_named, tests/test_a_signer_declares_its_pact.py::test_s4_a_pact_holding_both_tables_is_read_from_signer_alone, tests/test_one_word_one_meaning.py::test_no_pact_text_names_a_signer_the_way_0_18_did
+Enforced by: tests/test_pact_check.py::test_s2_a_pact_headed_as_0_18_wrote_it_reads_the_same_and_names_it, tests/test_a_pact_review_takes_a_pact_change.py::test_s5_a_review_record_written_in_0_18_still_takes_its_change, tests/test_a_signers_ci_prints_its_pact.py::test_a_pact_headed_as_0_18_wrote_it_is_counted_and_the_rename_named, tests/test_a_signer_declares_its_pact.py::test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one, tests/test_pact_check.py::test_s4_a_pact_holding_both_tables_is_exit_2_naming_the_old_one, tests/test_one_word_one_meaning.py::test_no_pact_text_names_a_signer_the_way_0_18_did
 
 ## When there is a pact at all
 

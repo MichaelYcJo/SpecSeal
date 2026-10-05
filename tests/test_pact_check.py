@@ -252,6 +252,31 @@ def test_s2_a_refusal_naming_the_table_names_the_header_the_pact_holds(world):
     ) in out, out
 
 
+def test_s4_a_pact_holding_both_tables_is_exit_2_naming_the_old_one(world):
+    """Round 1's yellow 1, end to end. The old table above the new one,
+    under a heading of its own, holds a signer the `Signer` table does not
+    list. Read silently it would be a signer nobody reads at exit 0; it is
+    refused instead, and no rename line is printed, because the header read
+    is the new one."""
+    text = pact(V2).replace(
+        "# Pact\n\n",
+        "# Pact\n\n| Signatory |\n|---|\n| https://example.com/org/orders-mobile |"
+        "\n\n## Before 0.19.0\n\n",
+        1,
+    )
+    write(world["api"], "seal/pact.md", text)
+    commit(world["api"], "a new table above an old one")
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        "REFUSED seal/pact.md — the pact also holds a `| Signatory |` header, the "
+        "word before 0.19.0, and nothing under it is read while the `| Signer |` "
+        "table stands — move its rows into that table and delete it"
+    ) in out, out
+    assert "heads its table" not in out, out
+
+
 def test_s7_the_summary_counts_two_signers(world):
     """S7 of #822: the plural. The second signer has no checkout here, so
     one of the two is read."""

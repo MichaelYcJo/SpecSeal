@@ -632,6 +632,8 @@ PACT_PRINTED = (
     # The sentence both commands print where a file is headed the old way
     # (#822); one of `PACT_RENAMED_SPANS` below.
     (("hooks", "config.py"), "renamed_header"),
+    # The refusal of a file holding both headers (round 1 of #822, yellow 1).
+    (("hooks", "config.py"), "read_table"),
 )
 # The thread's working words, and the noun the owner withheld from the
 # repository holding the pact: each would give one thing a second name. The

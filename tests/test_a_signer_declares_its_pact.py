@@ -1206,21 +1206,31 @@ def test_s2_every_refusal_under_the_old_header_names_it():
     ], refusals
 
 
-def test_s4_a_pact_holding_both_tables_is_read_from_signer_alone():
-    """S4 of #822. A `| Signer |` table, and below it, under a heading of
-    its own, a `| Signatory |` one: the new table is read, the old one is
-    not, and the header read is the new one, so no rename is named. Below the
-    table with no heading between, the old table's rows are the walk's
-    stray rows and are refused, as any row past the table's end is."""
+BOTH = (
+    "also holds a `| Signatory |` header, the word before 0.19.0, and nothing "
+    "under it is read while the `| Signer |` table stands — move its rows into "
+    "that table and delete it"
+)
+
+
+def test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one():
+    """S4 of #822, and round 1's yellow 1. A `| Signer |` table is read
+    alone, and an old table anywhere else in the file is refused rather than
+    left unread: below it under a heading, above it under a heading, or
+    above it with only a blank line between. Its rows hold signers, and a
+    signer nobody reads at exit 0 is what the table walker exists to end.
+    Directly below with no heading, the walk's stray-row refusal already
+    names it, and it is not named twice."""
     signer = "# Pact\n\n| Signer |\n|---|\n| https://example.com/org/orders-web |\n"
     old = "| Signatory |\n|---|\n| https://example.com/org/billing |\n"
     for text in (
         signer + "\n## Before\n\n" + old + "\n## A\n\nx\n",
         f"# Pact\n\n{old}\n## Now\n\n" + signer.split("\n\n", 1)[1],
+        f"# Pact\n\n{old}\n" + signer.split("\n\n", 1)[1],
     ):
         signers, refusals, header = config.pact_signers(text)
         assert [s[2] for s in signers] == ["orders-web"], (text, signers)
-        assert refusals == [] and header == ("Signer",), (text, refusals)
+        assert refusals == [BOTH] and header == ("Signer",), (text, refusals)
     _, refusals, header = config.pact_signers(signer + "\n" + old)
     assert header == ("Signer",)
     assert refusals == [
@@ -1231,7 +1241,7 @@ def test_s4_a_pact_holding_both_tables_is_read_from_signer_alone():
 
 def test_s4_a_broken_signer_table_does_not_fall_back_to_the_old_one():
     """A `Signer` table that will not read is refused as it stands; a
-    well-formed old table below it is not read in its place."""
+    well-formed old table below it is not read in its place, and is named."""
     text = (
         "# Pact\n\n- a note\n| Signer |\n|---|\n| https://example.com/org/a |\n\n"
         "| Signatory |\n|---|\n| https://example.com/org/b |\n\n## A\n\nx\n"
@@ -1239,6 +1249,7 @@ def test_s4_a_broken_signer_table_does_not_fall_back_to_the_old_one():
     signers, refusals, header = config.pact_signers(text)
     assert signers == [] and header == ("Signer",), (signers, header)
     assert refusals and "`| Signer |` header directly under" in refusals[0]
+    assert BOTH in refusals, refusals
 
 
 @pytest.mark.parametrize(

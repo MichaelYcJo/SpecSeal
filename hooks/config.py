@@ -1327,17 +1327,30 @@ def read_table(text, header):
     """(rows, refusals, header read) for the table of TEXT headed HEADER,
     or, where TEXT holds none, headed as HEADER was written before 0.19.0
     (`renamed_header`). A text holding a HEADER table is read from it alone,
-    whatever it holds below. Where neither is there, the refusal names
-    HEADER and the header read is None, so a caller tells the old header from
-    the new one without reading the text again (#822)."""
+    and an old header it also holds is refused, wherever that table stands:
+    its rows would otherwise go unread at exit 0 (round 1 of #822, yellow 1).
+    The refusal is not added where the walk's stray-row refusal already names
+    the old header. Where neither is there, the refusal names HEADER and the
+    header read is None, so a caller tells the old header from the new one
+    without reading the text again (#822)."""
     rows, refusals = gfm_table(text, header)
-    if not (refusals and refusals[0].startswith("holds no ")):
-        return rows, refusals, header
     old = renamed_header(header)[0]
-    if old is not None:
-        old_rows, old_refusals = gfm_table(text, old)
-        if not (old_refusals and old_refusals[0].startswith("holds no ")):
-            return old_rows, old_refusals, old
+    old_rows, old_refusals = gfm_table(text, old) if old else ([], [])
+    holds_old = old is not None and not (
+        old_refusals and old_refusals[0].startswith("holds no ")
+    )
+    if not (refusals and refusals[0].startswith("holds no ")):
+        named = f"`| {' | '.join(old)} |`" if old else None
+        if holds_old and not any(named in r for r in refusals):
+            refusals = [
+                *refusals,
+                f"also holds a {named} header, the word before {RENAMED_IN}, "
+                f"and nothing under it is read while the `| {' | '.join(header)} |` "
+                "table stands — move its rows into that table and delete it",
+            ]
+        return rows, refusals, header
+    if holds_old:
+        return old_rows, old_refusals, old
     return rows, refusals, None
 
 

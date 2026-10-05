@@ -212,6 +212,30 @@ def test_s5_an_old_review_row_that_cannot_be_true_names_the_old_header(world):
     ) in out, out
 
 
+def test_s5_a_review_record_holding_both_headers_is_refused(world):
+    """Round 1's yellow 1, for a pact review record. An old table above the
+    new one holds a row the new table does not; read silently, that row
+    would be dropped and the record it took would read `NOT TAKEN` again with
+    nothing saying why. It is refused at exit 2 instead."""
+    _anchor, digest = record(world)
+    write(
+        world["api"],
+        REVIEWS,
+        "# Pact review\n\n| Signatory | Change | Verdict |\n|---|---|---|\n"
+        f"| {SIGNER_URL} | {ITEM}@{digest} | holds |\n\n## Since 0.19.0\n\n"
+        "| Signer | Change | Verdict |\n|---|---|---|\n"
+        f"| {SIGNER_URL} | {ITEM}@{digest} | holds |\n",
+    )
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        f"REFUSED {REVIEWS} — the record also holds a `| Signatory | Change | "
+        "Verdict |` header, the word before 0.19.0, and nothing under it is read "
+        "while the `| Signer | Change | Verdict |` table stands — move its rows "
+        "into that table and delete it"
+    ) in out, out
+
+
 def test_s15_a_record_grown_after_its_review_is_not_taken_again(world):
     """S15. The record gained a row after the review: `NOT TAKEN` names the
     hash the review took and the hash the record holds now."""
