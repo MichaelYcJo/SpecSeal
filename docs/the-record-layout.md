@@ -78,6 +78,36 @@ A `settle` fold has no work item, so its fragment is named for the moment:
 `seal/ledger/<unix-seconds>-fold.md` (`skills/settle/SKILL.md` §*What a fold
 branch owes*). The release folds it like any other.
 
+## A commit after the build brings its changelog fragment along
+
+**A commit after the build that changes what the work item ships updates the
+work item's `changelog.md` in the same range.** The build's last phase writes
+the fragment and the release gathers it verbatim, so a later commit that
+changes behaviour can leave it describing something that no longer ships. The
+rule binds whoever writes the commit: the smith's fix pass, a fix written after
+the last round, and an integration commit after a sibling's squash, which the
+orchestrator writes. A commit that changes nothing a release note states owes
+the fragment nothing. 0.18.2 shipped three fragments their own review rounds had
+made false, and #795 corrected them by hand before the release.
+
+`chain-check` names the commits a fragment was left behind by. For a work item
+declared `through the review chain`, it walks the first-parent commits after
+round 1's `Target SHA`, merges skipped, and names each one that changed a path
+outside the `seal/` root and outside a `tests` directory after the fragment last
+changed. Each is attributed to the round whose `Fix range` holds it, or to
+*after the last round*. It prints and never refuses, which is the measurement
+#797 took: over 42 work items a refusal would have stopped 24 runs, at least 9
+of them for a fragment that needed no change. So the notice says nothing is
+owed where the fragment still says what ships. It reaches a person at
+`round-record close`, at `round-record seal` and in CI.
+
+It is silent where it has no line to draw: a work item `straight to the PR`, no
+`round-1.md` yet, a round 1 `Target SHA` this repository cannot see or HEAD
+does not descend from, and no `changelog.md` at HEAD. It cannot see a
+behaviour change made only inside a merge commit, and it names a test-only
+commit outside a `tests` directory although nothing was owed.
+Enforced by: skills/code-review/scripts/chain_check.py::fragment_left_behind, tests/test_a_fragment_left_behind_is_named.py
+
 ## docs/
 
 The standing policy. A `docs/` document outranks the work items' specs, and
@@ -98,7 +128,7 @@ a work item that finds one wrong corrects it.
 | `docs/the-broad-gate.md` | who takes the one broad run, what it runs, and what it may say |
 | `docs/the-commit-gate-inside-git.md` | what git decides inside a commit, what its hooks cannot see, and which reading judges each state of a repository |
 | `docs/the-evidence-ledger.md` | what a ledger row is, how a coordinate names code, how a released row is read again, and what a merge can drop |
-| `docs/the-record-layout.md` | this index: where each kind of record lives, and which file a change writes |
+| `docs/the-record-layout.md` | this index: where each kind of record lives, which file a change writes, and when a later commit brings the changelog fragment along |
 | `docs/the-review-and-parity-arms.md` | what each opt-in arm of the commit gate wants, and the routing declaration that moves the review arm's check to the pull request |
 | `docs/worktree-guard-spec.md` | what the worktree guard refuses, and why |
 
