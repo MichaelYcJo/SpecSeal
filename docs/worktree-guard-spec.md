@@ -590,14 +590,25 @@ tells the user to work in a separate worktree, so the session stays where it
 was while the commands do not. The whole command is read the way the release
 base `86256492` read it, and not the way the commit gate reads it since #674
 (#689): which segments are git, the `-C` values each names, where every `cd`
-lands. One rule is read past the base, since #764 and #738 on the owner's
-answer of 2026-10-04: a `checkout`'s and a `switch`'s own words are read as
-git's option parser sees them once bash has taken the redirections off. So a
+lands. Two rules are read past the base. The first, since #764 and #738 on
+the owner's answer of 2026-10-04: a `checkout`'s and a `switch`'s own words
+are read as git's option parser sees them once bash has taken the redirections
+off. So a
 creating option counts in any spelling git accepts (`-bNAME`, `-qb NAME`,
 `--orphan=NAME`, `--cre NAME`), an option's value is not a name (`git
 checkout --conflict merge feature/x` names `feature/x`), and a redirection is
 no word (`git checkout 2>/dev/null feature/x`, `git checkout
-feature/x>/dev/null`). Which segments are git, the `-C` values each names and
+feature/x>/dev/null`). The second, since #790 on the owner's placement of it
+in milestone `release: 0.18.3` on 2026-10-05: a `checkout`'s name is looked up
+the way `git checkout` resolves it. The name is a branch to switch to where it
+names a commit once resolved and peeled, as every single-revision form does,
+a message search (`git checkout ':/fix typo'`) included; where it is
+`<a>...<b>` with exactly one merge base, a side left empty meaning `HEAD`; and
+where a remote-tracking branch of any remote ends in it, which is git's guess.
+The base's lookup is still asked first, so no name it read as a branch goes
+quiet. The guess reads every remote on the default of `questions.md` P1 in
+work item 1791163981, taken under the owner's `automation` routing. Which
+segments are git, the `-C` values each names and
 where every `cd` lands stay the base's, and `hooks/cmdline_base.py` is
 unchanged. This guard and the consent writer read it through
 `hooks/cmdline_base.py`, which is that commit's `hooks/cmdline.py` copied byte
@@ -755,6 +766,18 @@ at one prompt against a wrong allow breaking another session's tree.
     -- <&1 README.md`, a restore, is judged a switch to `feature/x` too;
   - `git checkout -U 3 feature/x` reads `feature/x` as the name, although git
     refuses `-U` without `-p`, so a command git refuses is asked.
+- A `checkout`'s name is looked up as git resolves it (§*Which tree*), and a
+  few names git refuses are still read as a branch, so the command is asked
+  although it would not run: `^<rev>`, read as one since before #790; and a
+  guessed name under `--detach`, held by two remotes, or ending a longer
+  remote branch's name (`x` beside `origin/feature/x`), where git takes no
+  guess or refuses an ambiguous one. The guard reads no `checkout.guess`,
+  `checkout.defaultRemote` or `--no-guess`, so it guesses where git would not,
+  never the other way. A revision syntax a later git adds that `git rev-parse
+  --verify` cannot read, as it cannot read `<a>...<b>`, reads as no branch
+  until the guard learns it. Measured with git 2.54.0 (work item 1791163981,
+  `phases/phase-1.md`); `test_nothing_the_base_read_as_a_switch_goes_quiet`
+  in `tests/test_guard_resolves_the_tree_it_judges.py` pins the direction.
 - On Windows the count of other sessions is always unusable. It walks the
   process table with `ps -o` and `ps -axo`, and Git for Windows' `ps` takes
   neither, so every tree state there reads as *detection unusable* and takes

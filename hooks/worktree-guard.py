@@ -102,8 +102,9 @@ Note: sessions living in a linked worktree are already isolated and are NOT
 counted -- switching the shared tree cannot affect them. File-restore forms of
 `git checkout` (and `git restore`) are always allowed, as is every non-`add`
 worktree subcommand (`list`, `remove`, `prune`). `git switch -`/`checkout -`
-count as switches (they are). A `git checkout <name>` that would DWIM a
-remote-only branch is also a switch.
+count as switches (they are). A `git checkout <name>` is looked up the way
+git resolves it (`is_ref`, #790): a message search, a merge-base shorthand and
+a remote-only branch from any remote are all switches.
 """
 
 import json
@@ -125,11 +126,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # `86256492`, and never chooses a segment or a tree through `cmdline.py` (#689;
 # the one question it asks that module is below): the splitter, `parse_git`,
 # `adds_a_worktree`, the walk and `Unresolved` all come from there, so what it
-# recognises and where it judges are the release base's by construction. One
-# rule is read past the base since #764 and #738, on the owner's answer of
-# 2026-10-04: a `checkout`'s and a `switch`'s own words, as git is handed
-# them (`read_switch_words`); the segments and words it reads still come from
-# here. The name `cmdline` is kept so the rest of this file reads as it did.
+# recognises and where it judges are the release base's by construction. Two
+# rules are read past the base. Since #764 and #738, on the owner's answer of
+# 2026-10-04, a `checkout`'s and a `switch`'s own words, as git is handed
+# them (`read_switch_words`). Since #790, a `checkout`'s name, looked up the
+# way `git checkout` resolves it (`is_ref`, `tracked_in_any_remote`). The
+# segments and words it reads still come from here. The name `cmdline` is kept so the rest of this file reads as it did.
 # `worktree_consent` imports the same module, so the two share one `Unresolved`.
 import cmdline_base as cmdline
 import console
@@ -969,16 +971,109 @@ def segment_cwd(tokens, cwd: str) -> str:
     return apply_chdir(cwd, parsed[2])
 
 
-def is_ref(name: str, cwd: str) -> bool:
+def _verified(revision: str, cwd: str):
+    """The object name `git rev-parse --verify` gives REVISION in `cwd`, or
+    None where it gives none or cannot run."""
     try:
         r = subprocess.run(
-            ["git", "rev-parse", "--verify", "--quiet", f"{name}^{{commit}}"],
+            ["git", "rev-parse", "--verify", "--quiet", revision],
             cwd=cwd or None,
             capture_output=True,
+            encoding="utf-8",
+            errors="replace",
         )
-        return r.returncode == 0
+    except Exception:
+        return None
+    if r.returncode != 0:
+        return None
+    return r.stdout.strip() or None
+
+
+def _commit_named(name: str, cwd: str):
+    """The commit NAME names, or None: `<name>^{commit}` first, as at
+    `a3aa139a`, then NAME resolved alone and peeled by its object name.
+
+    The second step exists because a suffix is not always read as one. A
+    message search (`:/<text>`) takes everything after `:/` as its pattern,
+    so `:/fix^{commit}` searches for a message holding `^{commit}` and finds
+    none, while `git checkout :/fix` detaches at the newest commit whose
+    message matches (#790). An object name holds no syntax a suffix could be
+    absorbed into, so it peels whatever named it."""
+    found = _verified(f"{name}^{{commit}}", cwd)
+    if found is None:
+        named = _verified(name, cwd)
+        if named is not None:
+            found = _verified(f"{named}^{{commit}}", cwd)
+    return found
+
+
+def _one_merge_base(name: str, cwd: str) -> bool:
+    """Whether `git checkout NAME` reads NAME as `<a>...<b>` and finds exactly
+    one merge base, as git's `checkout` does: split at the first `...`, an
+    empty side read as `HEAD`. `rev-parse --verify` takes one revision, so no
+    suffix and no peel reads this form."""
+    left, _, right = name.partition("...")
+    sides = [_commit_named(side or "HEAD", cwd) for side in (left, right)]
+    if None in sides:
+        return False
+    try:
+        r = subprocess.run(
+            ["git", "merge-base", "--all", *sides],
+            cwd=cwd or None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
     except Exception:
         return False
+    return r.returncode == 0 and len(r.stdout.split()) == 1
+
+
+def is_ref(name: str, cwd: str) -> bool:
+    """Whether `git checkout NAME` would find a commit for NAME in `cwd`.
+
+    Read the way `git checkout` resolves a name (#790, work item
+    1791163981): every single-revision expression of `gitrevisions(7)` that
+    peels to a commit (`_commit_named`), and the merge-base shorthand
+    `<a>...<b>` where it has exactly one base (`_one_merge_base`). Each step
+    runs only where the one before it said no, so a name `a3aa139a` resolved
+    answers yes with that commit's single call, and nothing it said yes to
+    becomes a no. A form git refuses can still answer yes, which asks about a
+    command that would not have run: `^<rev>`, read as a ref since before
+    #790, is one."""
+    if _commit_named(name, cwd) is not None:
+        return True
+    return "..." in name and _one_merge_base(name, cwd)
+
+
+def tracked_in_any_remote(name: str, cwd: str) -> bool:
+    """Whether a remote-tracking branch under `refs/remotes/` ends in
+    `/<name>`, which is where `git checkout NAME` guesses from when no branch
+    has that name (`--guess`, git's default).
+
+    git guesses from a remote by any name, where this guard used to ask
+    `origin/<name>` alone (#790). git refuses where two remotes hold the name
+    and no `checkout.defaultRemote` picks one, and under `--detach`; this
+    reads neither, so it asks about both, which is the louder direction. A
+    name a longer remote branch ends in (`x` beside `origin/feature/x`) is
+    read too, so a remote whose own name holds a `/` is never missed."""
+    try:
+        r = subprocess.run(
+            ["git", "for-each-ref", "--format=%(refname)", "refs/remotes/"],
+            cwd=cwd or None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except Exception:
+        return False
+    if r.returncode != 0 or not name:
+        return False
+    tail = "/" + name
+    shortest = len("refs/remotes/x") + len(tail)
+    return any(
+        ref.endswith(tail) and len(ref) >= shortest for ref in r.stdout.splitlines()
+    )
 
 
 def classify(tokens, cwd: str):
@@ -1037,9 +1132,13 @@ def classify(tokens, cwd: str):
             or os.path.exists(first)
         ):
             return None  # restoring a file/dir, not switching branch
+        # The name as `git checkout` resolves it (#790): a revision, a
+        # merge-base shorthand, or a branch guessed from a remote. The
+        # `origin/` lookup is the base's guess, kept beside the wider one so a
+        # name it found is still found by the same call.
         if is_ref(first, cwd):
             return "switch"
-        if is_ref(f"origin/{first}", cwd):
+        if is_ref(f"origin/{first}", cwd) or tracked_in_any_remote(first, cwd):
             return "switch"  # DWIM checkout of a remote-only branch
         # `(git checkout topic)` puts the closing parenthesis on the BRANCH
         # NAME, so the lookups above ask about `topic)` and find nothing.
@@ -1052,7 +1151,11 @@ def classify(tokens, cwd: str):
         bare = first
         while bare.endswith(")"):
             bare = bare[:-1]
-            if is_ref(bare, cwd) or is_ref(f"origin/{bare}", cwd):
+            if (
+                is_ref(bare, cwd)
+                or is_ref(f"origin/{bare}", cwd)
+                or tracked_in_any_remote(bare, cwd)
+            ):
                 return "switch"
         return None
 

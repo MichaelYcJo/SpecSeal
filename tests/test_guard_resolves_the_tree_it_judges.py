@@ -1289,16 +1289,33 @@ def test_the_guard_policy_says_a_hidden_file_checkout_is_asked():
 
 
 def test_the_guard_policy_says_what_it_reads_past_the_base():
-    """§14 of the agent contract, for #764 and #738 (work item 1791119071):
-    the paragraph that says the command is read as `86256492` read it names
-    the one rule now read past it, on whose answer and when, and what stays
-    the base's. Red against the paragraph as it stood at `94d7b2e0`."""
+    """§14 of the agent contract, for #764 and #738 (work item 1791119071)
+    and #790 (work item 1791163981): the paragraph that says the command is
+    read as `86256492` read it names the two rules now read past it, on whose
+    act and when, and what stays the base's. Red against the paragraph as it
+    stood at `94d7b2e0`, and its #790 sentences against `a3aa139a`'s."""
     text = _policy_text()
     assert (
-        "One rule is read past the base, since #764 and #738 on the owner's "
-        "answer of 2026-10-04: a `checkout`'s and a `switch`'s own words are "
-        "read as git's option parser sees them once bash has taken the "
-        "redirections off"
+        "Two rules are read past the base. The first, since #764 and #738 on "
+        "the owner's answer of 2026-10-04: a `checkout`'s and a `switch`'s own "
+        "words are read as git's option parser sees them once bash has taken "
+        "the redirections off"
+    ) in text
+    assert (
+        "The second, since #790 on the owner's placement of it in milestone "
+        "`release: 0.18.3` on 2026-10-05: a `checkout`'s name is looked up the "
+        "way `git checkout` resolves it. The name is a branch to switch to "
+        "where it names a commit once resolved and peeled, as every "
+        "single-revision form does, a message search (`git checkout ':/fix "
+        "typo'`) included; where it is `<a>...<b>` with exactly one merge "
+        "base, a side left empty meaning `HEAD`; and where a remote-tracking "
+        "branch of any remote ends in it, which is git's guess. The base's "
+        "lookup is still asked first, so no name it read as a branch goes "
+        "quiet."
+    ) in text
+    assert (
+        "a few names git refuses are still read as a branch, so the command is "
+        "asked although it would not run"
     ) in text
     assert (
         "Which segments are git, the `-C` values each names and where every "
@@ -1374,8 +1391,9 @@ KINDS = {
     "checkout .": (["git", "checkout", "."], None),
     "checkout -- path": (["git", "checkout", "--", "f"], None),
     "checkout with no name": (["git", "checkout", "-q"], None),
-    # §*Which tree*'s words: a `--` takes every name out of a checkout, and
-    # `-B` is a switch with or without one (round 3 of #737).
+    # §*Which tree*'s words: a `--` with a word after it takes every name out
+    # of a checkout, and `-B` is a switch with or without one (round 3 of
+    # #737).
     "checkout a name before --": (["git", "checkout", "x", "--", "f"], None),
     # Round 1 of 1791119071, 🔴 1: a `--` with nothing after it only says the
     # name before it is no file, and git switches to it.
@@ -1877,3 +1895,264 @@ def test_an_ambiguous_long_prefix_takes_nothing():
     )
     assert wg._long_option(options, "a") == (False, False)
     assert wg._long_option(options, "ab") == (True, True)
+
+
+# --- #790: a checkout's name, looked up the way `git checkout` resolves it ---
+#
+# Work item 1791163981. `spec.md` §*The class* enumerates the three routes git
+# takes from a `checkout`'s name to a commit: C1 a single-revision expression,
+# C2 the merge-base shorthand, C3 the remote-tracking guess. Phase 1's M1 ran
+# every form below under every carrier with git 2.54.0, and the verdicts in
+# these tables are what it found (executed).
+
+
+def _git(d, *args):
+    return subprocess.run(
+        ["git", "-C", str(d), *args],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def _commit(d, path, message):
+    (d / path).write_text(path + "\n", encoding="utf-8")
+    _git(d, "add", path)
+    _git(d, "commit", "-qm", message)
+
+
+@pytest.fixture(scope="module")
+def a_history(tmp_path_factory):
+    """A repository whose names reach every route of `spec.md` §*The class*:
+    commit messages to search, two branches with one merge base and two with
+    two (a criss-cross), an annotated tag, an upstream, a previous branch, and
+    two remotes, `origin` and `upstream`, holding a branch only `origin` has,
+    one only `upstream` has and one both have. Read-only for every case."""
+    root = tmp_path_factory.mktemp("a-history")
+    d = root / "r"
+    for bare in ("o.git", "u.git"):
+        subprocess.run(
+            ["git", "init", "-q", "--bare", str(root / bare)],
+            check=True,
+            capture_output=True,
+        )
+    subprocess.run(["git", "init", "-q", str(d)], check=True, capture_output=True)
+    _git(d, "symbolic-ref", "HEAD", "refs/heads/main")
+    _git(d, "config", "user.email", "t@t")
+    _git(d, "config", "user.name", "t")
+    _commit(d, "README.md", "initial commit")
+    for branch in ("side", "cx1", "cx2"):
+        _git(d, "branch", branch)
+    _commit(d, "alpha.txt", "add alpha feature")
+    _git(d, "tag", "-a", "v1", "-m", "v1")
+    _commit(d, "beta.txt", "add beta !bang")
+    _git(d, "switch", "-q", "side")
+    _commit(d, "side.txt", "side work")
+    _git(d, "switch", "-q", "cx1")
+    _commit(d, "x.txt", "cx one")
+    _git(d, "switch", "-q", "cx2")
+    _commit(d, "y.txt", "cx two")
+    _git(d, "merge", "-q", "--no-edit", "cx1")
+    _git(d, "switch", "-q", "cx1")
+    _git(d, "merge", "-q", "--no-edit", "cx2~1")
+    _git(d, "remote", "add", "origin", str(root / "o.git"))
+    _git(d, "remote", "add", "upstream", str(root / "u.git"))
+    for branch, remotes in (
+        ("onorigin", ("origin",)),
+        ("onupstream", ("upstream",)),
+        ("inboth", ("origin", "upstream")),
+    ):
+        _git(d, "branch", branch, "main")
+        for remote in remotes:
+            _git(d, "push", "-q", remote, branch)
+        _git(d, "branch", "-D", branch)
+    _git(d, "push", "-q", "-u", "origin", "main")
+    _git(d, "fetch", "-q", "--all")
+    _git(d, "switch", "-q", "side")
+    _git(d, "switch", "-q", "main")
+    return str(d)
+
+
+# The carriers, `spec.md` §*The class*: the words that make a segment read a
+# name. `switch` reads any word as a switch already, so it carries no lookup.
+CARRIERS = {
+    "checkout N": lambda n: ["checkout", n],
+    "checkout N --": lambda n: ["checkout", n, "--"],
+    "checkout --detach N": lambda n: ["checkout", "--detach", n],
+    "checkout --detach N --": lambda n: ["checkout", "--detach", n, "--"],
+}
+
+# Forms git switches or detaches on under every carrier above (M1), and which
+# `a3aa139a`'s lookup read: False is a shape it was silent on.
+MOVES = {
+    "C1 a message search": (":/alpha", False),
+    "C1 a message search for a leading !": (":/!!bang", False),
+    "C1 a negative message search": (":/!-alpha", True),
+    "C1 a branch": ("side", True),
+    "C1 an annotated tag": ("v1", True),
+    "C1 an ancestor": ("main~1", True),
+    "C1 the previous branch": ("@{-1}", True),
+    "C1 an upstream": ("main@{upstream}", True),
+    "C1 a search from a revision": ("main^{/alpha}", True),
+    "C1 another remote's branch, named": ("upstream/onupstream", True),
+    "C2 a merge base": ("main...side", False),
+    "C2 a merge base with HEAD on the left": ("...side", False),
+    "C2 a merge base with HEAD on the right": ("side...", False),
+}
+
+# The guess: git creates the branch and switches under the two carriers with
+# no `--detach`, and refuses under the other two (M1).
+GUESSED = {
+    "C3 a branch only origin holds": ("onorigin", True),
+    "C3 a branch only another remote holds": ("onupstream", False),
+}
+
+# Forms git refuses under every carrier (M1). Each keeps the base's verdict,
+# which is silence.
+REFUSED = {
+    "C1 a message search matching nothing": ":/nomatch-xyz",
+    "C1 a blob": "HEAD:README.md",
+    "C1 a tree": "main^{tree}",
+    "C1 past the reflog": "main@{9999}",
+    "C2 two merge bases": "cx1...cx2",
+    "C2 a side naming nothing": "main...nosuch",
+    "range two dots": "side..main",
+    "range a commit alone": "main^!",
+    "range every parent": "main^@",
+    "C3 a name no remote holds": "nosuch",
+}
+
+
+def _moving_shapes():
+    for form_name, (form, _base) in MOVES.items():
+        for carrier, make in CARRIERS.items():
+            yield f"{form_name}, {carrier}", ["git", *make(form)]
+    for form_name, (form, _base) in GUESSED.items():
+        for carrier in ("checkout N", "checkout N --"):
+            yield f"{form_name}, {carrier}", ["git", *CARRIERS[carrier](form)]
+
+
+MOVING_SHAPES = dict(_moving_shapes())
+
+
+@pytest.mark.parametrize("name", sorted(MOVING_SHAPES))
+def test_every_name_git_moves_the_tree_on_is_read_as_a_switch(a_history, name):
+    """`spec.md` A2. Each of `classify` with its tree, `switch_kind` without
+    one, and candidate C reads the shape, and C finds nothing the frozen
+    reading missed. Red at `a3aa139a` for every message search but the
+    negative one, every merge-base form and the guess from `upstream`: the
+    lookup asked `<name>^{commit}`, which a `:/` search reads as its pattern
+    and `rev-parse --verify` cannot read beside `...`, and it guessed from
+    `origin` alone."""
+    tokens = MOVING_SHAPES[name]
+    assert wg.classify(tokens, a_history) == "switch", name
+    assert wg.switch_kind(wg.parse_git(tokens)) == "switch", name
+    assert wg.wider_only_kinds(shlex.join(tokens), a_history) == set(), name
+
+
+@pytest.mark.parametrize("name", sorted(REFUSED))
+def test_a_name_git_refuses_keeps_the_bases_silence(a_history, name):
+    """`spec.md` A2's other half: a form git refuses under every carrier is
+    not read as a switch, as at `a3aa139a` (M1)."""
+    for carrier, make in CARRIERS.items():
+        tokens = ["git", *make(REFUSED[name])]
+        assert wg.classify(tokens, a_history) is None, (name, carrier)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "(git checkout :/alpha)",
+        "(git checkout main...side)",
+        "(git checkout onupstream)",
+    ],
+)
+def test_a_subshell_checkout_resolves_a_name_git_resolves(a_history, command):
+    """The `)` peel reads through the same lookups: the parenthesis rides on
+    the name, and the name without it is what git resolves. Red at
+    `a3aa139a`."""
+    segments, _ = wg.split_command(command)
+    assert wg.classify(segments[0], a_history) == "switch", command
+
+
+@pytest.mark.parametrize(
+    "tokens",
+    [
+        ["git", "checkout", ":/alpha", "--", "README.md"],
+        ["git", "checkout", "main...side", "--", "README.md"],
+        ["git", "checkout", "onupstream", "--", "README.md"],
+        ["git", "checkout", "--", "README.md"],
+    ],
+)
+def test_a_restore_naming_a_resolvable_name_stays_a_restore(a_history, tokens):
+    """`spec.md` A5. A word after `--` makes the segment a restore before any
+    name is looked up, as at `a3aa139a`."""
+    assert wg.classify(tokens, a_history) is None, tokens
+
+
+def _the_bases_lookup(name, cwd):
+    """`a3aa139a`'s `is_ref`, verbatim: one `<name>^{commit}`."""
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{name}^{{commit}}"],
+            cwd=cwd or None,
+            capture_output=True,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def test_nothing_the_base_read_as_a_switch_goes_quiet(monkeypatch, a_history):
+    """`spec.md` A4. Over every form of the three tables under every carrier,
+    bare and inside a subshell, the build's `classify` reads a switch wherever
+    `a3aa139a`'s did. The base is the build's `classify` with the base's
+    lookup put back and the guess from other remotes taken out, which is all
+    the change touched. It holds by the OR in `spec.md` §*Scope* In 1 and In
+    2; red with resolve-then-peel in place of the base's lookup rather than
+    beside it (`plan.md` C), which turns `checkout ^main` quiet."""
+    forms = [
+        *(form for form, _ in MOVES.values()),
+        *(form for form, _ in GUESSED.values()),
+        *REFUSED.values(),
+        "inboth",
+        "^main",
+    ]
+    shapes = []
+    for form in forms:
+        for make in CARRIERS.values():
+            words = ["git", *make(form)]
+            shapes.append(words)
+            shapes.append(wg.split_command(f"({shlex.join(words)})")[0][0])
+    with monkeypatch.context() as m:
+        m.setattr(wg, "is_ref", _the_bases_lookup)
+        m.setattr(wg, "tracked_in_any_remote", lambda name, cwd: False)
+        base = [wg.classify(tokens, a_history) for tokens in shapes]
+    asked = [tokens for tokens, verdict in zip(shapes, base, strict=True) if verdict]
+    assert len(asked) > len(shapes) // 4, "the base read too few shapes to compare"
+    quieter = [tokens for tokens in asked if not wg.classify(tokens, a_history)]
+    assert not quieter, quieter
+    for form, read in (*MOVES.values(), *GUESSED.values()):
+        assert bool(base[shapes.index(["git", "checkout", form])]) is read, form
+
+
+def test_a_message_search_over_a_dirty_tree_is_asked(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """`spec.md` A3, #790's own shape through `main()`: `git checkout
+    ':/<message>'` detaches at the newest commit whose message matches, so it
+    moves a dirty tree, and the dirty-tree row asks. The same search matching
+    nothing is refused by git and stays silent. Red at `a3aa139a`, where both
+    were silent."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, top = run(
+        monkeypatch, capsys, "cd w && git checkout ':/base'", session
+    )
+    assert decision == "ask", (decision, reason)
+    assert "f.txt" in reason, reason
+    assert top and os.path.samefile(top, session / "w"), top
+    decision, reason, _ = run(
+        monkeypatch, capsys, "cd w && git checkout ':/nomatch-xyz'", session
+    )
+    assert decision == "silent", (decision, reason)
