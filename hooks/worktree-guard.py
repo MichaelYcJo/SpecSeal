@@ -1043,20 +1043,55 @@ def _verified(revision: str, cwd: str):
 
 def _commit_named(name: str, cwd: str):
     """The commit NAME names, or None: `<name>^{commit}` first, as at
-    `a3aa139a`, then NAME resolved alone and peeled by its object name.
+    `a3aa139a`, then NAME resolved alone and peeled by its object name, and
+    last NAME read by git's object lookup alone (`_object_named`) and peeled.
 
     The second step exists because a suffix is not always read as one. A
     message search (`:/<text>`) takes everything after `:/` as its pattern,
     so `:/fix^{commit}` searches for a message holding `^{commit}` and finds
     none, while `git checkout :/fix` detaches at the newest commit whose
     message matches (#790). An object name holds no syntax a suffix could be
-    absorbed into, so it peels whatever named it."""
+    absorbed into, so it peels whatever named it.
+
+    The third exists because `rev-parse` reads a word as a range before it
+    reads it as a name (round 1 of 1791163981, 🟡 1): a message search
+    holding `..` is two revisions to it wherever both halves resolve, and one
+    ending in `^!`, `^@` or `^-<n>` can be a commit and its parents. `git
+    checkout` hands the whole word to the object lookup."""
     found = _verified(f"{name}^{{commit}}", cwd)
     if found is None:
-        named = _verified(name, cwd)
+        named = _verified(name, cwd) or _object_named(name, cwd)
         if named is not None:
             found = _verified(f"{named}^{{commit}}", cwd)
     return found
+
+
+_OBJECT_NAME = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+
+
+def _object_named(name: str, cwd: str):
+    """The object NAME names through git's object lookup alone, or None.
+
+    `git cat-file --batch-check` reads each input line as one object name,
+    with no range or parent shorthand read in front of it, which is how `git
+    checkout` reads its name. A name holding a newline would be two lines,
+    so it is no name here. Where the lookup finds nothing it prints the name
+    and `missing`, which is no object name."""
+    if "\n" in name:
+        return None
+    try:
+        r = subprocess.run(
+            ["git", "cat-file", "--batch-check=%(objectname)"],
+            input=name + "\n",
+            cwd=cwd or None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except Exception:
+        return None
+    word = r.stdout.strip()
+    return word if _OBJECT_NAME.fullmatch(word) else None
 
 
 def _one_merge_base(name: str, cwd: str) -> bool:
@@ -1108,28 +1143,81 @@ def tracked_in_any_remote(name: str, cwd: str) -> bool:
     and no `checkout.defaultRemote` picks one, and under `--detach`; this
     reads neither, so it asks about both, which is the louder direction. A
     name a longer remote branch ends in (`x` beside `origin/feature/x`) is
-    read too, so a remote whose own name holds a `/` is never missed."""
+    read too, so a remote whose own name holds a `/` is never missed.
+
+    Where none ends so, the guess is read the way git makes it: each remote's
+    fetch refspec maps `refs/heads/<name>` to the ref it fetches into
+    (`_fetched_as`), and NAME counts where one of those refs exists. A remote
+    whose branches land outside `refs/remotes/`, or under a renaming glob, is
+    guessed from by git, and was silent here (round 1 of 1791163981, 🟡 2)."""
+    if any(ref.endswith("/" + name) for ref in _refs(["refs/remotes/"], cwd)):
+        return True
+    mapped = _fetched_as(name, cwd)
+    return bool(mapped) and any(ref in mapped for ref in _refs(sorted(mapped), cwd))
+
+
+def _refs(patterns, cwd: str):
+    """The refs `git for-each-ref` lists under PATTERNS in `cwd`. A failed
+    listing prints nothing, so it lists nothing."""
     try:
         r = subprocess.run(
-            ["git", "for-each-ref", "--format=%(refname)", "refs/remotes/"],
+            ["git", "for-each-ref", "--format=%(refname)", *patterns],
             cwd=cwd or None,
             capture_output=True,
             encoding="utf-8",
             errors="replace",
         )
     except Exception:
-        return False
-    # A failed listing prints nothing, so it finds nothing.
-    return any(ref.endswith("/" + name) for ref in r.stdout.splitlines())
+        return []
+    return r.stdout.splitlines()
 
 
-def classify(tokens, cwd: str):
+def _fetched_as(name: str, cwd: str) -> set:
+    """The refs `refs/heads/NAME` is fetched into, through every remote's
+    `remote.<remote>.fetch` refspec, as git's checkout guess maps it: an
+    exact source names its destination, a source with one `*` matches what it
+    stands for and puts it in place of the destination's `*`, and a negative
+    refspec or one with no destination maps nothing."""
+    try:
+        r = subprocess.run(
+            ["git", "config", "--get-regexp", r"^remote\..*\.fetch$"],
+            cwd=cwd or None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except Exception:
+        return set()
+    source = "refs/heads/" + name
+    mapped = set()
+    for line in r.stdout.splitlines():
+        spec = line.partition(" ")[2].strip().lstrip("+")
+        src, colon, dst = spec.partition(":")
+        if not colon or not dst or src.startswith("^"):
+            continue
+        if "*" not in src:
+            if src == source:
+                mapped.add(dst)
+            continue
+        head, _, tail = src.partition("*")
+        middle = source[len(head) : len(source) - len(tail)]
+        if middle and source == head + middle + tail:
+            mapped.add(dst.replace("*", middle, 1))
+    return mapped
+
+
+def classify(tokens, cwd: str, base_only: bool = False):
     """Return a reason string if this segment switches branch or adds a worktree.
 
     Takes one segment's token list from `split_command`. Quoting is settled
     there: a quoted sentence is a single token, so it can never present itself
     here as a command word, and a command the lexer gave up on contributes the
     tokens it did read rather than nothing at all.
+
+    BASE_ONLY looks a `checkout`'s name up with `a3aa139a`'s lookups alone,
+    `<name>^{commit}` and `origin/<name>^{commit}`, which is how `main` tells
+    a switch the base read from one only #790's lookups read (round 1 of
+    1791163981, 🟡 3). Every other word is read the same either way.
     """
     parsed = parse_git(tokens)
     if not parsed:
@@ -1183,9 +1271,13 @@ def classify(tokens, cwd: str):
         # merge-base shorthand, or a branch guessed from a remote. The
         # `origin/` lookup is the base's guess, kept beside the wider one so a
         # name it found is still found by the same call.
-        if is_ref(first, cwd):
+        if base_only:
+            looks_up, guesses = _the_bases_lookup, _no_guess
+        else:
+            looks_up, guesses = is_ref, tracked_in_any_remote
+        if looks_up(first, cwd):
             return "switch"
-        if is_ref(f"origin/{first}", cwd) or tracked_in_any_remote(first, cwd):
+        if looks_up(f"origin/{first}", cwd) or guesses(first, cwd):
             return "switch"  # DWIM checkout of a remote-only branch
         # `(git checkout topic)` puts the closing parenthesis on the BRANCH
         # NAME, so the lookups above ask about `topic)` and find nothing.
@@ -1199,14 +1291,26 @@ def classify(tokens, cwd: str):
         while bare.endswith(")"):
             bare = bare[:-1]
             if (
-                is_ref(bare, cwd)
-                or is_ref(f"origin/{bare}", cwd)
-                or tracked_in_any_remote(bare, cwd)
+                looks_up(bare, cwd)
+                or looks_up(f"origin/{bare}", cwd)
+                or guesses(bare, cwd)
             ):
                 return "switch"
         return None
 
     return None
+
+
+def _the_bases_lookup(name: str, cwd: str) -> bool:
+    """`a3aa139a`'s `is_ref`: the one `<name>^{commit}` call, which is also
+    the first step of `_commit_named`."""
+    return _verified(f"{name}^{{commit}}", cwd) is not None
+
+
+def _no_guess(name: str, cwd: str) -> bool:
+    """`a3aa139a` guessed from `origin/<name>` alone, which `classify` asks
+    through its lookup; it read no other remote."""
+    return False
 
 
 def ancestors(pid: int):
@@ -2660,9 +2764,16 @@ def main():
     # Only the first of each kind, which is what the writer records for a
     # creation. A switch in a second tree or a creation in a second clone is
     # still judged on the first (#630).
+    #
+    # A switch the base's lookups read keeps the first slot, and one only
+    # #790's lookups read (`classify`'s `base_only`) takes it only where the
+    # base read no switch in the whole command: `a3aa139a` judged the tree of
+    # the switch it read, and a newly read `checkout` in front must not move
+    # the verdict to another tree (round 1 of 1791163981, 🟡 3).
     switch_reason = None
     switch_at = cwd
     creation_at = None
+    newly_read = None
     for tokens, wheres in walk_command(command, cwd):
         creates = cmdline.adds_a_worktree(tokens)
         # Nothing left to learn from a segment of a kind already found.
@@ -2674,7 +2785,12 @@ def main():
             continue
         for where in wheres:
             here, target = judgeable(tokens, where, cwd)
-            found = classify(tokens, here)
+            found = classify(tokens, here, base_only=True)
+            if not found and not creates:
+                found = classify(tokens, here)
+                if found and newly_read is None:
+                    newly_read = (found, target)
+                continue
             if not found:
                 continue
             if creates:
@@ -2684,6 +2800,9 @@ def main():
             break
         if switch_reason is not None and creation_at is not None:
             break
+    past_the_base = switch_reason is None and newly_read is not None
+    if past_the_base:
+        switch_reason, switch_at = newly_read
     reason = switch_reason or ("worktree-add" if creation_at is not None else None)
 
     # #678's guard half, wired because it fired on none of the recorded runs
@@ -2694,9 +2813,14 @@ def main():
     # the frozen findings keep their slots and their verdicts. The kinds the
     # loop judged are handed over, because `classify` judges fewer than
     # `switch_kind` reads from the same words: a `git checkout README.md` in
-    # front must not take a hidden switch's kind out (round 1, yellow 3).
+    # front must not take a hidden switch's kind out (round 1, yellow 3). A
+    # switch only #790's lookups read is not handed over either: the base read
+    # no switch there, so C's question stays where the base asked it (round 1
+    # of 1791163981, 🟡 3).
     def quiet():
-        judged = {"switch"} if switch_reason is not None else set()
+        judged = (
+            {"switch"} if switch_reason is not None and not past_the_base else set()
+        )
         if creation_at is not None:
             judged.add("creation")
         hidden = wider_only_kinds(command, cwd, judged)

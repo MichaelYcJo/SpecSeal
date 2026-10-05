@@ -608,15 +608,20 @@ The second, since #790 on the owner's placement of it in the milestone of the
 release that ships it, on 2026-10-05: a `checkout`'s name is looked up the way
 `git checkout` resolves it. The name is a branch to switch to where it names a
 commit once resolved and peeled, as every single-revision form does, a message
-search (`git checkout ':/fix typo'`) included; where it is `<a>...<b>` with
-exactly one merge base, a side left empty meaning `HEAD`; and where a
-remote-tracking branch of any remote ends in it, which is git's guess. The
-base's lookup is still asked first, so no name it read as a branch goes quiet.
-The guess reads every remote on the default of `questions.md` P1 in work item
-1791163981, taken under the owner's `automation` routing. Which segments are
-git, the `-C` values each names and where every `cd` lands stay the base's,
-and `hooks/cmdline_base.py` is unchanged. This guard and the consent writer
-read it through `hooks/cmdline_base.py`, which is that commit's
+search (`git checkout ':/fix typo'`) included, and where `rev-parse` reads the
+word as a range git's object lookup reads it whole, as `git checkout` does;
+where it is `<a>...<b>` with exactly one merge base, a side left empty meaning
+`HEAD`; and where a remote-tracking branch of any remote ends in it, or a
+remote's fetch refspec maps `refs/heads/<name>` to a ref that exists, which is
+git's guess. The base's lookup is still asked first, so no name it read as a
+branch goes quiet. A `checkout` only these lookups read as a switch takes the
+place of no switch the base read in the same command, and it takes no question
+away from candidate C below: it is judged only where the base read no switch
+at all. The guess reads every remote on the default of `questions.md` P1 in
+work item 1791163981, taken under the owner's `automation` routing. Which
+segments are git, the `-C` values each names and where every `cd` lands stay
+the base's, and `hooks/cmdline_base.py` is unchanged. This guard and the
+consent writer read it through `hooks/cmdline_base.py`, which is that commit's
 `hooks/cmdline.py` copied byte for byte. Neither chooses a segment or a tree
 through `hooks/cmdline.py`; the guard asks that module one question about a
 command's kinds, below, and its answer never names a tree. Since #780 the
@@ -779,11 +784,12 @@ at one prompt against a wrong allow breaking another session's tree.
   although it would not run: `^<rev>`, read as one since before #790; and a
   guessed name under `--detach`, held by two remotes, or ending a longer
   remote branch's name (`x` beside `origin/feature/x`), where git takes no
-  guess or refuses an ambiguous one. The guard reads no `checkout.guess`,
+  guess or refuses an ambiguous one. The guard reads each remote's fetch
+  refspec, as git's guess does, but no `checkout.guess`,
   `checkout.defaultRemote` or `--no-guess`, so it guesses where git would not,
-  never the other way. A revision syntax a later git adds that `git rev-parse
-  --verify` cannot read, as it cannot read `<a>...<b>`, reads as no branch
-  until the guard learns it. Measured with git 2.54.0 (work item 1791163981,
+  never the other way. A revision syntax a later git adds that neither `git
+  rev-parse --verify` nor git's object lookup reads as one name, as neither
+  reads `<a>...<b>`, reads as no branch until the guard learns it. Measured with git 2.54.0 (work item 1791163981,
   `phases/phase-1.md`); `test_nothing_the_base_read_as_a_switch_goes_quiet`
   in `tests/test_guard_resolves_the_tree_it_judges.py` pins the direction.
 - On Windows the count of other sessions is always unusable. It walks the

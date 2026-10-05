@@ -1293,7 +1293,8 @@ def test_the_guard_policy_says_what_it_reads_past_the_base():
     and #790 (work item 1791163981): the paragraph that says the command is
     read as `86256492` read it names the two rules now read past it, on whose
     act and when, and what stays the base's. Red against the paragraph as it
-    stood at `94d7b2e0`, and its #790 sentences against `a3aa139a`'s."""
+    stood at `94d7b2e0`, and its #790 sentences against `a3aa139a`'s; the
+    round 1 sentences of 1791163981 against `85e77dc8`'s."""
     text = _policy_text()
     assert (
         "Two rules are read past the base. The first, since #764 and #738 on "
@@ -1308,15 +1309,27 @@ def test_the_guard_policy_says_what_it_reads_past_the_base():
         "way `git checkout` resolves it. The name is a branch to switch to "
         "where it names a commit once resolved and peeled, as every "
         "single-revision form does, a message search (`git checkout ':/fix "
-        "typo'`) included; where it is `<a>...<b>` with exactly one merge "
-        "base, a side left empty meaning `HEAD`; and where a remote-tracking "
-        "branch of any remote ends in it, which is git's guess. The base's "
-        "lookup is still asked first, so no name it read as a branch goes "
-        "quiet."
+        "typo'`) included, and where `rev-parse` reads the word as a range "
+        "git's object lookup reads it whole, as `git checkout` does; where it "
+        "is `<a>...<b>` with exactly one merge base, a side left empty meaning "
+        "`HEAD`; and where a remote-tracking branch of any remote ends in it, "
+        "or a remote's fetch refspec maps `refs/heads/<name>` to a ref that "
+        "exists, which is git's guess. The base's lookup is still asked first, "
+        "so no name it read as a branch goes quiet. A `checkout` only these "
+        "lookups read as a switch takes the place of no switch the base read "
+        "in the same command, and it takes no question away from candidate C "
+        "below: it is judged only where the base read no switch at all."
     ) in text
     assert (
         "a few names git refuses are still read as a branch, so the command is "
         "asked although it would not run"
+    ) in text
+    # Round 1 of 1791163981, 🟡 2: the guess reads the fetch refspecs, so the
+    # sentence that it never guesses less than git is true.
+    assert (
+        "The guard reads each remote's fetch refspec, as git's guess does, but "
+        "no `checkout.guess`, `checkout.defaultRemote` or `--no-guess`, so it "
+        "guesses where git would not, never the other way."
     ) in text
     assert (
         "Which segments are git, the `-C` values each names and where every "
@@ -2363,3 +2376,131 @@ def test_the_guard_policy_and_readmes_say_a_body_token_is_not_read():
     assert (
         "명령의 낱말로 있을 때만 세고, here-document 본문에 적힌 것은 세지 않는다."
     ) in readme_ko
+
+
+# --- round 1 of 1791163981: nothing the base asked goes quiet through `main()` ---
+#
+# `classify` reads more names as a switch since #790, and `main` judges only
+# the first switch of a command and hands candidate C the kinds it judged. So
+# a newly read `checkout` in front must neither take the slot of the switch
+# the base judged nor take C's question away (🟡 3).
+
+
+def _a_dirty_clone_beside(repo, tmp_path):
+    other = tmp_path / "other"
+    shutil.copytree(repo, other)
+    (other / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
+    return other
+
+
+@pytest.mark.parametrize(
+    "behind",
+    [
+        "git -C {other} switch feature/x",
+        "2>/dev/null git -C {other} switch feature/x",
+    ],
+    ids=["a switch the frozen reading reads", "a switch only candidate C reads"],
+)
+@pytest.mark.parametrize("front", ["git checkout ':/base'", "git checkout ':/nomatch'"])
+def test_a_newly_read_checkout_in_front_takes_no_question_away(
+    monkeypatch, capsys, repo, tmp_path, front, behind
+):
+    """Round 1 of 1791163981, 🟡 3. A `checkout` that is a switch only through
+    #790's lookups, in a clean single-session tree, stands in front of a
+    switch in a second, dirty tree. `a3aa139a` read no switch in front, so it
+    judged the second tree's switch, or C asked about it; the guard still
+    asks. Red at `85e77dc8`, where the checkout took the slot and C's
+    question and the command went through silently."""
+    other = _a_dirty_clone_beside(repo, tmp_path)
+    command = f"{front} && {behind.format(other=other)}"
+    decision, reason, _ = run(monkeypatch, capsys, command, repo)
+    assert decision == "ask", (command, decision, reason)
+
+
+def _a_repository(d):
+    subprocess.run(["git", "init", "-q", str(d)], check=True, capture_output=True)
+    _git(d, "symbolic-ref", "HEAD", "refs/heads/main")
+    _git(d, "config", "user.email", "t@t")
+    _git(d, "config", "user.name", "t")
+
+
+def _where_git_checkout_lands(d, name):
+    """The commit `git checkout NAME` detaches or switches to in a copy of D,
+    or None where git refuses it."""
+    copy = d.parent / (d.name + "-copy")
+    shutil.rmtree(copy, ignore_errors=True)
+    shutil.copytree(d, copy)
+    r = subprocess.run(
+        ["git", "-C", str(copy), "checkout", "-q", name], capture_output=True
+    )
+    landed = (
+        _git(copy, "rev-parse", "HEAD").stdout.strip() if not r.returncode else None
+    )
+    shutil.rmtree(copy)
+    return landed
+
+
+@pytest.mark.parametrize("search", [":/v1..v2", ":/notes.*v1..v2"])
+def test_a_message_search_holding_two_dots_is_read_as_a_switch(tmp_path, search):
+    """Round 1 of 1791163981, 🟡 1. `git rev-parse` reads `..` as a range
+    before it reads a name, so a message search holding it, both halves
+    resolving, was two revisions to both of `_commit_named`'s calls while
+    `git checkout` detached on it. Red at `85e77dc8`."""
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "a.txt", "notes for v1..v2")
+    _git(d, "tag", "v1")
+    _commit(d, "b.txt", "second")
+    _git(d, "tag", "v2")
+    assert _where_git_checkout_lands(d, search), search
+    for carrier, make in CARRIERS.items():
+        tokens = ["git", *make(search)]
+        assert wg.classify(tokens, str(d)) == "switch", (search, carrier)
+
+
+@pytest.mark.parametrize("name", [":/v1..v2", ":/minus|^!", ":/minus|^@", ":/bang|^-1"])
+def test_the_object_lookup_reads_a_word_rev_parse_reads_as_a_range(tmp_path, name):
+    """Round 1 of 1791163981, 🟡 1: `git rev-parse` reads `..` and, where the
+    regex library accepts an empty alternative, the parent shorthands `^!`,
+    `^@` and `^-<n>` before it reads a name. `_object_named` hands the word to
+    git's object lookup as `git checkout` does, so it finds the commit git
+    lands on whichever way `rev-parse` reads it."""
+    d = tmp_path / "r"
+    _a_repository(d)
+    for path, message in (("a", "notes for v1..v2"), ("b", "-1 minus"), ("c", "!x")):
+        _commit(d, path, message)
+        _git(d, "tag", "v1" if path == "a" else f"t{path}")
+    _git(d, "tag", "v2")
+    landed = _where_git_checkout_lands(d, name)
+    assert landed, name
+    assert wg._object_named(name, str(d)) == landed, name
+
+
+@pytest.mark.parametrize(
+    "fetch",
+    ["+refs/heads/*:refs/fork/*", "+refs/heads/*:refs/remotes/fork/x-*"],
+    ids=["outside refs/remotes", "a partial glob"],
+)
+def test_a_guess_through_any_fetch_refspec_is_read_as_a_switch(tmp_path, fetch):
+    """Round 1 of 1791163981, 🟡 2. git's guess maps `refs/heads/<name>`
+    through each remote's fetch refspec, so a remote whose branches land
+    outside `refs/remotes/`, or under a renaming glob, is guessed from by git
+    and was not by the guard. Red at `85e77dc8`."""
+    subprocess.run(
+        ["git", "init", "-q", "--bare", str(tmp_path / "f.git")],
+        check=True,
+        capture_output=True,
+    )
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "README.md", "initial commit")
+    _git(d, "remote", "add", "fork", str(tmp_path / "f.git"))
+    _git(d, "config", "--replace-all", "remote.fork.fetch", fetch)
+    _git(d, "branch", "onfork")
+    _git(d, "push", "-q", "fork", "onfork")
+    _git(d, "branch", "-D", "onfork")
+    _git(d, "fetch", "-q", "fork")
+    assert _where_git_checkout_lands(d, "onfork"), fetch
+    for carrier in ("checkout N", "checkout N --"):
+        tokens = ["git", *CARRIERS[carrier]("onfork")]
+        assert wg.classify(tokens, str(d)) == "switch", (fetch, carrier)
