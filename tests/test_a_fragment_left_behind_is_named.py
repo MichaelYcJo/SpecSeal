@@ -430,6 +430,91 @@ def test_an_own_commit_after_the_merge_is_named_alone(repo, monkeypatch, capsys)
     assert sibling[:7] not in line, line
 
 
+def ci_merge_ref(repo):
+    """What `actions/checkout` gives a `pull_request` run with no `ref:`: the
+    pull request's head merged into the base, the base as the FIRST parent,
+    on a detached HEAD."""
+    head = git(repo, "rev-parse", "feature").stdout.strip()
+    git(repo, "switch", "-q", "--detach", "base")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "merge",
+        "-q",
+        "--no-ff",
+        "-m",
+        "Merge the pull request's head into the base",
+        head,
+    )
+
+
+@pytest.mark.parametrize("sibling_landed", [True, False])
+def test_the_ci_merge_ref_names_the_items_commit_and_not_the_siblings(
+    repo, monkeypatch, capsys, sibling_landed
+):
+    """Round 1's 🔴 1. From CI's merge ref the first-parent walk is the
+    base's: it read a sibling's squash as *after the last round* and never
+    reached the item's own fix. The walk starts at the parent that descends
+    from round 1's target, so CI names what a branch checkout names."""
+    target = built(repo)
+    start = open_round(repo, 1, target)
+    fix = change(repo, "hooks/x.py", message="fix")
+    close_round(repo, 1, target, start, fix)
+    sibling = None
+    if sibling_landed:
+        git(repo, "switch", "-q", "base")
+        sibling = change(repo, "hooks/sibling.py", message="a sibling's squash")
+        git(repo, "switch", "-q", "feature")
+    ci_merge_ref(repo)
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    line = notice(out)
+    assert line is not None, f"the merge ref hid the item's own fix:\n{out}"
+    assert f"`{fix[:7]}` (round 1's fix range" in line, line
+    assert "after the last round" not in line, line
+    if sibling is not None:
+        assert sibling[:7] not in line, line
+
+
+def test_an_honest_fragment_on_the_ci_merge_ref_is_not_named(repo, monkeypatch, capsys):
+    """Round 1's 🔴 1, the other direction: an item that brought its fragment
+    along was told a sibling's squash had left it behind."""
+    target = built(repo)
+    start = open_round(repo, 1, target)
+    fix = change(repo, "hooks/x.py", FRAGMENT, message="fix")
+    close_round(repo, 1, target, start, fix)
+    git(repo, "switch", "-q", "base")
+    change(repo, "hooks/sibling.py", message="a sibling's squash")
+    git(repo, "switch", "-q", "feature")
+    ci_merge_ref(repo)
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    assert notice(out) is None, out
+
+
+@pytest.mark.parametrize("destination", ["tests/x.py", "seal/x.py"])
+def test_a_behaviour_file_moved_out_of_what_ships_is_named(
+    repo, monkeypatch, capsys, destination
+):
+    """Round 1's 🟡 2. With rename detection a move is listed by its
+    destination alone, so a hook moved under `tests/` or `seal/` left what
+    ships and was never named — and whether a move was detected followed the
+    reader's own `diff.renames`."""
+    target = built(repo)
+    open_round(repo, 1, target)
+    (repo / destination).parent.mkdir(parents=True, exist_ok=True)
+    git(repo, "mv", "hooks/x.py", destination)
+    moved = commit(repo, "move the hook out of what ships")
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    line = notice(out)
+    assert line is not None, out
+    assert moved[:7] in line and "hooks/x.py" in line, line
+
+
 # --- S7: the silent states ---------------------------------------------------
 
 

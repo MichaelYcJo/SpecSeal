@@ -4173,18 +4173,53 @@ def last_round_end(reader, root, rel):
     return resolves_to(root, shas[-1]) if shas else None
 
 
-def commits_after(root, target):
+def walk_tip(root, target):
+    """The commit the walk starts from: HEAD, or the pull request's own head
+    where HEAD is the merge a `pull_request` checkout makes of it.
+
+    `actions/checkout` with no `ref:` checks a pull request out as its head
+    already merged into the base, and that merge's FIRST parent is the base.
+    A first-parent walk from it reads the base's commits since the fork -- a
+    sibling's squash, named as *after the last round* -- and never the work
+    item's own, which sit behind the second parent (#797 round 1). So where
+    HEAD is a merge whose first parent does not descend from round 1's
+    target, the parent that does is the branch, and the walk starts there.
+
+    A merge whose first parent DOES descend from the target is the branch's
+    own integration of its base, and HEAD stays the tip: the merge itself is
+    skipped and the sibling's commits stay off the first-parent walk.
+    """
+    line = git(root, "rev-list", "--parents", "-n", "1", "HEAD") or ""
+    parents = line.split()[1:]
+    if len(parents) > 1 and not is_ancestor(root, target, parents[0]):
+        for parent in parents[1:]:
+            if is_ancestor(root, target, parent):
+                return parent
+    return "HEAD"
+
+
+def commits_after(root, target, tip="HEAD"):
     """[(full, short, paths)], oldest first: the first-parent, non-merge
-    commits in `<target>..HEAD` and the paths each changed, or None."""
+    commits in `<target>..<tip>` and the paths each changed, or None.
+
+    `--no-renames`, because with rename detection `--name-only` lists a move
+    by its destination alone: a behaviour file moved under `tests/` or
+    `seal/` listed only the path `behaviour_path` rejects, and was never
+    named (#797 round 1). Detection also follows the reader's own
+    `diff.renames`, so a local run and CI listed different paths for one
+    commit. Without it both sides are listed on every machine, and a fragment
+    moved into place is still touched, since the added side is its path.
+    """
     out = git(
         root,
         "log",
         "--first-parent",
         "--no-merges",
+        "--no-renames",
         "--name-only",
         "-z",
         "--format=%x01%H %h",
-        f"{target}..HEAD",
+        f"{target}..{tip}",
     )
     if out is None:
         return None
@@ -4210,7 +4245,8 @@ def fragment_left_behind(reader, routing, root, item, records):
 
     ONE question per work item. Round 1's `Target SHA` is where the build
     ended, so the walk is the first-parent, non-merge commits from it to
-    HEAD, and the build's own commits are never read. The fragment's last
+    the branch's tip (`walk_tip`: HEAD, or the pull request's head inside
+    CI's merge ref), and the build's own commits are never read. The fragment's last
     change in that walk is the line: every commit after it that changed a
     behaviour path (`behaviour_path`) is named, with the round whose `Fix
     range` holds it, *after the last round* past the last record's end, or
@@ -4256,7 +4292,8 @@ def fragment_left_behind(reader, routing, root, item, records):
         return [], []
     if CHANGELOG_FRAGMENT not in tracked_files(root, item):
         return [], []
-    commits = commits_after(root, target) or []
+    tip = walk_tip(root, target)
+    commits = commits_after(root, target, tip) or []
     fragment = f"{item}/{CHANGELOG_FRAGMENT}"
     touched = [i for i, (_f, _s, paths) in enumerate(commits) if fragment in paths]
     since = touched[-1] + 1 if touched else 0
@@ -4276,7 +4313,9 @@ def fragment_left_behind(reader, routing, root, item, records):
             number = routing.round_number(os.path.basename(rel))
             held.append((number, set(inside.split())))
     end = last_round_end(reader, root, records[-1])
-    after = set((git(root, "rev-list", f"{end}..HEAD") or "").split()) if end else set()
+    after = (
+        set((git(root, "rev-list", f"{end}..{tip}") or "").split()) if end else set()
+    )
 
     named = []
     for full, short, behaviour in late:
