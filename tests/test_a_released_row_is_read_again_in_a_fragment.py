@@ -3547,10 +3547,16 @@ def test_a_family_no_remedy_clears_is_named_without_one(repo):
         ),
         (
             "docs/the-evidence-ledger.md",
-            "Where the run left the coordinate itself, its claim quoting text the "
-            "run rewrote or its row left whole for want of a date cell, the line "
-            "says so and points at the line naming why, and a run over every "
-            "ledger names such a family too.",
+            "Where the run left the coordinate itself, on a `left` line or by "
+            "leaving its row whole for want of a date cell, the line says so and "
+            "points at the line naming why, and a run over every ledger names "
+            "such a family too.",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "A `left` line names why: a path outside the repository or any known "
+            "checkout, a file the run could not read, no one place holding the "
+            "unit, or a quoted statement its file no longer has.",
         ),
         ("docs/the-evidence-ledger.md", "Where neither is found it names no remedy."),
         (
@@ -3565,6 +3571,7 @@ def test_a_family_no_remedy_clears_is_named_without_one(repo):
         "the home: per coordinate",
         "the home: --ledger only outside",
         "the home: left by the run",
+        "the home: every left reason",
         "the home: neither",
         "reverify's docstring: the fold",
     ],
