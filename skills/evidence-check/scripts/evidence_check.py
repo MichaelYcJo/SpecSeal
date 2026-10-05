@@ -3228,11 +3228,12 @@ def plan_ledger(ledger, verdicts, checked, root):
         kept.extend(spliced)
     # A held coordinate no one place holds, on a row the run dates: the date
     # makes that row its newest reading, so it takes the verdict any other
-    # coordinate takes (round 1, yellow 1): OK records nothing (round 2), one
-    # provable destination re-points it (#808), and anything else is left in
-    # the check's words and handed to MOVES.
+    # coordinate takes (round 1, yellow 1). One the check reads OK has its
+    # hash and is never here (round 2); one provable destination re-points it
+    # (#808), and anything else is left in the check's words and handed to
+    # MOVES.
     for spot, verdict in unplaced:
-        if spot.number not in joined or verdict.status == "OK":
+        if spot.number not in joined:
             continue
         if verdict.dest is not None:
             edit = repointed(spot, verdict.dest, text)

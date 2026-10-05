@@ -3985,6 +3985,37 @@ def test_a_row_that_never_settles_is_named_and_left_at_its_hash(repo):
     assert f" — {coord} does not settle" in named[0], named
 
 
+def test_a_row_naming_one_that_never_settles_is_restamped(repo):
+    """S6's other side. X quotes its own line and also carries `handler`, so
+    the run moves X's line once, by that hash and its date, and Y names X's
+    line. Only X's own quotation is on a cycle: it is left and named, and
+    Y, downstream of it, is re-stamped against the line the run writes and
+    named nowhere. Red with every coordinate still moving at the bound left,
+    cycle or not (`on_a_cycle` answering nothing)."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    x_coord = f'{R_FILE}#"{SECTION}">{SELF}'
+    x = (
+        f"| X · quotes itself | `src/service.py#handler@{h}`, `{x_coord}@0000beef` "
+        "| read | 2026-01-01 | |"
+    )
+    # A literal opening with the row's leading pipe names the line that
+    # begins with it, never Y's own copy of the literal.
+    y_coord = f'{R_FILE}#"{SECTION}">"\\| X · quotes"'
+    released(
+        repo,
+        [x, f"| Y · names X | `{y_coord}@{line_hash(x)}` | read | 2026-01-01 | |"],
+    )
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    lines = (repo / R_FILE).read_text(encoding="utf-8").splitlines()
+    assert f"`{x_coord}@0000beef`" in lines[4], lines
+    assert f"`{y_coord}@{line_hash(lines[4])}`" in lines[5], (lines, fix.stdout)
+    named = [line for line in fix.stdout.splitlines() if "does not settle" in line]
+    assert len(named) == 1 and x_coord in named[0], fix.stdout
+    assert y_coord not in "\n".join(named), fix.stdout
+
+
 def six_files(repo):
     """The tree of the walk-order case #824 removed: a release file citing a
     row of itself, two release files citing each other, a release file no
