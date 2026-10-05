@@ -506,9 +506,9 @@ about to run it a second time after the change.
   `Broad gate` row wrote the report the gate asked pytest for there, the
   file's run alone ended without naming a failing test, or the base fails
   the file but the row's runner collected tests beyond it, the row ran
-  pytest more than once when the gate asked it only to collect, or the
-  failing files run together at the base failed fewer tests than they fail
-  one by one. It is a
+  pytest more than once when the gate asked it only to collect, or several
+  failing files of one run failed at the base, and a file's run alone is not
+  the row's run. It is a
   question about the file, not a finding either way; open the kept
   `suite-at-base-*.txt` files and the `collected-at-base-*.txt` ones, and run
   the file at the base by hand before calling it either of the two above.

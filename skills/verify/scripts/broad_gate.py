@@ -1873,6 +1873,17 @@ NOTHING_COLLECTED_EXITS = (4, 5)
 # distribute a collection-only run, so its controller lists once, and a
 # runner inside `sh -c` inherits the variable.
 COLLECT_ONLY = " --collect-only -o verbosity_test_cases=-2 -vv"
+# What the proof pass hands the measuring runner itself, after the inserted
+# file (#789 round 2). Its own command line outranks `PYTEST_ADDOPTS`, so that
+# one runner lists a `<path>::<test>` node id per test it collected, which no
+# other runner of the row prints: they list `<path>: <count>` from the
+# variable. So the session the proof reads can be shown to be the measuring
+# runner's. Measured against a pytest 8.1 release, a pytest 8.3 release and
+# 9.1.1, plain and under pytest-xdist 3.8.0's `-n 2`: the node ids are
+# printed, a parametrized id holding a blank or `::` included, and a runner
+# whose output went to a file leaves the next runner's `<path>: <count>`
+# session and no node id.
+OWN_LISTING = " -o verbosity_test_cases=-1"
 # The trailer pytest 9.1.1 writes at the end of a collection-only run
 # (`_pytest/terminal.py`'s `_build_collect_only_summary_stats_line`, read):
 # `no tests collected`, `1 test collected`, `2 tests collected`, `1/2 tests
@@ -1892,6 +1903,9 @@ COLLECTED_RE = re.compile(
 # (`_printcollecteditems`, read): the file's node id from pytest's rootdir
 # and how many of its tests were selected.
 LISTED_RE = re.compile(r"^(\S.*?): (\d+)[ ]*$", re.M)
+# One line per collected test under `verbosity_test_cases=-1`: its node id,
+# the file's path from pytest's rootdir up to the first `::`.
+NODE_RE = re.compile(r"^(\S.*?)::\S.*$", re.M)
 # pytest's short-summary line for a file it could not collect, `ERROR
 # tests/x.py` (measured, under the proof pass's `-vv`), and any other line
 # that begins with the word, a usage error's `ERROR: …` included. The proof
@@ -1929,17 +1943,20 @@ MULTI_RUNNER = (
     "collected-at-base-{n}.txt), so the gate cannot tell which runner the "
     "failure is from. A row earns the measured word by running pytest once"
 )
-# Formatted with the number of the file's run alone (#789 round 1). A file of
-# a group of several that the base fails alone, where the group's own run at
-# the base failed fewer tests than its files fail one by one: some file fails
-# alone and not beside the others -- a module a sibling puts on `sys.path`,
-# state a sibling sets at import, a session fixture's error pytest gives the
-# last test of each session -- and no count says which.
+# Formatted with the number of the file's run alone (#789 round 1, round 2).
+# A file of a group of several failing files: the files ran together at the
+# base in one run, that run failed, and each then ran alone. A file's run
+# alone is not the row's run -- a module a sibling puts on `sys.path`, state a
+# sibling sets at import, a session fixture's error on each session's last
+# test, a flaky test -- and nothing that run gives says which file failed in
+# it, so such a file never earns `failing on base too` (the owner's decision
+# of 2026-10-05).
 COMPANY = (
-    f"{NOT_MEASURED}: the base fails this file run alone, but the run of the "
-    "failing files together at the base failed fewer tests than they fail one "
-    "by one (kept as suite-at-base-<k>.txt and suite-at-base-<k>-{n}.txt), so "
-    "the failure alone may not be the base's failure in the row"
+    f"{NOT_MEASURED}: the base fails this file run alone, but it is one of "
+    "several failing files whose run together at the base failed, and a "
+    "file's run alone is not the row's run (kept as suite-at-base-<k>.txt and "
+    "suite-at-base-<k>-{n}.txt), so the failure alone may not be the base's "
+    "failure in the row"
 )
 # pytest's outcome line for a session that RAN tests, bare under `-q` or
 # between `=` rules: `1 passed in 0.01s`, `1 failed, 2 passed in 0.12s`,
@@ -2017,15 +2034,19 @@ def proof_refused(text, path):
         runner the failure came from. So is an outcome line: under the
         proof no runner that read `PYTEST_ADDOPTS` runs a test, so it is a
         runner without the gate's environment (#789 round 1);
-      - **only `path` listed**: every `<path>: <count>` line names `path`,
-        and their counts add up to the number the trailer says was
-        collected, the selected count where some were deselected;
+      - **the measuring runner's session**: no `<path>: <count>` line, which
+        only a runner that took its listing from the variable prints, so the
+        one session seen is the one handed `OWN_LISTING` (#789 round 2);
+        otherwise `MULTI_RUNNER`;
+      - **only `path` listed**: every `<path>::<test>` node id names `path`,
+        and there are as many as the trailer says were collected, the
+        selected count where some were deselected;
       - **only `path` in error**: the trailer counts no error, or one, and
         every line beginning `ERROR` is `ERROR <path>` or `ERROR <path> - …`,
         with one present where the trailer counts one.
 
-    The second and third are `COLLECTED_BEYOND`. A listing line is a node
-    id from pytest's rootdir, and `path` is the name the branch's `FAILED`
+    The third and fourth are `COLLECTED_BEYOND`. A node id is read
+    from pytest's rootdir, and `path` is the name the branch's `FAILED`
     line gave it, from the directory its runner ran in; where the two
     directories differ the file's own line names it otherwise and the proof
     fails, which costs the word and never fakes it.
@@ -2036,10 +2057,10 @@ def proof_refused(text, path):
         return MULTI_RUNNER
     alone, selected, errors = trailers[0].groups()
     collected = int(alone or selected or 0)
-    listed = LISTED_RE.findall(plain)
-    if any(name != path for name, _ in listed):
-        return COLLECTED_BEYOND
-    if sum(int(count) for _, count in listed) != collected:
+    if any("::" not in name for name, _ in LISTED_RE.findall(plain)):
+        return MULTI_RUNNER
+    ids = NODE_RE.findall(plain)
+    if any(name != path for name in ids) or len(ids) != collected:
         return COLLECTED_BEYOND
     named = [rest.rstrip() for rest in ERROR_LINE_RE.findall(plain)]
     if any(rest != f" {path}" and not rest.startswith(f" {path} - ") for rest in named):
@@ -2189,15 +2210,21 @@ def compare_at_base(root, base, command, files, keep):
         runs it, has no test in that file — gives `new`;
       - a report with tests and none failing gives `new` on exit 0;
       - either of those with any other exit gives `NOT_ENDED`;
-      - a report with a failing or erroring test goes to the proof pass.
+      - a report with a failing or erroring test goes to the proof pass,
+        where the file ran alone from the start, and reads `COMPANY` where
+        it is a file of a group of several (below).
 
     **The proof pass.** The whole row runs once more at the base, the file
     inserted after the prefix that measured it and the rest of the row as
-    written, with `COLLECT_ONLY` added to `PYTEST_ADDOPTS`. Under collection
-    alone no test runs, so no inner run exists to print anything, and a
-    runner the row starts later inherits the variable. `proof_refused`
-    reads that output: one pytest session, listing the file and nothing
-    else, gives `failing on base too`; anything else is `MULTI_RUNNER` or
+    written, with `COLLECT_ONLY` added to `PYTEST_ADDOPTS` and `OWN_LISTING`
+    handed to the measuring runner after the file. Under collection alone
+    no test runs, so no inner run exists to print anything, and a runner the
+    row starts later inherits the variable. `proof_refused` reads that
+    output: one pytest session, the measuring runner's by its node ids,
+    listing the file and nothing else, gives `failing on base too`; a
+    session listed by file is another runner's, the measuring one having
+    printed nothing the gate sees (its output went to a file), and reads
+    `MULTI_RUNNER` (#789 round 2); anything else is `MULTI_RUNNER` or
     `COLLECTED_BEYOND`. An outcome line of a session that ran tests is
     `MULTI_RUNNER` too: no runner that read the variable runs a test, so it
     is a runner without the gate's environment, before the measuring one or
@@ -2207,15 +2234,16 @@ def compare_at_base(root, base, command, files, keep):
     runner runs in it as written, including a part the branch's own run
     never reached.
 
-    **The row's own context has to agree** (#789 round 1). A file of a group
-    that went file by file was measured without the others, and the branch
-    ran it beside them. Where the group's own run at the base failed fewer
-    tests than its files fail one by one, some failure alone is not the
-    base's failure in the row -- a sibling put a module on `sys.path`, set
-    state at import, or a session fixture's error landed on each session's
-    last test -- and no count says whose. Every `failing on base too` the
-    group's files earned alone then reads `COMPANY`. A group that failed as
-    many leaves the words its files earned.
+    **A group of several failing files never earns `failing on base too`**
+    (#789 rounds 1 and 2, the owner's decision of 2026-10-05). Its files ran
+    together at the base and that run failed; each then runs alone, and a
+    file's run alone is not the row's run. A sibling puts a module on
+    `sys.path` or sets state at import, a session fixture's error lands on
+    each session's last test, a flaky test fails in one run and not the
+    other, and no count from the group's run says which file failed in it:
+    comparing counts was tried, and another file's failures made up the
+    count. So a file of such a group that the base fails alone reads
+    `COMPANY`, with no proof pass, and one it passes alone reads `new`.
 
     **What it does not reach is named in `templates/config.md` rule 3**
     rather than claimed: a second runner behind `||`, behind a part that
@@ -2226,10 +2254,12 @@ def compare_at_base(root, base, command, files, keep):
     named can read `failing on base too` from the measuring runner's
     directory, as it could before this pass existed. A two-runner row whose
     base passes the file under the first runner reads `new` from that
-    runner, also as before (this work item's `questions.md` Q1). Two
-    dependencies whose counts cancel, one file failing only beside the
-    others and another only alone, leave a group's count equal and its
-    words standing.
+    runner, also as before (this work item's `questions.md` Q1). Two routes
+    never meet a group, also as before: a file run alone from the start (the
+    one failing file the root's tree carries, or every candidate, such as a
+    `cd sub` row's files) is compared with no sibling, and a sibling the
+    branch passes is never run at the base, so what it gives the file in the
+    row is not seen there either.
 
     The `run` call stays in this function's own body, one call for every
     run: the shell sites are `gate` and this function, and a case holds
@@ -2272,17 +2302,18 @@ def compare_at_base(root, base, command, files, keep):
         if len(others) == 1:
             work.append((others, None))
         verdicts, number, n = {}, {}, 0
-        # The group of several that went file by file, with its report's
-        # `(tests, failing)`, and each of its files' `(tests, failing)` run
-        # alone (#789 round 1).
-        together, alone_counts = None, {}
+        # The files of a group of several whose run did not decide them. Each
+        # runs alone, and none of them is proven: a run alone is not the
+        # row's run (`COMPANY`, #789 round 2).
+        in_company = set()
         for group, proving_at in work:
             if proving_at is not None:
                 (path,) = group
                 tries = [
                     (
                         f"collected-at-base-{number[path]}",
-                        f"{proving_at} {quote(path)}{command[len(proving_at) :]}",
+                        f"{proving_at} {quote(path)}{OWN_LISTING}"
+                        f"{command[len(proving_at) :]}",
                         None,
                     )
                 ]
@@ -2337,12 +2368,13 @@ def compare_at_base(root, base, command, files, keep):
                 if tests and not failing and code == 0:
                     verdicts.update({f: NEW for f in group})
                 else:
-                    together = (group, failing)
+                    in_company.update(group)
                     work += [([f], None) for f in group]
                 continue
             (path,) = group
-            alone_counts[path] = (tests, failing)
-            if failing:
+            if failing and path in in_company:
+                verdicts[path] = COMPANY.format(n=number[path])
+            elif failing:
                 work.append((group, prefix))
             elif (code == 0 and tests) or (
                 code in NOTHING_COLLECTED_EXITS and not tests
@@ -2350,19 +2382,6 @@ def compare_at_base(root, base, command, files, keep):
                 verdicts[path] = NEW
             else:
                 verdicts[path] = NOT_ENDED.format(code=code, kept=f"{name}.txt")
-        # A run alone measures a file without the others, and the branch ran
-        # it beside them. Where the group's own run failed fewer tests than
-        # its files fail one by one, some failure alone is not the base's
-        # failure in the row, and no count says whose: every word a file of
-        # the group earned alone falls back to `COMPANY`. A file with no
-        # count alone counts the same way (#789 round 1).
-        if together is not None:
-            group, failing = together
-            counts = [alone_counts.get(f) for f in group]
-            if None in counts or failing < sum(x for _, x in counts):
-                for f in group:
-                    if verdicts[f] == ON_BASE:
-                        verdicts[f] = COMPANY.format(n=number[f])
         return {f: verdicts[f] for f in files}
     finally:
         subprocess.run(
