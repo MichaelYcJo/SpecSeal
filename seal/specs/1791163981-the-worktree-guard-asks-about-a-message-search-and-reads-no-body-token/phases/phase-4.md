@@ -46,6 +46,27 @@ counted as unchanged, not as measured.
 So the prompt budget, over the recorded runs: no new question for either
 change.
 
+**The replay round 1's fix pass ran, and what it can and cannot show** (added
+by round 2's fix pass, ❓ of round 2). The fix pass re-ran the comparison
+through `main()` rather than `classify`, with this selection rule: from the
+same transcripts, every distinct command and directory pair whose command
+text contains the substring `checkout`, `[worktree-ok]` or `[shared-tree-ok]`;
+cut 1 is those among the Bash uses before 2026-10-03T11:06:22+09:00 (581
+pairs), cut 2 those among every use recorded when the fix pass extracted the
+corpus on 2026-10-05 (1,044 pairs of 36,937). Each pair was run through
+`a3aa139a`'s `hooks/` and through the fix pass's, with the session count
+stubbed to two states (no other session, detection reliable; no other
+session, detection unusable), the choice marker and the consent record
+stubbed so nothing was written, and the decisions compared: none moved, none
+went quieter. The probe was deleted, so the counts are this record's word
+and not re-checkable. It is a no-regression check over recorded traffic and
+nothing more: no recorded command holds a `checkout` that only #790's lookups
+read, so the replay never reached the reordering in `main` that round 1's
+🟡 3 added. The evidence for that reordering is
+`test_a_newly_read_checkout_in_front_takes_no_question_away`,
+`test_the_first_newly_read_checkout_is_the_one_judged` and the 31 commands
+round 2's reviewer ran through `main()` at three versions.
+
 **W1: two released claims no longer held, six drifted and still hold.**
 `bin/evidence-check --strict .` reported 18 drifted coordinates across
 `seal/releases/0.15.6.md`, `0.16.0.md`, `0.18.0.md`, `0.18.1.md` and
