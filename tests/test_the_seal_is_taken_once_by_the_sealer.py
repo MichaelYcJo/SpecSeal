@@ -878,15 +878,16 @@ def repo(tmp_path, _template):
     return d
 
 
-def run_gate(repo, *extra, keep=None, wrapper=False, session=None, cwd=None):
+def run_gate(repo, *extra, keep=None, wrapper=False, session=None, cwd=None, env=None):
     """`broad_gate.py --base base --root <repo> --shape`, its outputs kept
     under `keep`; returns the completed process. stdout is a pipe, so a
     sealed run signals rather than draws; `session` is the Claude Code
     session the run belongs to, and None runs it with no session at all.
     `cwd` is where the gate is started, which a relative `keep` is read
-    from."""
+    from, and `env` holds variables the gate's environment gains."""
     keep = keep or repo.parent / "out"
-    env = env_without_a_pull_request()
+    added, env = env, env_without_a_pull_request()
+    env.update(added or {})
     if session is not None:
         env[SESSION_VAR] = session
     tail = [
@@ -5348,6 +5349,509 @@ def test_a_relative_kept_directory_still_receives_the_report_under_a_cd(tmp_path
         out.stdout
     )
     assert (tmp_path / "out" / "suite-at-base-2-1.xml").is_file()
+
+
+# --- the first build's regression corpus (#789's phase 2) --------------------
+#
+# Every layout the first build's review records call a wrong `failing on base
+# too` at some commit, rebuilt from those records (P from round 1, Q from
+# round 2, R from round 3, N from the post-review check), under the row the
+# record ran it with and under the same row handing pytest no path of its
+# own. `phases/phase-2.md` of this work item holds the table of words at
+# a3aa139a, at the first build's last gate and here.
+
+CORPUS_MIXIN = (
+    "class Shared:\n"
+    "    value = 1\n\n"
+    "    def test_shared(self):\n"
+    "        assert self.value == 1, 'planted'\n"
+)
+CORPUS_HELPER = (
+    "class Base:\n    v = 1\n\n    def test_inherited(self):\n"
+    "        assert self.v == 1, 'planted'\n"
+)
+P1_AT_BASE = {
+    "tests/test_api.py": "X = 1\n",
+    "tests/test_api/test_users.py": FAILING_TEST.replace("test_two", "test_u"),
+}
+P1_ON_FEATURE = {
+    "tests/test_api.py": FAILING_TWO,
+    "tests/test_api/test_users.py": PASSING_TEST.replace("test_one", "test_u"),
+}
+P3_AT_BASE = {"tests/test_two.py": PASSING_TWO, "sub/tests/test_two.py": FAILING_TEST}
+P3_ON_FEATURE = {"tests/test_two.py": FAILING_TWO, "sub/tests/test_two.py": PASSING_TWO}
+P7_AT_BASE = {
+    "sub/tests/test_x.py": FAILING_TEST.replace("test_two", "test_x"),
+    "tests/test_y.py": FAILING_TEST.replace("test_two", "test_y"),
+    "sub/tests/test_z.py": FAILING_TEST.replace("test_two", "test_z"),
+    "tests/test_z.py": PASSING_TEST.replace("test_one", "test_z"),
+    "sub/tests/test_one.py": PASSING_TEST,
+}
+P7_ON_FEATURE = {
+    "sub/tests/test_x.py": FAILING_TWO.replace("test_two", "test_x"),
+    "tests/test_y.py": PASSING_TEST.replace("test_one", "test_y"),
+    "sub/tests/test_y.py": FAILING_TWO.replace("test_two", "test_y"),
+    "sub/tests/test_z.py": FAILING_TWO.replace("test_two", "test_z"),
+}
+DEEPER = {
+    "tests/x/__init__.py": "",
+    "tests/x/tests/__init__.py": "",
+}
+VENDORED = {
+    "vendor/__init__.py": "",
+    "vendor/gen/__init__.py": "",
+    "vendor/gen/test_g.py": "X = 1\n",
+    "vendor/tests/__init__.py": "",
+    "vendor/tests/test_one.py": "X = 1\n",
+    "vendor/tests/test_two.py": "X = 1\n",
+}
+API_DEFINES_BASE = (
+    "class Base:\n    v = 1\n\n    def test_shared(self):\n"
+    "        assert self.v == 1, 'planted'\n\n\n"
+)
+USERS_INHERITS_FROM_API = (
+    "import os\nimport sys\n\n"
+    "sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))\n"
+    "from test_api import Base  # noqa: E402\n\n\n"
+    "class TestU(Base):\n    v = {}\n"
+)
+API_WITH_A_FIXTURE = (
+    "import pytest\n\n\n@pytest.fixture\ndef value():\n    return 1\n\n\n"
+    "def test_shared(value):\n    assert value == 1, 'planted'\n\n\n"
+)
+USERS_IMPORTS_THE_TEST = (
+    "import os\nimport sys\n\nimport pytest\n\n"
+    "sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))\n"
+    "from test_api import test_shared  # noqa: E402,F401\n\n\n"
+    "@pytest.fixture\ndef value():\n    return {}\n"
+)
+GENERATES_A_TEST = (
+    "import os\n"
+    "os.makedirs('gen', exist_ok=True)\n"
+    "open('gen/test_g.py', 'w').write('def test_g():\\n    pass\\n')\n"
+)
+N1_AT_BASE = {
+    "tests/test_api.py": API_DEFINES_BASE + PASSING_TWO,
+    "tests/test_api/test_users.py": USERS_INHERITS_FROM_API.format(2),
+}
+N1_ON_FEATURE = {
+    "tests/test_api.py": API_DEFINES_BASE + FAILING_TWO,
+    "tests/test_api/test_users.py": USERS_INHERITS_FROM_API.format(1),
+}
+THREE_INHERITS = (
+    "from test_two import Shared\n\n\nclass TestThree(Shared):\n    value = {}\n"
+)
+USERS_FROM_HELPERS = "from helpers import Base\n\n\nclass TestU(Base):\n    v = {}\n"
+DEEP_FROM_HELPERS = (
+    "from x.tests.helpers import Base\n\n\nclass TestDeep(Base):\n    v = {}\n"
+)
+COPIES_TESTS = (
+    f'{sys.executable} -c "import shutil; '
+    "shutil.copytree('tests', 'build/tests', dirs_exist_ok=True)\""
+)
+SUITE_XDIST = suite_row(True)
+
+
+def corpus_files_row(row):
+    """`row` with its runner handed no path of its own. A runner at the
+    root of a row that also runs pytest in `sub` is told to leave `sub`
+    alone: with no path it would collect `sub` too, meet two modules of one
+    name, and the branch's own run would end before any comparison."""
+    if SUITE_XDIST in row:
+        return row.replace(SUITE_XDIST, files_row(True))
+    if row.count(SUITE_ROW) == 2 and "cd sub && " in row:
+        first = row.replace(SUITE_ROW, f"{FILES_ROW} --ignore=sub", 1)
+        return first.replace(SUITE_ROW, FILES_ROW)
+    return row.replace(SUITE_ROW, FILES_ROW)
+
+
+# `(id, row, at_base, on_feature, extra)`, where `extra` names what the
+# layout needs beyond a row: a POSIX shell, an environment, a kept directory
+# with a space in it, a tracked symlink.
+REGRESSED = [
+    ("P1", SUITE_ROW, P1_AT_BASE, P1_ON_FEATURE, {}),
+    (
+        "P2",
+        SUITE_ROW,
+        {
+            **DEEPER,
+            "tests/test_two.py": "X = 1\n",
+            "tests/x/tests/test_two.py": FAILING_TEST.replace("test_two", "test_deep"),
+        },
+        {
+            "tests/test_two.py": FAILING_TWO,
+            "tests/x/tests/test_two.py": PASSING_TEST.replace("test_one", "test_deep"),
+        },
+        {},
+    ),
+    (
+        "P3-sh",
+        f"sh -c '{SUITE_ROW}' && cd sub && {SUITE_ROW}",
+        P3_AT_BASE,
+        P3_ON_FEATURE,
+        {"posix": True},
+    ),
+    (
+        "P3-no-junitxml",
+        f"{SUITE_ROW} -p no:junitxml && cd sub && {SUITE_ROW}",
+        P3_AT_BASE,
+        P3_ON_FEATURE,
+        {},
+    ),
+    (
+        "P7-p1b",
+        f"{SUITE_ROW} && sh -c 'cd sub && {SUITE_ROW}'",
+        P7_AT_BASE,
+        P7_ON_FEATURE,
+        {"posix": True},
+    ),
+    (
+        "P7-both",
+        f"{SUITE_ROW} && sh -c 'cd sub && {SUITE_ROW}'",
+        {
+            **P7_AT_BASE,
+            "sub/tests/test_y.py": PASSING_TEST.replace("test_one", "test_y"),
+        },
+        P7_ON_FEATURE,
+        {"posix": True},
+    ),
+    (
+        "P7-mixed",
+        f"{SUITE_ROW} && sh -c 'cd sub && {SUITE_ROW}'",
+        {
+            "tests/test_y.py": FAILING_TEST.replace("test_two", "test_y"),
+            "sub/tests/test_y.py": PASSING_TEST.replace("test_one", "test_y"),
+            "tests/test_w.py": PASSING_TEST.replace("test_one", "test_w"),
+            "sub/tests/test_one.py": PASSING_TEST,
+        },
+        {
+            "tests/test_y.py": PASSING_TEST.replace("test_one", "test_y"),
+            "sub/tests/test_y.py": FAILING_TWO.replace("test_two", "test_y"),
+            "sub/tests/test_w.py": FAILING_TWO.replace("test_two", "test_w"),
+        },
+        {"posix": True},
+    ),
+    (
+        "Q1",
+        SUITE_ROW,
+        {
+            **DEEPER,
+            "tests/test_one.py": "X = 1\n",
+            "tests/test_two.py": "X = 1\n",
+            "tests/x/tests/test_two.py": FAILING_TEST.replace("test_two", "test_deep"),
+        },
+        {
+            "tests/test_two.py": FAILING_TWO,
+            "tests/x/tests/test_two.py": PASSING_TEST.replace("test_one", "test_deep"),
+        },
+        {},
+    ),
+    (
+        "Q3",
+        f"{SUITE_ROW} a",
+        {
+            "a/__init__.py": "",
+            "a/tests/__init__.py": "",
+            "a/tests/test_two.py": "X = 1\n",
+            "tests/test_two.py": FAILING_TEST,
+        },
+        {"a/tests/test_two.py": FAILING_TWO, "tests/test_two.py": PASSING_TWO},
+        {},
+    ),
+    (
+        "Q3b",
+        f"{SUITE_ROW} a",
+        {
+            "a/pytest.ini": "[pytest]\n",
+            "a/tests/__init__.py": "",
+            "a/tests/test_two.py": FAILING_TEST,
+            "a/b/__init__.py": "",
+            "a/b/tests/__init__.py": "",
+            "a/b/tests/test_two.py": "X = 1\n",
+        },
+        {"a/tests/test_two.py": PASSING_TWO, "a/b/tests/test_two.py": FAILING_TWO},
+        {},
+    ),
+    (
+        "Q4",
+        SUITE_ROW,
+        {
+            "tests/test_two.py": CORPUS_MIXIN,
+            "tests/test_three.py": THREE_INHERITS.format(2),
+        },
+        {
+            "tests/test_two.py": CORPUS_MIXIN + "\n\n" + FAILING_TWO,
+            "tests/test_three.py": THREE_INHERITS.format(1),
+        },
+        {},
+    ),
+    ("Q5", SUITE_XDIST, P1_AT_BASE, P1_ON_FEATURE, {}),
+    (
+        "Q8",
+        f"sh -c '{SUITE_ROW} --junitxml=own.xml' && cd sub && {SUITE_ROW}",
+        P3_AT_BASE,
+        P3_ON_FEATURE,
+        {"posix": True},
+    ),
+    ("Qf-row", f"{SUITE_ROW} -o junit_family=xunit2", P1_AT_BASE, P1_ON_FEATURE, {}),
+    (
+        "Qf-env",
+        SUITE_ROW,
+        P1_AT_BASE,
+        P1_ON_FEATURE,
+        {"env": {"PYTEST_ADDOPTS": "-o junit_family=xunit2"}},
+    ),
+    (
+        "Qf-ini",
+        SUITE_ROW,
+        {**P1_AT_BASE, "pytest.ini": "[pytest]\njunit_family = xunit2\n"},
+        P1_ON_FEATURE,
+        {},
+    ),
+    (
+        "Qs2",
+        f"sh -c '{SUITE_ROW}' && cd sub && {SUITE_ROW}",
+        P3_AT_BASE,
+        P3_ON_FEATURE,
+        {
+            "posix": True,
+            "env": {"PYTEST_ADDOPTS": "-p no:cacheprovider"},
+            "keep": "o u t",
+        },
+    ),
+    ("R1-row", f"{SUITE_ROW} --junit-prefix=pfx", P1_AT_BASE, P1_ON_FEATURE, {}),
+    (
+        "R1-ini",
+        SUITE_ROW,
+        {**P1_AT_BASE, "pytest.ini": "[pytest]\naddopts = --junit-prefix=pfx\n"},
+        P1_ON_FEATURE,
+        {},
+    ),
+    (
+        "R2",
+        SUITE_ROW,
+        {
+            "tests/test_api.py": "X = 1\n",
+            "tests/test_api/helpers.py": CORPUS_HELPER,
+            "tests/test_api/test_users.py": USERS_FROM_HELPERS.format(2),
+        },
+        {
+            "tests/test_api.py": FAILING_TWO,
+            "tests/test_api/test_users.py": USERS_FROM_HELPERS.format(1),
+        },
+        {},
+    ),
+    (
+        "R2b",
+        SUITE_ROW,
+        {
+            **DEEPER,
+            "tests/test_one.py": "X = 1\n",
+            "tests/test_two.py": "X = 1\n",
+            "tests/x/tests/helpers.py": CORPUS_HELPER,
+            "tests/x/tests/test_two.py": DEEP_FROM_HELPERS.format(2),
+        },
+        {
+            "tests/test_two.py": FAILING_TWO,
+            "tests/x/tests/test_two.py": DEEP_FROM_HELPERS.format(1),
+        },
+        {},
+    ),
+    (
+        "R3",
+        f"{sys.executable} gen.py && {SUITE_ROW} gen vendor",
+        {
+            ".gitignore": "/gen/\n",
+            "gen.py": GENERATES_A_TEST,
+            "tests/test_two.py": FAILING_TEST,
+            **VENDORED,
+        },
+        {"tests/test_two.py": PASSING_TWO, "vendor/tests/test_two.py": FAILING_TWO},
+        {},
+    ),
+    ("N1", SUITE_ROW, N1_AT_BASE, N1_ON_FEATURE, {}),
+    ("N1-xdist", SUITE_XDIST, N1_AT_BASE, N1_ON_FEATURE, {}),
+    (
+        "N1b",
+        SUITE_ROW,
+        {
+            "tests/test_api.py": API_WITH_A_FIXTURE + PASSING_TWO,
+            "tests/test_api/test_users.py": USERS_IMPORTS_THE_TEST.format(2),
+        },
+        {
+            "tests/test_api.py": API_WITH_A_FIXTURE + FAILING_TWO,
+            "tests/test_api/test_users.py": USERS_IMPORTS_THE_TEST.format(1),
+        },
+        {},
+    ),
+    (
+        "N1c",
+        FILES_ROW,
+        N1_AT_BASE,
+        {
+            "tests/test_api.py": API_DEFINES_BASE + FAILING_TWO,
+            "tests/test_api/test_users.py": USERS_INHERITS_FROM_API.format(2)
+            + "\n# the feature keeps this failure\n",
+        },
+        {},
+    ),
+    (
+        "N3",
+        f"{SUITE_ROW} gen vendor",
+        {
+            "realgen/test_g.py": "def test_g():\n    pass\n",
+            "tests/test_two.py": FAILING_TEST,
+            **VENDORED,
+        },
+        {"tests/test_two.py": PASSING_TWO, "vendor/tests/test_two.py": FAILING_TWO},
+        {"posix": True, "symlink": ("gen", "realgen")},
+    ),
+    (
+        "N7",
+        f"{COPIES_TESTS} && {SUITE_ROW}",
+        {".gitignore": "/build/\n", "tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO},
+        {},
+    ),
+]
+# The word each file reads here, under the layout's own row and under the
+# same row handing pytest no path of its own: `new`, `on` for `failing on
+# base too`, or a reason and the number of the file's run alone. Measured by
+# phase 2, beside the words a3aa139a and the first build gave.
+REGRESSED_WORDS = {
+    ("P1", "own"): {"tests/test_api.py": "beyond:1"},
+    ("P1", "files"): {"tests/test_api.py": "new"},
+    ("P2", "own"): {"tests/test_two.py": "beyond:1"},
+    ("P2", "files"): {"tests/test_two.py": "new"},
+    ("P3-sh", "own"): {"tests/test_two.py": "multi:1"},
+    ("P3-sh", "files"): {"tests/test_two.py": "multi:1"},
+    ("P3-no-junitxml", "own"): {"tests/test_two.py": "multi:1"},
+    ("P3-no-junitxml", "files"): {"tests/test_two.py": "multi:1"},
+    ("P7-p1b", "own"): {
+        "tests/test_x.py": "new",
+        "tests/test_y.py": "multi:2",
+        "tests/test_z.py": "multi:3",
+    },
+    ("P7-p1b", "files"): {
+        "tests/test_x.py": "new",
+        "tests/test_y.py": "multi:2",
+        "tests/test_z.py": "new",
+    },
+    ("P7-both", "own"): {
+        "tests/test_x.py": "new",
+        "tests/test_y.py": "multi:2",
+        "tests/test_z.py": "multi:3",
+    },
+    ("P7-both", "files"): {
+        "tests/test_x.py": "new",
+        "tests/test_y.py": "multi:2",
+        "tests/test_z.py": "new",
+    },
+    ("P7-mixed", "own"): {"tests/test_y.py": "multi:2", "tests/test_w.py": "multi:1"},
+    ("P7-mixed", "files"): {"tests/test_y.py": "multi:2", "tests/test_w.py": "new"},
+    ("Q1", "own"): {"tests/test_two.py": "beyond:1"},
+    ("Q1", "files"): {"tests/test_two.py": "new"},
+    ("Q3", "own"): {"a/tests/test_two.py": "beyond:1"},
+    ("Q3", "files"): {"a/tests/test_two.py": "new"},
+    ("Q3b", "own"): {"a/b/tests/test_two.py": "beyond:1"},
+    ("Q3b", "files"): {"a/b/tests/test_two.py": "beyond:1"},
+    ("Q4", "own"): {"tests/test_two.py": "beyond:1"},
+    ("Q4", "files"): {"tests/test_two.py": "new"},
+    ("Q5", "own"): {"tests/test_api.py": "beyond:1"},
+    ("Q5", "files"): {"tests/test_api.py": "new"},
+    ("Q8", "own"): {"tests/test_two.py": "multi:1"},
+    ("Q8", "files"): {"tests/test_two.py": "multi:1"},
+    ("Qf-row", "own"): {"tests/test_api.py": "beyond:1"},
+    ("Qf-row", "files"): {"tests/test_api.py": "new"},
+    ("Qf-env", "own"): {"tests/test_api.py": "beyond:1"},
+    ("Qf-env", "files"): {"tests/test_api.py": "new"},
+    ("Qf-ini", "own"): {"tests/test_api.py": "beyond:1"},
+    ("Qf-ini", "files"): {"tests/test_api.py": "new"},
+    ("Qs2", "own"): {"tests/test_two.py": "multi:1"},
+    ("Qs2", "files"): {"tests/test_two.py": "multi:1"},
+    ("R1-row", "own"): {"tests/test_api.py": "beyond:1"},
+    ("R1-row", "files"): {"tests/test_api.py": "new"},
+    ("R1-ini", "own"): {"tests/test_api.py": "beyond:1"},
+    ("R1-ini", "files"): {"tests/test_api.py": "new"},
+    ("R2", "own"): {"tests/test_api.py": "beyond:1"},
+    ("R2", "files"): {"tests/test_api.py": "new"},
+    ("R2b", "own"): {"tests/test_two.py": "beyond:1"},
+    ("R2b", "files"): {"tests/test_two.py": "new"},
+    ("R3", "own"): {"vendor/tests/test_two.py": "beyond:1"},
+    ("R3", "files"): {"vendor/tests/test_two.py": "new"},
+    ("N1", "own"): {"tests/test_api.py": "beyond:1"},
+    ("N1", "files"): {"tests/test_api.py": "new"},
+    ("N1-xdist", "own"): {"tests/test_api.py": "beyond:1"},
+    ("N1-xdist", "files"): {"tests/test_api.py": "new"},
+    ("N1b", "own"): {"tests/test_api.py": "beyond:1"},
+    ("N1b", "files"): {"tests/test_api.py": "new"},
+    ("N1c", "own"): {"tests/test_api.py": "new", "tests/test_api/test_users.py": "on"},
+    ("N3", "own"): {"vendor/tests/test_two.py": "beyond:1"},
+    ("N3", "files"): {"vendor/tests/test_two.py": "new"},
+    ("N7", "own"): {"tests/test_two.py": "beyond:1"},
+    ("N7", "files"): {"tests/test_two.py": "on"},
+}
+REGRESSED_CASES = [
+    pytest.param(layout, runner, id=f"{layout[0]}-{runner}")
+    for layout in REGRESSED
+    for runner in ("own", "files")
+    if (layout[0], runner) in REGRESSED_WORDS
+]
+
+
+def word_for(gate, spec):
+    """The whole word a spec in `REGRESSED_WORDS` stands for."""
+    kind, _, n = spec.partition(":")
+    if kind == "beyond":
+        return gate.COLLECTED_BEYOND.format(n=int(n))
+    if kind == "multi":
+        return gate.MULTI_RUNNER.format(n=int(n))
+    return {"new": gate.NEW, "on": gate.ON_BASE}[kind]
+
+
+@pytest.mark.parametrize("layout, runner", REGRESSED_CASES)
+def test_every_layout_the_first_build_reopened_reads_the_word_the_base_gives(
+    tmp_path, layout, runner
+):
+    """S17 (#789, #812, #807). Each layout here is one a review of #789's
+    first build found giving `failing on base too` to a file the base passes
+    or holds no test in, at a3aa139a or at a commit of that build. None of
+    them needs to be recognised now: a run that collected another file, or
+    a row that ran pytest twice, fails the proof, and the file reads `new?`
+    with its reason; a file the base has no failing test in reads `new`. The
+    two `failing on base too` among them, N1c's package module and N7 under
+    the files-only row, are files the base does fail, each collected alone,
+    and a3aa139a gave both the same word."""
+    name, row, at_base, on_feature, extra = layout
+    if extra.get("posix"):
+        posix_row_shell_or_skip()
+    if SUITE_XDIST in row and not XDIST:
+        pytest.skip(NO_XDIST)
+    if runner == "files":
+        row = corpus_files_row(row)
+    repo = base_then_feature(tmp_path / "repo", row, at_base, on_feature)
+    if "symlink" in extra:
+        link, target = extra["symlink"]
+        git(repo, "switch", "-q", "base")
+        os.symlink(target, repo / link)
+        commit(repo, "the link")
+        git(repo, "switch", "-q", "feature")
+        git(
+            repo,
+            "-c",
+            "user.email=e@example.com",
+            "-c",
+            "user.name=e",
+            "merge",
+            "-q",
+            "--no-edit",
+            "base",
+        )
+    out = run_gate(repo, keep=tmp_path / extra.get("keep", "out"), env=extra.get("env"))
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    for path, spec in REGRESSED_WORDS[(name, runner)].items():
+        assert verdict_of(out.stdout, path) == word_for(gate, spec), out.stdout
 
 
 def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_written():
