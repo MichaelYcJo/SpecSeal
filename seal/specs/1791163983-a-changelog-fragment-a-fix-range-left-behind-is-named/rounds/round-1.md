@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #802 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `f96ea9a21c21e151c51c0f8adc761ae5c7973d1f..65ff34c67f29a3fa67958abb7d29b9c955961cba`, 4 commits |
 | Contract changes | commits_after → round-1-report.md, round-1.md, fragment_left_behind |
 | New units | walk_tip (depth 1); ci_merge_ref (depth 1); test_the_ci_merge_ref_names_the_items_commit_and_not_the_siblings (depth 1); test_a_merge_on_the_branch_keeps_the_branch_as_the_tip (depth 1); test_of_several_merged_heads_the_one_descending_from_round_one_is_the_tip (depth 1); test_an_honest_fragment_on_the_ci_merge_ref_is_not_named (depth 1); test_a_behaviour_file_moved_out_of_what_ships_is_named (depth 1) |
