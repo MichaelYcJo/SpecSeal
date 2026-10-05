@@ -38,7 +38,9 @@
   The check calls such a row BROKEN, because two units sharing one line is
   a tie the recorded hash cannot break, and `--reverify` read it as
   unchanged and said nothing. It now prints the check's reason on a `left`
-  line and records the BROKEN in a signatory's pact changes.
+  line and records the BROKEN in a signatory's pact changes. Both commands
+  now say how many places hold the content, a tie the recorded hash cannot
+  break, where they used to say none did (#810).
 
 - `docs/the-evidence-ledger.md` says what an in-place re-read writes without
   the freeze (#781): the date of the reading, added to the row's `Checked`

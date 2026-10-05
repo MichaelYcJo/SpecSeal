@@ -72,6 +72,15 @@ a `Corrected ·` row. After that, `bin/evidence-check --strict .` read
 | `0.8.3.md:13` | holds | the new lines name ledger paths through `built_name` |
 | `0.9.0.md:92` R5 | holds | the records arm is untouched |
 
+**The post-review fix for #810 drifted seven more released rows**, through
+`classify` and `left_because`, and the `--into` run wrote one `Re-read ·` row
+for each. Each claim was read against the fix and holds:
+`0.16.0.md:61` H1, `0.18.0.md:21` L1, and `0.4.0.md:18`, `:20`, `:58`,
+`:66`, and `0.9.0.md:89`. `0.4.0.md:20` quotes `(none holds the recorded
+content)` for a hash no place holds, at the major level, and that wording is
+byte-identical after #810: only a claim's tie, where places do hold the hash,
+takes the new wording.
+
 **The run itself is the build's code, and it shows D1.** The `--into` run
 re-stamped only this item's six rows, which held placeholder hashes, and
 wrote the 31 citing rows; no other fragment exists on this branch.
