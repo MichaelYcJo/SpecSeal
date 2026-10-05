@@ -1167,7 +1167,10 @@ def _refs(patterns, cwd: str):
         )
     except Exception:
         return []
-    return r.stdout.splitlines()
+    # A ref name holds no newline, and may hold U+0085, U+2028 or U+2029,
+    # which `splitlines` also splits at (#811). The listing ends in a
+    # newline, and the empty word after it is no ref.
+    return [ref for ref in r.stdout.split("\n") if ref]
 
 
 def _fetched_as(name: str, cwd: str) -> set:
@@ -1192,7 +1195,10 @@ def _fetched_as(name: str, cwd: str) -> set:
     source = "refs/heads/" + name
     mapped = set()
     for entry in r.stdout.split("\0"):
-        spec = entry.partition("\n")[2].strip().lstrip("+")
+        # No strip: git's config reader has already taken the ASCII
+        # whitespace off, and a ref name may end in a Unicode space that
+        # `str.strip` would remove (#811).
+        spec = entry.partition("\n")[2].lstrip("+")
         src, colon, dst = spec.partition(":")
         if not colon:
             continue

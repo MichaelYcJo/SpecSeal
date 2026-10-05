@@ -2560,3 +2560,34 @@ def test_a_guess_through_a_remote_whose_name_holds_a_space(tmp_path):
     for carrier in ("checkout N", "checkout N --"):
         tokens = ["git", *CARRIERS[carrier]("onfork")]
         assert wg.classify(tokens, str(d)) == "switch", carrier
+
+
+@pytest.mark.parametrize(
+    "space",
+    ["\u00a0", "\u3000", "\u0085", "\u2028"],
+    ids=["nbsp", "ideographic", "nel", "line separator"],
+)
+def test_a_guess_through_a_destination_ending_in_unicode_whitespace(tmp_path, space):
+    """#811, round 3 of 1791163981. git's config reader strips only ASCII
+    whitespace, so a fetch refspec whose destination ends in another space
+    character fetches into a ref that ends in it, and git guesses through
+    that ref. A map that ran `str.strip()` over the value, or split the ref
+    listing with `str.splitlines()`, read a ref that does not exist. Red at
+    `a8c7ab74`."""
+    bare = tmp_path / "f.git"
+    subprocess.run(
+        ["git", "init", "-q", "--bare", str(bare)], check=True, capture_output=True
+    )
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "README.md", "initial commit")
+    _git(d, "branch", "onfork")
+    _git(d, "push", "-q", str(bare), "onfork")
+    _git(d, "branch", "-D", "onfork")
+    _git(d, "config", "remote.fork.url", str(bare))
+    _git(d, "config", "remote.fork.fetch", "+refs/heads/*:refs/ws/*" + space)
+    _git(d, "fetch", "-q", "fork")
+    assert _where_git_checkout_lands(d, "onfork")
+    for carrier in ("checkout N", "checkout N --"):
+        tokens = ["git", *CARRIERS[carrier]("onfork")]
+        assert wg.classify(tokens, str(d)) == "switch", carrier
