@@ -4324,7 +4324,9 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     with open(
         os.path.join(ROOT, "skills", "verify", "SKILL.md"), encoding="utf-8"
     ) as handle:
-        assert "wrote the report the gate asked pytest for" in handle.read()
+        bullet = handle.read()
+    assert "wrote the report the gate asked pytest for" in bullet
+    assert "the row runs pytest in more than one part" in bullet
     with open(GATE, encoding="utf-8") as handle:
         docstring = ast.get_docstring(ast.parse(handle.read()))
     assert "`new?` with the reason no run measured it" in docstring
