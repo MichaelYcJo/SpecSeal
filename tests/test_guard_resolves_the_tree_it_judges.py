@@ -2478,8 +2478,12 @@ def test_the_object_lookup_reads_a_word_rev_parse_reads_as_a_range(tmp_path, nam
 
 @pytest.mark.parametrize(
     "fetch",
-    ["+refs/heads/*:refs/fork/*", "+refs/heads/*:refs/remotes/fork/x-*"],
-    ids=["outside refs/remotes", "a partial glob"],
+    [
+        "+refs/heads/*:refs/fork/*",
+        "+refs/heads/*:refs/remotes/fork/x-*",
+        "refs/heads/onfork:refs/pinned/onfork",
+    ],
+    ids=["outside refs/remotes", "a partial glob", "an exact source"],
 )
 def test_a_guess_through_any_fetch_refspec_is_read_as_a_switch(tmp_path, fetch):
     """Round 1 of 1791163981, 🟡 2. git's guess maps `refs/heads/<name>`
