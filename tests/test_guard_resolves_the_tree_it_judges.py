@@ -2156,3 +2156,190 @@ def test_a_message_search_over_a_dirty_tree_is_asked(
         monkeypatch, capsys, "cd w && git checkout ':/nomatch-xyz'", session
     )
     assert decision == "silent", (decision, reason)
+
+
+# --- #780: a consent token inside a here-document body is not read ---------
+#
+# Work item 1791163981. `has_token` reads a token only where the command as
+# written AND the command with its here-document bodies taken out carry it,
+# the rule `hooks/tokens.py#given` has kept for the commit gate since #773.
+# Each body below is one a consent read must not take a token from: the one
+# shape `hooks/one_heredoc.py` matches byte for byte, and a body behind an
+# unquoted delimiter, which `hooks/cmdline.py` finds.
+
+BODY_TOKENS = {
+    "[shared-tree-ok] in the one shape's body": (
+        "python3 - <<'EOF'\n# [shared-tree-ok]\nEOF\ngit switch feature/x",
+        "[shared-tree-ok]",
+    ),
+    "[shared-tree-ok] behind an unquoted delimiter": (
+        "cat <<EOF >/dev/null\n[shared-tree-ok]\nEOF\ngit switch feature/x",
+        "[shared-tree-ok]",
+    ),
+    "[worktree-ok] in the one shape's body": (
+        "python3 - <<'EOF'\n# [worktree-ok]\nEOF\ngit worktree add ../wt -b y",
+        "[worktree-ok]",
+    ),
+    "[worktree-ok] behind an unquoted delimiter": (
+        "cat <<EOF >/dev/null\n[worktree-ok]\nEOF\ngit worktree add ../wt -b y",
+        "[worktree-ok]",
+    ),
+}
+
+# The documented forms, each beside a here-document in the same command.
+TYPED_BESIDE_A_BODY = {
+    "a trailing comment before a body": (
+        "git switch feature/x  # [shared-tree-ok]\ncat <<'EOF' >/dev/null\nb\nEOF",
+        "[shared-tree-ok]",
+    ),
+    "a trailing comment after the one shape's terminator": (
+        "python3 - <<'EOF'\nprint(1)\nEOF\ngit switch feature/x  # [shared-tree-ok]",
+        "[shared-tree-ok]",
+    ),
+    "a bare word after the command": (
+        "git switch feature/x [shared-tree-ok]\ncat <<EOF >/dev/null\nb\nEOF",
+        "[shared-tree-ok]",
+    ),
+    "a bare word before the command": (
+        "cat <<EOF >/dev/null\nb\nEOF\n: [shared-tree-ok]; git switch feature/x",
+        "[shared-tree-ok]",
+    ),
+    "inside a subshell": (
+        "(git worktree add ../wt f [worktree-ok])\ncat <<EOF >/dev/null\nb\nEOF",
+        "[worktree-ok]",
+    ),
+    "a comment after a creation, a body behind it": (
+        "git worktree add ../wt f  # [worktree-ok]\ncat <<'EOF' >/dev/null\nb\nEOF",
+        "[worktree-ok]",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(BODY_TOKENS))
+def test_a_token_only_a_body_carries_is_not_read(monkeypatch, capsys, repo, name):
+    """`spec.md` A6. A `[shared-tree-ok]` only a body carries leaves the
+    cannot-tell row's choice in place, and a `[worktree-ok]` only a body
+    carries leaves the single-stream creation denied. Red at `a3aa139a`, where
+    the first was silent and the second asked."""
+    command, token = BODY_TOKENS[name]
+    assert not wg.has_token(command, token), name
+    if token == "[shared-tree-ok]":
+        decision, reason, _ = run(
+            monkeypatch, capsys, command, repo, sessions=([], [], False)
+        )
+        assert decision == "deny", (name, decision, reason)
+        assert "[shared-tree-ok]" in reason, reason
+    else:
+        decision, reason, _ = run(monkeypatch, capsys, command, repo)
+        assert decision == "deny", (name, decision, reason)
+        assert "[worktree-ok]" in reason, reason
+
+
+@pytest.mark.parametrize("name", sorted(TYPED_BESIDE_A_BODY))
+def test_a_typed_token_beside_a_body_is_still_read(name):
+    """`spec.md` A7. Every documented form still carries consent when a
+    here-document stands in the same command."""
+    command, token = TYPED_BESIDE_A_BODY[name]
+    assert wg.has_token(command, token), name
+
+
+def _raises(command):
+    raise RuntimeError("the wider body reader is broken")
+
+
+@pytest.mark.parametrize("break_it", ["wide", "without_bodies"])
+def test_a_broken_wider_reader_reads_no_body_token_and_keeps_a_typed_one(
+    monkeypatch, break_it
+):
+    """`spec.md` A8. Where `hooks/cmdline.py` did not load, as
+    `test_a_broken_wider_reader_costs_only_the_question` makes it, or where
+    `hooks/tokens.py#without_bodies` raises, the bodies are found by the
+    frozen reader `_judgment_text` uses. A body token is still not read and a
+    typed one still is (`plan.md` G and H). The body half is red at
+    `a3aa139a`."""
+    if break_it == "wide":
+        monkeypatch.setattr(wg, "wide", None)
+    else:
+        monkeypatch.setattr(wg.tokens, "without_bodies", _raises)
+    for name, (command, token) in BODY_TOKENS.items():
+        assert not wg.has_token(command, token), name
+    for name, (command, token) in TYPED_BESIDE_A_BODY.items():
+        assert wg.has_token(command, token), name
+
+
+def _the_bases_token_read(command, token):
+    """`a3aa139a`'s `has_token`, verbatim: the command as written."""
+    segments, _clean = wg._tokenize(command)
+    return any(
+        tok == token or tok.strip("()") == token for toks in segments for tok in toks
+    )
+
+
+# Commands whose raw text the frozen splitter cannot finish, while the same
+# text with its body taken out splits: a token there is one the command as
+# written never offered (`plan.md` F, #773's reason for its AND).
+UNREADABLE_UNTIL_THE_BODY_GOES = (
+    "cat <<'EOF' >/dev/null\nit's\nEOF\ngit switch feature/x  # [shared-tree-ok]",
+    "cat <<EOF >/dev/null\ndon't\nEOF\ngit worktree add ../wt f  # [worktree-ok]",
+)
+
+TOKEN_COMMANDS = (
+    *(command for command, _ in BODY_TOKENS.values()),
+    *(command for command, _ in TYPED_BESIDE_A_BODY.values()),
+    *UNREADABLE_UNTIL_THE_BODY_GOES,
+    "git switch feature/x  # [shared-tree-ok]",
+    "git switch feature/x && echo done  # [shared-tree-ok]",
+    "git switch feature/x && echo 'we documented [shared-tree-ok] today'",
+    "git switch x && echo the [shared-tree-ok] token is documented",
+    "git worktree add ../wt f  # [worktree-ok]",
+    'git worktree add ../wt -b b origin/main && echo "wip; go"  # [worktree-ok]',
+    'git worktree add ../wt f && echo "we agreed on [worktree-ok] yesterday',
+    "git worktree add ../wt f  # [worktree-ok] but don't",
+    "(git worktree add ../wt f [worktree-ok])",
+    "git switch x [shared-tree-ok])",
+)
+
+
+@pytest.mark.parametrize("token", ["[worktree-ok]", "[shared-tree-ok]"])
+@pytest.mark.parametrize("break_it", [None, "wide"])
+def test_the_token_read_never_reads_more_than_the_base(monkeypatch, token, break_it):
+    """`spec.md` A9. Over every command of A6-A8, the two the splitter cannot
+    finish until the body goes, and the existing token cases, `has_token` is
+    True only where `a3aa139a`'s was, with the wider reader loaded and
+    without it. It holds by the AND in `spec.md` §*Scope* In 5; red with the
+    read over the body-free text alone (`plan.md` F)."""
+    if break_it:
+        monkeypatch.setattr(wg, "wide", None)
+    read = [command for command in TOKEN_COMMANDS if wg.has_token(command, token)]
+    assert read, "no command carried the token where both reads find it"
+    more = [command for command in read if not _the_bases_token_read(command, token)]
+    assert not more, more
+
+
+def test_the_guard_policy_and_readmes_say_a_body_token_is_not_read():
+    """§14 of the agent contract, for #780: §*Choice sites* and the two token
+    rows of both READMEs say a token inside a here-document body is not
+    read. Red against `a3aa139a`'s texts."""
+    assert (
+        "**Where the token is read from.** The command, and only the command. "
+        "Not from a here-document body, since #780: a token counts only where "
+        "the command as written and the command with its here-document bodies "
+        "taken out both carry it"
+    ) in _policy_text()
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "README.md"), encoding="utf-8") as f:
+        readme = f.read()
+    with open(os.path.join(root, "README.ko.md"), encoding="utf-8") as f:
+        readme_ko = f.read()
+    assert (
+        "Read as a bare word, so it does not count inside a quoted message, "
+        "and not inside a here-document body either."
+    ) in readme
+    assert "Read as a bare word, and not inside a here-document body." in readme
+    assert (
+        "따옴표 안의 문장에 적힌 것은 세지 않고, here-document 본문에 적힌 "
+        "것도 세지 않는다."
+    ) in readme_ko
+    assert (
+        "명령의 낱말로 있을 때만 세고, here-document 본문에 적힌 것은 세지 않는다."
+    ) in readme_ko

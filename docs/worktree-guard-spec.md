@@ -471,8 +471,15 @@ prose is a different matter and still passes — measured:
 Shell prose is usually quoted, so the residual is narrow, but it is a
 residual and not a property.
 
-**Where the token is read from.** The command, and only the command. The
-Agent/Task path has no command line and reads no token at all — see §B's
+**Where the token is read from.** The command, and only the command. Not
+from a here-document body, since #780: a token counts only where the command
+as written and the command with its here-document bodies taken out both carry
+it, the rule the commit gate's consent read has kept since #773
+(`hooks/tokens.py#without_bodies`). A body is text a command only carries, so
+a token there was read as an answer nobody typed. Where `hooks/cmdline.py`
+cannot load, the bodies are found by the frozen reader the judgment read
+already uses, so a token in a body is still not read and a typed one still
+is. The Agent/Task path has no command line and reads no token at all — see §B's
 "Why the Agent path counts nothing, asks once, and reads no token".
 
 | Token | Answer it carries | Effect |

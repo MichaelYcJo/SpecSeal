@@ -75,7 +75,8 @@ asked, an unwritable consent record counts as no consent.
 
 Retry tokens, one per direction, both matched as BARE WORDS of the command
 (has_token) -- a substring test read `echo 'we documented [shared-tree-ok]'`
-as consent and turned the guard off. `[worktree-ok]` carries the creation
+as consent and turned the guard off -- and never inside a heredoc body, which
+is text a command only carries (#780). `[worktree-ok]` carries the creation
 answer (that site asks -- creating a worktree always takes one confirmation)
 and `[shared-tree-ok]` carries the shared-tree answer, which passes the switch
 straight through at the two cannot-tell sites. `[shared-tree-ok]` is ignored
@@ -149,6 +150,16 @@ try:
     import cmdline as wide
 except (Exception, SystemExit):
     wide = None
+
+# The consent reads' rules, shared with the commit gate (#773, #780): asked
+# only for `without_bodies`, the command with its here-document bodies taken
+# out. Guarded like the import above, because this guard's rows do not need
+# it: where it cannot load, `has_token` finds the bodies with the frozen
+# reader instead.
+try:
+    import tokens
+except (Exception, SystemExit):
+    tokens = None
 
 # The AFTER half of this guard: it owns the consent record, and this file reads
 # it. A plain filename again -- and the reason that file's name carries an
@@ -256,9 +267,10 @@ def _judgment_text(command: str) -> str:
     Comments and heredoc bodies are both data, and a judgment read drops both
     for the same reason. The residual this file used to record — "a heredoc
     line that IS exactly a git command still matches" — is what the second one
-    closes. A CONSENT read (`has_token`, `parses_cleanly`) still reads the
-    command as written, because a retry token is written in a comment on
-    purpose.
+    closes. A CONSENT read keeps the comments, because a retry token is
+    written in a comment on purpose: `parses_cleanly` reads the command as
+    written, and `has_token` reads it both as written and with its heredoc
+    bodies taken out (#780), so a token counts only outside a body.
     """
     return cmdline.drop_heredoc_bodies(cmdline.drop_comments(command))
 
@@ -730,9 +742,10 @@ def parses_cleanly(command: str, windows=None) -> bool:
 
     Read from the original text, comments and all, because the one place this
     is consulted asks whether a retry token could have been READ -- and
-    `has_token` reads the original. Asking the comment-free text instead would
-    put "this command has an unbalanced quote" on commands whose only
-    unbalanced quote was in a comment that no longer matters.
+    `has_token` reads the original, beside its body-free text. Asking the
+    comment-free text instead would put "this command has an unbalanced
+    quote" on commands whose only unbalanced quote was in a comment that no
+    longer matters.
     """
     return _tokenize(command, windows)[1]
 
@@ -767,8 +780,18 @@ def has_token(command: str, token: str) -> bool:
     written in a comment on purpose — `git worktree add ../wt f
     # [worktree-ok]` is the documented form — so dropping comments first would
     throw away the only place the token is ever written.
+
+    **A here-document body is not read** (#780). A token counts only where
+    the command as written AND the command with its bodies taken out both
+    carry it, the rule `hooks/tokens.py#given` keeps for the commit gate
+    since #773. A body is text a command only carries, so a
+    `[shared-tree-ok]` written in one passed a switch nobody answered, and a
+    `[worktree-ok]` there lowered the single-stream deny to an ask. The AND
+    is what keeps the second read from finding more than the first: taking a
+    body out can let the splitter finish a command it gave up on, and a
+    token only that read finds is one the command as written never offered.
     """
-    segments, _clean = _tokenize(command)
+
     # A closing parenthesis rides on the last word of a segment, so a token
     # written at the end of `(git worktree add ../wt f [worktree-ok])` arrived
     # here with a `)` on it and matched nothing. The judgment read strips a
@@ -777,9 +800,35 @@ def has_token(command: str, token: str) -> bool:
     # unreadable token into a loop with no way out rather than one more
     # prompt. Widening a CONSENT read is the safe direction; the judgment
     # read is where a stray parenthesis must not decide anything.
-    return any(
-        tok == token or tok.strip("()") == token for toks in segments for tok in toks
-    )
+    def carries(text):
+        segments, _clean = _tokenize(text)
+        return any(
+            tok == token or tok.strip("()") == token
+            for toks in segments
+            for tok in toks
+        )
+
+    return carries(command) and carries(_without_bodies(command))
+
+
+def _without_bodies(command: str) -> str:
+    """COMMAND with its here-document bodies taken out and its comments kept,
+    for `has_token`.
+
+    `tokens.without_bodies` where `hooks/cmdline.py` loaded, which is the
+    body reader every consent read shares (#773). Where it did not, or where
+    that read raises, the frozen reader's `drop_heredoc_bodies`, the one
+    `_judgment_text` already uses. Falling back to the command as written
+    would bring #780 back whenever that module is broken, and reading no
+    token at all would leave the single-stream creation deny, which has no
+    `ask` behind it, with no way past (`plan.md` G and H of work item
+    1791163981)."""
+    if wide is not None and tokens is not None:
+        try:
+            return tokens.without_bodies(command)
+        except (Exception, SystemExit):
+            pass
+    return cmdline.drop_heredoc_bodies(command)
 
 
 # The characters that make ONE segment do something besides run its command
