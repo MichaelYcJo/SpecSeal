@@ -337,7 +337,9 @@ took the verdict, consent made it silent for a compound, and `git worktree add
 ../x -b x && git switch y` ran the switch over a tree another session was
 ACTIVE in — which *What does not change* below rules out. The walk now keeps
 the first switch and the first creation in either order and hands both to the
-table above. Both spellings get the same decision and the same reason in every
+table above. Since #790 the first switch is the first the base's lookups read,
+and a `checkout` only #790's lookups read takes the place only where they
+read none (§*Which tree*, §*Known limits*). Both spellings get the same decision and the same reason in every
 tree state, consent state and attempt, and the combined verdict is never
 weaker than the switch's alone or the creation's alone.
 
@@ -792,6 +794,12 @@ at one prompt against a wrong allow breaking another session's tree.
   reads `<a>...<b>`, reads as no branch until the guard learns it. Measured with git 2.54.0 (work item 1791163981,
   `phases/phase-1.md`); `test_nothing_the_base_read_as_a_switch_goes_quiet`
   in `tests/test_guard_resolves_the_tree_it_judges.py` pins the direction.
+- A `checkout` only #790's lookups read as a switch is judged only where the
+  frozen reading read no switch in the command (§*Which tree*), so one in a
+  second, dirty tree, written before a switch the frozen reading reads in a
+  clean tree, goes unasked, as it did at the base. Judging it first instead
+  took the question from the frozen reading's switch, which the base asked
+  (round 1 of 1791163981, 🟡 3).
 - On Windows the count of other sessions is always unusable. It walks the
   process table with `ps -o` and `ps -axo`, and Git for Windows' `ps` takes
   neither, so every tree state there reads as *detection unusable* and takes

@@ -1175,10 +1175,13 @@ def _fetched_as(name: str, cwd: str) -> set:
     `remote.<remote>.fetch` refspec, as git's checkout guess maps it: an
     exact source names its destination, a source with one `*` matches what it
     stands for and puts it in place of the destination's `*`, and a refspec
-    with no `:` maps nothing (a negative refspec has none)."""
+    with no `:` maps nothing (a negative refspec has none). The entries are
+    read NUL-separated, because a remote's name can hold a space, which `git
+    remote add` refuses and git's fetch and guess still read (round 2 of
+    1791163981, 🟡 1)."""
     try:
         r = subprocess.run(
-            ["git", "config", "--get-regexp", r"^remote\..*\.fetch$"],
+            ["git", "config", "-z", "--get-regexp", r"^remote\..*\.fetch$"],
             cwd=cwd or None,
             capture_output=True,
             encoding="utf-8",
@@ -1188,8 +1191,8 @@ def _fetched_as(name: str, cwd: str) -> set:
         return set()
     source = "refs/heads/" + name
     mapped = set()
-    for line in r.stdout.splitlines():
-        spec = line.partition(" ")[2].strip().lstrip("+")
+    for entry in r.stdout.split("\0"):
+        spec = entry.partition("\n")[2].strip().lstrip("+")
         src, colon, dst = spec.partition(":")
         if not colon:
             continue

@@ -1294,7 +1294,8 @@ def test_the_guard_policy_says_what_it_reads_past_the_base():
     read as `86256492` read it names the two rules now read past it, on whose
     act and when, and what stays the base's. Red against the paragraph as it
     stood at `94d7b2e0`, and its #790 sentences against `a3aa139a`'s; the
-    round 1 sentences of 1791163981 against `85e77dc8`'s."""
+    round 1 sentences of 1791163981 against `85e77dc8`'s, and round 2's
+    against `f659c466`'s."""
     text = _policy_text()
     assert (
         "Two rules are read past the base. The first, since #764 and #738 on "
@@ -1323,6 +1324,17 @@ def test_the_guard_policy_says_what_it_reads_past_the_base():
     assert (
         "a few names git refuses are still read as a branch, so the command is "
         "asked although it would not run"
+    ) in text
+    # Round 2 of 1791163981, ⬜ 2: the limit the placement leaves, in the
+    # walk's paragraph and in §*Known limits*.
+    assert (
+        "Since #790 the first switch is the first the base's lookups read, and "
+        "a `checkout` only #790's lookups read takes the place only where they "
+        "read none"
+    ) in text
+    assert (
+        "so one in a second, dirty tree, written before a switch the frozen "
+        "reading reads in a clean tree, goes unasked, as it did at the base."
     ) in text
     # Round 1 of 1791163981, 🟡 2: the guess reads the fetch refspecs, so the
     # sentence that it never guesses less than git is true.
@@ -2409,8 +2421,10 @@ def test_a_newly_read_checkout_in_front_takes_no_question_away(
     #790's lookups, in a clean single-session tree, stands in front of a
     switch in a second, dirty tree. `a3aa139a` read no switch in front, so it
     judged the second tree's switch, or C asked about it; the guard still
-    asks. Red at `85e77dc8`, where the checkout took the slot and C's
-    question and the command went through silently."""
+    asks. The two `:/base` cases were red at `85e77dc8`, where the checkout
+    took the slot and C's question and the command went through silently.
+    The two `:/nomatch` cases are controls, a search git refuses, and pass
+    at every version."""
     other = _a_dirty_clone_beside(repo, tmp_path)
     command = f"{front} && {behind.format(other=other)}"
     decision, reason, _ = run(monkeypatch, capsys, command, repo)
@@ -2522,3 +2536,27 @@ def test_the_first_newly_read_checkout_is_the_one_judged(
     command = f"git checkout ':/base' && git -C {other} checkout ':/base'"
     decision, reason, top = run(monkeypatch, capsys, command, repo)
     assert top and os.path.samefile(top, repo), (top, decision, reason)
+
+
+def test_a_guess_through_a_remote_whose_name_holds_a_space(tmp_path):
+    """Round 2 of 1791163981, 🟡 1. `git remote add` refuses a name holding a
+    space, but git fetches and guesses through one the config names, and `git
+    config --get-regexp` prints that key with the space in it, so a map that
+    split each line at its first space read no refspec. Red at `f659c466`."""
+    bare = tmp_path / "f.git"
+    subprocess.run(
+        ["git", "init", "-q", "--bare", str(bare)], check=True, capture_output=True
+    )
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "README.md", "initial commit")
+    _git(d, "branch", "onfork")
+    _git(d, "push", "-q", str(bare), "onfork")
+    _git(d, "branch", "-D", "onfork")
+    _git(d, "config", "remote.a b.url", str(bare))
+    _git(d, "config", "remote.a b.fetch", "+refs/heads/*:refs/spaced/*")
+    _git(d, "fetch", "-q", "a b")
+    assert _where_git_checkout_lands(d, "onfork")
+    for carrier in ("checkout N", "checkout N --"):
+        tokens = ["git", *CARRIERS[carrier]("onfork")]
+        assert wg.classify(tokens, str(d)) == "switch", carrier
