@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #801 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `fa8a5c3c09a107305a09dfec21a9bd916f30f568..b5dbc88c1897d22372305f6434c63ba5e6ba98df`, 3 commits |
 | Contract changes | none |
 | New units | test_a_held_coordinate_with_two_places_on_a_dated_row_is_left_and_named (depth 1); test_a_held_ledger_coordinate_the_run_moves_is_re_stamped (depth 1) |
