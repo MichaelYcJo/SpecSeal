@@ -22,7 +22,7 @@ Each new case is seen red against a3aa139a's gate before it is committed.
 
 **Q1 is (a), measured.** `bin/test -q tests/test_tmp_c_q1.py
 --junitxml=<scratch>/q1.xml` on a failing probe file (deleted afterwards)
-exited 1 and wrote a report naming `tests.test_tmp_c_q1`/`test_q1` with a
+exited 1 and wrote a report naming tests.test_tmp_c_q1 / test_q1 with a
 `failure`, under the runner's default `-n auto`. `run_tests.py#main` hands
 its arguments to pytest as the reading said, so this repository's row stays
 measured and nothing changes in the runner.
@@ -147,5 +147,5 @@ write no report, and are passed over as they were.
 | `ERROR_RE`, `SHORT_SUMMARY_RE`, `PYTEST_SUMMARY_RE`, `NOTHING_COLLECTED_RE` and their comments | `JUNIT_REPORT`'s comment, which says what the report replaced and why; `STOPPED_EARLY_RE` stays |
 | `verdicts_at_base`, `collected_nothing`, `measured_summary` | `report_words`, `report_cases`, `dotted` and `offsets` in `skills/verify/scripts/broad_gate.py` |
 | `MEASURED_ENDINGS`, `SUMMARY_LINES`, `SUMMARIES`, `NOTHING_COLLECTED` and their four cases | `REPORTS` and `test_the_base_run_is_read_off_pytests_report`, with `test_what_is_not_a_report_settles_nothing` |
-| `test_the_one_counterfeit_the_gate_cannot_see_is_named` | `test_a_part_that_drops_the_gates_arguments_gives_no_word` (S6) |
+| test_the_one_counterfeit_the_gate_cannot_see_is_named | `test_a_part_that_drops_the_gates_arguments_gives_no_word` (S6) |
 | Rule 3's `-s` sentence, its "one shape the gate cannot see through" sentence, and its "output goes to a file, or whose summary line the gate does not read" clause | rule 3's report sentences and its sentence on a part that does not hand the arguments on, pinned in `test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written` |
