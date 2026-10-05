@@ -147,6 +147,8 @@ def record(sha, contract="none", new_units="none"):
     # `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` is where
     # that one is pinned.
     rows += "| Loses a record or crashes | no |\n| Needs a fix | no |\n"
+    # And `Fix of a fix` against `chain_check.REFRAME_FROM`, the same shape.
+    rows += "| Fix of a fix | no |\n"
     # `Ran by` is here for the reason the floor row above is: `NEW_ITEM`
     # began after `chain_check.RUNNER_FROM`, so leaving it out would fail
     # every record in this file for a rule it does not pin.

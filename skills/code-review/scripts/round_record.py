@@ -2141,9 +2141,13 @@ def bound_line(reader, routing, rounds, n):
     🟡 8). Silence is the answer rather than a hedged sentence: this line
     exists to bound the decision to spawn again, and for a record the gate
     will not refuse there is no bound to state.
+
+    **The records of the current run, and no further** (#823), because that
+    is what the gate's two walks read: a record after a `second` is the
+    redesign's, and the stopped run's floor bounds nothing in it.
     """
     floor_at, fixes, counted, running, counted_at = floor_and_fixes(
-        reader, earlier_records(routing, rounds, n)
+        reader, current_run(reader, earlier_records(routing, rounds, n))[0]
     )
     if floor_at is None:
         return None

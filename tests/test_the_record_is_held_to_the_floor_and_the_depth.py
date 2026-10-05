@@ -164,6 +164,8 @@ def record(sha, floor="no", new_units="none", needs="no"):
     )
     if new_units is not None:
         rows += f"| New units | {new_units} |\n"
+    # `NEW_ITEM` began after `chain_check.REFRAME_FROM`, so the row is owed.
+    rows += "| Fix of a fix | no |\n"
     if needs is not None:
         rows += f"| Needs a fix | {needs} |\n"
     if floor is not None:
@@ -485,6 +487,7 @@ def fixed_record(sha, verdict, checker):
         "| Contract changes | none |\n"
         "| Ran by | specseal:warden on a model |\n"
         "| New units | none |\n"
+        "| Fix of a fix | no |\n"
         "| Needs a fix | no |\n"
         "| Loses a record or crashes | no |\n\n"
         "- [ ] Pass\n\n"

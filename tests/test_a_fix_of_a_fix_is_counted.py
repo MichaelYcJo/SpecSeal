@@ -389,6 +389,12 @@ def test_a_reframed_record_is_written_and_starts_the_count_at_no(repo, touched):
     assert text is not None, out
     assert row(text) == "no"
     assert "the fix passes stop here" not in out, out
+    # `questions.md` Q3: the reach-back leaves the stopped record's
+    # `no fixes to check` standing. It commissioned no fixes, so `round-4`
+    # there would claim this round read fixes round 3 never wrote.
+    stopped_record = (repo / ROUNDS / "round-3.md").read_text(encoding="utf-8")
+    assert fields(stopped_record)["Fixes checked by"] == "no fixes to check"
+    assert "left `Fixes checked by` of round-3.md at `no fixes to check`" in out, out
 
 
 def test_fix_of_a_fix_count_reads_the_three_values_and_nothing_else():
