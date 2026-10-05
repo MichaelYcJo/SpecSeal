@@ -4798,7 +4798,9 @@ def test_a_candidate_whose_run_at_the_base_crashes_is_not_measured(tmp_path):
 
 
 @pytest.mark.parametrize("xdist", UNDER)
-def test_a_run_of_several_that_counted_only_warnings_measures_neither(tmp_path, xdist):
+def test_a_run_of_several_that_counted_only_warnings_sends_each_file_alone(
+    tmp_path, xdist
+):
     """#761 round 1's 🟡 1, measured since #789. As the limit case, and the
     base's `sub/tests/test_one.py` fails while an ini key pytest does not
     know gives every run a warning. The run of the two files collects
@@ -4806,7 +4808,8 @@ def test_a_run_of_several_that_counted_only_warnings_measures_neither(tmp_path, 
     run of two, and a group of several failing files is never measured
     file by file: each reads `new?` with the group's reason (#789 rounds 1
     and 2). For a while `test_one` read `failing on base too` and then the
-    count reason, and `test_two` `new`, from runs alone."""
+    count reason, and `test_two` `new`, from runs alone; the name is that
+    history, cited by round 1's record."""
     repo = base_then_feature(
         tmp_path / "repo",
         f"cd sub && {suite_row(xdist)}",
