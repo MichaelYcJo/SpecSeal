@@ -1944,17 +1944,19 @@ MULTI_RUNNER = (
     "failure is from. A row earns the measured word by running pytest once"
 )
 # A file of a group of several failing files whose run together at the base
-# failed (#789 rounds 1 and 2, the owner's decision of 2026-10-05). That run
-# says no file failed in it -- a count was tried, and another file's failures
+# did not give each `new` (#789 rounds 1 and 2, the owner's decision of
+# 2026-10-05): it failed, or collected no test (#815). That run does not say
+# which file failed in it -- a count was tried, and another file's failures
 # made it up -- and a file's run alone is not the row's run: a module a
 # sibling puts on `sys.path`, state a sibling sets at import, a session
 # fixture's error on each session's last test, a flaky test. So no file of
 # such a group earns `failing on base too`, and none is run alone.
 COMPANY = (
-    f"{NOT_MEASURED}: this file is one of several failing files whose run "
-    "together at the base failed (kept as suite-at-base-<k>.txt), and that run "
-    "does not say which of them failed in it; a file's run alone is not the "
-    "row's run, so no file of it is measured alone"
+    f"{NOT_MEASURED}: this file is one of several failing files run together "
+    "at the base, and that run did not give each of them new (kept as "
+    "suite-at-base-<k>.txt); it does not say which of them, if any, failed in "
+    "it, and a file's run alone is not the row's run, so no file of it is "
+    "measured alone"
 )
 # pytest's outcome line for a session that RAN tests, bare under `-q` or
 # between `=` rules: `1 passed in 0.01s`, `1 failed, 2 passed in 0.12s`,
@@ -2034,8 +2036,11 @@ def proof_refused(text, path):
         runner without the gate's environment (#789 round 1);
       - **the measuring runner's session**: no `<path>: <count>` line, which
         only a runner that took its listing from the variable prints, so the
-        one session seen is the one handed `OWN_LISTING` (#789 round 2);
-        otherwise `MULTI_RUNNER`;
+        one session seen is the one handed `OWN_LISTING` (#789 round 2), and
+        at least one node id or `ERROR` line naming `path`: the run alone
+        failed the file, so its runner collected a test of it or could not
+        collect it, and a session showing neither -- one that collected
+        nothing -- is another runner's (#815); otherwise `MULTI_RUNNER`;
       - **only `path` listed**: every `<path>::<test>` node id names `path`,
         and there are as many as the trailer says were collected, the
         selected count where some were deselected;
@@ -2066,6 +2071,11 @@ def proof_refused(text, path):
     errors = int(errors or 0)
     if errors > 1 or (errors == 1 and not named):
         return COLLECTED_BEYOND
+    # The run alone failed the file, so the measuring runner collected a test
+    # of it or failed to collect it. A session showing neither is another
+    # runner's, the measuring one having printed nothing the gate sees (#815).
+    if not ids and not named:
+        return MULTI_RUNNER
     return None
 
 

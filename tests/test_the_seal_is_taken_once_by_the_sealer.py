@@ -4207,7 +4207,10 @@ PROOFS = [
         "================== no tests collected (2 deselected) in 0.01s "
         "==================\n",
         "tests/test_two.py",
-        None,
+        # #815: a measuring runner that just failed a test of the file
+        # selects it again under the same arguments, so a session that
+        # selected nothing is another runner's.
+        "MULTI_RUNNER",
         id="everything-deselected",
     ),
     pytest.param(AN_ERROR, "tests/test_err.py", None, id="an-error-naming-it"),
@@ -4394,10 +4397,11 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "failure is from. A row earns the measured word by running pytest once"
     )
     assert gate.COMPANY == (
-        "new? not measured: this file is one of several failing files whose "
-        "run together at the base failed (kept as suite-at-base-<k>.txt), and "
-        "that run does not say which of them failed in it; a file's run alone "
-        "is not the row's run, so no file of it is measured alone"
+        "new? not measured: this file is one of several failing files run "
+        "together at the base, and that run did not give each of them new "
+        "(kept as suite-at-base-<k>.txt); it does not say which of them, if "
+        "any, failed in it, and a file's run alone is not the row's run, so no "
+        "file of it is measured alone"
     )
     readers = {
         ("agents", "sealer.md"): "`new?`",
@@ -4421,8 +4425,8 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "the file's run alone ended without naming a failing test",
         "the row's runner collected tests beyond it, the row ran pytest more "
         "than once when the gate asked it only to collect, or several failing "
-        "files of one run failed at the base, and a file's run alone is not the "
-        "row's run",
+        "files ran together at the base and that run did not give each `new`, "
+        "and a file's run alone is not the row's run",
         "open the kept `suite-at-base-*.txt` files and the "
         "`collected-at-base-*.txt` ones",
         "how a row earns the measured word",
@@ -5583,6 +5587,55 @@ def test_a_measuring_runner_whose_output_the_gate_never_sees_earns_no_word(tmp_p
     assert verdict_of(out.stdout, path) == gate.MULTI_RUNNER.format(n=1), out.stdout
 
 
+@pytest.mark.parametrize(
+    "second, at_base, on_feature",
+    [
+        pytest.param(
+            "tests/integration",
+            {"tests/integration/test_i.py": "HELPER = 1\n"},
+            {
+                "tests/integration/test_i.py": "HELPER = 1\n\n\n"
+                "def test_i():\n    assert False\n"
+            },
+            id="the-next-runner-collects-no-test-at-the-base",
+        ),
+        pytest.param(
+            "-m slow tests/integration",
+            {
+                "pytest.ini": "[pytest]\nmarkers =\n    slow: a slow test\n",
+                "tests/integration/test_i.py": "def test_i():\n    assert True\n",
+            },
+            {
+                "tests/integration/test_i.py": "import pytest\n\n\n"
+                "@pytest.mark.slow\ndef test_i():\n    assert False\n"
+            },
+            id="the-next-runner-deselects-every-test-at-the-base",
+        ),
+    ],
+)
+def test_a_silent_measuring_runner_beside_an_empty_session_earns_no_word(
+    tmp_path, second, at_base, on_feature
+):
+    """#815 (#789 round 3's 🟡 1). The runner that measures sends its output
+    to a file, and the runner after it collects nothing at the base, so it
+    prints no line listed by file and no node id: zero node ids against a
+    trailer of zero is not the measuring runner's session, which collected a
+    test of the file or failed to collect it."""
+    row = f"{FILES_ROW} tests/unit > unit.log; {FILES_ROW} {second}"
+    repo = base_then_feature(
+        tmp_path / "repo",
+        row,
+        {"tests/unit/test_u.py": PRE_EXISTING, **at_base},
+        on_feature,
+    )
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    path = "tests/integration/test_i.py"
+    assert verdict_of(out.stdout, path) != gate.ON_BASE, out.stdout
+    assert verdict_of(out.stdout, path) == gate.MULTI_RUNNER.format(n=1), out.stdout
+
+
 def test_a_report_an_earlier_run_left_settles_nothing(tmp_path):
     """#789. `--keep-output` can name a directory an earlier gate run wrote
     into, and a report left there at a prefix's path would settle a prefix
@@ -6202,8 +6255,10 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "The proof run also needs the session it reads to be the measuring "
         "runner's: that runner is handed `-o verbosity_test_cases=-1` after the "
         "file and lists node ids no other runner prints, so where its output "
-        "goes to a file and the only session seen is a later runner's, the file "
-        "reads `new?`.",
+        "goes to a file and the only session seen is a later runner's, one that "
+        "collected nothing at the base included, the file reads `new?`: the "
+        "measuring runner, which failed the file, either lists a node id of it "
+        "or names it in an `ERROR` line.",
         "Two routes never meet a group, also as before: a file that runs alone "
         "from the start is compared with no sibling",
         "**A second runner the proof run does not reach, or that prints "
