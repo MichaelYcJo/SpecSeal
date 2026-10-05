@@ -3963,8 +3963,11 @@ def verdict_of(text, path):
     """The whole word the failure form gives `path` under *compared at the
     base*, or None. Whole, so `new` and `new? …` are told apart: a `new\\b`
     search matches both."""
-    found = re.search(rf"^\s+{re.escape(path)}  (.+)$", text, re.M)
-    return found and found.group(1).rstrip()
+    for line_path, word in re.findall(r"^\s+(\S.*?)  (\S.*)$", text, re.M):
+        # Windows prints the native separator, so `\` in a listed path reads as `/`.
+        if line_path.replace("\\", "/") == path:
+            return word.rstrip()
+    return None
 
 
 # Two stand-ins that print what a linter and a formatter print and exit 0, so
