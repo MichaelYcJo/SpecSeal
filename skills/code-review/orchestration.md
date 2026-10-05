@@ -241,6 +241,50 @@ owns the count, the bound and the exit. `chain_check.py` walks both, reading
 `Needs a fix` and the verdict column, which is why that row is read rather
 than only written.
 
+### A fix of a fix twice sends the work item back to its framer
+
+**The exit comes first, because a stop that names none is a wall.** When the
+stop fires, no fix pass is commissioned and the work item goes back to its
+framer:
+
+| Step | What |
+|---|---|
+| The record | every open finding closes `deferred the frame` through `close`, so `Fixes checked by` reads `no fixes to check` and `Pass` is ticked over the deferrals, as a capped record's is |
+| The pull request | labelled `chain: reframed` |
+| The framer | spawned again with the run's round records as its input — they are in the tree, so the prompt names them and carries nothing else. It rewrites `plan.md` (new phase rows; a closed phase keeps its commit) and `spec.md` where the scope moves, and adds `Reframed <date> by <who>, after round <N>.` under the `Framed` line. Under `Automation \| yes` the spawn asks nobody |
+| The redesign | approved by a second `Approved` line in `plan.md` when `smith` is spawned for it, built, and reviewed. `round_record.py new` refuses its first record until the `Reframed` line names the stop, and that record starts the count at `no` |
+
+**A fix of a fix twice in one run sends the work item back to its framer.** A
+finding is a fix of a fix when its `Location` is inside a top-level unit the
+previous round's fixes added or changed: the fix itself is what the next round
+found wrong. `round_record.py new` reads that off the previous record's `Fix
+range` and writes it into `round-N.md`'s `Fix of a fix` row — `first` the first
+time in a run, `second` the second, when it prints the stop — so the count is
+the records' and nobody has to notice. `chain_check.py` refuses a run that went
+past it or resumed without the `Reframed` line. `docs/round-record-spec.md`
+§*A fix of a fix — `Fix of a fix`* holds the reading and the gate's table.
+
+**Two, against the 3+ Fix Rule's three.** `CLAUDE.md`'s 3+ Fix Rule stops one
+bug after three failed fixes, and fires when whoever is at the keyboard
+notices. This is the review chain's instance of it, read from the records, and
+it fires one fix earlier: the first fix of a fix is the signal and the second
+its confirmation. Measured on 0.18.3, #814 and #801 each read `first` at round
+2 and `second` at round 3, and each then filed its third fix as an issue (#815,
+#808) that begot another (#816, #809). That third fix pass is what the stop
+spends on a redesign instead.
+
+**A record after the stop is the redesign's, not a later round of the run.**
+Everything that counts records starts over past a `second` — the floor, the
+bound `new` prints, this count, and the round cap — so the redesign's own
+finding round and verifying round are not refused for following a floor the
+stopped run had met.
+
+What it cannot see, stated rather than left to be found: a landing it cannot
+place counts as none — a prose file, a module-level line, a `Location` nothing
+resolves. And the grain is the top-level unit, so two unrelated findings in one
+long function read as a fix of a fix; the row names the unit, so a reader can
+see that it happened.
+
 ### A fix pass adds the unit that pins it, and that unit ships unreviewed
 
 **A unit a fix pass may not add has somewhere to go.** It is deferred with a

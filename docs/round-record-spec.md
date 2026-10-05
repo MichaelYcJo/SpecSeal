@@ -705,7 +705,7 @@ stop and no fix pass runs: the open findings close `deferred the frame`, and
 `new` refuses the next record until `spec.md`'s foot carries `Reframed <date>
 by <who>, after round <N>.` under the `Framed` line.
 `skills/code-review/orchestration.md` §*A fix of a fix twice sends the work
-item back to its framer* owns the rule and the exit.
+item back to its framer* owns that rule and its exit.
 
 `chain_check.fix_of_a_fix` counts the rows as declared, on every record, behind
 `REFRAME_FROM`; after a squash nothing could re-derive a landing.

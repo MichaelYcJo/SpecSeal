@@ -59,6 +59,10 @@ branch with a known open blocker and no question for anyone to answer.
 | up to five | **only while a 🔴 is open**, and only to close it |
 | stop regardless | a round opens a new 🔴 at the same site as the one it was closing — that is the structure signal, whatever the count |
 
+That row is counted since #823, at any severity, in the unit the last fix
+pass wrote: `skills/code-review/orchestration.md` §*A fix of a fix twice
+sends the work item back to its framer* owns that rule and its exit.
+
 **Five is a ceiling, not a target.** The moment the last 🔴 closes, the run
 ends; unused rounds are not spent on 🟡 findings. Those go to
 `seal/follow-up.md` or the tracker with an answerer named, exactly as

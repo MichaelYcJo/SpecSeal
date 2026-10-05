@@ -118,6 +118,11 @@ FRAGMENT_OWNER = (
     "`docs/the-record-layout.md` §*A commit after the build brings its "
     "changelog fragment along* owns that rule"
 )
+FRAMER = ("agents", "framer.md")
+REFRAME_OWNER = (
+    "`skills/code-review/orchestration.md` §*A fix of a fix twice sends the "
+    "work item back to its framer* owns that rule"
+)
 
 
 def read(*parts):
@@ -298,6 +303,25 @@ RULES = {
         "A commit after the build that changes what the work item ships "
         "updates the work item's `changelog.md` in the same range.",
         {SMITH: FRAGMENT_OWNER, IMPLEMENT: FRAGMENT_OWNER, ORCH: FRAGMENT_OWNER},
+    ),
+    # A sixteenth, from #823. Two 0.18.3 chains wrote a fix whose next
+    # round's finding was inside that fix, twice, and nothing counted it. The
+    # owner is the orchestrator's half of the review skill, because
+    # `docs/review-chain-spec.md` stands at its line ceiling; the spec's
+    # `stop regardless` row links here. WHAT IT PINS: the owner's headline
+    # sentence and each carrier naming the section. The count itself is
+    # pinned by `tests/test_a_fix_of_a_fix_is_counted.py` and
+    # `tests/test_the_chain_goes_back_to_its_framer.py`.
+    "16 a fix of a fix twice sends the work item back to its framer": (
+        ORCH,
+        "A fix of a fix twice in one run sends the work item back to its framer.",
+        {
+            SPEC: REFRAME_OWNER,
+            RECORD_SPEC: REFRAME_OWNER,
+            FRAMER: REFRAME_OWNER,
+            WARDEN: REFRAME_OWNER,
+            IMPLEMENT: REFRAME_OWNER,
+        },
     ),
 }
 
