@@ -61,7 +61,9 @@ stubbed so nothing was written, and the decisions compared: none moved, none
 went quieter. The probe was deleted, so the counts are this record's word
 and not re-checkable. It is a no-regression check over recorded traffic and
 nothing more: no recorded command holds a `checkout` that only #790's lookups
-read, so the replay never reached the reordering in `main` that round 1's
+read, of the pairs whose directory still exists (449 of the 972 `checkout`
+pairs up to the fix pass name one that is gone, where neither reading finds a
+ref; counted by round 3's reviewer), so the replay never reached the reordering in `main` that round 1's
 🟡 3 added. The evidence for that reordering is
 `test_a_newly_read_checkout_in_front_takes_no_question_away`,
 `test_the_first_newly_read_checkout_is_the_one_judged` and the 31 commands
