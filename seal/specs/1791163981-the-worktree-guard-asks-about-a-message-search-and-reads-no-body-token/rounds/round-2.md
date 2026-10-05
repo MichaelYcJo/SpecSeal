@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #803 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `f659c46626e6e26b33a9af7e39e62a00315c3603..e3cd4dc46f0ede51eb5d24b0ad297703ad455cb4`, 2 commits |
+| Contract changes | none |
+| New units | test_a_guess_through_a_remote_whose_name_holds_a_space (depth 1) |
 | Needs a fix | yes — 🟡 1 (a remote whose name holds a space is read as no remote by `_fetched_as`, and git guesses through it) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ The verifying round over round 1's fixes (85e77dc8..22563bc6): round 1's probes 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `_fetched_as` splits each `git config --get-regexp` entry at its first space, so a remote whose name holds a space maps nothing while git guesses through it; the policy's "never the other way" and R5's "every remote" are false for it | `hooks/worktree-guard.py:1192` | open | executed: git created and switched, a3aa139a, 3a07c607 and 1eaccfc7 `None`, with a `-z` read `switch`, 11 other refspec shapes unchanged; the case red at 1eaccfc7 and green with the fix, module 419 passed |
-| ⬜ 2 | A newly read checkout in a dirty second tree before a switch the base reads in a clean tree is silent (as at the base; 3a07c607 asked); §*Which tree* states the rule, §*Known limits* and the "keeps the first switch" paragraph do not | `docs/worktree-guard-spec.md:339` | open | executed through `main()` at three versions; no behaviour or fact wrong |
-| ⬜ 3 | `main` runs the full `classify` after the base-only one, repeating its two calls, and runs it even after `newly_read` is set; 10 git calls where the base made 2 on an unresolvable name | `hooks/worktree-guard.py:2786` | open | executed: subprocess count 2 base-only, 8 full |
-| ⬜ 4 | `test_a_newly_read_checkout_in_front_takes_no_question_away` says "Red at `85e77dc8`", and its two `:/nomatch` cases pass there | `tests/test_guard_resolves_the_tree_it_judges.py:2412` | open | executed: 2 failed, 2 passed with 85e77dc8's guard |
+| 🟡 1 | `_fetched_as` splits each `git config --get-regexp` entry at its first space, so a remote whose name holds a space maps nothing while git guesses through it; the policy's "never the other way" and R5's "every remote" are false for it | `hooks/worktree-guard.py:1192` | **fixed** `8a92c8c2` | fixed at 8a92c8c2; executed: git created and switched, a3aa139a, 3a07c607 and 1eaccfc7 `None`, with a `-z` read `switch`, 11 other refspec shapes unchanged; the case red at 1eaccfc7 and green with the fix, module 419 passed |
+| ⬜ 2 | A newly read checkout in a dirty second tree before a switch the base reads in a clean tree is silent (as at the base; 3a07c607 asked); §*Which tree* states the rule, §*Known limits* and the "keeps the first switch" paragraph do not | `docs/worktree-guard-spec.md:339` | **fixed** `8a92c8c2` | fixed at 8a92c8c2; executed through `main()` at three versions; no behaviour or fact wrong |
+| ⬜ 3 | `main` runs the full `classify` after the base-only one, repeating its two calls, and runs it even after `newly_read` is set; 10 git calls where the base made 2 on an unresolvable name | `hooks/worktree-guard.py:2786` | answered | the extra git calls arise only for a `checkout` whose name nothing resolves, a bounded handful per segment; reordering the lookups would put new code into the last round's range to save a cost, not to fix a defect; executed: subprocess count 2 base-only, 8 full |
+| ⬜ 4 | `test_a_newly_read_checkout_in_front_takes_no_question_away` says "Red at `85e77dc8`", and its two `:/nomatch` cases pass there | `tests/test_guard_resolves_the_tree_it_judges.py:2412` | **fixed** `8a92c8c2` | fixed at 8a92c8c2; executed: 2 failed, 2 passed with 85e77dc8's guard |
 | 🟢 | round 1's 🟡 1 is closed: a message search holding `..` reads as a switch, and the object lookup adds no yes git refuses across 12 non-commit and ambiguous names | `hooks/worktree-guard.py:1072` | confirmed | executed at three versions against git's own checkout |
 | 🟢 | round 1's 🟡 2 is closed for its two shapes and eight more (negative, multi-line, middle `*`, mirror, include, `/` in the name, no destination, legacy file); the one shape it misses is 🟡 1 above | `hooks/worktree-guard.py:1173` | confirmed | executed at three versions against git's own checkout |
 | 🟢 | round 1's 🟡 3 is closed: round 1's probe is `ask` again, and no command of 31 is quieter than a3aa139a | `hooks/worktree-guard.py:2801` | confirmed | constructed path by path; executed through `main()` at three versions |
