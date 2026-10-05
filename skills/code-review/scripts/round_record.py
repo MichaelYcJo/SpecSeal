@@ -39,6 +39,12 @@ carries retyped coordinates.
                       moment it is written
   Contract changes    `none — the fixes are not yet written`, or a bare `none`
   New units           in the same two states, for the same reason
+  Fix of a fix        `no`, `first — <where>` or `second — <where>; …`: the
+                      open findings whose `Location` lands in a unit the
+                      previous record's fix range added or changed, counted
+                      per run (#823). At `second` it prints the stop, and it
+                      refuses a record after a `second` whose `spec.md` foot
+                      carries no `Reframed … after round <N>` line
   Needs a fix         what stands after the colon in the report's line
   Loses a record or   the same, for the second line; a report lacking either
   crashes             line is refused
@@ -2199,6 +2205,221 @@ def bound_line(reader, routing, rounds, n):
     )
 
 
+# --- a fix of a fix: where an open finding lands, counted per run ------------
+#
+# #823. In two 0.18.3 chains a fix pass wrote code and the next round's finding
+# was a regression inside the code that fix pass had just written, twice in a
+# row, and nothing counted it. The 3+ Fix Rule fired once in 0.18.x, by hand.
+# `skills/code-review/orchestration.md` §*A fix of a fix twice sends the work
+# item back to its framer* owns the rule; this is the reading that makes the
+# count mechanical, and `chain_check.fix_of_a_fix` counts what it writes.
+
+STOPS_HERE = "the fix passes stop here"
+
+
+def fof_count_of(reader, path):
+    """The `Fix of a fix` count a record on disk declares, or None.
+
+    None for a record with no such row -- every record written before #823 --
+    and for one this cannot read. Both count as no landing wherever a run is
+    counted: the generator never invents a `first` the record did not write.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return None
+    value = chain.field(
+        chain.table_rows(reader, reader.readable(text)), chain.FIX_OF_A_FIX
+    )
+    if value is None:
+        return None
+    return chain.fix_of_a_fix_count(reader.visible(value))
+
+
+def current_run(reader, earlier):
+    """(the records of the run the next record belongs to, the `(K, path)` of
+    the `second` that ended the run before it, or None).
+
+    A run is the records from round 1, or from the record after the last
+    `second`, up to and including the next `second`. A record after a `second`
+    is not a later record of anything at or before it -- which is what lets
+    the redesign's own rounds exist without the stopped run's floor, its
+    reopening or its count reaching across the stop.
+    """
+    last = None
+    for index, (_k, path) in enumerate(earlier):
+        if fof_count_of(reader, path) == 2:
+            last = index
+    if last is None:
+        return list(earlier), None
+    return list(earlier[last + 1 :]), earlier[last]
+
+
+def reframed_after(reader, item, k):
+    """True when `spec.md`'s foot carries `Reframed … after round <k>.`.
+
+    Read from disk, as everything `new` reads is: this is a refusal at the
+    keyboard, and the spec in front of the person who ran it is the one they
+    can correct. `chain_check.fix_of_a_fix` reads the same line from HEAD at
+    the pull request.
+    """
+    try:
+        with open(os.path.join(item, "spec.md"), encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return False
+    _mark, reframes = chain.frame_foot(reader, text)
+    return any(n == k for _when, _who, n in reframes)
+
+
+def unit_dumps(module):
+    """{name: `ast.dump` of its node} for every top-level def, class and
+    constant -- the names `top_units` keys, with the node they stand for.
+
+    `ast.dump` leaves line and column attributes out by default, so a unit
+    that moved or was only re-commented compares equal: nothing a finding can
+    regress on changed. A separate reading rather than a fourth element in
+    `top_units`, whose three-tuple a dozen call sites unpack.
+    """
+    out = {}
+    for node in module.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            out[node.name] = ast.dump(node)
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    out[target.id] = ast.dump(node)
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name) and node.value is not None:
+                out[node.target.id] = ast.dump(node)
+    return out
+
+
+def fix_pass_units(reader, root, a, b):
+    """{(path, unit): `added` or `changed`} for what one fix range wrote.
+
+    `added`: present at `b` and absent at `a` -- the units `close` wrote into
+    that record's `New units` row from the same two ends, here with the path
+    the row does not carry. `changed`: present at both ends with a different
+    `ast.dump`. Python files the AST reads at both ends, and nothing else: a
+    prose file is skipped as `measure` skips it, and a file only the diff-line
+    heuristic can read lands nowhere -- the heuristic knows added names and
+    nothing about changed ones (`questions.md` Q2 of #823).
+    """
+    units = {}
+    for rel in touched(root, a, b):
+        if not rel.endswith(".py"):
+            continue
+        before_text = reader.show(root, a, rel)
+        after = parse_module(reader.show(root, b, rel))
+        before = parse_module(before_text) if before_text is not None else None
+        if after is None or (before_text is not None and before is None):
+            continue
+        old = unit_dumps(before) if before is not None else {}
+        for name, dump in unit_dumps(after).items():
+            if name not in old:
+                units[(rel, name)] = "added"
+            elif dump != old[name]:
+                units[(rel, name)] = "changed"
+    return units
+
+
+def landings(reader, root, target, keyed, previous):
+    """[(finding, path, unit, `added` | `changed`)] for every open finding of
+    this round whose `Location` lands inside a top-level unit the previous
+    record's fix range added or changed, or `Refused`.
+
+    `keyed` is the report's verdict rows as `verdict_rows` keys them; the open
+    ones are the rows `close` will demand a fix-table row for. `previous` is
+    `(K-1, path)` of the record before this one, or None for round 1. Each
+    `Location` is resolved at THIS round's target through `location_units`,
+    the reading the depth walk already makes.
+
+    Lands nowhere: a prose file, a module-level line, a `Location` the reader
+    cannot place, a previous record with no `Fix range` or one of zero
+    commits. A `Fix range` whose ends do not resolve here is refused: `new`
+    runs where `close` ran, and a tree without those commits is the wrong
+    tree to count in. The direction for everything the reading cannot place
+    is the permissive one, because a miss costs what today costs and a stop
+    costs a framer segment.
+    """
+    if previous is None:
+        return []
+    k, path = previous
+    text = read_text(path, f"earlier record round-{k}.md")
+    rows = chain.table_rows(reader, reader.readable(text))
+    value = chain.field(rows, chain.FIX_RANGE)
+    if value is None or chain.says_none(reader.visible(value)):
+        return []
+    m = chain.FIX_RANGE_RE.search(reader.visible(value))
+    if m is None:
+        return []
+    a, b = chain.resolves_to(root, m.group(1)), chain.resolves_to(root, m.group(2))
+    if a is None or b is None:
+        raise Refused(
+            f"round-{k}.md's `{chain.FIX_RANGE}` is `{m.group(1)}..{m.group(2)}`, "
+            f"and {'neither end' if a is None and b is None else 'one end'} "
+            f"resolves in {root}. `new` counts a fix of a fix from that range, "
+            "and it runs where `close` ran — a tree without those commits is "
+            "the wrong tree to count in. Fetch them, or run this where the fix "
+            "pass committed. Nothing was written"
+        )
+    if a == b:
+        return []
+    units = fix_pass_units(reader, root, a, b)
+    if not units:
+        return []
+    tracked = tracked_at(root, target)
+    found = []
+    for _number, (_i, cells) in keyed.items():
+        seen = [reader.visible(c) for c in cells]
+        if chain.verdict_of(seen, VERDICT_COL) in chain.CLOSED_WORDS:
+            continue
+        location = cells[LOCATION_COL] if len(cells) > LOCATION_COL else ""
+        label = seen[NUMBER_COL].strip()
+        for rel, unit in location_units(reader, root, target, location, tracked):
+            hits = (
+                [(rel, unit)]
+                if rel is not None
+                else [key for key in units if key[1] == unit]
+            )
+            for key in hits:
+                landing = (label, key[0], key[1], units.get(key))
+                if landing[3] is not None and landing not in found:
+                    found.append(landing)
+    return found
+
+
+def fix_of_a_fix_value(found, k, count):
+    """The `Fix of a fix` cell for `found` landings at run count `count`."""
+    if not found:
+        return chain.FOF_NO
+    where = "; ".join(
+        f"{label} at {rel}#{unit}, a unit round-{k}'s fixes {how}"
+        for label, rel, unit, how in found
+    )
+    if count == 1:
+        return f"{chain.FOF_FIRST} {DASH} {where}"
+    return f"{chain.FOF_SECOND} {DASH} {where}; {chain.FOF_STOPS}"
+
+
+def stop_line(found, k, path):
+    """The line `new` prints at a `second`, in `bound_line`'s shape. Read by
+    the orchestrator deciding whether to spawn a fix pass, so §14 pins it."""
+    where = "; ".join(
+        f"{label} at {rel}#{unit}, a unit round-{k}'s fixes {how}"
+        for label, rel, unit, how in found
+    )
+    return (
+        f"round-record: {STOPS_HERE} {DASH} {where}. That is the second fix of "
+        f"a fix in this run: {os.path.basename(path)}'s fixes wrote the unit "
+        f"this round's finding is in, and an earlier record of the run already "
+        f"read `{chain.FOF_FIRST}`. Do not commission a fix pass. "
+        f"{chain.REFRAME_EXIT}"
+    )
+
+
 def build(reader, routing, args, root, item, rounds):
     """The record's text, and the reach-back to make once it is written."""
     # The commit the flag names, not the flag: `HEAD~1` and a branch name are
@@ -2299,6 +2520,35 @@ def build(reader, routing, args, root, item, rounds):
             f"{rounds}, and it is not there — the reach-back has nothing to set"
         )
 
+    # #823. The run this record belongs to, and the stop: a record after a
+    # `second` is written only once the frame was redrawn, which the reframe
+    # says at the foot of `spec.md`. Refused before anything is written.
+    run, stopped = current_run(reader, earlier)
+    if stopped is not None and not reframed_after(reader, item, stopped[0]):
+        s = stopped[0]
+        raise Refused(
+            f"round-{s}.md reads `{chain.FOF_SECOND}`: the fix passes stopped "
+            "there and the work item went back to its framer. A record after "
+            f"it is written once the frame is redrawn, and the redraw says so "
+            f"at the foot of {os.path.join(item, 'spec.md')}, under the "
+            f"`Framed` line: `Reframed <date> by <who>, after round {s}.` — "
+            "the framer writes it when it rewrites the plan. Nothing was written"
+        )
+    previous_pair = next(((k, p) for k, p in earlier if k == args.round - 1), None)
+    # A `second` closed on deferrals and wrote no fixes, so nothing of this
+    # record can land in a unit it wrote: the redesign's first record starts
+    # the count at `no`.
+    found = (
+        []
+        if previous_pair is not None and previous_pair == stopped
+        else landings(reader, root, target, keyed, previous_pair)
+    )
+    count = 0
+    if found:
+        count = 2 if any((fof_count_of(reader, p) or 0) >= 1 for _k, p in run) else 1
+    fof = fix_of_a_fix_value(found, args.round - 1, count)
+    stop = stop_line(found, args.round - 1, previous_pair[1]) if count == 2 else None
+
     fields = [
         row(("Field", "Value")),
         separator(2),
@@ -2315,6 +2565,7 @@ def build(reader, routing, args, root, item, rounds):
         cell(chain.FIX_RANGE, surface),
         cell(chain.CONTRACT, surface),
         cell(chain.NEW_UNITS, surface),
+        cell(chain.FIX_OF_A_FIX, fof),
         cell(chain.NEEDS, needs),
         cell(chain.FLOOR, floor),
     ]
@@ -2353,8 +2604,8 @@ def build(reader, routing, args, root, item, rounds):
         "",
         *deferred,
     ]
-    previous = next((p for k, p in earlier if k == args.round - 1), None)
-    return "\n".join(parts) + "\n", previous
+    previous = previous_pair[1] if previous_pair is not None else None
+    return "\n".join(parts) + "\n", previous, stop
 
 
 def run_check(root, baseline):
@@ -2523,7 +2774,7 @@ def new(args):
             "in place — this does not overwrite one"
         )
 
-    text, previous = build(reader, routing, args, root, item, rounds)
+    text, previous, stop = build(reader, routing, args, root, item, rounds)
     reached = None
     if previous is not None:
         reached = reach_back(reader, previous, args.round)
@@ -2544,6 +2795,10 @@ def new(args):
     bound = bound_line(reader, routing, rounds, args.round)
     if bound is not None:
         print(bound)
+    # The same moment, and the stronger answer: at a `second` no fix pass is
+    # commissioned at all, whatever the bound above says (#823).
+    if stop is not None:
+        print(stop)
     return run_check(root, args.baseline or default_baseline(root))
 
 

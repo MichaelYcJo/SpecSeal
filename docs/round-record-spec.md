@@ -682,6 +682,31 @@ other way opens the pull request red.
 Parsing code spans to tell any of the three apart is the same enumeration over
 an unbounded domain the arrow's limit declines.
 
+## A fix of a fix — `Fix of a fix`
+
+`round_record.py new` writes this row on every record, between `New units` and
+`Needs a fix`. An open finding of round K **lands** when its `Location`
+resolves, at round K's `Target SHA` and through the readings the depth walk
+makes, to a top-level Python unit that round K-1's `Fix range` added or changed
+— present at both ends with a different `ast.dump`, so a re-commented unit has
+not changed. A prose file, a module-level line, a `Location` nothing places, a
+file only the diff-line heuristic reads, and a range of no commits land
+nowhere. A range whose ends this tree cannot resolve refuses `new` at exit 2.
+
+| The value | When |
+|---|---|
+| `no` | nothing lands — every round 1, and the record after a `second` |
+| `first — <finding> at <path#unit>, a unit round-<K>'s fixes <added or changed>` | something lands, and no earlier record of the run reads other than `no` |
+| `second — <the same>; the fix passes stop here and the work item goes back to its framer` | something lands, and an earlier record of the run reads `first` |
+
+A **run** is the records from round 1, or from the record after the last
+`second`, up to and including the next `second`. At `second`, `new` prints the
+stop and no fix pass runs: the open findings close `deferred the frame`, and
+`new` refuses the next record until `spec.md`'s foot carries `Reframed <date>
+by <who>, after round <N>.` under the `Framed` line.
+`skills/code-review/orchestration.md` §*A fix of a fix twice sends the work
+item back to its framer* owns the rule and the exit.
+
 ## What ran the round — `Ran by`
 
 A record says what the round was asked, what it found, and which commit it

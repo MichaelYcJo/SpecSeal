@@ -804,6 +804,45 @@ CAPPED_EXIT = (
     f"verdict reads `{DEFERRED} #N`, the record's `{CHECKED_BY}` reads "
     f"`{NO_FIXES}`, and the pull request says `chain: capped`"
 )
+# A fix of a fix (#823): an open finding of round K that lands inside a
+# top-level unit round K-1's fixes added or changed. WRITTEN by
+# `round_record.py new`, which derives it from round K-1's `Fix range` and
+# `New units` and the report's open `Location`s; READ by `fix_of_a_fix` below,
+# which counts the rows as declared and never re-derives a landing -- after a
+# squash the fix commits are gone and nothing at the pull request could.
+#
+# Three values. `no` is every round 1 and every record after a `second`;
+# `first — <where>` is the first landing of a run; `second — <where>; …` is
+# the second, and it stops the fix passes: the work item goes back to its
+# framer. `skills/code-review/orchestration.md` §*A fix of a fix twice sends
+# the work item back to its framer* owns the rule and why the count is two
+# against the 3+ Fix Rule's three.
+FIX_OF_A_FIX = "Fix of a fix"
+FOF_NO = "no"
+FOF_FIRST = "first"
+FOF_SECOND = "second"
+# The sentence a `second` row carries after its landings, in one spelling for
+# the writer and the reader.
+FOF_STOPS = "the fix passes stop here and the work item goes back to its framer"
+# Where the row becomes required, as the unix second in a work item's directory
+# name -- the id of the work item that added it, so the first records held to
+# it are the ones written under it. The reasoning is `STRICT_FROM`'s and is not
+# written an eleventh time.
+REFRAME_FROM = 1791240747
+# The line a reframe adds at the foot of `spec.md`, under the `Framed` line:
+# who redrew the frame, and after which round's `second`. It is the permit for
+# the records after that `second`, and it lives where the `Framed` line already
+# proves a framer ran (`plan.md` Alternatives E of #823).
+REFRAME_RE = re.compile(r"^Reframed\s+(.+?)\s+by\s+(.+?),\s+after round\s+(\d+)\.$")
+# The exit a stop names, in one spelling, the way `CAPPED_EXIT` is one.
+REFRAME_EXIT = (
+    f"the work item goes back to its framer — no fix pass runs for this "
+    f"record: every finding still open closes `{DEFERRED} the frame`, the "
+    f"record's `{CHECKED_BY}` reads `{NO_FIXES}`, the pull request says "
+    f"`chain: reframed`, and the framer is spawned with the run's round "
+    f"records. A `Reframed <date> by <who>, after round <N>.` line at the "
+    f"foot of `spec.md` is what lets the records after this one be written"
+)
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -2557,6 +2596,71 @@ def says_reopened(value):
     if word == FLOOR_YES and reason:
         return True
     return None
+
+
+def fix_of_a_fix_count(value):
+    """0, 1 or 2 for a `Fix of a fix` cell, or None when it reads as none of
+    the three (#823).
+
+    ONE reader of the row, for the arm below, the generator's count and the
+    generator's refusal, so the gate and the writer cannot disagree about a
+    cell -- #218's class.
+
+      `no`, `no — <why>`        0
+      `first — <where>`         1
+      `second — <where>`        2
+      `first` or `second`       None. The landing is the whole of what makes
+      alone, an empty cell, a   the row readable: it names the finding and
+      word outside the three    the unit a reader opens, and a bare count
+                                says something happened and not where
+
+    Emphasis is stripped from the ENDS only. The tail names units, and a unit
+    name carries underscores that a whole-cell strip would eat -- the defect
+    `round_record.py#units_named_earlier`'s rider records about `New units`.
+    """
+    s = value.strip().strip("*_`").strip().rstrip(".").strip()
+    low = s.lower()
+    if low == FOF_NO:
+        return 0
+    for word, count in ((FOF_NO, 0), (FOF_FIRST, 1), (FOF_SECOND, 2)):
+        if not low.startswith(word) or len(low) == len(word):
+            continue
+        if low[len(word)] not in SEPARATORS:
+            continue
+        rest = s[len(word) :].strip(SEPARATORS)
+        if count == 0 or rest:
+            return count
+    return None
+
+
+def frame_foot(reader, text):
+    """(the `Framed` mark or None, [(when, who, round) per `Reframed` line]).
+
+    The foot of `spec.md` is a BLOCK since #823: the `Framed` line, then zero
+    or more `Reframed <date> by <who>, after round <N>.` lines under it, each
+    written by a reframe. Read from the last non-empty line up: every
+    `Reframed` line is collected, and the first line that is not one has to
+    be the `Framed` mark. The FOOT and not anywhere in the file, for the
+    reason `frame_mark` gives -- a spec that documents the lines quotes them.
+
+    A `Reframed` line standing ABOVE the `Framed` line is not in the foot and
+    is not read: the foot ends at the mark, so such a line permits nothing.
+    `templates/sdd-spec.md` still ends with the `Framed` line; the `Reframed`
+    line is never in the template.
+    """
+    reframes = []
+    for line in reversed(reader.gfm_lines(text or "")):
+        line = line.strip()
+        if not line:
+            continue
+        r = REFRAME_RE.match(line)
+        if r:
+            reframes.append((r.group(1).strip(), r.group(2).strip(), int(r.group(3))))
+            continue
+        m = MARK_RE.match(line)
+        mark = (m.group(1).strip(), m.group(2).strip()) if m else None
+        return mark, list(reversed(reframes))
+    return None, list(reversed(reframes))
 
 
 def depth_problems(value):
