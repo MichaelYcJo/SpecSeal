@@ -2350,9 +2350,9 @@ def landings(reader, root, target, keyed, previous):
     text = read_text(path, f"earlier record round-{k}.md")
     rows = chain.table_rows(reader, reader.readable(text))
     value = chain.field(rows, chain.FIX_RANGE)
-    if value is None or chain.says_none(reader.visible(value)):
-        return []
-    m = chain.FIX_RANGE_RE.search(reader.visible(value))
+    # `none`, the pending `none — …`, an absent row and a value this cannot
+    # parse all name no range, and no range is nothing to land in.
+    m = chain.FIX_RANGE_RE.search(reader.visible(value or ""))
     if m is None:
         return []
     a, b = chain.resolves_to(root, m.group(1)), chain.resolves_to(root, m.group(2))
