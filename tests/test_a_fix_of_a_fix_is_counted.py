@@ -275,6 +275,18 @@ def test_a_finding_the_report_already_closed_does_not_land(repo):
     assert row(text) == "no"
 
 
+def test_a_previous_record_that_commissioned_nothing_lands_nowhere(repo):
+    """Round 1 opened nothing, so `close` never ran and its `Fix range` still
+    reads `none`: there is no range for anything to land in."""
+    declared(repo)
+    _code, _out, text, _a = a_round(repo, 1, finding("`mod.py:5`", verdict="withdrawn"))
+    assert fields(text)["Fix range"] == "none", text
+    code, out, text, _ = a_round(repo, 2, finding("`mod.py:5`"))
+    assert code != 2, out
+    assert text is not None, out
+    assert row(text) == "no"
+
+
 def test_a_fix_range_of_no_commits_lands_nowhere(repo):
     declared(repo)
     _code, _out, _text, a = a_round(repo, 1, ROUND_1)
