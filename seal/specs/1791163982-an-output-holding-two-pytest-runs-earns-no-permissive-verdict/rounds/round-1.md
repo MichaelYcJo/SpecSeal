@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #804 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `3f90f333bd91751870d88788fcfa4ec414a4ea65..78becaaf72d259e62b5022554bb0558d6447c405`, 6 commits |
+| Contract changes | offsets → round-1-report.md, round-1.md, report_words |
+| New units | JUNIT_FAMILY (depth 1); test_a_package_named_like_the_file_is_not_placed_on_it (depth 1); test_a_same_named_module_deeper_in_the_tree_is_not_placed_on_the_file (depth 1); test_a_runner_that_drops_its_arguments_before_another_is_counted (depth 1) |
 | Needs a fix | yes — 🟡 1 (dotted-name placement gives `failing on base too` to a file with no test at the base), 🟡 2 (a runner that does not take the gate's arguments is passed over or not counted), 🟡 3 (rule 3 understates what the collection pass runs at the base), 🟡 4 (the `NOTHING_TOGETHER` reason and one rule-3 sentence are false for an existing module with no test). |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Spec compliance first against `spec.md` (the base's verdict read from a `--junit
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A failing test is placed on an appended file by a dotted-name match that also fits another module: a package of the same name at offset 0 (P1), or a same-named module deeper in the tree (P2, the overview's *Not done*). Either gives `failing on base too` to a file with no test at the base, where a3aa139a gave `new` | `skills/verify/scripts/broad_gate.py:1932-2023` | open | Executed P1 and P2 at 225af880 (`failing on base too`) and a3aa139a (`new`). A fix closing both was run in the review clone: two gate modules 472 passed, 1 skipped |
-| 🟡 2 | A runner that drops or refuses the gate's appended arguments is passed over. A runner before the settled prefix sends the file to a later runner's directory (P3, a regression from `new`), and one after it is not counted by the collection pass (P7, the original p1b). Both give `failing on base too`, against Scope 2, Scope 4 and rule 3 | `skills/verify/scripts/broad_gate.py:2277-2316`, `templates/config.md` rule 3 | open | Executed P3 for both variants and P7. The fix (`PYTEST_ADDOPTS` for prefixes before the settled one) turns P3 `sh -c` into `MULTI_RUNNER`. The `-p no:junitxml` variant and P7 stay open and are to be named |
-| 🟡 3 | The collection pass runs every non-pytest part after the runner as written, at the base, once per prefix that holds it, including parts the branch's run never reached. Rule 3 and the changelog call it "one collection run per prefix" | `skills/verify/scripts/broad_gate.py:2262-2316`, `templates/config.md` rule 3, `changelog.md` | open | Executed P5: markers `AA` and `B` at 225af880, empty at a3aa139a |
-| 🟡 4 | `NOTHING_TOGETHER` says a handed file is missing when it exists with no test in it, and rule 3's "a base file with no test in it reads `new` too" no longer holds for a file the root carries | `skills/verify/scripts/broad_gate.py:1886-1890`, `templates/config.md` rule 3 | open | Executed P4: `NOTHING_TOGETHER` (files-only row), `UNPLACED` (`SUITE_ROW`). a3aa139a gave `NO_RUNNER` and `new` |
+| 🟡 1 | A failing test is placed on an appended file by a dotted-name match that also fits another module: a package of the same name at offset 0 (P1), or a same-named module deeper in the tree (P2, the overview's *Not done*). Either gives `failing on base too` to a file with no test at the base, where a3aa139a gave `new` | `skills/verify/scripts/broad_gate.py:1932-2023` | **fixed** `93178ed8` | fixed at 93178ed8; Executed P1 and P2 at 225af880 (`failing on base too`) and a3aa139a (`new`). A fix closing both was run in the review clone: two gate modules 472 passed, 1 skipped |
+| 🟡 2 | A runner that drops or refuses the gate's appended arguments is passed over. A runner before the settled prefix sends the file to a later runner's directory (P3, a regression from `new`), and one after it is not counted by the collection pass (P7, the original p1b). Both give `failing on base too`, against Scope 2, Scope 4 and rule 3 | `skills/verify/scripts/broad_gate.py:2277-2316`, `templates/config.md` rule 3 | **fixed** `93178ed8` | fixed at 93178ed8; Executed P3 for both variants and P7. The fix (`PYTEST_ADDOPTS` for prefixes before the settled one) turns P3 `sh -c` into `MULTI_RUNNER`. The `-p no:junitxml` variant and P7 stay open and are to be named |
+| 🟡 3 | The collection pass runs every non-pytest part after the runner as written, at the base, once per prefix that holds it, including parts the branch's run never reached. Rule 3 and the changelog call it "one collection run per prefix" | `skills/verify/scripts/broad_gate.py:2262-2316`, `templates/config.md` rule 3, `changelog.md` | **fixed** `93178ed8` | fixed at 93178ed8; Executed P5: markers `AA` and `B` at 225af880, empty at a3aa139a |
+| 🟡 4 | `NOTHING_TOGETHER` says a handed file is missing when it exists with no test in it, and rule 3's "a base file with no test in it reads `new` too" no longer holds for a file the root carries | `skills/verify/scripts/broad_gate.py:1886-1890`, `templates/config.md` rule 3 | **fixed** `93178ed8` | fixed at 93178ed8; Executed P4: `NOTHING_TOGETHER` (files-only row), `UNPLACED` (`SUITE_ROW`). a3aa139a gave `NO_RUNNER` and `new` |
 | 🟢 | The inner-run members 2 and 3 (stderr under `-s`, `-rN` and `-rP`, `-qq`) are read off the report, and the 0.18.2 word assertions are kept | `tests/test_the_seal_is_taken_once_by_the_sealer.py` S1–S5 cases | confirmed | Two-module run in the clone (472 passed with the fix, which changes no case's words). Orchestrator's run at the target: 703 passed |
 | 🟢 | The overview's divergences: `UNPLACED` for an unnamed file, two offsets, `alone`, S6's passing base, three `NO_RUNNER` assertions moved to `NOTHING_TOGETHER` | `overview.md` §*Where spec and implementation diverged* | confirmed | Each is judged in *What the account claimed*; Scope 5 orders the move |
 | 🟢 | This repository's row: no collection pass, and the runner receives the report option | `seal/config.md` row, `.github/scripts/run_tests.py:644` | confirmed | Read. The runner is the last part, and arguments pass through unchanged |
