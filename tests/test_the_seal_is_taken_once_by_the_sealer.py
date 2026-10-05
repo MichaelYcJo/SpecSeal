@@ -4006,12 +4006,16 @@ def junit(cases, root="testsuites"):
     """A JUnit report in the shape pytest writes for `--junitxml`: a
     `testsuites` root holding one `testsuite`, or a bare `testsuite` where
     `root` says so, with one `testcase` per `(classname, name, outcome)` and
-    a `failure` or `error` element where the outcome names one."""
+    a `failure` or `error` element where the outcome names one. A fourth
+    member is the `file` attribute the `xunit1` family writes (#789 round 1),
+    a path relative to pytest's rootdir."""
     body = "".join(
-        f'<testcase classname="{c}" name="{n}" time="0.001">'
-        + (f'<{outcome} message="planted" />' if outcome else "")
+        f'<testcase classname="{case[0]}" name="{case[1]}"'
+        + (f' file="{case[3]}"' if len(case) > 3 else "")
+        + ' time="0.001">'
+        + (f'<{case[2]} message="planted" />' if case[2] else "")
         + "</testcase>"
-        for c, n, outcome in cases
+        for case in cases
     )
     suite = (
         f'<testsuite name="pytest" errors="0" failures="0" skipped="0" '
@@ -4245,6 +4249,100 @@ REPORTS = [
         ["ON_BASE"],
         id="bare-testsuite",
     ),
+    # #789 round 1's 🟡 1, the shapes a dotted name cannot tell apart. Under
+    # `-o junit_family=xunit1` pytest 9.1.1, 8.3.5 and 7.4.4 write each test's
+    # file as a path from the rootdir, which a package or a class named like a
+    # module cannot be mistaken for (P1).
+    pytest.param(
+        junit(
+            [
+                (
+                    "tests.test_api.test_users",
+                    "test_u",
+                    "failure",
+                    "tests/test_api/test_users.py",
+                )
+            ]
+        ),
+        ["tests/test_api.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED"],
+        id="file-a-package-named-like-the-module",
+    ),
+    # The fixtures' shape with a path: the rootdir is `tests`, offset -1.
+    pytest.param(
+        junit(
+            [
+                ("test_two", "test_two", "failure", "test_two.py"),
+                ("test_one", "test_one", "", "test_one.py"),
+            ]
+        ),
+        ["tests/test_two.py", "tests/test_one.py"],
+        1,
+        False,
+        False,
+        ["ON_BASE", "NEW"],
+        id="file-rootdir-is-tests",
+    ),
+    # A collection error carries its path too.
+    pytest.param(
+        junit([("", "tests.test_b", "error", "tests/test_b.py")]),
+        ["tests/test_b.py"],
+        2,
+        True,
+        False,
+        ["ON_BASE"],
+        id="file-collection-error",
+    ),
+    # `cd sub` with the ini file at the root: every test shares `sub`, so the
+    # positive offset is the run's.
+    pytest.param(
+        junit(
+            [
+                ("sub.tests.test_two", "test_two", "failure", "sub/tests/test_two.py"),
+                ("sub.tests.test_one", "test_one", "", "sub/tests/test_one.py"),
+            ]
+        ),
+        ["tests/test_two.py", "tests/test_one.py"],
+        1,
+        False,
+        False,
+        ["ON_BASE", "NEW"],
+        id="file-rootdir-above",
+    ),
+    # A same-named module deeper in the tree (P2): `tests/test_one.py` does
+    # not share the leading `tests/x`, so that offset is not the run's.
+    pytest.param(
+        junit(
+            [
+                ("x.tests.test_two", "test_deep", "failure", "x/tests/test_two.py"),
+                ("test_one", "test_one", "", "test_one.py"),
+            ]
+        ),
+        ["tests/test_two.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED"],
+        id="file-a-deeper-same-named-module",
+    ),
+    # The same with dotted names only, where no `file` was written.
+    pytest.param(
+        junit(
+            [
+                ("tests.x.tests.test_two", "test_deep", "failure"),
+                ("tests.test_one", "test_one", ""),
+            ]
+        ),
+        ["tests/test_two.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED"],
+        id="dotted-a-deeper-same-named-module",
+    ),
 ]
 
 
@@ -4299,8 +4397,8 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     )
     assert gate.NOTHING_TOGETHER == (
         "new? not measured: pytest's report at the base counts no test, so a file "
-        "the run was handed is missing where the row runs pytest, and a run that "
-        "is not of one file alone does not say which"
+        "the run was handed is missing where the row runs pytest or holds no test "
+        "there, and a run that is not of one new file alone does not say which"
     )
     assert gate.MULTI_RUNNER == (
         "new? not measured: the row runs pytest in more than one part (part "
@@ -5099,6 +5197,80 @@ def test_a_part_after_the_runner_that_is_not_pytest_keeps_the_words(tmp_path):
     assert kept == ["runners-at-base-2.txt"], kept
 
 
+def test_a_package_named_like_the_file_is_not_placed_on_it(tmp_path):
+    """#789 round 1's 🟡 1 (P1). At the base `tests/test_api.py` holds no
+    test and the package `tests/test_api/` holds a failing one. The report's
+    dotted `tests.test_api.test_users` was placed on `tests/test_api.py` at
+    offset 0 and gave it `failing on base too`. The test's file, which the
+    `xunit1` family writes, is not that file."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        SUITE_ROW,
+        {
+            "tests/test_api.py": "X = 1\n",
+            "tests/test_api/test_users.py": FAILING_TEST.replace("test_two", "test_u"),
+        },
+        {
+            "tests/test_api.py": FAILING_TWO,
+            "tests/test_api/test_users.py": PASSING_TEST.replace("test_one", "test_u"),
+        },
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_api.py") == gate_module().UNPLACED, (
+        out.stdout
+    )
+
+
+def test_a_same_named_module_deeper_in_the_tree_is_not_placed_on_the_file(tmp_path):
+    """#789 round 1's 🟡 1 (P2, the closing memo's Not done). The failing
+    `tests/x/tests/test_two.py` matched `tests/test_two.py`, which holds no
+    test at the base, at offset 1 from the rootdir `tests`. One run has one
+    offset, and `test_one.py` does not sit under `x`, so the placement is
+    refused."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        SUITE_ROW,
+        {
+            "tests/test_two.py": "X = 1\n",
+            "tests/x/__init__.py": "",
+            "tests/x/tests/__init__.py": "",
+            "tests/x/tests/test_two.py": FAILING_TEST.replace("test_two", "test_deep"),
+        },
+        {
+            "tests/test_two.py": FAILING_TWO,
+            "tests/x/tests/test_two.py": PASSING_TEST.replace("test_one", "test_deep"),
+        },
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().UNPLACED, (
+        out.stdout
+    )
+
+
+def test_a_runner_that_drops_its_arguments_before_another_is_counted(tmp_path):
+    """#789 round 1's 🟡 2 (P3). The `sh -c` runner dropped the appended
+    files and the report's path, the walk went on to the runner in `sub`, and
+    the root's file read `failing on base too` from `sub`'s same-named file.
+    The collection pass now runs the prefixes before the settled one too,
+    with the report's path carried in `PYTEST_ADDOPTS`, which the `sh -c`
+    runner still reads."""
+    posix_row_shell_or_skip()
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"sh -c '{SUITE_ROW}' && cd sub && {SUITE_ROW}",
+        {"tests/test_two.py": PASSING_TWO, "sub/tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO, "sub/tests/test_two.py": PASSING_TWO},
+    )
+    keep = tmp_path / "out"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    expected = gate_module().MULTI_RUNNER.format(first=3, second=1)
+    assert verdict_of(out.stdout, "tests/test_two.py") == expected, out.stdout
+    assert (keep / "runners-at-base-1.xml").is_file()
+
+
 def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
     """S7 (#761, contract §14). The candidate's run costs a run per such
     file, and it has two limits a row's author can meet. Rule 3 is the one
@@ -5111,9 +5283,12 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "is run alone at the base, through the same prefixes, which costs one "
         "more run of each prefix up to and including the runner per such file.",
         "A file that run collects nothing from (a report that counts no test, "
-        "with exit 4 or 5) reads `new`, so a base file "
-        "with no test in it reads `new` too: the base cannot fail a test it does "
-        "not have.",
+        "with exit 4 or 5) reads `new`, so such a file the base holds with no "
+        "test in it reads `new` too: the base cannot fail a test it does not "
+        "have.",
+        # #789 round 1's 🟡 4: the other half, a file the root carries.
+        "A file the root carries runs with the others, and one with no test in "
+        "it at the base reads `new?`.",
         "Where a row runs its tests below a directory and the base carries a "
         "same-named file at the root but not below that directory, the file is "
         "not run alone: it runs with the others, that run collects nothing, "
@@ -5130,23 +5305,51 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "A file the report places a failing or erroring test on, and no other "
         "file, reads `failing on base too`, and a file whose tests the report "
         "names with none failing reads `new`.",
+        # #789 round 1's 🟡 1: placement by path at the run's one offset, and
+        # the negative-offset shape that stays open.
+        "A test is placed on a file by the path pytest's report gives it (the "
+        "gate also appends `-o junit_family=xunit1`, which writes that path), at "
+        "one offset between pytest's rootdir and the directory the row runs "
+        "pytest in; a file named at two offsets, or at one not every test in "
+        "the report shares, reads `new?`.",
+        "Where pytest's rootdir sits below that directory, a same-named file a "
+        "directory up that the row also collects can still be placed on a file "
+        "the base holds no test in.",
+        # #789 round 1's 🟡 2: which runners that drop the arguments are
+        # counted, and the two named as limits (#807).
         "A part that does not hand the appended arguments on to pytest — a "
         "`sh -c '…'`, a `make` target, a wrapper that drops its arguments or "
         "refuses an option it does not know, a runner given `-p no:junitxml` — "
-        "writes no report where the gate asked for one, so each file reads "
-        "`new?` where it used to read `new` for a file it never ran. Write such "
-        "a part so it passes its arguments on, `--junitxml` included",
+        "writes no report where the gate asked for one, so where no other part "
+        "of the row runs pytest each file reads `new?` where it used to read "
+        "`new` for a file it never ran.",
+        "Where another part does, the collection pass counts a runner before the "
+        "one that wrote the report through `PYTEST_ADDOPTS`, but two shapes stay "
+        "uncounted (#807): a runner given `-p no:junitxml`, which refuses the "
+        "option from either source, and a runner after the one that wrote the "
+        "report inside a part that drops its arguments; such a row is read as "
+        "one with a single runner, and a file can read `new` or `failing on base "
+        "too` from the other runner's directory.",
+        "Write such a part so it passes its arguments on, `--junitxml` included",
         # #789, replacing #761 round 1's 🟡 2 two-runner sentence: the
         # behaviour, its cost, and what collection alone does not reach.
         "A row that runs pytest in more than one part — `pytest -q && cd sub "
         "&& pytest -q` — reads `new?` for every failing file, because the gate "
         "cannot tell which runner a file belongs to",
-        "To count the runners, each prefix after the one whose report settled "
-        "the walk runs once more at the base with ` --collect-only` added to "
-        "`PYTEST_ADDOPTS` and only its own `--junitxml` appended, kept as "
-        "`runners-at-base-<j>.txt`: one collection run per prefix after the "
-        "runner, once per comparison and only on a failing gate, so a row whose "
-        "runner is its last part never pays it.",
+        # #789 round 1's 🟡 3: what the collection pass runs, as written.
+        "To count the runners, every other prefix runs once more at the base "
+        "with ` --collect-only` added to `PYTEST_ADDOPTS`, kept as "
+        "`runners-at-base-<j>.txt`: a prefix after the one whose report settled "
+        "the walk with only its own `--junitxml` appended, and a prefix before "
+        "it with nothing appended and its `--junitxml` carried in "
+        "`PYTEST_ADDOPTS`.",
+        "Only pytest honours `--collect-only`: every other part of those "
+        "prefixes runs as written at the base, once for each prefix that holds "
+        "it, and that includes a part after the runner that the branch's own "
+        "run never reached because its suite failed first.",
+        "This happens once per comparison and only on a failing gate; a row "
+        "whose only part runs pytest pays nothing, and a part after the runner "
+        "that writes outside the repository writes there at the base too.",
         "A runner that does not read `PYTEST_ADDOPTS` runs its tests there "
         "instead of collecting them.",
         "Collection alone does not reach a runner behind a part that exits "
@@ -5155,8 +5358,10 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "behind `||`; such a row is read as one with a single runner, and a file "
         "a later runner named can read `new` or `failing on base too` from the "
         "first runner's directory.",
-        "runner first costs one run at the base and a collection run of each "
-        "prefix after it (below)",
+        "runner first costs one run at the base and a run of each prefix after "
+        "it in the collection pass (below), and lint first re-runs the parts "
+        "before the runner once per prefix tried and once more per prefix in "
+        "that pass.",
         # #761 round 2's ⬜ 3: the clause round 1's survivor-check corrected.
         "each file reads `new?` with the reason, and never `new` unless it "
         "ran alone and that run collected nothing (below).",

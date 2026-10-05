@@ -31,12 +31,21 @@ reads `new?`.
 
 ## Not done
 
-A file that holds no test at the base, beside another collected module whose
-failing test matches the file's dotted name at a non-zero offset, reads
-`failing on base too`. It is constructed from the placement rule, not
-measured, and needs an empty module, a same-named module a directory up or
-down, and a row that collects both. Nothing reads the rootdir off a report,
-which is what closing it would take.
+A file that holds no test at the base, beside another collected module of
+the same name, could read `failing on base too`. Round 1 of review ran two
+shapes of it (a package named like the module, and a same-named module
+deeper in the tree), and its fix pass closed both: a test is placed by the
+path the `xunit1` report gives it, and a positive offset only where every
+test in the report shares it. One shape stays open and is named in rule 3:
+pytest's rootdir below the directory the row runs pytest in, with a
+same-named module a directory up that the row also collects. Where a report
+carries no `file` attribute at all, the dotted fallback still cannot tell a
+class from a package of the same name at offset 0; every pytest the fix pass
+ran writes the attribute.
+
+Two runners that drop the gate's arguments stay uncounted, named in rule 3
+and filed as #807: one given `-p no:junitxml`, and a later one inside a part
+that drops its arguments.
 
 Measuring a two-runner row file by file (`plan.md` Alternative F) and the
 runners collection alone cannot reach (`spec.md` Axis B) stay out, as the

@@ -1867,6 +1867,14 @@ STOPPED_EARLY_RE = re.compile(r"^!+ .+ !+$", re.M)
 # collected nothing writes it with no `testcase` at all. `-p no:junitxml`
 # makes the option a usage error and writes nothing.
 JUNIT_REPORT = "--junitxml={path}"
+# Appended after it (#789 round 1's 🟡 1): the `xunit1` family writes each
+# test's file as a path from the rootdir, which `report_cases` reads before
+# any dotted name. Measured on pytest 9.1.1, on a release of pytest 7 and
+# one of pytest 8, and under pytest-xdist 3.8.0's controller: the names, the
+# `failure` and `error` elements and the root are what the default family
+# writes, a collection error carries its path too, and nothing is printed for
+# it.
+JUNIT_FAMILY = "-o junit_family=xunit1"
 # pytest's exit codes for a missing argument (4, a usage error) and for a run
 # that collected no test (5).
 NOTHING_COLLECTED_EXITS = (4, 5)
@@ -1890,8 +1898,8 @@ UNPLACED = (
 )
 NOTHING_TOGETHER = (
     f"{NOT_MEASURED}: pytest's report at the base counts no test, so a file "
-    "the run was handed is missing where the row runs pytest, and a run that "
-    "is not of one file alone does not say which"
+    "the run was handed is missing where the row runs pytest or holds no test "
+    "there, and a run that is not of one new file alone does not say which"
 )
 # Formatted with the part whose report settled the walk and the later part
 # whose report the collection pass found (`compare_at_base`).
@@ -1904,14 +1912,19 @@ MULTI_RUNNER = (
 
 
 def report_cases(text):
-    """Every test pytest's report names, as `(address, failed)`, or None
-    where `text` is not a report (#789).
+    """Every test pytest's report names, as `(address, failed, exact)`, or
+    None where `text` is not a report (#789).
 
-    `address` is the test's dotted name split at its dots: its `classname`,
-    or its `name` where `classname` is empty, which is how pytest reports a
-    file it could not collect. `failed` is true where pytest recorded a
-    `failure` or an `error` for it, an error in setup or teardown included.
-    The root is `testsuites`, or a bare `testsuite` from an older pytest.
+    `address` is the test's file, split at its `/`, where the report carries
+    the `file` attribute `JUNIT_FAMILY` asks for; `exact` is then true. A
+    dotted name cannot tell a module from a package or a class of the same
+    name, and a path can (#789 round 1's 🟡 1). Where the report carries no
+    `file`, `address` is the test's dotted name split at its dots: its
+    `classname`, or its `name` where `classname` is empty, which is how
+    pytest reports a file it could not collect. `failed` is true where
+    pytest recorded a `failure` or an `error` for it, an error in setup or
+    teardown included. The root is `testsuites`, or a bare `testsuite` from
+    an older pytest.
     """
     if text is None:
         return None
@@ -1923,9 +1936,13 @@ def report_cases(text):
         return None
     cases = []
     for case in root.iter("testcase"):
-        where = case.get("classname") or case.get("name") or ""
         failed = case.find("failure") is not None or case.find("error") is not None
-        cases.append((tuple(where.split(".")), failed))
+        where = (case.get("file") or "").replace("\\", "/")
+        if where:
+            cases.append((tuple(where.split("/")), failed, True))
+            continue
+        where = case.get("classname") or case.get("name") or ""
+        cases.append((tuple(where.split(".")), failed, False))
     return cases
 
 
@@ -1938,9 +1955,13 @@ def dotted(path):
     return tuple(stem.replace("/", ".").split("."))
 
 
-def offsets(path, address):
+def offsets(path, address, exact=False):
     """Every way `address` can name the file `path`, as the offset between
     pytest's rootdir and the directory the row runs pytest in (#789).
+
+    `exact` says both are paths split at `/` (`report_cases`): the address
+    is then the path under some directories, or the path less some, and
+    nothing can follow it.
 
     pytest names a test from its rootdir, and the branch's `FAILED` lines
     name a file from the directory pytest was invoked in, so the two differ
@@ -1953,6 +1974,13 @@ def offsets(path, address):
     """
     found = set()
     n = len(path)
+    if exact:
+        if len(address) >= n and address[len(address) - n :] == path:
+            found.add(len(address) - n)
+        for shift in range(1, n):
+            if address == path[shift:]:
+                found.add(-shift)
+        return found
     for shift in range(len(address) - n + 1):
         if address[shift : shift + n] == path:
             found.add(shift)
@@ -1969,11 +1997,17 @@ def report_words(text, files, code, stopped, alone=False):
     (`STOPPED_EARLY_RE`, read anywhere, which can only cost a word), and
     `alone` whether `files` is one candidate run on its own.
 
-    **A word is given only where the report measured it.** One run has one
-    rootdir, so every test of one file is named at one offset (`offsets`):
+    **A word is given only where the report measured it.** A test is placed
+    by its file where the report carries one, and by its dotted name where it
+    does not. One run has one rootdir and one directory pytest runs in, so
+    every test of one file is named at one offset (`offsets`), and a positive
+    offset puts every test the report names under the same leading
+    directories:
 
       - `UNPLACED` where tests are named at two offsets for one file, which
-        is then two files of the run, and the gate cannot tell which is it;
+        is then two files of the run, or at a positive offset not every test
+        in the report shares, where the test may be another file the row
+        collected (#789 round 1's 🟡 1), and the gate cannot tell which is it;
       - `failing on base too` where a failing or erroring test is placed on
         this file and on no other — a file the base cannot collect fails
         there;
@@ -1998,13 +2032,25 @@ def report_words(text, files, code, stopped, alone=False):
     if not cases:
         word = NEW if alone and code in NOTHING_COLLECTED_EXITS else NOTHING_TOGETHER
         return {f: word for f in files}
-    paths = {f: dotted(f) for f in files}
+    paths = {f: {True: tuple(f.split("/")), False: dotted(f)} for f in files}
+    # The leading components every test in the report shares: a positive
+    # offset longer than these is not the run's.
+    first = cases[0][0]
+    shared = len(first)
+    for address, _, _ in cases[1:]:
+        i = 0
+        while i < shared and i < len(address) and address[i] == first[i]:
+            i += 1
+        shared = i
     named = {f: set() for f in files}
+    unshared = set()
     places = []
-    for address, failed in cases:
+    for address, failed, exact in cases:
         hit = set()
         for f in files:
-            found = offsets(paths[f], address)
+            found = offsets(paths[f][exact], address, exact)
+            if any(shift > shared for shift in found):
+                unshared.add(f)
             if found:
                 named[f] |= found
                 hit.add(f)
@@ -2012,7 +2058,7 @@ def report_words(text, files, code, stopped, alone=False):
             places.append(hit)
     words = {}
     for f in files:
-        if len(named[f]) > 1:
+        if len(named[f]) > 1 or f in unshared:
             words[f] = UNPLACED
         elif {f} in places:
             words[f] = ON_BASE
@@ -2194,21 +2240,29 @@ def compare_at_base(root, base, command, files, keep):
     runner's directory, and a file a later runner named read `new` or
     `failing on base too` from the wrong one (#761 round 1). The report does
     not count the runners, because the first one also receives the gate's
-    arguments. So where the first prefix that wrote its report is not the
-    whole row, each later prefix runs once more, with ` --collect-only`
-    added to `PYTEST_ADDOPTS`, nothing appended but its own report's path,
-    and kept as `runners-at-base-<j>.txt`. Collection alone runs no test, so
-    a failing root suite does not stop `&&` before the second runner, and no
+    arguments. So every prefix other than the one that settled runs once
+    more, with ` --collect-only` added to `PYTEST_ADDOPTS`, kept as
+    `runners-at-base-<j>.txt`: a later prefix with nothing appended but its
+    own report's path, and an earlier one with nothing appended and the
+    report's path carried in `PYTEST_ADDOPTS`, because a runner there is one
+    that dropped or refused the appended arguments and still reads the
+    environment (#789 round 1's 🟡 2). Collection alone runs no test, so a
+    failing root suite does not stop `&&` before the second runner, and no
     inner run exists to confuse it. Where any of them writes its report,
     every failing file reads `MULTI_RUNNER`. This is once per comparison,
-    because how many runners a row has is the row's property, and a row
-    whose runner is its last part never pays it.
+    because how many runners a row has is the row's property. Only pytest
+    honours `--collect-only`: every other part of those prefixes runs as
+    written, once per prefix that holds it, including a part after the
+    runner the branch's own run never reached (round 1's 🟡 3).
 
     **What collection alone does not reach** is named in rule 3 rather than
     claimed: a runner behind a part that exits non-zero at the base under
     collection alone — a failing lint, an earlier runner with a collection
-    error or one that collects nothing — and a runner behind `||`. Such a row
-    is read as one with a single runner, and the words above can return.
+    error or one that collects nothing — and a runner behind `||`. Nor does
+    it count a runner given `-p no:junitxml`, which refuses the option from
+    either source, or a later runner inside a part that drops its arguments
+    (#807). Such a row is read as one with a single runner, and the words
+    above can return.
     Telling "not pytest" from "not reached" would take a reading of the shell
     this module does not have.
     """
@@ -2249,14 +2303,14 @@ def compare_at_base(root, base, command, files, keep):
         settled, second = [], None
         for group, alone in groups:
             collecting = group is None
-            # The collection pass counts runners after the first one, and
+            # The collection pass counts runners other than the first one, and
             # where no prefix wrote a report there is no first one.
             if collecting and not settled:
                 break
             first = min(settled) if collecting else 0
             words = None
             for k, prefix in enumerate(prefixes, 1):
-                if k <= first:
+                if k == first:
                     continue
                 stem = "runners" if collecting else "suite"
                 name = f"{stem}-at-base-{k}{alone}"
@@ -2265,15 +2319,23 @@ def compare_at_base(root, base, command, files, keep):
                 # would settle a prefix that wrote nothing.
                 if os.path.exists(report):
                     os.remove(report)
-                appended = "" if collecting else " ".join(quote(f) for f in group) + " "
-                tried = run(
-                    name,
-                    f"{prefix} {appended}{quote(JUNIT_REPORT.format(path=report))}",
-                    scratch,
-                    keep,
-                    shell=True,
-                    env=collecting_env if collecting else None,
-                )
+                asked = JUNIT_REPORT.format(path=report)
+                if collecting:
+                    line = f"{prefix} {quote(asked)}"
+                    env = collecting_env
+                else:
+                    paths = " ".join(quote(f) for f in group)
+                    line = f"{prefix} {paths} {quote(asked)} {JUNIT_FAMILY}"
+                    env = None
+                if collecting and k < first:
+                    # A runner before the one that settled the walk dropped or
+                    # refused what was appended to it (#789 round 1's 🟡 2). It
+                    # still reads PYTEST_ADDOPTS, so the report's path goes
+                    # there and nothing is appended.
+                    line = prefix
+                    env = dict(collecting_env)
+                    env["PYTEST_ADDOPTS"] += " " + shlex.quote(asked)
+                tried = run(name, line, scratch, keep, shell=True, env=env)
                 if collecting:
                     if report_cases(written_report(report)) is not None:
                         second = k
