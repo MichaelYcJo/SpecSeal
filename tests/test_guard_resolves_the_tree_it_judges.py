@@ -2591,3 +2591,23 @@ def test_a_guess_through_a_destination_ending_in_unicode_whitespace(tmp_path, sp
     for carrier in ("checkout N", "checkout N --"):
         tokens = ["git", *CARRIERS[carrier]("onfork")]
         assert wg.classify(tokens, str(d)) == "switch", carrier
+
+
+def test_a_fetch_refspec_with_an_empty_destination_maps_no_ref(tmp_path):
+    """#811. The ref listing ends in a newline, and the empty word after it
+    is no ref, so a refspec whose destination is empty, which git refuses to
+    guess through, maps nothing. Seen red with the empty word kept."""
+    bare = tmp_path / "f.git"
+    subprocess.run(
+        ["git", "init", "-q", "--bare", str(bare)], check=True, capture_output=True
+    )
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "README.md", "initial commit")
+    _git(d, "branch", "onfork")
+    _git(d, "push", "-q", str(bare), "onfork")
+    _git(d, "branch", "-D", "onfork")
+    _git(d, "config", "remote.fork.url", str(bare))
+    _git(d, "config", "remote.fork.fetch", "refs/heads/onfork:")
+    assert not _where_git_checkout_lands(d, "onfork")
+    assert wg.classify(["git", "checkout", "onfork"], str(d)) is None
