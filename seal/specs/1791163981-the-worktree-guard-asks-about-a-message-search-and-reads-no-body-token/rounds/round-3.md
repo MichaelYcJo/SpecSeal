@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #803 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `92aeaebbbdbcf65b102eef3b636767e5e2ced2ed..92aeaebbbdbcf65b102eef3b636767e5e2ced2ed`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (a refspec destination ending in a Unicode space or line separator is read as a ref that does not exist, in `_fetched_as` and `_refs`; not a regression against a3aa139a) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ The verifying round over round 2's fixes (f659c466..e3cd4dc4), and the last roun
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A fetch refspec whose destination ends in a Unicode space or line separator maps to a ref that does not exist: `_fetched_as` strips the value with `str.strip()` and `_refs` splits ref names with `str.splitlines()`, both at characters git keeps in a ref name, so git guesses and the guard is silent; "never the other way" and R5 are false for it. Not a regression: a3aa139a is silent too | `hooks/worktree-guard.py:1195` | open | executed: git lands on U+00A0, U+3000 and U+0085, and three versions answer `None`; the case is red at 61e59b42 (4 failed) and the module passes 423 with the two-line fix; 26 config shapes re-run with the fix, none git lands on reads less |
-| ⬜ 2 | The replay paragraph says no recorded command holds a newly read `checkout`, without the gone-directory bound the paragraph above it states (449 of 972 pairs) | `seal/specs/1791163981-the-worktree-guard-asks-about-a-message-search-and-reads-no-body-token/phases/phase-4.md:63` | open | executed: 0 of 982 readings newly read at 61e59b42, 449 pairs' directories gone; a correction to the run's paperwork, not counted in `Needs a fix` |
+| 🟡 1 | A fetch refspec whose destination ends in a Unicode space or line separator maps to a ref that does not exist: `_fetched_as` strips the value with `str.strip()` and `_refs` splits ref names with `str.splitlines()`, both at characters git keeps in a ref name, so git guesses and the guard is silent; "never the other way" and R5 are false for it. Not a regression: a3aa139a is silent too | `hooks/worktree-guard.py:1195` | deferred #811 | #811 — the run is capped; fixed post-review on this branch, and #811 is what that fix closes; executed: git lands on U+00A0, U+3000 and U+0085, and three versions answer `None`; the case is red at 61e59b42 (4 failed) and the module passes 423 with the two-line fix; 26 config shapes re-run with the fix, none git lands on reads less |
+| ⬜ 2 | The replay paragraph says no recorded command holds a newly read `checkout`, without the gone-directory bound the paragraph above it states (449 of 972 pairs) | `seal/specs/1791163981-the-worktree-guard-asks-about-a-message-search-and-reads-no-body-token/phases/phase-4.md:63` | deferred #811 | #811 — the replay paragraph's bound goes in with the same post-review fix; executed: 0 of 982 readings newly read at 61e59b42, 449 pairs' directories gone; a correction to the run's paperwork, not counted in `Needs a fix` |
 | 🟢 | round 2's 🟡 1 is closed — a remote whose name holds a space maps its refspec | `hooks/worktree-guard.py:1184` | confirmed | executed at three versions against git's own `checkout`, with 15 further key and value shapes; the case is red with f659c466's guard |
 | 🟢 | round 2's ⬜ 2 is closed — the walk's paragraph and §*Known limits* state the placement limit, and both are pinned | `docs/worktree-guard-spec.md:340` | confirmed | executed: the pin is red against f659c466's policy; the described shape is silent at a3aa139a, 1eaccfc7 and 61e59b42 in five spellings |
 | 🟢 | round 2's ⬜ 3 stays answered — the fix range does not touch `main` | `hooks/worktree-guard.py:2791` | confirmed | read: the fix range's one `hooks/` hunk is in `_fetched_as` |
