@@ -74,10 +74,6 @@ a3aa139a is a form of `new?`.
   the word only where it is the one failing file of its run, alone from the
   start, and the session the proof reads is the measuring runner's own.
 
-- §*The class*, condition 1, inferred during review (round 1): a run alone is
-  measured against the row's own context, and the word needs the files run
-  together to fail at least as many tests as they fail one by one.
-
 - Scope 4, inferred during implementation: a group of one file is a file
   run alone; a group that writes no report reads `NO_RUNNER` for each of its
   files.
