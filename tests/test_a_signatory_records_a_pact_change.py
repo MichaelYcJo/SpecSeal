@@ -2266,3 +2266,39 @@ def test_under_the_freeze_a_claim_on_an_unsure_place_is_recorded_as_a_move(repo)
         f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | `{coord}@0000beef` "
         f"→ `@{now}` | 2026-09-04 |"
     ], out
+
+
+def test_a_claim_on_an_unsure_place_restamped_in_place_is_recorded_as_a_move(repo):
+    """#809, cell C8, in place. The fragment row is re-stamped at the
+    statement's hash and the record holds the move. Red at e6d5a055, which
+    left the row and recorded BROKEN."""
+    coord, now = _unsure_claim(repo)
+    ledger = cite(repo, [row("O1", f"`{CLAUSE}`, ", f"{coord}@0000beef")])
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert f"`{coord}@{now}`" in ledger.read_text(encoding="utf-8"), out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | `{coord}@0000beef` "
+        f"→ `@{now}` | 2026-09-04 |"
+    ], out
+
+
+def test_a_claim_whose_statement_is_gone_from_an_unsure_place_is_recorded_broken(
+    repo,
+):
+    """S3c. The statement the claim quotes is gone from the place the
+    declaration rule is unsure of: the run leaves the row with the check's
+    *anchored statement is gone*, and the record says BROKEN, the pact's word
+    for *left by the re-read*. Green at e6d5a055 for the record, red for the
+    words."""
+    coord, _now = _unsure_claim(repo)
+    (repo / "src" / "a.cs").write_text(
+        UNSURE_CS.replace("var a = x + 2;", "return;"), encoding="utf-8"
+    )
+    cite(repo, [row("O1", f"`{CLAUSE}`, ", f"{coord}@0000beef")])
+    _code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert f"  {coord}  the anchored statement is gone from Render (1-2)" in out, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | `{coord}@0000beef` BROKEN "
+        "| 2026-09-04 |"
+    ], out

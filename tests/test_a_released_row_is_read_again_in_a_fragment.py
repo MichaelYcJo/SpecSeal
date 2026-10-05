@@ -2335,10 +2335,11 @@ def unfrozen_r_and_m(repo):
 
 def test_one_unfrozen_run_restamps_the_citation_its_restamp_moves(repo):
     """S4 (#772). One run re-stamps R in place, which moves the line M cites,
-    and re-stamps M's citation against the line it moved R to, because the
-    walk reads a cited file before every file citing it: exit 0, and
-    `--strict` exits 0 with no second run. The fragment sorts first, so the
-    walk in file order hashed M's citation against R's old line."""
+    and re-stamps M's citation against the line it moved R to, because a
+    coordinate naming a line the run writes is judged against that line
+    (#824): exit 0, and `--strict` exits 0 with no second run. The fragment
+    sorts first, so a walk in file order hashed M's citation against R's old
+    line."""
     unfrozen_r_and_m(repo)
     fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
     assert fix.returncode == 0, fix.stdout
@@ -2486,16 +2487,16 @@ LEAVINGS = "a file citing itself, beside what the run leaves"
         LEAVINGS,
     ],
 )
-def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
+def test_one_unfrozen_run_settles_a_self_citing_file_in_one_run(repo, shape):
     """#772, round 1, yellow 1. A second fold of the newest release joins its
-    file, so a release file can hold R1 and a `Re-read ·` row citing R1. A
-    file's own re-stamp is planned only when its walk ends, so its citation
-    was hashed against the old line, and `--strict` exited 2 until a second
-    run. The same held for two files citing each other. Walked again until
-    they settle, one run leaves `--strict` at 0, and each row it dated is
-    named once. Beside a row it cannot date, a coordinate it cannot place and
-    a ledger citing it that will not decode, each of those is named once,
-    though the walk that names it is repeated."""
+    file, so a release file can hold R1 and a `Re-read ·` row citing R1. The
+    walk this replaced planned a file's own re-stamp only when its walk
+    ended, so the citation was hashed against the old line, and `--strict`
+    exited 2 until a second run; the same held for two files citing each
+    other. Every citation is judged against the text the run writes, so one
+    run leaves `--strict` at 0, and each row it dated is named once. Beside a
+    row it cannot date, a coordinate it cannot place and a ledger citing it
+    that will not decode, each of those is named once."""
     h = unit_hash(repo, "src/service.py", "handler")
 
     def r(n):
@@ -2574,15 +2575,15 @@ def ledger_texts(repo):
 
 
 @pytest.mark.parametrize("checked", [True, False], ids=["dated", "undated"])
-@pytest.mark.parametrize("depth", [1, 2], ids=["two walks", "three walks"])
+@pytest.mark.parametrize("depth", [1, 2], ids=["a chain of one", "a chain of two"])
 def test_one_unfrozen_run_names_each_coordinate_it_restamps_once(repo, depth, checked):
     """Round 2, yellow 1. A self-citing release holds R1 and a chain of
     `Re-read ·` rows each citing the one before; a fragment cites the last.
-    The line a citation of a citing row quotes moves on more than one walk,
-    so the citation is re-stamped on each. The run names every coordinate it
-    re-stamps once, from the hash the tree held before the run to the hash
-    the tree holds after it, counts each once, and names each row it dated,
-    or left undated, once. Red at 2a4ed251, which
+    The line a citation of a citing row quotes moves more than once over,
+    by its code hash and date and by its own citation. The run names every
+    coordinate it re-stamps once, from the hash the tree held before the run
+    to the hash the tree holds after it, counts each once, and names each row
+    it dated, or left undated, once. Red at 2a4ed251, which
     named such a citation once per walk -- the first line naming a hash no
     file ever held -- and counted every line."""
     h = unit_hash(repo, "src/service.py", "handler")
@@ -2663,38 +2664,14 @@ def test_a_row_naming_one_coordinate_twice_is_named_twice(repo):
 
 def test_a_ledger_coordinate_restamped_on_two_walks_is_one_move(repo):
     """#791. A row that is not a citing row names, among its Code grounds, a
-    citing row of its own self-citing release file. That line moves on two
-    walks -- its code hash and date first, then its citation -- so the
-    coordinate naming it is re-stamped on both. `reverify` hands MOVES one
-    part for it, from the hash the ledger held before the run to the hash it
-    takes: the permanent pact-change record is written from MOVES, and a part
-    ending at the first walk's hash names a hash no file ever held. Red at
-    baeafe10, which handed over one part per walk."""
-    h = unit_hash(repo, "src/service.py", "handler")
-    o = unit_hash(repo, "src/service.py", "other")
-    r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
-
-    def reread(cite):
-        return (
-            f"| Re-read · the row it cites | `{cite}`, "
-            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
-        )
-
-    def x1(coordinate):
-        return (
-            f"| X1 · other, beside the re-read | `src/service.py#other@{o}`, "
-            f"`{coordinate}` | read | 2026-01-01 | |"
-        )
-
-    released(repo, [r1, reread(citation(r1, "R1 · handler adds one"))])
-    cite = ec.citation_for(str(repo), str(repo / R_FILE), 5)
-    # X1 quotes the line it names, so the literal runs to that cell's closing
-    # pipe, which X1's own escaped copy does not hold.
-    line = citation(reread(cite), "Re-read · the row it cites \\|")
-    released(repo, [r1, reread(cite), x1(line)])
-    check = run(["--strict", "."], repo)
-    assert check.returncode == 0, (line, check.stdout)
-    edit_handler(repo)
+    citing row of its own self-citing release file. The run moves that line
+    twice over -- its code hash and date, and its citation, which names a
+    line the run also moves -- and `reverify` hands MOVES one part for the
+    coordinate naming it, from the hash the ledger held before the run to the
+    hash the file holds after it: the permanent pact-change record is written
+    from MOVES, and a part ending at a hash on the way names a hash no file
+    ever held. Red at baeafe10, which handed over one part per walk."""
+    line = ledger_coordinate_on_a_moving_line(repo)
     moves = []
     ec.reverify([str(repo / R_FILE)], str(repo), {}, None, "2026-03-01", moves)
     after = (repo / R_FILE).read_text(encoding="utf-8")
@@ -2707,10 +2684,10 @@ def test_a_ledger_coordinate_restamped_on_two_walks_is_one_move(repo):
 
 def moved_then_left(repo):
     """X1's coordinate names the `Re-read ·` line of its own self-citing
-    release, by a claim quoting that line's citation hash. A walk moves X1 to
-    the line as that walk found it, and the next walk re-stamps the citation,
-    so the quoted text is gone and X1 is left. Returns X1's coordinate as
-    written; `handler` is edited, so the run has its moves to make."""
+    release, by a claim quoting that line's citation hash. The run re-stamps
+    that citation, so in the text the run writes the quoted hash is gone and
+    X1 is left. Returns X1's coordinate as written; `handler` is edited, so
+    the run has its moves to make."""
     h = unit_hash(repo, "src/service.py", "handler")
     o = unit_hash(repo, "src/service.py", "other")
     r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
@@ -2738,67 +2715,34 @@ def moved_then_left(repo):
     return line
 
 
-def test_a_restamp_a_later_walk_leaves_is_a_move_and_then_broken(repo):
-    """Post-review of #791, in `moved_then_left`'s tree. The file keeps the
-    hash the walk that moved X1 wrote. MOVES holds that move and then BROKEN
-    at the hash the file holds; BROKEN from the hash the ledger held before
-    the run drops a re-stamp that landed. Red at 5ef5d315."""
+def test_a_coordinate_whose_statement_the_run_removes_is_left_at_its_hash(repo, capsys):
+    """S8, in `moved_then_left`'s tree. Nothing is written for a coordinate
+    the run leaves, so X1 keeps the hash it recorded, MOVES holds
+    `(recorded, None)` for it and nothing else, and its `left` line carries
+    the check's *anchored statement is gone*. Red at e6d5a055, which wrote an
+    intermediate hash on one walk and left it on the next, recording a move
+    to a hash nobody read and BROKEN after it."""
     line = moved_then_left(repo)
+    coord, recorded = line.rsplit("@", 1)
     moves = []
     ec.reverify([str(repo / R_FILE)], str(repo), {}, None, "2026-03-01", moves)
-    after = (repo / R_FILE).read_text(encoding="utf-8")
-    held = re.search(r'"@[0-9a-f]+"@([0-9a-f]+)`', after).group(1)
+    out = capsys.readouterr().out
+    assert f"`{line}`" in (repo / R_FILE).read_text(encoding="utf-8"), out
     x = [(old, new) for _ledger, number, _coord, old, new in moves if number == 10]
-    assert x == [(line.rsplit("@", 1)[1], held), (held, None)], (moves, held)
-
-
-WALK_OUTCOMES = ("moved", "unchanged", "left")
-
-
-@pytest.mark.parametrize(
-    "walks",
-    [
-        sequence
-        for n in (2, 3)
-        for sequence in itertools.product(WALK_OUTCOMES, repeat=n)
-    ],
-    ids=lambda walks: ", ".join(walks),
-)
-def test_every_walk_sequence_hands_over_what_the_file_holds(walks):
-    """#791, enumerated by construction. One coordinate walked two or three
-    times, each walk moving it to a new hash, reading it unchanged, or
-    leaving it. The parts `walked_move` and `owed_moves` hand over are the
-    move that landed, from the hash before the run to the hash the file
-    holds, and BROKEN at the hash the file holds where the last walk that
-    changed anything left it."""
-    held_hash, state, fresh = "h0", None, iter(f"h{n}" for n in range(1, 9))
-    for outcome in walks:
-        if outcome == "moved":
-            new = next(fresh)
-            state = ec.walked_move(state, held_hash, new)
-            held_hash = new
-        elif outcome == "left":
-            state = ec.walked_move(state, held_hash, None)
-        elif state is not None:
-            state = ec.walked_move(state, held_hash, held_hash)
-    parts = ec.owed_moves(state) if state is not None else []
-    moved = "moved" in walks
-    # A walk reading the coordinate unchanged clears a BROKEN before it, so
-    # only a last walk that left it leaves it BROKEN.
-    ends_left = walks[-1] == "left"
-    want = ([("h0", held_hash)] if moved else []) + (
-        [(held_hash, None)] if ends_left else []
-    )
-    assert parts == want, (walks, parts)
+    assert x == [(recorded, None)], moves
+    said = [s for s in out.splitlines() if s.startswith(f"  {coord}  ")]
+    assert len(said) == 1, out
+    assert "the anchored statement is gone" in said[0], said
+    assert said[0].endswith(" — left"), said
 
 
 def left_then_unchanged(repo, stale=False):
     """X1 was stamped while handler was at v1, quoting the citation hash its
     `Re-read ·` line held then; handler moved and came back, so the run
-    re-stamps that line back to the bytes X1 recorded. Two walks find the
-    quoted hash gone and leave X1, and the third reads it unchanged, or,
-    where X1's hash is STALE, re-stamps it. Returns R_FILE's text as X1's
-    hash says it ends."""
+    re-stamps that line back to the bytes X1 recorded. Against the tree on
+    disk the quoted hash is gone; against the text the run writes it is
+    there, and X1 reads unchanged, or, where X1's hash is STALE, is
+    re-stamped. Returns R_FILE's text as X1's hash says it ends."""
     o = unit_hash(repo, "src/service.py", "other")
     day = "2026-03-01"
 
@@ -2842,8 +2786,8 @@ def left_then_unchanged(repo, stale=False):
 def test_a_coordinate_left_and_then_read_unchanged_records_nothing(repo):
     """Second post-review pass of #791, in `left_then_unchanged`'s tree: the
     file ends where X1's hash says. MOVES holds nothing for X1: a BROKEN from
-    the walks that left it would write the permanent record a trigger for a
-    coordinate `--strict` reads clean. Red with `still` a no-op."""
+    a reading against the tree on disk would write the permanent record a
+    trigger for a coordinate `--strict` reads clean. Red at 5ef5d315."""
     before = left_then_unchanged(repo)
     moves = []
     ec.reverify([str(repo / R_FILE)], str(repo), {}, None, "2026-03-01", moves)
@@ -2853,11 +2797,11 @@ def test_a_coordinate_left_and_then_read_unchanged_records_nothing(repo):
 
 
 def test_one_unfrozen_run_names_a_citing_row_it_left_whole_once(repo):
-    """Round 2, white 2: the walked-file skip in `citations_left`. A citing
-    row in a table with no date column is left whole by `--checked`, so its
-    citation of the line the run re-stamped stays DRIFTED. The `undatable`
-    line names it, and no line says a narrowing left its file out: no
-    narrowing did. Red with the skip removed."""
+    """Round 2, white 2: the narrowed-run reader skips every file the run
+    writes. A citing row in a table with no date column is left whole by
+    `--checked`, so its citation of the line the run re-stamped stays
+    DRIFTED. The `undatable` line names it, and no line says a narrowing
+    left its file out: no narrowing did. Red with the skip removed."""
     h = unit_hash(repo, "src/service.py", "handler")
     released(
         repo,
@@ -2883,45 +2827,6 @@ def test_one_unfrozen_run_names_a_citing_row_it_left_whole_once(repo):
     assert left[0].startswith(
         "  LEFT  seal/releases/0.2.0.md:7  its hash moved and the row has no date cell"
     ), fix.stdout
-
-
-def test_the_walk_order_survives_a_self_citation_and_a_cycle(repo):
-    """`cited_first` (#772). A file citing only placed files follows them. A
-    file citing a row of itself, two files citing each other, and a file
-    citing one of those are placed by no order: they keep the given order, to
-    be walked again, at most two more times than the four citations among
-    them. No file is lost."""
-    h = unit_hash(repo, "src/service.py", "handler")
-    rows = [
-        f"| R{n} · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
-        for n in (1, 2)
-    ]
-
-    def reread(version, n):
-        cite = citation(rows[n - 1], f"R{n} · handler adds one", version=version)
-        return (
-            f"| Re-read · R{n} · handler adds one | `{cite}`, "
-            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
-        )
-
-    released(repo, [rows[0], reread("0.1.0", 1)], version="0.1.0")
-    fragment(repo, [reread("0.1.0", 1)], name=M_ITEM)
-    released(repo, [rows[0]], version="0.2.0")
-    fragment(repo, [reread("0.2.0", 1)], name="2000000003-n")
-    released(repo, [rows[1], reread("0.4.0", 1)], version="0.3.0")
-    released(repo, [rows[0], reread("0.3.0", 2)], version="0.4.0")
-    paths = [
-        str(repo / f"seal/ledger/{M_ITEM}.md"),
-        str(repo / "seal/ledger/2000000003-n.md"),
-        str(repo / "seal/releases/0.1.0.md"),
-        str(repo / "seal/releases/0.2.0.md"),
-        str(repo / "seal/releases/0.3.0.md"),
-        str(repo / "seal/releases/0.4.0.md"),
-    ]
-    once, again, walks = ec.cited_first(paths, str(repo), {}, None)
-    assert once == [paths[3], paths[1]], once
-    assert again == [paths[0], paths[2], paths[4], paths[5]], again
-    assert walks == 6
 
 
 @pytest.mark.parametrize(
@@ -3281,8 +3186,12 @@ def test_a_held_coordinate_with_two_places_on_a_dated_row_is_left_and_named(
         for line in out.splitlines()
         if line.startswith("  src/service.py#handler  ") and line.endswith("left")
     ]
-    # The line gives the check's reason, `left_because`'s (round 2).
-    assert all("2 places, none holding the recorded content" in s for s in said), out
+    # The line gives the check's own sentence (round 2; #824).
+    assert all(
+        "locator is ambiguous — 2 places: " in s
+        and "(none holds the recorded content) — left" in s
+        for s in said
+    ), out
     broken = ("src/service.py#handler", h1, None) in [m[2:] for m in moves]
     assert (len(said), broken) == ((1, True) if checked else (0, False)), (
         out,
@@ -3344,8 +3253,8 @@ def test_a_held_coordinate_with_an_unsure_place_on_a_dated_row_heals_to_its_dest
     becomes the newest reading of `handler`, and the run reads it as the
     ordinary path reads such a coordinate: it heals A onto the one
     destination that reconstructs A's hash, and `--strict` reads the tree
-    clean; with no destination it is left, `and no destination is provable`,
-    with its BROKEN part. Where the unit was renamed as it moved, the hash
+    clean; with no destination it is left, in the check's own words, with
+    its BROKEN part. Where the unit was renamed as it moved, the hash
     follows the name and MOVES gets the move. Red at 0de15c70, which named
     the first two `left` with BROKEN parts, and dropped the last's
     wording."""
@@ -3407,10 +3316,14 @@ def test_a_held_coordinate_with_an_unsure_place_on_a_dated_row_heals_to_its_dest
         assert moved == ([] if now == a_at else [(a_at, now)]), moves
         assert run(["--strict", "."], repo).returncode == 0
     else:
-        assert (
-            f"  {lib}#handler  only a place the declaration rule is unsure of, and "
-            "no destination is provable — left"
-        ) in out, out
+        # The check's own sentence, which names the place and its hash so a
+        # person can record it by hand (#824).
+        (said,) = [s for s in out.splitlines() if s.startswith(f"  {lib}#handler  ")]
+        assert said.startswith(
+            f"  {lib}#handler  the declaration rule is unsure of the only place it "
+            "found, and none holds the recorded content — "
+        ), said
+        assert said.endswith("; record one by hand if it is still the unit — left")
         assert len(broken) == 1, moves
 
 
@@ -3468,10 +3381,11 @@ def test_a_held_claim_two_places_tie_on_a_dated_row_is_left_and_named(repo, caps
     moves = []
     ec.reverify([str(a), str(b)], str(repo), {}, None, "2026-04-01", moves)
     out = capsys.readouterr().out
-    assert (
-        f"  {claim}  3 places, 2 holding the recorded content, a tie the recorded "
-        "hash cannot break — left"
-    ) in out, out
+    (said,) = [s for s in out.splitlines() if s.startswith(f"  {claim}  ")]
+    assert said.startswith(f"  {claim}  locator is ambiguous — 3 places: "), said
+    assert said.endswith(
+        "(2 hold the recorded content, a tie it cannot break) — left"
+    ), said
     assert (claim, minor(0), None) in [m[2:] for m in moves], moves
 
 
@@ -3557,52 +3471,16 @@ def test_the_documents_say_a_held_reading_is_left_alone(where, sentence):
     assert sentence in text, sentence
 
 
-# --- each coordinate's outcome is printed once, after the walks (#792) -------
-
-
-@pytest.mark.parametrize(
-    "walks",
-    [
-        sequence
-        for n in (2, 3)
-        for sequence in itertools.product(WALK_OUTCOMES, repeat=n)
-    ],
-    ids=lambda walks: ", ".join(walks),
-)
-def test_every_walk_sequence_prints_what_the_file_holds(walks):
-    """#792's comment, enumerated by construction beside the MOVES case. One
-    coordinate walked two or three times, each walk moving it, reading it
-    unchanged, or leaving it for a reason of that walk's own. The printed
-    lines are the fold MOVES is: a hash line where a move landed, and a
-    `left` line, with that walk's reason, where the last walk left it. A walk
-    reading the coordinate unchanged takes the line back, as it takes back
-    BROKEN in MOVES (#791). Red with the first walk's reason kept."""
-    held_hash, seen, fresh = "h0", None, iter(f"h{n}" for n in range(1, 9))
-    for n, outcome in enumerate(walks):
-        if outcome == "moved":
-            new = next(fresh)
-            seen = ec.walked_outcome(seen, held_hash, new)
-            held_hash = new
-        elif outcome == "left":
-            seen = ec.walked_outcome(seen, held_hash, None, f"walk {n} left it")
-        else:
-            seen = ec.walked_outcome(seen, held_hash, held_hash)
-    state, why = seen
-    assert (state[1] is not None) == ("moved" in walks), (walks, state)
-    last = len(walks) - 1
-    want = f"walk {last} left it" if walks[last] == "left" else None
-    assert why == want, (walks, why)
-    # The line and the record's BROKEN part are one decision.
-    assert ((held_hash, None) in ec.owed_moves(state)) == (why is not None), walks
+# --- each coordinate's outcome is printed once (#792) ------------------------
 
 
 @pytest.mark.parametrize("last", ["unchanged", "moved"])
 def test_a_left_line_a_later_walk_takes_back_is_not_printed(repo, last):
-    """S9 (#792's comment), `left_then_unchanged`'s tree through `main`. Two
-    walks leave X1 and the third reads it unchanged, or re-stamps it where
-    its hash was stale, so no line says X1 is left, and `--strict` reads it
-    clean. Red at a3aa139a, which printed walk 0's `the anchored statement is
-    gone … left` and nothing after it."""
+    """S9 (#792's comment), `left_then_unchanged`'s tree through `main`.
+    Against the text the run writes X1 reads unchanged, or is re-stamped
+    where its hash was stale, so no line says X1 is left, and `--strict`
+    reads it clean. Red at a3aa139a, which printed the first walk's `the
+    anchored statement is gone … left` and nothing after it."""
     before = left_then_unchanged(repo, stale=last == "moved")
     fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
     assert fix.returncode == 0, fix.stdout
@@ -3748,10 +3626,35 @@ def test_a_family_no_remedy_clears_is_named_without_one(repo):
         ("docs/the-evidence-ledger.md", "Where neither is found it names no remedy."),
         (
             "skills/evidence-check/scripts/evidence_check.py",
-            "**Every `left` line goes through `walked_outcome`** (#792): kept per "
-            "coordinate under the key its hash line uses, the last walk's reason "
-            "winning, and printed once the walks end, in the order they first met "
-            "the coordinates.",
+            "**Every `left` line carries the check's own sentence**, so the two "
+            "commands cannot describe one row two ways (#809).",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "**Every coordinate is judged once, by `judge`, against the text the "
+            "run writes** (#824).",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "Each round judges against the round before it, never against a plan "
+            "being edited file by file, so what the run writes and prints is a "
+            "function of the tree and not of the order LEDGERS names the files in.",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "**A coordinate that does not settle is left at the hash its row "
+            "recorded**",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "Nothing is written for a coordinate the run leaves, so there is no "
+            "hash between the two to record.",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "A row naming a ledger line the run writes is read against the line "
+            "the run writes, so one run settles it; one that never settles is "
+            "left, named, and exits 1",
         ),
     ],
     ids=[
@@ -3760,7 +3663,12 @@ def test_a_family_no_remedy_clears_is_named_without_one(repo):
         "the home: left by the run",
         "the home: every left reason",
         "the home: neither",
-        "reverify's docstring: the fold",
+        "reverify's docstring: the check's sentence",
+        "reverify's docstring: judged once",
+        "reverify's docstring: no order",
+        "reverify's docstring: a coordinate that does not settle",
+        "reverify's docstring: before and after",
+        "the usage text: one run settles a ledger line",
     ],
 )
 def test_the_documents_say_each_outcome_is_printed_once(where, sentence):
@@ -3874,3 +3782,424 @@ def test_into_re_reads_a_claim_on_an_unsure_place_at_its_statement(repo):
     assert f"`{UNSURE_CLAIM}@{now}`" in (repo / INTO).read_text(encoding="utf-8")
     assert "no one place to hash" not in fix.stdout, fix.stdout
     assert run(["--strict", "."], repo).returncode == 0
+
+
+def the_checks_detail(out, coord):
+    """What `--strict` said about COORD, after the coordinate: the sentence
+    every `left` line of `--reverify` now carries."""
+    said = [line for line in out.splitlines() if f" {coord}  " in line]
+    assert len(said) == 1, out
+    return said[0].split(f" {coord}  ", 1)[1]
+
+
+def test_reverify_restamps_a_claim_on_an_unsure_place_at_its_statement(repo, capsys):
+    """S3a in place (#809, cell C8). The check calls the claim DRIFTED, and
+    `--reverify` re-stamps it at its statement's hash and hands MOVES the
+    move; nothing records BROKEN. Red at e6d5a055, which left the row as
+    *only a place the declaration rule is unsure of*."""
+    now = unsure_claim(repo)
+    f = fragment(
+        repo,
+        [f"| F1 · render adds two | `{UNSURE_CLAIM}@0000beef` | read | 2026-01-01 | |"],
+    )
+    moves = []
+    ec.reverify([str(f)], str(repo), {}, None, "2026-03-01", moves)
+    out = capsys.readouterr().out
+    assert f"`{UNSURE_CLAIM}@{now}`" in f.read_text(encoding="utf-8"), out
+    assert [m[2:] for m in moves] == [(UNSURE_CLAIM, "0000beef", now)], moves
+    assert "left" not in out, out
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+THREE_UNSURE = (
+    "public new void Render(int x) {\n    var a = x + 1;\n}\n\n"
+    "public new void Render(string s) {\n    var a = x + 1;\n}\n\n"
+    "public new void Render(long n) {\n    var a = n + 9;\n}\n"
+)
+
+
+@pytest.mark.parametrize("holding", ["two hold it", "none holds it"])
+def test_reverify_names_a_tie_among_unsure_places_as_the_check_does(
+    repo, capsys, holding
+):
+    """S3b (#809's comment, cells CU and CU0). A claim over three places the
+    declaration rule is unsure of, two holding its recorded content or none:
+    the check calls it BROKEN, ambiguous, and `--reverify`'s `left` line is
+    the check's sentence followed by ` — left`; MOVES gets the BROKEN part.
+    Red at e6d5a055, which said *only a place the declaration rule is unsure
+    of*."""
+    (repo / "src" / "a.cs").write_text(THREE_UNSURE, encoding="utf-8")
+    places, unsure = ec.resolve_unit("src/a.cs", "Render", THREE_UNSURE)
+    assert unsure and len(places) == 3, places
+    recorded = (
+        line_hash("    var a = x + 1;") if holding == "two hold it" else "0000beef"
+    )
+    f = fragment(
+        repo,
+        [f"| F1 · render adds | `{UNSURE_CLAIM}@{recorded}` | read | 2026-01-01 | |"],
+    )
+    check = run(["--strict", "."], repo)
+    detail = the_checks_detail(check.stdout, UNSURE_CLAIM)
+    assert detail.startswith("locator is ambiguous — 3 places: "), detail
+    held = "2 hold the recorded content" if recorded != "0000beef" else "none holds"
+    assert held in detail, detail
+    moves = []
+    ec.reverify([str(f)], str(repo), {}, None, "2026-03-01", moves)
+    out = capsys.readouterr().out
+    assert f"  {UNSURE_CLAIM}  {detail} — left" in out.splitlines(), out
+    assert [m[2:] for m in moves] == [(UNSURE_CLAIM, recorded, None)], moves
+
+
+def test_reverify_leaves_a_claim_whose_statement_is_gone_in_the_checks_words(
+    repo, capsys
+):
+    """S3c. S3a's row with the quoted statement deleted: the check says
+    DRIFTED, *the anchored statement is gone*, and `--reverify` leaves the
+    row with that sentence and hands MOVES the BROKEN part, the pact's word
+    for *left by the re-read*. Green at e6d5a055 for the verdicts, red for
+    the words."""
+    body = "public new void Render(int x) {\n    return;\n}\n"
+    (repo / "src" / "a.cs").write_text(body, encoding="utf-8")
+    assert ec.resolve_unit("src/a.cs", "Render", body)[1]
+    f = fragment(
+        repo,
+        [f"| F1 · render adds two | `{UNSURE_CLAIM}@0000beef` | read | 2026-01-01 | |"],
+    )
+    check = run(["--strict", "."], repo)
+    detail = the_checks_detail(check.stdout, UNSURE_CLAIM)
+    assert detail.startswith("the anchored statement is gone from Render"), detail
+    moves = []
+    ec.reverify([str(f)], str(repo), {}, None, "2026-03-01", moves)
+    out = capsys.readouterr().out
+    assert f"  {UNSURE_CLAIM}  {detail} — left" in out.splitlines(), out
+    assert [m[2:] for m in moves] == [(UNSURE_CLAIM, "0000beef", None)], moves
+
+
+# --- every coordinate judged once, one write (#824, closing #806) ------------
+
+B_FILE = "seal/ledger/1000000003-b.md"
+Q_FILE = "seal/releases/0.2.0.md"
+Q_SECTION = "### 1000000002-the-second-item"
+
+
+def names_a_released_line(repo):
+    """#806's probe p10, no freeze. Fragment B re-reads R1 and also names,
+    by a quoted line, row Q of `seal/releases/0.2.0.md`; `handler` and
+    `other` both change. B's file sorts before Q's. Returns B's coordinate of
+    Q's line, without its hash."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    (q,) = released(
+        repo,
+        [f"| Q · other doubles | `src/service.py#other@{o}` | read | 2026-01-01 | |"],
+        version="0.2.0",
+        section=Q_SECTION,
+    )
+    names_q = citation(q, "Q · other doubles", version="0.2.0", section=Q_SECTION)
+    (repo / B_FILE).parent.mkdir(parents=True, exist_ok=True)
+    (repo / B_FILE).write_text(
+        f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+        f"`src/service.py#handler@{h}`, `{names_q}` | read | 2026-02-01 | "
+        "Re-read 2026-02-01 |\n",
+        encoding="utf-8",
+    )
+    assert run(["--strict", "."], repo).returncode == 0
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("y = x + 1", "y = x + 2").replace("x * 2", "x * 3"),
+        encoding="utf-8",
+    )
+    return names_q.rsplit("@", 1)[0]
+
+
+def test_one_run_restamps_a_coordinate_naming_a_line_it_moves(repo):
+    """S2, #806's probe p10. One run over every ledger re-stamps Q, which
+    moves the line B names, and judges B's coordinate against the line the
+    run writes: exit 0, `--strict` exits 0, and a second run writes nothing.
+    Red at e6d5a055, which walked B before Q's file and left B DRIFTED until
+    a second run."""
+    names_a_released_line(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
+    before = ledger_texts(repo)
+    again = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert again.returncode == 0, again.stdout
+    assert ledger_texts(repo) == before, again.stdout
+
+
+def test_a_narrowed_run_names_a_coordinate_of_a_line_it_moved_and_left(repo):
+    """S9, spec D4. Narrowed to Q's file, the run re-stamps Q's line, and B,
+    in a file the narrowing left out, names that line by a coordinate that is
+    not its citation. The run names B's row and that coordinate on a `LEFT`
+    line with the `--ledger` remedy, and exits 1. Red at e6d5a055, which
+    named citations alone and exited 0."""
+    coord = names_a_released_line(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "--ledger", Q_FILE, "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    left = [line for line in fix.stdout.splitlines() if line.startswith("  LEFT")]
+    assert left == [
+        f"  LEFT  {B_FILE}:1  Re-read · R1 · handler adds one — its coordinate "
+        f"{coord} is DRIFTED: this run re-stamps the line it names, and the "
+        "narrowing left this row's file out; run it without `--ledger`"
+    ], fix.stdout
+
+
+SELF = '"X · quotes itself"'
+
+
+def test_a_row_that_never_settles_is_named_and_left_at_its_hash(repo):
+    """S6. A released row's Code grounds quote its own line, hash included,
+    so every re-stamp moves the line it names. The run leaves that
+    coordinate at the hash the row recorded, names it on a `LEFT` line that
+    says it does not settle, and exits 1; the file's other row is
+    re-stamped. Red at e6d5a055, which re-stamped it once, said nothing, and
+    exited 0 over a row `--strict` refuses."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    coord = f'{R_FILE}#"{SECTION}">{SELF}'
+    released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |",
+            f"| X · quotes itself | `{coord}@0000beef` | read | 2026-01-01 | |",
+        ],
+    )
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    text = (repo / R_FILE).read_text(encoding="utf-8")
+    assert f"`{coord}@0000beef`" in text, text
+    assert (
+        f"src/service.py#handler@{unit_hash(repo, 'src/service.py', 'handler')}`"
+        in (text)
+    )
+    left = [line for line in fix.stdout.splitlines() if line.startswith("  LEFT")]
+    named = [line for line in left if "does not settle" in line]
+    assert len(named) == 1 and named[0].startswith(f"  LEFT  {R_FILE}:6  "), left
+    assert f" — {coord} does not settle" in named[0], named
+
+
+def six_files(repo):
+    """The tree of the walk-order case #824 removed: a release file citing a
+    row of itself, two release files citing each other, a release file no
+    citation names, and two fragments citing released rows. `handler` then
+    changes. Returns the six paths, fragments first."""
+    h = unit_hash(repo, "src/service.py", "handler")
+
+    def r(n):
+        return (
+            f"| R{n} · handler adds one | `src/service.py#handler@{h}` | read "
+            "| 2026-01-01 | |"
+        )
+
+    def reread(cite):
+        return (
+            f"| Re-read · the row it cites | `{cite}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        )
+
+    def at(version):
+        return str(repo / f"seal/releases/{version}.md")
+
+    released(repo, [r(1), reread(citation(r(1), "R1 · handler adds one"))])
+    to_1 = ec.citation_for(str(repo), at("0.1.0"), 5)
+    released(repo, [r(1), reread(to_1)])
+    released(repo, [r(1)], version="0.2.0")
+    released(repo, [r(2)], version="0.3.0")
+    released(repo, [r(1)], version="0.4.0")
+    to_2 = ec.citation_for(str(repo), at("0.2.0"), 5)
+    to_3 = ec.citation_for(str(repo), at("0.3.0"), 5)
+    to_4 = ec.citation_for(str(repo), at("0.4.0"), 5)
+    released(repo, [r(2), reread(to_4)], version="0.3.0")
+    released(repo, [r(1), reread(to_3)], version="0.4.0")
+    fragment(repo, [reread(to_1)], name=M_ITEM)
+    fragment(repo, [reread(to_2)], name="2000000003-n")
+    assert run(["--strict", "."], repo).returncode == 0
+    edit_handler(repo)
+    return [
+        f"seal/ledger/{M_ITEM}.md",
+        "seal/ledger/2000000003-n.md",
+        *(f"seal/releases/0.{n}.0.md" for n in range(1, 5)),
+    ]
+
+
+def test_one_run_settles_a_self_citation_and_a_cycle(repo):
+    """S5. Over `six_files`' tree one unnarrowed run exits 0 and `--strict`
+    exits 0 after it: every citation of a line the run writes is judged
+    against that line, the self-citing file and the cycle included."""
+    six_files(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
+
+
+def build_tree(repo, tree):
+    """Build TREE in REPO and return the ledger paths in their file order."""
+    if tree == "p10":
+        names_a_released_line(repo)
+        return [B_FILE, R_FILE, Q_FILE]
+    return six_files(repo)
+
+
+def orderings(paths):
+    """Every permutation of three paths, and a dozen of six chosen without a
+    random seed: the identity, its reverse, and ten rotations and swaps."""
+    if len(paths) <= 3:
+        return [list(p) for p in itertools.permutations(paths)]
+    picked = [list(paths), list(reversed(paths))]
+    for k in range(1, 6):
+        picked.append(paths[k:] + paths[:k])
+    for i, j in ((0, 5), (1, 4), (2, 3), (0, 2), (3, 5)):
+        swapped = list(paths)
+        swapped[i], swapped[j] = swapped[j], swapped[i]
+        picked.append(swapped)
+    return picked
+
+
+def by_file(out):
+    """The run's lines, grouped by the file each names, so two runs compare
+    up to the order of lines about different files."""
+    return sorted(out.splitlines())
+
+
+@pytest.mark.parametrize("tree", ["p10", "six files"])
+def test_the_run_writes_the_same_bytes_in_any_ledger_order(tmp_path, tree):
+    """S4. The result is a function of the tree, never of the order the
+    ledgers are named in: any permutation of `--ledger` arguments writes the
+    same bytes to every file and prints the same lines. Red under the
+    mutation *judge ledger coordinates against the disk*."""
+
+    def fresh(name):
+        repo = tmp_path / name
+        (repo / "src").mkdir(parents=True)
+        (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+        (repo / "seal").mkdir()
+        return repo
+
+    seen = None
+    for n, order in enumerate(orderings(build_tree(fresh("paths"), tree))):
+        repo = fresh(f"run{n}")
+        build_tree(repo, tree)
+        args = ["--reverify", "--checked", "2026-03-01"]
+        for path in order:
+            args += ["--ledger", path]
+        fix = run([*args, "."], repo)
+        result = (fix.returncode, ledger_texts(repo), by_file(fix.stdout))
+        if seen is None:
+            seen = result
+        assert result == seen, (order, fix.stdout)
+        assert run(["--strict", "."], repo).returncode == 0, order
+
+
+def ledger_coordinate_on_a_moving_line(repo):
+    """#791's tree. X1 is not a citing row, and names among its Code grounds
+    the `Re-read ·` row of its own self-citing release file, whose code hash,
+    date and citation the run all move. Returns X1's coordinate as
+    written."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+
+    def reread(cite):
+        return (
+            f"| Re-read · the row it cites | `{cite}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        )
+
+    released(repo, [r1, reread(citation(r1, "R1 · handler adds one"))])
+    cite = ec.citation_for(str(repo), str(repo / R_FILE), 5)
+    line = citation(reread(cite), "Re-read · the row it cites \\|")
+    released(
+        repo,
+        [
+            r1,
+            reread(cite),
+            f"| X1 · other, beside the re-read | `src/service.py#other@{o}`, "
+            f"`{line}` | read | 2026-01-01 | |",
+        ],
+    )
+    assert run(["--strict", "."], repo).returncode == 0
+    edit_handler(repo)
+    return line
+
+
+def parts_of(path):
+    """`{(row, coordinate, nth): hash}` for every non-citation coordinate of
+    the ledger at PATH, read as `reverify` reads it."""
+    text = path.read_text(encoding="utf-8")
+    lines = ec.gfm_lines(text)
+    rows = {n: (h, c) for n, h, c in ec.ledger_table_rows(text)}
+    found, nth = {}, {}
+    for number, line in enumerate(lines, 1):
+        cite = None
+        if number in rows:
+            cite = ec.row_citation(line, *rows[number])
+        for m in ec.ANCHOR_RE.finditer(line):
+            if cite is not None and m.span() == cite.span():
+                continue
+            spot = (number, ec.coordinate_of(m))
+            nth[spot] = nth.get(spot, 0) + 1
+            found[(*spot, nth[spot])] = m.group("hash")
+    return found
+
+
+S7_TREES = {
+    "a move, then left": lambda repo: moved_then_left(repo),
+    "left, then unchanged": lambda repo: left_then_unchanged(repo),
+    "left, then re-stamped": lambda repo: left_then_unchanged(repo, stale=True),
+    "a ledger coordinate on a moving line": ledger_coordinate_on_a_moving_line,
+    "R and M": unfrozen_r_and_m,
+    "p10": names_a_released_line,
+}
+
+
+@pytest.mark.parametrize("tree", list(S7_TREES))
+def test_the_record_and_the_lines_are_what_the_file_holds(repo, capsys, tree):
+    """S7. After the run, each MOVES part's new hash is the hash the file
+    holds at that coordinate, or None where the line still holds the
+    recorded hash and a `left` line names it; every non-citation coordinate
+    whose hash the run moved has its part; and each printed `a -> b` has `b`
+    in the file. Red under the mutation *record the first recomputation's
+    hash*."""
+    S7_TREES[tree](repo)
+    paths = sorted((repo / "seal").rglob("*.md"))
+    paths = [p for p in paths if p.name != "config.md"]
+    before = {p: parts_of(p) for p in paths}
+    moves = []
+    ec.reverify([str(p) for p in paths], str(repo), {}, None, "2026-03-01", moves)
+    out = capsys.readouterr().out
+    after = {p: parts_of(p) for p in paths}
+    texts = "".join(p.read_text(encoding="utf-8") for p in paths)
+    for ledger, number, coord, old, new in moves:
+        line = ec.gfm_lines(open(ledger, encoding="utf-8").read())[number - 1]
+        if new is None:
+            assert f"{coord}@{old}" in line, (coord, line)
+            assert any(
+                said.startswith(f"  {coord}  ")
+                or (said.startswith("  LEFT") and coord in said)
+                for said in out.splitlines()
+            ), out
+        else:
+            assert f"{coord}@{new}" in line, (coord, new, line, moves)
+    recorded = {(os.path.abspath(m[0]), m[1], m[2], m[3], m[4]) for m in moves}
+    for path in paths:
+        for (number, coord, _nth), was in before[path].items():
+            now = after[path].get((number, coord, _nth))
+            if now is not None and now != was:
+                assert (str(path), number, coord, was, now) in recorded, (
+                    path,
+                    number,
+                    coord,
+                    moves,
+                )
+    for said in out.splitlines():
+        m = HASH_LINE.match(said)
+        if m:
+            assert f"@{m.group(3)}`" in texts, (said, out)

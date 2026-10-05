@@ -771,8 +771,9 @@ def test_reverify_names_a_claim_two_places_hold_as_the_check_does(repo):
     places is a tie the recorded hash cannot break, so the check calls the
     row BROKEN (`classify`, round 8). `--reverify` asked only whether any
     place held the hash, read the row as unchanged and said nothing: a
-    flagged row answered with silence. It now names it `left` in the
-    check's terms. Red at 0de15c70, which printed nothing for `handler`."""
+    flagged row answered with silence. It now names it `left` with the
+    check's own sentence (#824). Red at 0de15c70, which printed nothing for
+    `handler`, and at e6d5a055, which worded the tie its own way."""
     twice = SERVICE + "\n\ndef handler(x):\n    y = x + 1\n    return y * 2\n"
     (repo / "src" / "service.py").write_text(twice, encoding="utf-8")
     places, _ = ec.resolve_unit("src/service.py", "handler", twice)
@@ -789,16 +790,16 @@ def test_reverify_names_a_claim_two_places_hold_as_the_check_does(repo):
     assert "(2 hold the recorded content, a tie it cannot break)" in check.stdout, (
         check.stdout
     )
-    r = run(["--reverify", "."], str(repo))
-    said = [
-        line
-        for line in r.stdout.splitlines()
-        if line.startswith('  src/service.py#handler>"y = x"  ')
+    coord = 'src/service.py#handler>"y = x"'
+    (detail,) = [
+        line.split(f" {coord}  ", 1)[1]
+        for line in check.stdout.splitlines()
+        if f" {coord}  " in line
     ]
-    assert said == [
-        '  src/service.py#handler>"y = x"  2 places, 2 holding the recorded '
-        "content, a tie the recorded hash cannot break — left"
-    ], r.stdout
+    assert detail.startswith("locator is ambiguous — 2 places: "), detail
+    r = run(["--reverify", "."], str(repo))
+    said = [line for line in r.stdout.splitlines() if line.startswith(f"  {coord}  ")]
+    assert said == [f"  {coord}  {detail} — left"], r.stdout
 
 
 def test_reverify_re_anchors_a_row_whose_content_provably_moved(repo):
@@ -2867,7 +2868,9 @@ def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
     that has to act on the flag is the loop, wherever it lives. Since #715
     the loop's body is `classify`, one occurrence at a time, because the
     reader of a released row's family grades each reading by it too. Since
-    #824 `classify` is `judge`'s finding, and `judge` is the reader."""
+    #824 `classify` is `judge`'s finding, `judge` is the reader, and
+    `reverify` acts on `judge`'s verdict with no reading of a place of its
+    own: a second reading is how the two commands came apart (#809)."""
     import ast as ast_mod
 
     tree = ast_mod.parse(open(SCRIPT, encoding="utf-8").read())
@@ -2877,12 +2880,14 @@ def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
             continue
         for inner in ast_mod.walk(node):
             if isinstance(inner, ast_mod.Call) and isinstance(inner.func, ast_mod.Name):
-                if inner.func.id in ("resolve", "resolve_unit"):
+                if inner.func.id in ("resolve", "resolve_unit", "judge"):
                     calls.setdefault(node.name, set()).add(inner.func.id)
-    for consumer in ("judge", "reverify"):
-        assert calls.get(consumer) == {"resolve_unit"}, (
-            f"{consumer} does not ask for the resurrection flag: {calls.get(consumer)}"
-        )
+    assert calls.get("judge") == {"resolve_unit"}, (
+        f"judge does not ask for the resurrection flag: {calls.get('judge')}"
+    )
+    assert calls.get("reverify") == {"judge"}, (
+        f"reverify reads a place by itself: {calls.get('reverify')}"
+    )
 
 
 # --- round 7: the last pass -------------------------------------------------
@@ -3052,8 +3057,9 @@ def test_reverify_never_contradicts_the_checks_verdict(repo):
     rr = run(["--reverify", "."], str(repo))
     assert "src/service.py#gone" in rr.stdout, rr.stdout
     # The check calls this BROKEN with no place at all, so that is what this
-    # command must say about it — not that a place was found and doubted.
-    assert "no place — the check calls this row BROKEN" in rr.stdout, rr.stdout
+    # command must say about it — not that a place was found and doubted. The
+    # words are the check's own (#824).
+    assert "  src/service.py#gone  locator not found" in rr.stdout, rr.stdout
     assert "unsure" not in rr.stdout, rr.stdout
 
     # (c) the claim is part of the coordinate a left-behind line names.
