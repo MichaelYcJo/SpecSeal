@@ -296,6 +296,13 @@ the run exits 1. An `OVERFLOW` row gets the same `LEFT` line, naming the
 ledger and the line because this command prints no heading per ledger, and
 the run exits 1.
 
+**Where no re-read is owed, the hash and the date stay** (#785). A coordinate
+whose family's newest reading already records what the code holds, and one in
+a family a `Corrected ·` row supersedes, are left as they are: `--strict`
+judges neither by that row, so a new hash there would claim a reading nobody
+took. A row the run dates for another coordinate takes a held one's new hash
+too, because its date makes it that coordinate's newest reading.
+
 **A new hash says somebody re-read the row, and the date cell says when**
 (#387). `--reverify` alone leaves every date as it stands and, after the
 count line, names each row whose hash it moved — its ledger and line, its

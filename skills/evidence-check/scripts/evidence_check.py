@@ -49,7 +49,10 @@ Usage:
                                           row — an explicit "I have re-read
                                           these", never something a check does
                                           — and name each row whose hash moved
-                                          and whose date was left
+                                          and whose date was left. A reading
+                                          whose family's newest reading holds
+                                          the code, and a superseded family's,
+                                          stay as they are
   evidence_check.py --reverify --checked YYYY-MM-DD [ROOT]
                                           the same, and write that date into
                                           the date cell of every row whose
@@ -3031,6 +3034,32 @@ def owed_moves(held):
     return owed
 
 
+def left_alone(view):
+    """`(held, superseded)`: what an in-place `reverify` leaves where it
+    stands, judged from `family_view`'s VIEW before the first walk (#785).
+
+    HELD is `{row: {coordinate}}` for every member of a family whose newest
+    readings already hold that coordinate (`view.held`, ties a union):
+    `--strict` judges the coordinate by those readings, so re-stamping an
+    older one claims a reading nobody took. SUPERSEDED is every member row
+    of a family a `Corrected ·` row supersedes, whose code coordinates
+    `--strict` does not check again. A row is `(file identity, line)`.
+
+    Judged once, never live: a walk writes ledger lines and no code, so no
+    coordinate's grading moves during the run, and only a date the run adds
+    could reorder a family's readings mid-walk."""
+    held, superseded = {}, set()
+    for top, members in view.families.items():
+        if top in view.superseded:
+            superseded.update(members)
+            continue
+        for coord, holding in view.held.get(top, {}).items():
+            if holding:
+                for key in members:
+                    held.setdefault(key, set()).add(coord)
+    return held, superseded
+
+
 def cited_first(ledgers, root, maps, default_repo):
     """`(once, again, walks)`: how `reverify` walks LEDGERS (#772).
 
@@ -3091,7 +3120,17 @@ def cited_first(ledgers, root, maps, default_repo):
 def reverify(
     ledgers, root, maps, default_repo=None, checked=None, moves=None, told=None
 ):
-    """Rewrite the hash of every row whose anchor resolves. Explicit, by hand.
+    """Rewrite the hash of every row whose anchor resolves, where a re-read
+    of it is owed. Explicit, by hand.
+
+    **A coordinate its family already holds, or that a superseded family
+    carries, stays where it stands** (#785, `left_alone`). It is judged once,
+    before the first walk, from `family_view` over every ledger the
+    repository carries, and it is not re-stamped, dated, named, or handed to
+    MOVES. On a row the run dates for another coordinate, a held one is
+    re-stamped as well: the date makes that row the newest reading of each
+    coordinate on it. A citation is a ledger line no family grades, and it
+    is re-stamped as before.
 
     **TOLD, where given, holds back every line that says a ledger was
     written** -- a per-coordinate hash line, `N rows re-verified`, the
@@ -3141,6 +3180,20 @@ def reverify(
     # `(ledger, hash lines, dated, undated)` for every ledger this writes.
     written = []
     scan_cache = {}
+    # The family judgment (#785), over every ledger the repository carries
+    # as well as LEDGERS, so a narrowing that leaves out the file holding a
+    # family's newest reading changes nothing. Read before the first walk,
+    # while nothing is planned, so it reads the files as they are on disk.
+    view = list(ledgers)
+    known = {file_identity(p) for p in view}
+    view += [
+        p
+        for p in resolve_patterns(default_patterns(root))
+        if file_identity(p) not in known
+    ]
+    held_at, superseded = left_alone(
+        family_view(view, root, maps, default_repo, scan_cache)
+    )
     once, again, bound = cited_first(ledgers, root, maps, default_repo)
     # Whether the last walk of AGAIN changed what it plans (`cited_first`).
     moved = [False]
@@ -3218,6 +3271,10 @@ def reverify(
         # `(offset, coordinate, recorded hash, new hash or None)` for every
         # coordinate whose hash moves or which no one place holds (MOVES).
         pending = []
+        # The offsets of the moves of coordinates a family holds (#785). Each
+        # rides its row only where the run dates the row for another move.
+        deferred, held_edits = set(), []
+        ident = file_identity(ledger)
         # `(start, end, replacement, what to print)` for every hash this
         # ledger's rows would take. Collected rather than spliced as found,
         # because under `--checked` a row with no date cell is left WHOLE, and
@@ -3235,6 +3292,18 @@ def reverify(
             spot = (bisect.bisect_right(starts, m.start()), coordinate_of(m))
             nth[spot] = nth.get(spot, 0) + 1
             key = key_at[m.start()] = (planned_key(ledger), *spot, nth[spot])
+            holds = False
+            # A citation is a ledger line, which no family grades, so both
+            # judgments are about the code coordinates beside it (#785).
+            if m.start() not in citations:
+                if (ident, spot[0]) in superseded:
+                    # `--strict` does not check it again: nothing to re-read.
+                    continue
+                holds = spot[1] in held_at.get((ident, spot[0]), ())
+                if holds and current_hash(m, root, maps, default_repo) is None:
+                    # A newest reading resolves it, so this reading of it is
+                    # history whether or not it resolves.
+                    continue
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
             repo, rel = place(root, maps, default_repo, raw_path)
@@ -3371,7 +3440,9 @@ def reverify(
                 continue
             shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             pending.append((m.start(), shown, m.group("hash"), got))
-            edits.append(
+            if holds:
+                deferred.add(m.start())
+            (held_edits if holds else edits).append(
                 (
                     m.start("hash"),
                     m.end("hash"),
@@ -3390,10 +3461,17 @@ def reverify(
         # on every platform, as the records arm's do (`built_name`).
         name = built_name(ledger, root)
         dated, undated = [], []
-        by_row = {}
+        by_row, riders = {}, {}
         for edit in edits:
             by_row.setdefault(bisect.bisect_right(starts, edit[0]), []).append(edit)
+        for edit in held_edits:
+            riders.setdefault(bisect.bisect_right(starts, edit[0]), []).append(edit)
         left_whole = set()
+        # The rows the run dates. A date makes the row the newest reading of
+        # every coordinate on it, so a coordinate its family holds is
+        # re-stamped there too: left at the hash an outranked reading
+        # recorded, it would become the newest reading and drift (#785).
+        joined = set()
         kept = []
         for number, row_edits in sorted(by_row.items()):
             header, cells = rows.get(number, (None, []))
@@ -3416,6 +3494,8 @@ def reverify(
                     at = starts[number - 1]
                     kept.append((at + cell[0], at + cell[1], cell[2], None))
                 dated.append((where, row_label(cells)))
+                joined.add(number)
+                spliced += [edit[:4] for edit in riders.get(number, [])]
             else:
                 undated.append(
                     (
@@ -3435,6 +3515,8 @@ def reverify(
                 if offset in citations:
                     continue
                 number = bisect.bisect_right(starts, offset)
+                if offset in deferred and number not in joined:
+                    continue
                 if new is None or number not in left_whole:
                     _where, held = parts.get(key_at[offset], (None, None))
                     parts[key_at[offset]] = (

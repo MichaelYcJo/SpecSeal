@@ -142,9 +142,14 @@ fragment re-reads carry is owed a re-read of a released root too. The
 `Checked` column holds the date somebody read the code, and
 `--checked` writes that date into every row whose hash it moves; it says
 every such row was re-read, so read each row citing a drifted coordinate
-first, or narrow the write with `--ledger` to the files you read. A
-`Re-read ·` row is a reading dated `--checked`, so where a coordinate it would
-carry has a reading dated later, that reading outranks it and the row would
+first, or narrow the write with `--ledger` to the files you read. No such
+reading is owed where the family already holds a coordinate, or where a
+`Corrected ·` row supersedes the family, so an in-place re-stamp leaves that
+coordinate's hash and date as they are (#785). On a row it dates for another
+coordinate it moves a held one's hash too, since that date makes the row its
+newest reading. A `Re-read ·` row is a reading dated `--checked`, so where a
+coordinate it would carry has a reading dated later, that reading outranks it
+and the row would
 clear nothing: the run writes no row for it, still records the pact changes
 its moved coordinates owe, names it with both dates and the place of the
 later reading, and exits 1. Read the code again and date that reading; a date
