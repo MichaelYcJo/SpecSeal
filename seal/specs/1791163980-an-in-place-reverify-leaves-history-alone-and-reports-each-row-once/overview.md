@@ -7,9 +7,9 @@ than reconstructed at the end. Facts that must outlive this work item go to the
 evidence ledger, not here. -->
 
 📋 implement applied
-· spec:     filled when the work item closes
-· evidence: filled when the work item closes
-· verified: filled when the work item closes
+· spec:     seal/specs/1791163980-an-in-place-reverify-leaves-history-alone-and-reports-each-row-once/{spec,plan,questions,routing}.md (D1–D5, S1–S16, Q1–Q3); docs/the-evidence-ledger.md §A released row is read again in the branch's fragment (the family, `--into`, *Without the row* and five-things paragraphs); skills/evidence-check/SKILL.md §Re-verifying is recomputing the hash; docs/the-pact.md §A signatory records a pact change; issues #785, #792 and its comment, #781; the 0.18.2 item's post-review-check.md and post-review-check-2.md
+· evidence: seal/ledger/1791163980-an-in-place-reverify-leaves-history-alone-and-reports-each-row-once.md — A1–A6, 30 `Re-read ·` rows written by `--reverify --into` as this branch builds it, and a `Corrected ·` row over seal/releases/0.18.2.md:91
+· verified: executed — every new case seen red at a3aa139a or under a mutation, every added unit mutated through `bin/mutation-check` (one equivalent test removed), the Q3 probe, the evidence-check, pact, re-read, correction, one-home, paste, wrap, identifier, word and folded-statement modules, `bin/evidence-check --strict .`, `bin/survivor-check`; read — the 31 released claims, 30 re-dated and one corrected
 
 ## Why this work exists
 
@@ -31,7 +31,15 @@ An in-place `--reverify` re-stamped and re-dated readings `--strict` no longer j
 
 ## Not done
 
-nothing
+**An outranked reading in a *drifted* family is still re-stamped and dated.**
+Spec §*Out* leaves it: re-stamping only the newest reading needs a rule for a
+newest reading the run cannot write, released under the freeze or in a file
+the narrowing left out. It is a new design, for a new issue if the owner
+wants it.
+
+**`seal/follow-up.md`'s row on several rows citing one unit is unchanged.**
+D1 narrows it only where those rows are one family, so its open options
+stand, and this item does not edit the shared file.
 
 ## Fed back into the spec
 
