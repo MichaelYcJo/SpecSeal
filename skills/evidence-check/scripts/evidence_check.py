@@ -900,17 +900,25 @@ def recorded_here(rel, body, place, want, claim):
     return content_hash(gfm_lines(body)[place[0] - 1 : place[1]]) == want
 
 
-def left_because(places, resurrected):
+def left_because(places, resurrected, holding=0):
     """Why `--reverify` wrote nothing for a row, in the check's own terms.
 
     The two commands must never describe one row differently: this said
     "ambiguous" about a row the check resolves and "resurrected" about a row
-    with no candidate at all (round 7, 🟡 N).
+    with no candidate at all (round 7, 🟡 N). HOLDING is how many of PLACES
+    hold the recorded content: more than one is a claim's tie, which the
+    check names the same way, and "none holding" would be false there
+    (#810).
     """
     if resurrected:
         return "only a place the declaration rule is unsure of"
     if not places:
         return "no place — the check calls this row BROKEN"
+    if holding:
+        return (
+            f"{len(places)} places, {holding} holding the recorded content, "
+            "a tie the recorded hash cannot break"
+        )
     return f"{len(places)} places, none holding the recorded content"
 
 
@@ -1705,7 +1713,7 @@ def classify(m, root, maps, default_repo, scan_cache):
         return ("BROKEN", coord, detail)
 
     places, resurrected = resolve_unit(rel, locator, body)
-    unsure = []
+    unsure, hit = [], []
     if places and (resurrected or len(places) > 1):
         # The row's OWN recorded content decides, in both directions. With
         # several places it breaks the tie (questions.md §Q3). With one
@@ -1731,11 +1739,17 @@ def classify(m, root, maps, default_repo, scan_cache):
             unsure, places = places, []
     if len(places) > 1:
         at = ", ".join(f"{a}-{b}" for a, b in places)
+        # HIT is non-empty here only for a claim's tie: a row with no claim
+        # and any hit has narrowed to one place above (#810).
+        held = (
+            f"{len(hit)} hold the recorded content, a tie it cannot break"
+            if hit
+            else "none holds the recorded content"
+        )
         return (
             "BROKEN",
             coord,
-            f"locator is ambiguous — {len(places)} places: {at} "
-            "(none holds the recorded content)",
+            f"locator is ambiguous — {len(places)} places: {at} ({held})",
         )
     if not places:
         detail = "locator not found"
@@ -3379,6 +3393,7 @@ def reverify(
             places, resurrected = (
                 resolve_unit(rel, locator, body) if body is not None else ([], False)
             )
+            hit = []
             if places and (resurrected or len(places) > 1):
                 hit = [
                     p
@@ -3500,7 +3515,8 @@ def reverify(
                     key,
                     m.group("hash"),
                     None,
-                    f"  {left_as}  {left_because(places, resurrected)} — left",
+                    f"  {left_as}  {left_because(places, resurrected, len(hit))} "
+                    "— left",
                 )
                 pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
@@ -3624,7 +3640,7 @@ def reverify(
                 # during the run, and a held coordinate names no line the run
                 # writes. So there is nothing to take back, and no `still`.
                 continue
-            why = left_because(places, resurrected)
+            why = left_because(places, resurrected, len(hit))
             if resurrected and m.group("claim") is None:
                 # An unsure place with no claim is no place, and the ordinary
                 # path heals it onto the one destination that reconstructs the

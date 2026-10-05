@@ -3468,7 +3468,10 @@ def test_a_held_claim_two_places_tie_on_a_dated_row_is_left_and_named(repo, caps
     moves = []
     ec.reverify([str(a), str(b)], str(repo), {}, None, "2026-04-01", moves)
     out = capsys.readouterr().out
-    assert f"  {claim}  3 places, none holding the recorded content — left" in out, out
+    assert (
+        f"  {claim}  3 places, 2 holding the recorded content, a tie the recorded "
+        "hash cannot break — left"
+    ) in out, out
     assert (claim, minor(0), None) in [m[2:] for m in moves], moves
 
 

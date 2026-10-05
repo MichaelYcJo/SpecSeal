@@ -783,7 +783,12 @@ def test_reverify_names_a_claim_two_places_hold_as_the_check_does(repo):
         f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x"@{h}` |\n',
         encoding="utf-8",
     )
-    assert run(["--strict", "."], str(repo)).returncode == 2
+    check = run(["--strict", "."], str(repo))
+    assert check.returncode == 2
+    # Two places hold it, so the reason says so, in both commands (#810).
+    assert "(2 hold the recorded content, a tie it cannot break)" in check.stdout, (
+        check.stdout
+    )
     r = run(["--reverify", "."], str(repo))
     said = [
         line
@@ -791,8 +796,8 @@ def test_reverify_names_a_claim_two_places_hold_as_the_check_does(repo):
         if line.startswith('  src/service.py#handler>"y = x"  ')
     ]
     assert said == [
-        '  src/service.py#handler>"y = x"  2 places, none holding the recorded '
-        "content — left"
+        '  src/service.py#handler>"y = x"  2 places, 2 holding the recorded '
+        "content, a tie the recorded hash cannot break — left"
     ], r.stdout
 
 
