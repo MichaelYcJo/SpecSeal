@@ -3331,7 +3331,9 @@ LEFT_BEHIND = (
 )
 
 
-@pytest.mark.parametrize("destination", [True, False], ids=["one", "none"])
+@pytest.mark.parametrize(
+    "destination", ["one", "one, renamed", "none"], ids=lambda d: d
+)
 def test_a_held_coordinate_with_an_unsure_place_on_a_dated_row_heals_to_its_destination(
     repo, capsys, destination
 ):
@@ -3343,8 +3345,10 @@ def test_a_held_coordinate_with_an_unsure_place_on_a_dated_row_heals_to_its_dest
     ordinary path reads such a coordinate: it heals A onto the one
     destination that reconstructs A's hash, and `--strict` reads the tree
     clean; with no destination it is left, `and no destination is provable`,
-    with its BROKEN part. Red at 0de15c70, which named the first `left` and
-    handed MOVES a BROKEN part, and dropped the second's wording."""
+    with its BROKEN part. Where the unit was renamed as it moved, the hash
+    follows the name and MOVES gets the move. Red at 0de15c70, which named
+    the first two `left` with BROKEN parts, and dropped the last's
+    wording."""
     lib, dest = "src/lib.go", "src/moved.go"
     (repo / "src" / "lib.go").write_text(LEFT_BEHIND, encoding="utf-8")
     unit = "func handler(x) {\n    y := x + 2\n    return y\n}\n"
@@ -3354,8 +3358,14 @@ def test_a_held_coordinate_with_an_unsure_place_on_a_dated_row_heals_to_its_dest
     x, y = places[0]
     held = ec.content_hash(ec.gfm_lines(LEFT_BEHIND)[x - 1 : y])
     a_at = unit_hash(repo, dest, "handler")
-    if not destination:
+    name = "handler"
+    if destination == "none":
         (repo / "src" / "moved.go").unlink()
+    elif destination == "one, renamed":
+        name = "total"
+        (repo / "src" / "moved.go").write_text(
+            unit.replace("func handler(", "func total("), encoding="utf-8"
+        )
     o0 = unit_hash(repo, lib, "other")
     (r,) = released(
         repo,
@@ -3388,10 +3398,13 @@ def test_a_held_coordinate_with_an_unsure_place_on_a_dated_row_heals_to_its_dest
     ec.reverify([str(a), str(b)], str(repo), {}, None, "2026-04-01", moves)
     out = capsys.readouterr().out
     broken = [m for m in moves if m[2] == f"{lib}#handler" and m[4] is None]
-    if destination:
-        assert f"{lib}#handler -> {dest}#handler  (identical content)" in out, out
+    if destination != "none":
+        assert f"{lib}#handler -> {dest}#{name}  (identical content)" in out, out
         assert broken == [], moves
-        assert f"`{dest}#handler@{a_at}`" in a.read_text(encoding="utf-8")
+        now = unit_hash(repo, dest, name)
+        assert f"`{dest}#{name}@{now}`" in a.read_text(encoding="utf-8")
+        moved = [m[3:] for m in moves if m[2] == f"{lib}#handler"]
+        assert moved == ([] if now == a_at else [(a_at, now)]), moves
         assert run(["--strict", "."], repo).returncode == 0
     else:
         assert (
