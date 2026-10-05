@@ -3380,11 +3380,15 @@ def reverify(
                 resolve_unit(rel, locator, body) if body is not None else ([], False)
             )
             if places and (resurrected or len(places) > 1):
-                if [
+                hit = [
                     p
                     for p in places
                     if recorded_here(rel, body, p, m.group("hash"), claim)
-                ]:
+                ]
+                # `classify`'s rule, word for word: a claim's minor hash in
+                # two places is a tie the recorded hash cannot break, and the
+                # check calls the row BROKEN (#808).
+                if hit and (len(hit) == 1 or claim is None):
                     # The row already records what one of these places holds,
                     # which is what the check calls OK. Nothing to re-verify,
                     # and nothing to say — this printed `#Render -> #Render
@@ -3593,9 +3597,13 @@ def reverify(
         # A held coordinate no one place holds, on a row the run dates: the
         # date makes that row its newest reading, so it is read as the
         # ordinary path reads such a coordinate (round 1, yellow 1). Where
-        # one of its places holds what this row recorded, the check calls it
-        # OK, and it is unchanged and records nothing; otherwise it is left,
-        # named in the check's own terms, and handed to MOVES (round 2).
+        # one of its places holds what this row recorded -- for a claim,
+        # exactly one -- the check calls it OK, and it is unchanged and
+        # records nothing (round 2). Where its only place is one the
+        # declaration rule is unsure of and it has no claim, it is re-pointed
+        # onto the one destination that reconstructs its hash (#808).
+        # Otherwise it is left, named in the check's own terms, and handed to
+        # MOVES.
         for offset, key, m in unplaced:
             if bisect.bisect_right(starts, offset) not in joined:
                 continue
@@ -3606,20 +3614,58 @@ def reverify(
                 if body is not None
                 else ([], False)
             )
-            if any(
-                recorded_here(at, body, p, m.group("hash"), m.group("claim"))
+            hit = [
+                p
                 for p in places
-            ):
+                if recorded_here(at, body, p, m.group("hash"), m.group("claim"))
+            ]
+            if hit and (len(hit) == 1 or m.group("claim") is None):
                 # No earlier walk can have left it: the code does not move
                 # during the run, and a held coordinate names no line the run
                 # writes. So there is nothing to take back, and no `still`.
                 continue
-            walked(
-                key,
-                m.group("hash"),
-                None,
-                f"  {coordinate_of(m)}  {left_because(places, resurrected)} — left",
-            )
+            why = left_because(places, resurrected)
+            if resurrected and m.group("claim") is None:
+                # An unsure place with no claim is no place, and the ordinary
+                # path heals it onto the one destination that reconstructs the
+                # recorded hash; so does this (#808).
+                raw_path, locator = m.group("path"), m.group("locator")
+                hashes, _, _ = content_matches(
+                    home, at, locator, m.group("hash"), scan_cache.setdefault(home, {})
+                )
+                if len(hashes) == 1:
+                    path, name, (a, b) = hashes[0]
+                    target = body if path == at else read(os.path.join(home, path))
+                    new_raw = (
+                        raw_path
+                        if path == at
+                        else (raw_path[: len(raw_path) - len(at)] + path)
+                    )
+                    shown = f"#{name}" if path == at else f"{path}#{name}"
+                    new_hash = content_hash(gfm_lines(target)[a - 1 : b])
+                    if new_hash != m.group("hash"):
+                        pending.append(
+                            (offset, coordinate_of(m), m.group("hash"), new_hash)
+                        )
+                    kept.append(
+                        (
+                            m.start("path"),
+                            m.end("hash"),
+                            new_raw
+                            + text[m.end("path") : m.start("locator")]
+                            + name
+                            + text[m.end("locator") : m.start("hash")]
+                            + new_hash,
+                            (
+                                key,
+                                f"  {raw_path}#{locator} -> {shown}  "
+                                "(identical content)",
+                            ),
+                        )
+                    )
+                    continue
+                why += ", and no destination is provable"
+            walked(key, m.group("hash"), None, f"  {coordinate_of(m)}  {why} — left")
             pending.append((offset, coordinate_of(m), m.group("hash"), None))
         for offset, _coord, old, new in pending:
             if new is not None:

@@ -3326,6 +3326,139 @@ def test_a_held_coordinate_one_of_whose_places_holds_it_rides_a_dated_row_silent
     assert run(["--strict", "."], repo).returncode == 0
 
 
+LEFT_BEHIND = (
+    "func main() {\n    return handler(1)\n}\n\nfunc other(x) {\n    return x * 2\n}\n"
+)
+
+
+@pytest.mark.parametrize("destination", [True, False], ids=["one", "none"])
+def test_a_held_coordinate_with_an_unsure_place_on_a_dated_row_heals_to_its_destination(
+    repo, capsys, destination
+):
+    """#808, round 3 of #785's review, yellow 1. B holds `handler` in
+    `src/lib.go` through the one place the declaration rule is unsure of, the
+    call a move left behind; A records the unit itself, which now lives in
+    `src/moved.go`, and carries `other`, which drifted. Dated for `other`, A
+    becomes the newest reading of `handler`, and the run reads it as the
+    ordinary path reads such a coordinate: it heals A onto the one
+    destination that reconstructs A's hash, and `--strict` reads the tree
+    clean; with no destination it is left, `and no destination is provable`,
+    with its BROKEN part. Red at 0de15c70, which named the first `left` and
+    handed MOVES a BROKEN part, and dropped the second's wording."""
+    lib, dest = "src/lib.go", "src/moved.go"
+    (repo / "src" / "lib.go").write_text(LEFT_BEHIND, encoding="utf-8")
+    unit = "func handler(x) {\n    y := x + 2\n    return y\n}\n"
+    (repo / "src" / "moved.go").write_text(unit, encoding="utf-8")
+    places, unsure = ec.resolve_unit(lib, "handler", LEFT_BEHIND)
+    assert unsure and len(places) == 1, places
+    x, y = places[0]
+    held = ec.content_hash(ec.gfm_lines(LEFT_BEHIND)[x - 1 : y])
+    a_at = unit_hash(repo, dest, "handler")
+    if not destination:
+        (repo / "src" / "moved.go").unlink()
+    o0 = unit_hash(repo, lib, "other")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `{lib}#handler@{line_hash('    return handler(0)')}` "
+            "| read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler adds one")
+    a = fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, `{lib}#handler@{a_at}`, "
+            f"`{lib}#other@{o0}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+        name=A_ITEM,
+    )
+    b = fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, `{lib}#handler@{held}` "
+            "| read | 2026-03-01 | Re-read 2026-03-01 |"
+        ],
+        name=B_ITEM,
+    )
+    (repo / "src" / "lib.go").write_text(
+        LEFT_BEHIND.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    moves = []
+    ec.reverify([str(a), str(b)], str(repo), {}, None, "2026-04-01", moves)
+    out = capsys.readouterr().out
+    broken = [m for m in moves if m[2] == f"{lib}#handler" and m[4] is None]
+    if destination:
+        assert f"{lib}#handler -> {dest}#handler  (identical content)" in out, out
+        assert broken == [], moves
+        assert f"`{dest}#handler@{a_at}`" in a.read_text(encoding="utf-8")
+        assert run(["--strict", "."], repo).returncode == 0
+    else:
+        assert (
+            f"  {lib}#handler  only a place the declaration rule is unsure of, and "
+            "no destination is provable — left"
+        ) in out, out
+        assert len(broken) == 1, moves
+
+
+THRICE = (
+    SERVICE
+    + "\n\ndef handler(x):\n    y = x + 1\n    return y * 2\n"
+    + "\n\ndef handler(x):\n    y = x + 9\n    return y * 3\n"
+)
+
+
+def test_a_held_claim_two_places_tie_on_a_dated_row_is_left_and_named(repo, capsys):
+    """#808, round 3 of #785's review, yellow 2, the dated cell. B holds the
+    claim `handler>"y = x"` at the third of three `handler` units; A, older,
+    records the line the first two share, and carries `other`, which
+    drifted. Dated for `other`, A becomes the newest reading, and two places
+    holding a claim's minor hash is a tie the check calls BROKEN: the run
+    names it `left` in the check's terms and hands MOVES the BROKEN part.
+    Red at 0de15c70, which read the tie as unchanged and said nothing."""
+    claim = 'src/service.py#handler>"y = x"'
+    places, _ = ec.resolve_unit("src/service.py", "handler", THRICE)
+    assert len(places) == 3, places
+
+    def minor(n):
+        (inside,) = ec.minor_region("src/service.py", THRICE, places[n], '"y = x"')
+        return ec.content_hash(ec.gfm_lines(THRICE)[inside[0] - 1 : inside[1]])
+
+    o0 = unit_hash(repo, "src/service.py", "other")
+    h0 = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler adds one")
+    a = fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, `{claim}@{minor(0)}`, "
+            f"`src/service.py#other@{o0}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+        name=A_ITEM,
+    )
+    b = fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, `{claim}@{minor(2)}` "
+            "| read | 2026-03-01 | Re-read 2026-03-01 |"
+        ],
+        name=B_ITEM,
+    )
+    (repo / "src" / "service.py").write_text(
+        THRICE.replace("x * 2\n", "x * 3\n", 1), encoding="utf-8"
+    )
+    moves = []
+    ec.reverify([str(a), str(b)], str(repo), {}, None, "2026-04-01", moves)
+    out = capsys.readouterr().out
+    assert f"  {claim}  3 places, none holding the recorded content — left" in out, out
+    assert (claim, minor(0), None) in [m[2:] for m in moves], moves
+
+
 def test_a_held_ledger_coordinate_the_run_moves_is_re_stamped(repo):
     """Round 1, yellow 2. #785's judgment is made before the walk, on the
     premise that a walk moves no code. A coordinate naming a line of a ledger
