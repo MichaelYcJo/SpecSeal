@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #814 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `275cd1a0f19709f46e3099d9c8b0740022f653a0..d9ce4e1a4650fec6cbda05e64d11a0d01ab79612`, 6 commits |
+| Contract changes | none |
+| New units | OWN_LISTING (depth 1); NODE_RE (depth 1); test_a_file_the_base_cannot_collect_beside_another_is_not_measured (depth 1); test_a_group_decides_only_new (depth 1); POLLUTER (depth 1); NEEDS_MODE (depth 1); HURT_BY_MODE (depth 1); test_a_count_another_file_makes_up_does_not_earn_the_word (depth 1); test_a_measuring_runner_whose_output_the_gate_never_sees_earns_no_word (depth 1) |
 | Needs a fix | yes — 🔴 1 (a group's count another file makes up keeps failing on base too on a regression), 🟡 2 (a measuring runner whose output never reaches the gate), 🟡 3 (the COMPANY reason is false on the no-count route) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ The verifying round over round 1's fixes (165a6ca8..36e5fb46): every path to `fa
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A file the base fails only alone keeps `failing on base too` when another file of its group fails more beside the others (one sibling's import-time state with two effects, or a flaky test); the sum check cannot see per file, and rule 3's "two dependencies whose counts cancel" undersells it | `skills/verify/scripts/broad_gate.py:2362` | open | executed: cancel, cancel2, outweigh, flaky2 and cancel under `-n 2` through three gates' `compare_at_base`, and cancel2 under this repository's own row in a clone; a3aa139a `new` for the regressed file each time; regression against a3aa139a; a planted case red at c8d6c785 |
-| 🟡 2 | A measuring runner whose output goes to a file, followed by a runner listing only the failing file, reads `failing on base too`; rule 3 says such limits are "as they were before", and a3aa139a read `new` | `skills/verify/scripts/broad_gate.py:2035` | open | executed: the swallow layout through three gates; the proof's one session is the second runner's; regression against a3aa139a; a planted case red at c8d6c785 |
-| 🟡 3 | The `COMPANY` reason says the group "failed fewer tests than they fail one by one" where it is given because a file had no count alone | `skills/verify/scripts/broad_gate.py:1938` | open | read, plus the `a-file-with-no-count-alone` parameter executed in the narrow run; not a regression (new at fd98c2c8) |
-| ⬜ 4 | Rule 3 does not name the two routes that never meet a group: a file run alone from the start (the one failing file, or a `cd sub` row's candidates) and a sibling the branch passes | `templates/config.md:333` | open | executed: cdsub and passing-sibling layouts read `failing on base too` at all three gates; not a regression |
-| ⬜ 5 | `overview.md` says only S3–S5 is left and that leave-one-out would see the cancel; the changelog fragment says "depend on each other both ways" | `seal/specs/1791180640-a-base-run-that-collects-only-its-files-is-the-only-measure/overview.md` | open | a correction to the run's paperwork; falsified by 🔴 1 and 🟡 2 |
+| 🔴 1 | A file the base fails only alone keeps `failing on base too` when another file of its group fails more beside the others (one sibling's import-time state with two effects, or a flaky test); the sum check cannot see per file, and rule 3's "two dependencies whose counts cancel" undersells it | `skills/verify/scripts/broad_gate.py:2362` | **fixed** `6b34713d` | fixed at 6b34713d; executed: cancel, cancel2, outweigh, flaky2 and cancel under `-n 2` through three gates' `compare_at_base`, and cancel2 under this repository's own row in a clone; a3aa139a `new` for the regressed file each time; regression against a3aa139a; a planted case red at c8d6c785 |
+| 🟡 2 | A measuring runner whose output goes to a file, followed by a runner listing only the failing file, reads `failing on base too`; rule 3 says such limits are "as they were before", and a3aa139a read `new` | `skills/verify/scripts/broad_gate.py:2035` | **fixed** `d3095fea` | fixed at d3095fea; executed: the swallow layout through three gates; the proof's one session is the second runner's; regression against a3aa139a; a planted case red at c8d6c785 |
+| 🟡 3 | The `COMPANY` reason says the group "failed fewer tests than they fail one by one" where it is given because a file had no count alone | `skills/verify/scripts/broad_gate.py:1938` | **fixed** `6b34713d` | fixed at 6b34713d; read, plus the `a-file-with-no-count-alone` parameter executed in the narrow run; not a regression (new at fd98c2c8) |
+| ⬜ 4 | Rule 3 does not name the two routes that never meet a group: a file run alone from the start (the one failing file, or a `cd sub` row's candidates) and a sibling the branch passes | `templates/config.md:333` | **fixed** `d3095fea` | fixed at d3095fea; executed: cdsub and passing-sibling layouts read `failing on base too` at all three gates; not a regression |
+| ⬜ 5 | `overview.md` says only S3–S5 is left and that leave-one-out would see the cancel; the changelog fragment says "depend on each other both ways" | `seal/specs/1791180640-a-base-run-that-collects-only-its-files-is-the-only-measure/overview.md` | **fixed** `318428fa` | fixed at 318428fa; a correction to the run's paperwork; falsified by 🔴 1 and 🟡 2 |
 | 🟢 | round 1's first blocking finding is closed for layouts A, A2, B and the no-count shape; its class's remainder is this round's 🔴 1 | `skills/verify/scripts/broad_gate.py:2359` | confirmed | executed: each reads `COMPANY` at c8d6c785, also under `-n 2` |
 | 🟢 | round 1's second blocking finding is closed — a first runner without the gate's environment | `skills/verify/scripts/broad_gate.py:2035` | confirmed | executed: layout C reads `MULTI_RUNNER`; `RAN_RE` attacked on real and constructed output with no permissive gap at `-q` |
 | 🟢 | round 1's ⬜ 3 is closed — rule 3's per-version example | `templates/config.md:333` | confirmed | read; pinned in the rule 3 case |
