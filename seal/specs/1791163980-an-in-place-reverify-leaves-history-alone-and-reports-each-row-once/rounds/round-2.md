@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #801 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `930078de00e47f853677a11be53abd363d2a3881..4d5108808c20f79e14a9184e51139fe8234e8d5c`, 3 commits |
+| Contract changes | none |
+| New units | test_a_held_coordinate_one_of_whose_places_holds_it_rides_a_dated_row_silently (depth 1) |
 | Needs a fix | yes — 🟡 1 (a held two-place coordinate that one place still holds is named `left` and recorded BROKEN on a row the run dates, where `--strict` reads it OK and both the base and round 1's target were silent) |
 | Loses a record or crashes | no — nothing written is lost and nothing crashes; 🟡 1 adds a false BROKEN part, which in a signatory repository is a wrong pact-change row rather than a lost one |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ The verifying round over round 1's fixes (fa8a5c3c..b5dbc88c): did each fix clos
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | a held two-place coordinate that one place still holds is named `left` and handed MOVES a BROKEN part on a row the run dates, where `--strict` reads it OK and the base was silent; its line also describes the row differently from the check | `skills/evidence-check/scripts/evidence_check.py:3596` | open | p6 executed at the base, round 1's target and this target, with the freeze and without it, alone and beside a newer holder; the fix and its case executed in p7 and p8 |
-| ⬜ 2 | A1's clause and the re-reads of `0.4.0.md:59` and `0.18.2.md:129` hold only once this round's yellow 1 is fixed | `seal/ledger/1791163980-an-in-place-reverify-leaves-history-alone-and-reports-each-row-once.md` | open | a correction to the run's paperwork; follows this round's yellow 1 |
+| 🟡 1 | a held two-place coordinate that one place still holds is named `left` and handed MOVES a BROKEN part on a row the run dates, where `--strict` reads it OK and the base was silent; its line also describes the row differently from the check | `skills/evidence-check/scripts/evidence_check.py:3596` | **fixed** `4e479247` | fixed at 4e479247; p6 executed at the base, round 1's target and this target, with the freeze and without it, alone and beside a newer holder; the fix and its case executed in p7 and p8 |
+| ⬜ 2 | A1's clause and the re-reads of `0.4.0.md:59` and `0.18.2.md:129` hold only once this round's yellow 1 is fixed | `seal/ledger/1791163980-an-in-place-reverify-leaves-history-alone-and-reports-each-row-once.md` | answered | corrected at 4d510880: A1 carries the qualifier and the new case, the fragment re-stamped after the fix, 0.4.0:59 and 0.18.2:129 re-read, and the phase-3 grounds say round 2's fix closed the shape; a correction to the run's paperwork; follows this round's yellow 1 |
 | ⬜ 3 | a non-citation ledger coordinate whose file walks before the file holding its line is hashed before that line moves | `skills/evidence-check/scripts/evidence_check.py:3080` | deferred a new issue against `cited_first` | p10 executed at the base and the target: identical but for the remedy text; #772's class, not added by this branch |
 | 🟢 | round 1's yellow 1 is closed for its shape — a held coordinate no place holds, on a dated row, is named and handed a BROKEN part | `skills/evidence-check/scripts/evidence_check.py:3596` | confirmed | p1 re-run with the freeze and without it; the planted case red at 0667af2e and green at fceff8ce; its neighbouring shape is this round's yellow 1 |
 | 🟢 | round 1's yellow 2 is closed — a coordinate naming a line of a ledger the run writes is never judged held | `skills/evidence-check/scripts/evidence_check.py:3357` | confirmed | p2 re-run unnarrowed and under two narrowings; the planted case red at 0667af2e and green at fceff8ce; citation, other-checkout and frozen-arm kinds read |
