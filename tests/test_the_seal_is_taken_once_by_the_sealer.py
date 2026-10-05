@@ -5572,6 +5572,8 @@ def test_a_measuring_runner_whose_output_the_gate_never_sees_earns_no_word(tmp_p
     session the proof sees is not the one that measured. The measuring
     runner is handed `-o verbosity_test_cases=-1` after the file and lists
     node ids no other runner prints, and the session seen lists by file."""
+    # The row's `;` ends a part only under a POSIX shell; `cmd.exe` hands it to pytest.
+    posix_row_shell_or_skip()
     row = f"{FILES_ROW} tests/unit > unit.log; {FILES_ROW} tests/integration"
     repo = base_then_feature(
         tmp_path / "repo",
@@ -5624,6 +5626,8 @@ def test_a_silent_measuring_runner_beside_an_empty_session_earns_no_word(
     prints no line listed by file and no node id: zero node ids against a
     trailer of zero is not the measuring runner's session, which collected a
     test of the file or failed to collect it."""
+    # The row's `;` ends a part only under a POSIX shell; `cmd.exe` hands it to pytest.
+    posix_row_shell_or_skip()
     row = f"{FILES_ROW} tests/unit > unit.log; {FILES_ROW} {second}"
     repo = base_then_feature(
         tmp_path / "repo",
