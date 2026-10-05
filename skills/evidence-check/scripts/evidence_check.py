@@ -3610,7 +3610,9 @@ def reverify(
                 recorded_here(at, body, p, m.group("hash"), m.group("claim"))
                 for p in places
             ):
-                still(key, m.group("hash"))
+                # No earlier walk can have left it: the code does not move
+                # during the run, and a held coordinate names no line the run
+                # writes. So there is nothing to take back, and no `still`.
                 continue
             walked(
                 key,
