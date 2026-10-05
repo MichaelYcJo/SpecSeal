@@ -163,20 +163,21 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "(file, token) so neither one lets the number through anywhere else"
     ),
     ("skills/verify/scripts/broad_gate.py", "9.1.1"): (
-        "pytest's, named in the comments over `ERROR_RE`, `STOPPED_EARLY_RE` "
-        "and `NOTHING_COLLECTED_RE` as the build whose endings were measured: "
-        "the `ERROR` line shapes and the `!` rules the base comparison reads "
-        "(#747), and the line of a run that collected nothing (#761). The "
-        "third member of "
+        "pytest's, named in the comments over `JUNIT_REPORT`, `COLLECT_ONLY` "
+        "and `COLLECTED_RE` as the build whose report, collection listing and "
+        "collection-only trailer were measured or read (#789, #812): which "
+        "exits write the report and what it holds, the `<path>: <count>` "
+        "lines and the trailer the proof pass reads. The third member of "
         "the class the row above names, a loaded file naming the tool build a "
-        "measurement was taken on; an ending read off an unnamed pytest is "
+        "measurement was taken on; an output read off an unnamed pytest is "
         "not a measurement, and no release of SpecSeal makes the number wrong"
     ),
     ("skills/verify/scripts/broad_gate.py", "3.8.0"): (
-        "pytest-xdist's, named in the comment over `NOTHING_COLLECTED_RE` as "
-        "the build on which a run with a missing path was measured to print "
-        "`no tests ran` and exit 5 with no not-found reply (#761). The fourth "
-        "member of the same class: what xdist prints is a property of the "
+        "pytest-xdist's, named in the comments over `JUNIT_REPORT` and "
+        "`COLLECT_ONLY` as the build on which the controller was measured to "
+        "write the report for a run with a missing path and exit 5, and not "
+        "to distribute a collection-only run (#761, #789). The fourth "
+        "member of the same class: what xdist does is a property of the "
         "build it was read off, and no release of SpecSeal makes it wrong"
     ),
     ("CONTRIBUTING.md", "4.2.0"): (

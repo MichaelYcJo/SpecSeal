@@ -426,7 +426,9 @@ def test_each_rule_is_carried_with_the_reason_it_is_a_rule():
     body = flat(section(read(*TEMPLATE), CRITERION, 3))
     assert "block every future work item" in body, "rule 1 has no reason"
     assert "can only come back green" in body, "rule 2 has no reason"
-    assert "until one prints pytest's summary" in body, "rule 3 has no reason"
+    # #789: the runner is the prefix whose run writes the report the gate
+    # asked pytest for, and no longer one whose text looks like pytest's.
+    assert "until one writes that report" in body, "rule 3 has no reason"
     # #747: the reason used to be that the comparison re-ran the first `&&`
     # part, and it stopped being true; Q2 states both orders and recommends
     # neither.
