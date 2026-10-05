@@ -4462,6 +4462,31 @@ TREE_READINGS = [
         ["ON_BASE", "NEW"],
         id="the-fixtures-rootdir-at-the-root",
     ),
+    # The base tracks the same pair under the root and under `a`: the run
+    # could have been from either, with either rootdir, and the two readings
+    # name two files.
+    pytest.param(
+        junit([("tests.test_two", "test_two", "failure", "tests/test_two.py")]),
+        ["tests/test_two.py"],
+        {"tests/test_two.py", "a/tests/test_two.py"},
+        ["UNPLACED"],
+        id="two-rootdirs-and-two-run-directories",
+    ),
+    # `a` tracks `tests/test_one.py` and not `tests/test_two.py`, so only the
+    # root holds every path of the report and every handed file; read
+    # against one path alone, `a` would fit as well.
+    pytest.param(
+        junit(
+            [
+                ("tests.test_two", "test_two", "failure", "tests/test_two.py"),
+                ("tests.test_one", "test_one", "", "tests/test_one.py"),
+            ]
+        ),
+        ["tests/test_two.py", "tests/test_one.py"],
+        {"tests/test_one.py", "tests/test_two.py", "a/tests/test_one.py"},
+        ["ON_BASE", "NEW"],
+        id="every-path-decides-the-rootdir",
+    ),
     # A test file the base does not track (generated, say): no rootdir fits
     # every path, so nothing is placed and nothing reads `new`.
     pytest.param(

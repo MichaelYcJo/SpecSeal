@@ -2002,9 +2002,10 @@ def offsets(path, address, exact=False):
 
 def joined(directory, address):
     """`address` under `directory`, both split at `/`, as one normalised
-    path, or None where it climbs out of the tree (#789 round 2)."""
-    path = posixpath.normpath("/".join((*directory, *address)))
-    return None if path == "." or path.startswith("..") else path
+    path (#789 round 2). A path that climbs out of the repository is never
+    one of its tracked paths, so it names no tracked file and needs no case
+    of its own."""
+    return posixpath.normpath("/".join((*directory, *address)))
 
 
 def directories_holding(addresses, tree):
@@ -2012,7 +2013,9 @@ def directories_holding(addresses, tree):
     of `addresses` names a tracked file (#789 round 2's 🟡 1). An address
     that climbs out of the directory it is read from (`..`) is not asked
     about; where every one does, the answer is empty."""
-    plain = [a for a in addresses if ".." not in a]
+    # Sorted, so the address the candidate directories are drawn from is the
+    # same on every run.
+    plain = sorted(a for a in addresses if ".." not in a)
     if not plain:
         return set()
     n = len(plain[0])
@@ -2100,8 +2103,8 @@ def report_words(text, files, code, stopped, alone=False, tree=None):
         hit = set()
         for f in files:
             if exact and tree is not None:
-                tests = {joined(d, address) for d in roots} - {None}
-                here = {joined(c, paths[f][True]) for c in heres} - {None}
+                tests = {joined(d, address) for d in roots}
+                here = {joined(c, paths[f][True]) for c in heres}
                 if not tests & here:
                     continue
                 if len(tests) > 1 or tests != here:
