@@ -22,7 +22,7 @@
   No test runs under collection alone, so nothing a test prints can get in
   the way, and a second runner the row starts later reads the same variable.
   The runner that measured is handed `-o verbosity_test_cases=-1` after the
-  file, so it lists node ids no other runner prints. The word needs that run
+  file, so it lists node ids no other runner prints unless that runner sets the option on its own command line. The word needs that run
   to show one pytest session, that runner's own, listing the file and
   nothing else, and no runner that ran tests anyway, which is what a runner
   started without the gate's environment does. Several failing files the
@@ -74,7 +74,7 @@
   that ran pytest twice, names its `collected-at-base-<n>.txt`, and a run
   that ended with an exit pytest does not give for passing tests names its
   exit and its `suite-at-base-<k>-<n>.txt`. A file of a run of several that
-  failed names that run. `templates/config.md` rule 3 and
+  did not give each `new` names that run. `templates/config.md` rule 3 and
   `skills/verify/SKILL.md` say how each is read and what the extra runs
   cost.
 
@@ -83,7 +83,7 @@
   parts the branch's own run never reached. Their writes inside the scratch
   worktree go when it is removed; writes outside it stay.
 
-Two limits are unchanged and named in rule 3. A second runner the extra run
+Three limits are named in rule 3, and two of them are unchanged. The third is new, and 0.18.2 read `new` there: a later runner whose own command line sets `-o verbosity_test_cases=-1` lists node ids as the measuring runner does, and beside a measuring runner whose output goes to a file it can give a file the base passes `failing on base too`. A row avoids it by leaving that option to the gate; #816 is the fix. A second runner the extra run
 cannot reach, or that prints nothing it can read (behind `||`, behind a part
 that fails under collection alone, at `-qqqq`, or started without the gate's
 environment at `-qq` or quieter), leaves the row read as having one runner.

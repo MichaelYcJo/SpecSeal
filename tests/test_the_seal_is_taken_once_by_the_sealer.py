@@ -6270,6 +6270,16 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "And where a row runs pytest twice and the base passes the file under "
         "the runner a prefix reaches first, the file reads `new` from that "
         "runner.",
+        # #815's post-review check: node ids are not the measuring runner's
+        # alone where a later runner sets the option itself; #816 is the fix.
+        "A third came with the proof run, and a3aa139a read `new` there: a "
+        "later runner whose own command line sets `-o verbosity_test_cases=-1` "
+        "lists node ids as the measuring runner does, so where the measuring "
+        "runner's output goes to a file and that later runner collects only the "
+        "file, the file can read `failing on base too` though the base passes "
+        "it.",
+        "A row earns the measured word back by leaving that option to the gate "
+        "(#816 would mark the measuring runner so that only the gate can).",
     ):
         assert sentence in text, f"rule 3 does not carry: {sentence}"
     for gone in (

@@ -2227,8 +2227,10 @@ def compare_at_base(root, base, command, files, keep):
     handed to the measuring runner after the file. Under collection alone
     no test runs, so no inner run exists to print anything, and a runner the
     row starts later inherits the variable. `proof_refused` reads that
-    output: one pytest session, the measuring runner's by its node ids,
-    listing the file and nothing else, gives `failing on base too`; a
+    output: one pytest session, the measuring runner's by its node ids or
+    by an `ERROR` line naming the file, listing the file and nothing else,
+    gives `failing on base too`; a session showing neither is another
+    runner's that collected nothing (#815), and reads `MULTI_RUNNER`; a
     session listed by file is another runner's, the measuring one having
     printed nothing the gate sees (its output went to a file), and reads
     `MULTI_RUNNER` (#789 round 2); anything else is `MULTI_RUNNER` or
@@ -2266,7 +2268,11 @@ def compare_at_base(root, base, command, files, keep):
     one failing file the root's tree carries, or every candidate, such as a
     `cd sub` row's files) is compared with no sibling, and a sibling the
     branch passes is never run at the base, so what it gives the file in the
-    row is not seen there either.
+    row is not seen there either. And a third came with the proof pass: a
+    later runner whose own command line sets `-o verbosity_test_cases=-1`
+    lists node ids as the measuring runner does, so beside a measuring runner
+    whose output went to a file its session passes the proof, where a3aa139a
+    read `new` (#816 is the fix).
 
     The `run` call stays in this function's own body, one call for every
     run: the shell sites are `gate` and this function, and a case holds

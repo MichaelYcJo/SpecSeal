@@ -30,7 +30,7 @@ show that reads `new?`.
 ## Not done
 
 **Every exception to "no new permissive word" (`spec.md` S17), with its
-reason.** After #815's fix there is none. Round 3 found one more after
+reason.** After #815's fix there is one, named in rule 3 as a limit and filed as #816: a later runner whose own command line sets `-o verbosity_test_cases=-1` lists node ids as the measuring runner does, and beside a measuring runner whose output goes to a file it passes the proof. a3aa139a read `new` there (swallow-verb: a3aa139a `new`, the head `failing on base too`, under pytest 8.1.2, 8.3.5 and 9.1.1, measured by the verifying pass over #815). It needs the row to set that option itself. Round 3 found one more after
 round 2's fix pass, a regression against a3aa139a: a silent measuring
 runner beside a later runner that collected nothing at the base (no test in
 its directory, or every test deselected) passed the proof with zero node
