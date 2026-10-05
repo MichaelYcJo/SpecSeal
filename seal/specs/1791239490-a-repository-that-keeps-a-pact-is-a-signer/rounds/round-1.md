@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #827 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `d1e0b2c615df9b003bbc54604ac881a150b50518..b4a5ebb4cfbcb3f60cf91638a4105fc3c4389089`, 3 commits |
+| Contract changes | none |
+| New units | test_s5_a_review_record_holding_both_headers_is_refused (depth 1); BOTH (depth 1); test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one (depth 1); without_the_policy_span (depth 1); RENAMED_RECORDS (depth 1); RENAMED_COMPAT (depth 1); test_no_live_text_says_the_word_0_19_0_renamed (depth 1); test_s4_a_pact_holding_both_tables_is_exit_2_naming_the_old_one (depth 1) |
 | Needs a fix | yes — 🟡 1, a pact or pact review record holding both headers drops the old table's rows with no refusal |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Spec compliance first against `spec.md` (every live text says `signer`; a pact a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A file holding both headers is read from the `Signer` table, and the old table's rows go unread with no refusal where it stands above the new one, or below it under a heading; two cases pin that silence | `hooks/config.py:1326` | open | executed: `pact-check` read 0 of 1 signer with two old-table signers never named, and `chain-check` said "lists 1 signer"; the fix flips exactly the four cases that pin the drop |
-| ⬜ 2 | The sweep's policy exemption runs past the statement into the next section's heading | `tests/test_one_word_one_meaning.py:736` | open | executed: the old word planted in `## When there is a pact at all` leaves the case green |
-| ⬜ 3 | The sweep reaches only `pact_texts()`, so S11's property has no standing check over the other files spec item 1 renamed | `tests/test_one_word_one_meaning.py:722` | open | executed: five plants outside the set stay green, and one inside turns it red; spec item 8 scopes the sweep this way |
-| ⬜ 4 | The overview's S4 row omits one silent shape and does not say the "above" shapes are outside S4; the spec's "module constants" became a function with no divergence row | `seal/specs/1791239490-a-repository-that-keeps-a-pact-is-a-signer/overview.md:18` | open | paperwork correction; not counted in Needs a fix |
+| 🟡 1 | A file holding both headers is read from the `Signer` table, and the old table's rows go unread with no refusal where it stands above the new one, or below it under a heading; two cases pin that silence | `hooks/config.py:1326` | **fixed** `34a195cc` | fixed at 34a195cc; executed: `pact-check` read 0 of 1 signer with two old-table signers never named, and `chain-check` said "lists 1 signer"; the fix flips exactly the four cases that pin the drop |
+| ⬜ 2 | The sweep's policy exemption runs past the statement into the next section's heading | `tests/test_one_word_one_meaning.py:736` | **fixed** `5fd4c203` | fixed at 5fd4c203; executed: the old word planted in `## When there is a pact at all` leaves the case green |
+| ⬜ 3 | The sweep reaches only `pact_texts()`, so S11's property has no standing check over the other files spec item 1 renamed | `tests/test_one_word_one_meaning.py:722` | **fixed** `5fd4c203` | fixed at 5fd4c203; executed: five plants outside the set stay green, and one inside turns it red; spec item 8 scopes the sweep this way |
+| ⬜ 4 | The overview's S4 row omits one silent shape and does not say the "above" shapes are outside S4; the spec's "module constants" became a function with no divergence row | `seal/specs/1791239490-a-repository-that-keeps-a-pact-is-a-signer/overview.md:18` | answered | corrected at b4a5ebb4; paperwork correction; not counted in Needs a fix |
 | 🟢 | A pact and a pact review record headed the 0.18.x way read as the new header does, with one rename line each and no exit change | `hooks/config.py:1326`, `skills/evidence-check/scripts/pact_check.py:692` | confirmed | executed: reader probe and the S2/S5 cases in the slice |
 | 🟢 | A broken `\| Signer \|` table is refused and not covered by the old one | `hooks/config.py:1333` | confirmed | executed: no delimiter row and a line directly above both refuse with the header read as `Signer` |
 | 🟢 | `chain-check` counts signers, carries the rename sentence on the old header, and its exit does not move | `skills/code-review/scripts/chain_check.py:4085` | confirmed | executed: four shapes, all exit 0 |
