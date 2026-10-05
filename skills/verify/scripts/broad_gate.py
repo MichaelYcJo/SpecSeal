@@ -1896,8 +1896,9 @@ STOPPED_EARLY = (
 )
 UNPLACED = (
     f"{NOT_MEASURED}: pytest's report at the base does not place a test on "
-    "this file alone (it names none of this file's tests, or a failing test "
-    "it names could be this file or another one)"
+    "this file alone (it names none of this file's tests by their path, a "
+    "failing test it names could be this file or another one or is known only "
+    "by its dotted name, or a second directory of the base fits the run)"
 )
 NOTHING_TOGETHER = (
     f"{NOT_MEASURED}: pytest's report at the base counts no test, so a file "
@@ -1965,32 +1966,24 @@ def dotted(path):
     return tuple(stem.replace("/", ".").split("."))
 
 
-def offsets(path, address, exact=False):
-    """Every way `address` can name the file `path`, as the offset between
-    pytest's rootdir and the directory the row runs pytest in (#789).
+def offsets(path, address):
+    """Every way the dotted `address` could name the file `path`, as the
+    offset between pytest's rootdir and the directory the row runs pytest in
+    (#789), split at the dots: the address holds the path's components
+    somewhere, or starts with the path less some leading ones.
 
-    `exact` says both are paths split at `/` (`report_cases`): the address
-    is then the path under some directories, or the path less some, and
-    nothing can follow it.
-
-    pytest names a test from its rootdir, and the branch's `FAILED` lines
-    name a file from the directory pytest was invoked in, so the two differ
-    by directories at the front, in either direction. Measured: `cd sub` with
-    the ini file at the root names the appended `tests/test_two.py`
-    `sub.tests.test_two` (offset 1, the address longer), and a row run from
+    **It decides no word** (#812). A dotted name cannot tell a module from a
+    package or a class of the same name, and three rounds of review found a
+    permissive word wherever an offset was guessed. So a test known only by
+    its dotted name says only which handed files it COULD be, and a failing
+    one makes each of them `UNPLACED` (`report_words`). Measured shapes:
+    `cd sub` with the ini file at the root names the appended
+    `tests/test_two.py` `sub.tests.test_two` (offset 1), and a row run from
     the root with the ini file in `sub` names the appended
-    `sub/tests/test_two.py` `tests.test_two` (offset -1, the path longer). A
-    class name or a doctest's name can follow the file's part of the address.
+    `sub/tests/test_two.py` `tests.test_two` (offset -1).
     """
     found = set()
     n = len(path)
-    if exact:
-        if len(address) >= n and address[len(address) - n :] == path:
-            found.add(len(address) - n)
-        for shift in range(1, n):
-            if address == path[shift:]:
-                found.add(-shift)
-        return found
     for shift in range(len(address) - n + 1):
         if address[shift : shift + n] == path:
             found.add(shift)
@@ -2009,8 +2002,8 @@ def joined(directory, address):
 
 
 def directories_holding(addresses, tree):
-    """Every directory of `tree`, the base's tracked paths, under which each
-    of `addresses` names a tracked file (#789 round 2's 🟡 1). An address
+    """Every directory of `tree`, the files in the base's worktree, under
+    which each of `addresses` names a file (#789 round 2's 🟡 1, #812). An address
     that climbs out of the directory it is read from (`..`) is not asked
     about; where every one does, the answer is empty."""
     # Sorted, so the address the candidate directories are drawn from is the
@@ -2029,45 +2022,41 @@ def directories_holding(addresses, tree):
     return found
 
 
-def report_words(text, files, code, stopped, alone=False, tree=None):
+def report_words(text, files, code, stopped, alone=False, tree=frozenset()):
     """{file: word} for `files`, read off pytest's report of one run at the
     base, or None where `text` is no report (#789). `code` is the run's exit
     code, `stopped` whether its output carries a `!` rule
-    (`STOPPED_EARLY_RE`, read anywhere, which can only cost a word), and
-    `alone` whether `files` is one candidate run on its own, and `tree` the
-    base's tracked paths, or None where the caller has none.
+    (`STOPPED_EARLY_RE`, read anywhere, which can only cost a word), `alone`
+    whether `files` is one candidate run on its own, and `tree` the files in
+    the base's worktree after the run, tracked or written by it. With no
+    tree nothing can be placed, so nothing is measured.
 
-    **A word is given only where the report measured it.** A test is placed
-    by its file where the report carries one, and by its dotted name where it
-    does not. One run has one rootdir and one directory pytest runs in, so
-    every test of one file is named at one offset (`offsets`).
+    **`failing on base too` comes only from a test's path, read against the
+    tree** (#812). A test is placed on a handed file only where the report
+    carries its `file` and its dotted name starts with that file
+    (`report_cases`), and only where pytest's rootdir, a directory under
+    which every such path is in `tree`, and the directory the row runs pytest
+    in, one under which every handed file is, are each one directory naming
+    the same file. Every other reading is a guess: a dotted name cannot tell
+    a module from a package or a class of the same name, a path alone cannot
+    say which directory it is read from, and three rounds of review found a
+    permissive word at each guess (#789 rounds 1 to 3). A test known only by
+    its dotted name — one a class inherits from another module, every test
+    of a run under `--junit-prefix` — measures nothing: a failing one makes
+    every handed file it could be (`offsets`) read `UNPLACED`.
 
-    **A file is read against the base's tracked paths, never at a guessed
-    offset** (#789 round 2's 🟡 1). pytest's rootdir is a directory under
-    which every file the report names is tracked, and the directory the row
-    runs pytest in is one under which every handed file is, because pytest
-    runs nothing otherwise. A test's file is placed on a handed file only
-    where each of those is one directory and the two name the same file.
-    A path alone cannot say which directory it is read from: a same-named
-    module deeper in the tree, or a shorter same-named path, fitted the
-    offset rules. A dotted name, which has no file to read, is placed at an
-    offset no longer than the leading components every test in the report
-    shares (#789 round 1's 🟡 1).
-
-      - `UNPLACED` where tests are named at two offsets for one file, which
-        is then two files of the run, or at a positive offset not every test
-        in the report shares, or, read against `tree`, where a second
-        rootdir or a second directory the row could run pytest in fits the
-        test or the file, and the gate cannot tell which is it;
+      - `UNPLACED` where a second rootdir or a second run directory fits a
+        test the report names and the handed file;
       - `failing on base too` where a failing or erroring test is placed on
         this file and on no other — a file the base cannot collect fails
         there;
-      - `UNPLACED` where a failing test could be this file or another one;
+      - `UNPLACED` where a failing test could be this file or another one,
+        or is known only by a dotted name this file could be;
       - `STOPPED_EARLY` where the run stopped before every test ran;
-      - `UNPLACED` where the report names no test of this file, so nothing
-        shows the run ran it: a name the gate cannot place, or a part that
+      - `UNPLACED` where no test is placed on this file, so nothing shows
+        the run ran it: a name the gate cannot place, or a part that
         honoured the report's path and dropped the files;
-      - `new` otherwise: the report names this file's tests and none failed.
+      - `new` otherwise: tests are placed on this file and none failed.
 
     A failing test placed on none of the files is a failure of a file the row
     collected besides them, and it decides nothing here.
@@ -2083,53 +2072,39 @@ def report_words(text, files, code, stopped, alone=False, tree=None):
     if not cases:
         word = NEW if alone and code in NOTHING_COLLECTED_EXITS else NOTHING_TOGETHER
         return {f: word for f in files}
-    paths = {f: {True: tuple(f.split("/")), False: dotted(f)} for f in files}
-    # The leading components every test in the report shares: a positive
-    # offset longer than these is not the run's.
-    first = cases[0][0]
-    shared = len(first)
-    for address, _, _ in cases[1:]:
-        i = 0
-        while i < shared and i < len(address) and address[i] == first[i]:
-            i += 1
-        shared = i
-    named = {f: set() for f in files}
-    unshared = set()
-    places = []
-    if tree is not None:
-        roots = directories_holding({a for a, _, e in cases if e}, tree)
-        heres = directories_holding({paths[f][True] for f in files}, tree)
+    paths = {f: tuple(f.split("/")) for f in files}
+    roots = directories_holding({a for a, _, exact in cases if exact}, tree)
+    heres = directories_holding(set(paths.values()), tree)
+    named, ambiguous, guessed, places = set(), set(), set(), []
     for address, failed, exact in cases:
+        if not exact:
+            # Known only by its dotted name: it can only cost a word.
+            if failed:
+                guessed |= {f for f in files if offsets(dotted(f), address)}
+            continue
+        tests = {joined(d, address) for d in roots}
         hit = set()
         for f in files:
-            if exact and tree is not None:
-                tests = {joined(d, address) for d in roots}
-                here = {joined(c, paths[f][True]) for c in heres}
-                if not tests & here:
-                    continue
-                if len(tests) > 1 or tests != here:
-                    unshared.add(f)
-                found = offsets(paths[f][True], address, True)
-            else:
-                found = offsets(paths[f][exact], address, exact)
-                if any(shift > shared for shift in found):
-                    unshared.add(f)
-            if found:
-                named[f] |= found
-                hit.add(f)
+            here = {joined(c, paths[f]) for c in heres}
+            if not tests & here:
+                continue
+            if len(tests) > 1 or tests != here:
+                ambiguous.add(f)
+            named.add(f)
+            hit.add(f)
         if failed and hit:
             places.append(hit)
     words = {}
     for f in files:
-        if len(named[f]) > 1 or f in unshared:
+        if f in ambiguous:
             words[f] = UNPLACED
         elif {f} in places:
             words[f] = ON_BASE
-        elif any(f in hit for hit in places):
+        elif f in guessed or any(f in hit for hit in places):
             words[f] = UNPLACED
         elif stopped:
             words[f] = STOPPED_EARLY
-        elif not named[f]:
+        elif f not in named:
             words[f] = UNPLACED
         else:
             words[f] = NEW
@@ -2326,12 +2301,13 @@ def compare_at_base(root, base, command, files, keep):
     either source, one whose own command line names `--junitxml`, which wins
     over the environment, one started in an environment without
     `PYTEST_ADDOPTS`, or a later runner inside a part that drops its
-    arguments (#807). Such a row is read as one with a single runner. A file
-    the base tracks under both runners' directories reads `new?`, because
-    `report_words` reads each report path against the base's tracked files
-    (#789 round 2); one it tracks under the measured runner's directory only
-    is measured there, and can read `new` or `failing on base too` from the
-    wrong runner, which is #761's p1b. Telling "not
+    arguments (#807). Such a row is read as one with a single runner. Where
+    the base tracks every failing file of a run under both runners'
+    directories, each reads `new?`, because `report_words` reads the run
+    directory off every handed file (#789 round 2); where it tracks any one
+    of them under the measured runner's directory only, every file of that
+    run is measured there, and can read `new` or `failing on base too` from
+    the wrong runner, which is #761's p1b. Telling "not
     pytest" from "not reached" would take a reading of the shell this module
     does not have.
     """
@@ -2352,9 +2328,6 @@ def compare_at_base(root, base, command, files, keep):
             f for f in files if git(scratch, "cat-file", "-e", f"HEAD:{f}") is None
         ]
         others = [f for f in files if f not in candidates]
-        # The base's tracked paths, which a report's `file` is read against
-        # (`report_words`, #789 round 2's 🟡 1).
-        tree = frozenset((git(scratch, "ls-files", "-z") or "").split("\0")) - {""}
         # One group of every other file, kept as `suite-at-base-<k>.txt`, then
         # one group per candidate, kept as `suite-at-base-<k>-<n>.txt`, then
         # the collection pass over the prefixes after the runner, kept as
@@ -2413,6 +2386,13 @@ def compare_at_base(root, base, command, files, keep):
                         second = k
                         break
                     continue
+                # The files in the base's worktree after this run, tracked,
+                # written by it or ignored, which a report's `file` is read
+                # against (`report_words`): a test file the row generated is
+                # one pytest named, so pytest's rootdir is among the
+                # directories holding every path the report names (#812).
+                listed = git(scratch, "ls-files", "-z", "--cached", "--others")
+                tree = frozenset((listed or "").split("\0")) - {""}
                 words = report_words(
                     written_report(report),
                     group,

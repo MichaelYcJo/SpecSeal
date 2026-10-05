@@ -19,19 +19,25 @@
   run's `suite-at-base-*.txt`.
 
   A file reads `failing on base too` only where the report places a failing
-  or erroring test on that file and no other, by the file's path read
-  against the files the base tracks. The gate also appends
-  `-o junit_family=xunit1`, which makes pytest write each test's file as a
-  path, so a package or a class named like a module is never taken for it.
-  Where the base tracks a same-named file the path could also name, from
-  another rootdir or another directory the row could run pytest in, the file
-  reads `new?`. That path is where a test's function is defined, so a test a
-  class inherits from another module is placed by its dotted name instead,
-  on the module that collected it. A file reads `new` only where the report names that file's
-  tests and none failed. Anything else reads `new?` with a reason: a failing
-  test that could be this file or another one, or a file the report names no
-  test of (`pytest's report at the base does not place a test on this file
-  alone`); and a run that is not of one new file alone whose report counts
+  or erroring test on that file and no other, by the test's own path. The
+  gate appends `-o junit_family=xunit1`, which makes pytest write each
+  test's file as a path, and reads that path against the files in the
+  base's worktree after the run, tracked, written by the run or ignored, so
+  a package, a class or a deeper module named like the file is never taken
+  for it, and a test file the row generates is found. Where a same-named
+  file the path could also name sits under another rootdir or another
+  directory the row could run pytest in, the file reads `new?`. That path is
+  where a test's function is defined, so a test a class inherits from
+  another module, and every test of a row under `--junit-prefix`, is known
+  only by its dotted name. Such a test gives no measured word: a file a
+  failing one could be reads `new?`, including a file that fails at the base
+  through a test it inherits. A file reads `new` only where the report
+  places that file's tests by their path and none failed. Anything else
+  reads `new?` with a reason: a failing test that could be this file or
+  another one or is known only by its dotted name, a second directory of the
+  base that fits the run, or a file the report places no test on
+  (`pytest's report at the base does not place a test on this file alone`);
+  and a run that is not of one new file alone whose report counts
   no test (`pytest's report at the base counts no test`), which says the
   file is missing or holds no test there, and used to read the `no part of
   the row printed a line…` reason. That reason is reworded to `no part of
@@ -68,7 +74,8 @@
   or behind `||`, a runner given `-p no:junitxml`, a runner whose own
   command line names `--junitxml`, one started without `PYTEST_ADDOPTS`, and
   a later runner inside a part that drops its arguments (#807). In such a
-  row a file the base tracks under both runners' directories reads `new?`.
-  One it tracks under the measured runner's directory only is still
+  row, where the base tracks every failing file of a run under both
+  runners' directories, each reads `new?`. Where it tracks any one of them
+  under the measured runner's directory only, every file of that run is
   measured there, and can read `new` or `failing on base too` from the
   wrong runner.

@@ -4038,11 +4038,11 @@ REPORTS = [
     pytest.param(
         junit(
             [
-                ("tests.test_f", "test_a", "failure"),
-                ("tests.test_f", "test_p[a/b]", "failure"),
-                ("tests.test_f", "test_p[p::q]", "failure"),
-                ("tests.test_s", "test_d", "error"),
-                ("tests.test_ok", "test_ok", ""),
+                ("tests.test_f", "test_a", "failure", "tests/test_f.py"),
+                ("tests.test_f", "test_p[a/b]", "failure", "tests/test_f.py"),
+                ("tests.test_f", "test_p[p::q]", "failure", "tests/test_f.py"),
+                ("tests.test_s", "test_d", "error", "tests/test_s.py"),
+                ("tests.test_ok", "test_ok", "", "tests/test_ok.py"),
             ]
         ),
         ["tests/test_f.py", "tests/test_s.py", "tests/test_ok.py"],
@@ -4055,8 +4055,8 @@ REPORTS = [
     pytest.param(
         junit(
             [
-                ("tests.test_f.TestK", "test_m", "failure"),
-                ("tests.test_f", "test_a", ""),
+                ("tests.test_f.TestK", "test_m", "failure", "tests/test_f.py"),
+                ("tests.test_f", "test_a", "", "tests/test_f.py"),
             ]
         ),
         ["tests/test_f.py"],
@@ -4067,7 +4067,7 @@ REPORTS = [
         id="class-method",
     ),
     pytest.param(
-        junit([("", "tests.test_b", "error")]),
+        junit([("", "tests.test_b", "error", "tests/test_b.py")]),
         ["tests/test_b.py", "tests/test_f.py"],
         2,
         True,
@@ -4076,7 +4076,7 @@ REPORTS = [
         id="collection-error",
     ),
     pytest.param(
-        junit([("tests.test_f", "test_a", "failure")]),
+        junit([("tests.test_f", "test_a", "failure", "tests/test_f.py")]),
         ["tests/test_f.py", "tests/test_ok.py"],
         1,
         True,
@@ -4085,7 +4085,7 @@ REPORTS = [
         id="stopped",
     ),
     pytest.param(
-        junit([("tests.test_doc", "test_doc.f", "failure")]),
+        junit([("tests.test_doc", "test_doc.f", "failure", "tests/test_doc.py")]),
         ["tests/test_doc.py"],
         1,
         False,
@@ -4094,7 +4094,9 @@ REPORTS = [
         id="doctest-module",
     ),
     pytest.param(
-        junit([("tests.test_doc.txt", "test_doc.txt", "failure")]),
+        junit(
+            [("tests.test_doc.txt", "test_doc.txt", "failure", "tests/test_doc.txt")]
+        ),
         ["tests/test_doc.txt"],
         1,
         False,
@@ -4102,92 +4104,28 @@ REPORTS = [
         ["ON_BASE"],
         id="doctest-text",
     ),
-    # Constructed: the text file's name reads as a class `txt` in the module
-    # beside it, so its failure could be either file; the module's own
-    # failure is placed on the module alone.
+    # A doctest text file beside a module of its stem: by path each test is
+    # its own file's.
     pytest.param(
         junit(
             [
-                ("tests.test_doc", "test_doc.f", "failure"),
-                ("tests.test_doc.txt", "test_doc.txt", "failure"),
+                ("tests.test_doc", "test_doc.f", "failure", "tests/test_doc.py"),
+                ("tests.test_doc.txt", "test_doc.txt", "failure", "tests/test_doc.txt"),
             ]
         ),
         ["tests/test_doc.py", "tests/test_doc.txt"],
         1,
         False,
         False,
-        ["ON_BASE", "UNPLACED"],
+        ["ON_BASE", "ON_BASE"],
         id="doctest-text-beside-its-module",
-    ),
-    # `cd inner` with the ini file one directory up.
-    pytest.param(
-        junit([("inner.tests.test_two", "test_two", "failure")]),
-        ["tests/test_two.py"],
-        1,
-        False,
-        False,
-        ["ON_BASE"],
-        id="rootdir-above",
-    ),
-    # From the root, with the ini file in `sub`.
-    pytest.param(
-        junit([("pkg.tests.test_x", "test_x", "failure")]),
-        ["sub/pkg/tests/test_x.py"],
-        1,
-        False,
-        False,
-        ["ON_BASE"],
-        id="rootdir-below",
-    ),
-    # A rootdir of `tests` (an ini file there, the row run from the root),
-    # offset -1. This module's fixture rows have their rootdir at the
-    # repository root and name `tests.test_two` (#789 round 2's ⬜ 4).
-    pytest.param(
-        junit([("test_two", "test_two", "failure"), ("test_one", "test_one", "")]),
-        ["tests/test_two.py", "tests/test_one.py"],
-        1,
-        False,
-        False,
-        ["ON_BASE", "NEW"],
-        id="rootdir-is-tests",
-    ),
-    # Constructed: a failure two of the appended files could each be.
-    pytest.param(
-        junit(
-            [
-                ("sub.tests.test_two", "test_two", "failure"),
-                ("tests.test_one", "test_one", ""),
-            ]
-        ),
-        ["tests/test_two.py", "sub/tests/test_two.py", "tests/test_one.py"],
-        1,
-        False,
-        False,
-        ["UNPLACED", "UNPLACED", "NEW"],
-        id="two-files",
-    ),
-    # Constructed: one appended file named at two offsets is two files of
-    # the run, and the failing one may not be it.
-    pytest.param(
-        junit(
-            [
-                ("tests.test_two", "test_two", ""),
-                ("other.tests.test_two", "test_two", "failure"),
-            ]
-        ),
-        ["tests/test_two.py"],
-        1,
-        False,
-        False,
-        ["UNPLACED"],
-        id="two-offsets",
     ),
     # A failure of a file the row collected besides the appended ones.
     pytest.param(
         junit(
             [
-                ("tests.test_one", "test_one", "failure"),
-                ("tests.test_two", "test_two", ""),
+                ("tests.test_one", "test_one", "failure", "tests/test_one.py"),
+                ("tests.test_two", "test_two", "", "tests/test_two.py"),
             ]
         ),
         ["tests/test_two.py"],
@@ -4199,7 +4137,7 @@ REPORTS = [
     ),
     # Nothing shows the run ran the appended file.
     pytest.param(
-        junit([("tests.test_one", "test_one", "")]),
+        junit([("tests.test_one", "test_one", "", "tests/test_one.py")]),
         ["tests/test_two.py"],
         0,
         False,
@@ -4242,7 +4180,10 @@ REPORTS = [
         id="others-of-one",
     ),
     pytest.param(
-        junit([("tests.test_two", "test_two", "failure")], root="testsuite"),
+        junit(
+            [("tests.test_two", "test_two", "failure", "tests/test_two.py")],
+            root="testsuite",
+        ),
         ["tests/test_two.py"],
         1,
         False,
@@ -4250,10 +4191,7 @@ REPORTS = [
         ["ON_BASE"],
         id="bare-testsuite",
     ),
-    # #789 round 1's 🟡 1, the shapes a dotted name cannot tell apart. Under
-    # `-o junit_family=xunit1` pytest 9.1.1, 8.3.5 and 7.4.4 write each test's
-    # file as a path from the rootdir, which a package or a class named like a
-    # module cannot be mistaken for (P1).
+    # #789 round 1's 🟡 1: a package named like the module is another file.
     pytest.param(
         junit(
             [
@@ -4272,8 +4210,9 @@ REPORTS = [
         ["UNPLACED"],
         id="file-a-package-named-like-the-module",
     ),
-    # A rootdir of `tests` with a path, offset -1. The fixture rows' rootdir
-    # is the repository root, offset 0 (#789 round 2's ⬜ 4).
+    # A rootdir of `tests` (an ini file there, the row run from the root).
+    # This module's fixture rows have their rootdir at the repository root
+    # (#789 round 2's ⬜ 4).
     pytest.param(
         junit(
             [
@@ -4288,18 +4227,7 @@ REPORTS = [
         ["ON_BASE", "NEW"],
         id="file-rootdir-is-tests",
     ),
-    # A collection error carries its path too.
-    pytest.param(
-        junit([("", "tests.test_b", "error", "tests/test_b.py")]),
-        ["tests/test_b.py"],
-        2,
-        True,
-        False,
-        ["ON_BASE"],
-        id="file-collection-error",
-    ),
-    # `cd sub` with the ini file at the root: every test shares `sub`, so the
-    # positive offset is the run's.
+    # `cd sub` with the ini file at the root.
     pytest.param(
         junit(
             [
@@ -4314,8 +4242,7 @@ REPORTS = [
         ["ON_BASE", "NEW"],
         id="file-rootdir-above",
     ),
-    # A same-named module deeper in the tree (P2): `tests/test_one.py` does
-    # not share the leading `tests/x`, so that offset is not the run's.
+    # A same-named module deeper in the tree (P2).
     pytest.param(
         junit(
             [
@@ -4330,7 +4257,66 @@ REPORTS = [
         ["UNPLACED"],
         id="file-a-deeper-same-named-module",
     ),
-    # The same with dotted names only, where no `file` was written.
+    # #812: a test known only by its dotted name measures nothing. Each row
+    # below gave a measured word through 56c8eb0d; each now reads `new?`.
+    # Measured dotted shapes: `cd inner` with the ini file one up, an ini
+    # file in `sub`, a rootdir of `tests`, a failure two files could be, and
+    # a deeper same-named module.
+    pytest.param(
+        junit([("inner.tests.test_two", "test_two", "failure")]),
+        ["tests/test_two.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED"],
+        id="dotted-rootdir-above",
+    ),
+    pytest.param(
+        junit([("pkg.tests.test_x", "test_x", "failure")]),
+        ["sub/pkg/tests/test_x.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED"],
+        id="dotted-rootdir-below",
+    ),
+    pytest.param(
+        junit([("test_two", "test_two", "failure"), ("test_one", "test_one", "")]),
+        ["tests/test_two.py", "tests/test_one.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED", "UNPLACED"],
+        id="dotted-rootdir-is-tests",
+    ),
+    pytest.param(
+        junit(
+            [
+                ("sub.tests.test_two", "test_two", "failure"),
+                ("tests.test_one", "test_one", ""),
+            ]
+        ),
+        ["tests/test_two.py", "sub/tests/test_two.py", "tests/test_one.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED", "UNPLACED", "UNPLACED"],
+        id="dotted-two-files",
+    ),
+    pytest.param(
+        junit(
+            [
+                ("tests.test_two", "test_two", ""),
+                ("other.tests.test_two", "test_two", "failure"),
+            ]
+        ),
+        ["tests/test_two.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED"],
+        id="dotted-two-offsets",
+    ),
     pytest.param(
         junit(
             [
@@ -4345,22 +4331,92 @@ REPORTS = [
         ["UNPLACED"],
         id="dotted-a-deeper-same-named-module",
     ),
+    # #812 (#789 round 3's 🟡 1): under `--junit-prefix` no classname starts
+    # with its file (R1), and an inherited test's file is its parent's (R2).
+    pytest.param(
+        junit(
+            [
+                (
+                    "pfx.tests.test_api.test_users",
+                    "test_u",
+                    "failure",
+                    "tests/test_api/test_users.py",
+                )
+            ]
+        ),
+        ["tests/test_api.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED"],
+        id="a-junit-prefix",
+    ),
+    pytest.param(
+        junit(
+            [
+                (
+                    "tests.test_api.test_users.TestU",
+                    "test_inherited",
+                    "failure",
+                    "tests/test_api/helpers.py",
+                )
+            ]
+        ),
+        ["tests/test_api.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED"],
+        id="an-inherited-test-of-a-package",
+    ),
 ]
+# The files in the base's worktree a row is read against, where they are not
+# just the handed files and the report's paths.
+REPORT_TREES = {
+    "file-rootdir-is-tests": {
+        "tests/pytest.ini",
+        "tests/test_two.py",
+        "tests/test_one.py",
+    },
+    "file-rootdir-above": {
+        "pytest.ini",
+        "sub/tests/test_two.py",
+        "sub/tests/test_one.py",
+    },
+    "file-a-deeper-same-named-module": {
+        "tests/pytest.ini",
+        "tests/test_two.py",
+        "tests/test_one.py",
+        "tests/x/tests/test_two.py",
+    },
+    "a-junit-prefix": {"tests/test_api.py", "tests/test_api/test_users.py"},
+    "an-inherited-test-of-a-package": {
+        "tests/test_api.py",
+        "tests/test_api/helpers.py",
+        "tests/test_api/test_users.py",
+    },
+}
 
 
 @pytest.mark.parametrize("report, files, code, stopped, alone, words", REPORTS)
 def test_the_base_run_is_read_off_pytests_report(
-    report, files, code, stopped, alone, words
+    request, report, files, code, stopped, alone, words
 ):
-    """S9 (#789). `report_words` places each test pytest's report names on
-    the appended files by its dotted name, in either direction between the
-    rootdir and the directory pytest runs in; a failing test placed on one
-    file alone gives `failing on base too`, anything it cannot place gives
-    `new?`, and a report with no test is `new` only for a file run alone
-    with exit 4 or 5."""
+    """S9 (#789, #812). `report_words` places a test pytest's report names on
+    an appended file by the test's own path, read against the files in the
+    base's worktree; a failing test placed on one file alone gives `failing
+    on base too`, a test known only by its dotted name measures nothing, and
+    a report with no test is `new` only for a file run alone with exit 4 or
+    5. Without an entry in `REPORT_TREES` a row is read against its handed
+    files and its report's paths."""
     gate = gate_module()
+    tree = REPORT_TREES.get(request.node.callspec.id)
+    if tree is None:
+        tree = set(files) | set(re.findall(r'file="([^"]+)"', report))
     expected = [getattr(gate, w) if w.isupper() else w for w in words]
-    got = gate.report_words(report, files, code, stopped, alone=alone)
+    got = gate.report_words(
+        report, files, code, stopped, alone=alone, tree=frozenset(tree)
+    )
     assert list(got.values()) == expected
 
 
@@ -4369,8 +4425,10 @@ def test_an_inherited_tests_file_is_kept_only_where_its_name_starts_with_it():
     defined. `TestThree` inherits its failing test from `tests/test_two.py`,
     so that file is not its own and it is placed by its dotted name (Q4b:
     `tests/test_two.py` reads `new`). `TestTwo` inherits a failing test from
-    `tests/helpers.py`, and is placed on `tests/test_two.py` by its name
-    (Q4c: `failing on base too`). Shapes from the round's kept reports."""
+    `tests/helpers.py`, which is known only by its dotted name and so, since
+    #812, measures nothing: `tests/test_two.py` reads `new?` (Q4c, which read
+    `failing on base too` through 56c8eb0d). Shapes from the round's kept
+    reports."""
     gate = gate_module()
     inherited_elsewhere = junit(
         [
@@ -4383,9 +4441,10 @@ def test_an_inherited_tests_file_is_kept_only_where_its_name_starts_with_it():
             ("tests.test_two.TestTwo", "test_shared", "", "tests/test_two.py"),
         ]
     )
-    assert gate.report_words(inherited_elsewhere, ["tests/test_two.py"], 1, False) == {
-        "tests/test_two.py": gate.NEW
-    }
+    tree = frozenset({"tests/test_two.py", "tests/test_three.py", "tests/helpers.py"})
+    assert gate.report_words(
+        inherited_elsewhere, ["tests/test_two.py"], 1, False, tree=tree
+    ) == {"tests/test_two.py": gate.NEW}
     inherited_from_a_helper = junit(
         [
             ("tests.test_two.TestTwo", "test_inherited", "failure", "tests/helpers.py"),
@@ -4393,8 +4452,8 @@ def test_an_inherited_tests_file_is_kept_only_where_its_name_starts_with_it():
         ]
     )
     assert gate.report_words(
-        inherited_from_a_helper, ["tests/test_two.py"], 1, False
-    ) == {"tests/test_two.py": gate.ON_BASE}
+        inherited_from_a_helper, ["tests/test_two.py"], 1, False, tree=tree
+    ) == {"tests/test_two.py": gate.UNPLACED}
 
 
 # A report's paths read against the base's tracked files (#789 round 2's 🟡
@@ -4548,8 +4607,9 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     )
     assert gate.UNPLACED == (
         "new? not measured: pytest's report at the base does not place a test on "
-        "this file alone (it names none of this file's tests, or a failing test "
-        "it names could be this file or another one)"
+        "this file alone (it names none of this file's tests by their path, a "
+        "failing test it names could be this file or another one or is known only "
+        "by its dotted name, or a second directory of the base fits the run)"
     )
     assert gate.NOTHING_TOGETHER == (
         "new? not measured: pytest's report at the base counts no test, so a file "
@@ -5513,10 +5573,12 @@ def test_a_test_another_module_inherits_is_not_placed_on_the_defining_file(tmp_p
     assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().NEW, out.stdout
 
 
-def test_a_test_a_file_inherits_from_a_helper_is_placed_on_that_file(tmp_path):
-    """#789 round 2's 🟡 2 (Q4c), the strict side: the base fails
-    `tests/test_two.py` through a test it inherits from `tests/helpers.py`,
-    and `xunit1` names the helper, so the file read `new`."""
+def test_a_test_a_file_inherits_from_a_helper_gives_it_no_measured_word(tmp_path):
+    """#789 round 2's 🟡 2 (Q4c): the base fails `tests/test_two.py` through
+    a test it inherits from `tests/helpers.py`, and `xunit1` names the
+    helper. At 225af880 the file read `new`, the wrong word; through 56c8eb0d
+    its dotted name placed it, `failing on base too`. Since #812 a test known
+    only by its dotted name measures nothing, so it reads `new?`."""
     helpers = (
         "class Base:\n    v = 1\n\n    def test_inherited(self):\n"
         "        assert self.v == 1, 'planted'\n"
@@ -5533,9 +5595,137 @@ def test_a_test_a_file_inherits_from_a_helper_is_placed_on_that_file(tmp_path):
     )
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
-    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE, (
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().UNPLACED, (
         out.stdout
     )
+
+
+P1_BASE = {
+    "tests/test_api.py": "X = 1\n",
+    "tests/test_api/test_users.py": FAILING_TEST.replace("test_two", "test_u"),
+}
+P1_FEATURE = {
+    "tests/test_api.py": FAILING_TWO,
+    "tests/test_api/test_users.py": PASSING_TEST.replace("test_one", "test_u"),
+}
+HELPER = (
+    "class Base:\n    v = 1\n\n    def test_inherited(self):\n"
+    "        assert self.v == 1, 'planted'\n"
+)
+
+
+@pytest.mark.parametrize(
+    "row, extra",
+    [
+        pytest.param(f"{SUITE_ROW} --junit-prefix=pfx", {}, id="row"),
+        pytest.param(
+            SUITE_ROW,
+            {"pytest.ini": "[pytest]\naddopts = --junit-prefix=pfx\n"},
+            id="ini",
+        ),
+    ],
+)
+def test_a_junit_prefix_does_not_place_a_package_on_the_module(tmp_path, row, extra):
+    """#812 (#789 round 3's 🟡 1, R1 and R1-ini). Under `--junit-prefix` no
+    classname starts with its file, so every test was placed by its dotted
+    name, and P1's package `tests.test_api.test_users` was placed on
+    `tests/test_api.py`, which holds no test at the base. A dotted name now
+    gives no measured word."""
+    repo = base_then_feature(tmp_path / "repo", row, {**P1_BASE, **extra}, P1_FEATURE)
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_api.py") == gate_module().UNPLACED, (
+        out.stdout
+    )
+
+
+def test_an_inherited_test_of_a_package_is_not_placed_on_the_module(tmp_path):
+    """#812 (#789 round 3's 🟡 1, R2). The package's failing test is
+    inherited from `tests/test_api/helpers.py`, so its `file` is not its own
+    and it was placed by its dotted name `tests.test_api.test_users.TestU`,
+    which also fits `tests/test_api.py`."""
+    users = "from helpers import Base\n\n\nclass TestU(Base):\n    v = {}\n"
+    repo = base_then_feature(
+        tmp_path / "repo",
+        SUITE_ROW,
+        {
+            "tests/test_api.py": "X = 1\n",
+            "tests/test_api/helpers.py": HELPER,
+            "tests/test_api/test_users.py": users.format(2),
+        },
+        {
+            "tests/test_api.py": FAILING_TWO,
+            "tests/test_api/test_users.py": users.format(1),
+        },
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_api.py") == gate_module().UNPLACED, (
+        out.stdout
+    )
+
+
+def test_an_inherited_test_of_a_deeper_module_is_not_placed_on_the_file(tmp_path):
+    """#812 (#789 round 3's 🟡 1, R2b). Q1's layout, with the deeper
+    module's failing test inherited from `tests/x/tests/helpers.py`: its
+    dotted name `tests.x.tests.test_two.TestDeep` was placed on
+    `tests/test_two.py`, which holds no test at the base."""
+    deep = "from x.tests.helpers import Base\n\n\nclass TestDeep(Base):\n    v = {}\n"
+    repo = base_then_feature(
+        tmp_path / "repo",
+        SUITE_ROW,
+        {
+            "tests/test_one.py": "X = 1\n",
+            "tests/test_two.py": "X = 1\n",
+            "tests/x/__init__.py": "",
+            "tests/x/tests/__init__.py": "",
+            "tests/x/tests/helpers.py": HELPER,
+            "tests/x/tests/test_two.py": deep.format(2),
+        },
+        {"tests/test_two.py": FAILING_TWO, "tests/x/tests/test_two.py": deep.format(1)},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().UNPLACED, (
+        out.stdout
+    )
+
+
+GENERATES_A_TEST = (
+    "import os\n"
+    "os.makedirs('gen', exist_ok=True)\n"
+    "open('gen/test_g.py', 'w').write('def test_g():\\n    pass\\n')\n"
+)
+
+
+def test_a_generated_test_file_does_not_move_the_rootdir(tmp_path):
+    """#812 (#789 round 3's 🟡 2, R3). The row generates `gen/test_g.py`,
+    which the base does not track, and `vendor` tracks every path of the
+    report, so `vendor` was taken for the rootdir and the root's failing
+    `tests/test_two.py` was placed on `vendor/tests/test_two.py`. The files
+    the gate reads against are now listed after the run, ignored ones
+    included."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{sys.executable} gen.py && {SUITE_ROW} gen vendor",
+        {
+            ".gitignore": "/gen/\n",
+            "gen.py": GENERATES_A_TEST,
+            "tests/test_two.py": FAILING_TEST,
+            "vendor/__init__.py": "",
+            "vendor/gen/__init__.py": "",
+            "vendor/gen/test_g.py": "X = 1\n",
+            "vendor/tests/__init__.py": "",
+            "vendor/tests/test_one.py": "X = 1\n",
+            "vendor/tests/test_two.py": "X = 1\n",
+        },
+        {"tests/test_two.py": PASSING_TWO, "vendor/tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert verdict_of(out.stdout, "vendor/tests/test_two.py") == (
+        gate_module().UNPLACED
+    ), out.stdout
 
 
 def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
@@ -5572,22 +5762,24 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "A file the report places a failing or erroring test on, and no other "
         "file, reads `failing on base too`, and a file whose tests the report "
         "names with none failing reads `new`.",
-        # #789 round 2's 🟡 1 and 🟡 2: placement read against the base's
-        # tracked files, which replaces round 1's offset and its negative
-        # limit, and the inherited test placed by its dotted name.
-        "A test is placed on a file by the path pytest's report gives it (the "
-        "gate also appends `-o junit_family=xunit1`, which writes that path), "
-        "read against the files the base tracks: pytest's rootdir is a "
-        "directory under which every such path is a tracked file, the directory "
-        "the row runs pytest in is one under which every file the run was handed "
-        "is, and the test is placed on the file only where each is one directory "
-        "and the two name one file.",
-        "Where the base tracks a second directory that fits either, the file "
-        "reads `new?`, and so does every file of a run whose report names a test "
-        "file the base does not track.",
+        # #812: a measured word only from a test's own path, read against the
+        # files in the base's worktree after the run; a dotted name measures
+        # nothing.
+        "A test is placed on a file only by the path pytest's report gives it "
+        "(the gate also appends `-o junit_family=xunit1`, which writes that "
+        "path), only where the test's dotted name starts with that path, and only "
+        "read against the files in the base's worktree after the run, tracked, "
+        "written by the run or ignored: pytest's rootdir is a directory under "
+        "which every such path is a file, the directory the row runs pytest in is "
+        "one under which every file the run was handed is, and the test is placed "
+        "on the file only where each is one directory and the two name one file.",
+        "Where a second directory fits either, the file reads `new?`.",
         "That path is the file a test's function is defined in, so a test a "
-        "class inherits from another module is placed by its dotted name "
-        "instead, which cannot tell a module from a package of the same name.",
+        "class inherits from another module, and every test of a run under "
+        "`--junit-prefix`, is known only by its dotted name, and a dotted name "
+        "cannot tell a module from a package of the same name: such a test "
+        "measures nothing, a file a failing one could be reads `new?`, and so "
+        "does a file only such tests name (#812).",
         # #789 round 1's 🟡 2: which runners that drop the arguments are
         # counted, and the two named as limits (#807).
         "A part that does not hand the appended arguments on to pytest — a "
@@ -5609,10 +5801,13 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         # Measured in round 2's fix pass: in #761's p1b layout, where the base
         # does not track the file under the uncounted runner's directory,
         # the measured runner still gives `failing on base too`.
-        "Such a row is read as one with a single runner: a file the base "
-        "tracks under both runners' directories reads `new?`, and one it tracks "
-        "under the measured runner's directory only is measured there, so it "
-        "can read `new` or `failing on base too` from the wrong runner.",
+        # #812 (#789 round 3's 🟡 3): the run directory is read over every
+        # handed file, so the both-directories word holds for a whole run.
+        "Such a row is read as one with a single runner: where the base tracks "
+        "every failing file of a run under both runners' directories, each reads "
+        "`new?`, and where it tracks any one of them under the measured runner's "
+        "directory only, every file of that run is measured there, so each can "
+        "read `new` or `failing on base too` from the wrong runner.",
         # #789 round 2's ⬜ 5: the family option is appended too.
         "Write such a part so it passes its arguments on, `--junitxml` and "
         "`-o junit_family=…` included",
@@ -5640,10 +5835,12 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "Collection alone does not reach a runner behind a part that exits "
         "non-zero at the base under it — a lint that fails there, an earlier "
         "runner with a collection error or one that collects nothing — nor one "
-        "behind `||`; such a row is read as one with a single runner: a file "
-        "a later runner named reads `new?` where the base tracks it under both "
-        "runners' directories, and can read `new` or `failing on base too` from "
-        "the first runner's directory where the base tracks it there only.",
+        "behind `||`; such a row is read as one with a single runner: where the "
+        "base tracks every failing file of a run under both runners' "
+        "directories, each reads `new?`, and where it tracks any one of them "
+        "under the first runner's directory only, every file of that run is "
+        "measured there and can read `new` or `failing on base too` from the "
+        "first runner's directory.",
         "runner first costs one run at the base and a run of each prefix after "
         "it in the collection pass (below), and lint first re-runs the parts "
         "before the runner once per prefix tried and once more per prefix in "

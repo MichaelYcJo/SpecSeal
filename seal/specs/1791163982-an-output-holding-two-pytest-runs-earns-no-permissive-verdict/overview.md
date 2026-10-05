@@ -19,6 +19,7 @@ reads `new?`.
 | Two cases beyond S1–S11 | `spec.md` §*User scenarios* / a report left in a reused `--keep-output` directory settled a prefix that wrote nothing, and a relative `--keep-output` under a `cd` sent the report under the scratch worktree | the stale path is removed before each run and the path made absolute, each with a case | contract §15 and `agents/smith.md`'s mutation rule |
 | A released row the writer re-read | the `--reverify --into` writer wrote a `Re-read ·` row for 0.18.1's B4 / B4 says "the two reasons are pinned whole", and there are now five | a `Corrected · B4` row in place of the re-read | the claim names a count the change made false |
 | A pin in a module the spec never names | spec silent on `tests/test_the_broad_gate_row_is_asked_for_and_runs_as_written.py` / its `test_each_rule_is_carried_with_the_reason_it_is_a_rule` held rule 3's old reason, "until one prints pytest's summary", and went red | the pin holds "until one writes that report", absent at a3aa139a | contract §14: the rule's reason is the sentence the change rewrote |
+| What a dotted name may decide (#812, after the capped review) | `spec.md` Scope 3: tests are "placed on the appended files by the name pytest's report gives a test", in either direction / three rounds each found a permissive word where the gate guessed (an offset, a path without the tree, a dotted name without the tree) | `failing on base too` only from a test's own path, confirmed by its dotted name and read against the files in the base's worktree after the run; a dotted-name placement measures nothing and reads `new?` | the coordinator's design for #812; every move it causes is toward `new?` (the word-move list in #812's hand-back) |
 | Three framed lines naming what the tree lacks | `spec.md` (twice) and `plan.md` name a test this work removed and `PYTEST_PLUGINS` / `evidence-check`'s records arm refused them | each line carries the checker's `NAME NOT IN TREE` marker; no word of the frame changed | the refusal's own text, the repair work item 1791119069 made too |
 
 ## Not verified
@@ -32,28 +33,37 @@ reads `new?`.
 ## Not done
 
 A file that holds no test at the base, beside another collected module of
-the same name, could read `failing on base too`. Rounds 1 and 2 of review
-ran five shapes of it: a package named like the module, a same-named module
-deeper in the tree (with and without a test outside it), a shorter
-same-named path, and pytest's rootdir below the run directory. Round 2's fix
-pass closed all five by reading each report path against the files the base
-tracks, so no offset is guessed. What stays open:
+the same name, could read `failing on base too`. Three rounds of review ran
+eight shapes of it, and each time it reopened where the gate guessed: an
+offset, a path read without the tree, a dotted name read without the tree.
+After #812 the permissive word comes only from a test's own path, whose
+dotted name starts with it, read against the files in the base's worktree
+after the run, tracked, written by the run or ignored. What that costs, and
+what stays open:
 
-- **A test placed by its dotted name.** Where a report carries no `file`, or
-  the `file` is where an inherited test was defined, the test is placed by
-  its dotted name, which cannot tell a module from a package of the same
-  name; rule 3 says so. Every pytest the fix passes ran writes `file`.
-- **A test file the base does not track** (one generated at run time) makes
-  every file of that run read `new?`: no rootdir fits every path. This is
-  the strict direction, stated in rule 3.
+- **A test known only by its dotted name measures nothing.** That is an
+  inherited test, whose `file` is its parent class's module, every test of
+  a row under `--junit-prefix`, and a test file outside pytest's rootdir. A
+  failing one makes each file it could be read `new?`, and a file only such
+  tests name reads `new?`. That includes a file the base fails through a
+  test it inherits (Q4c), which read `failing on base too` through
+  56c8eb0d. The direction is strict, and the cost is a run by hand.
+- **The tree is listed with `git ls-files --cached --others`** after each
+  run whose report is read, so a test file the row generates is on it. In a
+  worktree holding very many untracked or ignored files this is one longer
+  git call per prefix read, only on a failing gate.
 
 Four runners stay uncounted, named in rule 3 and filed as #807: one given
 `-p no:junitxml`, one whose own command line names `--junitxml`, one started
 without `PYTEST_ADDOPTS`, and a later one inside a part that drops its
-arguments. Where the base tracks the file under both runners' directories,
-the file reads `new?`. Where it tracks it under the measured runner's only,
-#761's p1b stands: `failing on base too` from the wrong runner (measured in
-round 2's fix pass, and the same at a3aa139a).
+arguments. Where the base tracks every failing file of a run under both
+runners' directories, each reads `new?`. Where it tracks any one of them
+under the measured runner's only, every file of that run is measured there,
+and #761's p1b stands: `failing on base too` from the wrong runner (P7-p1b
+and P7-mixed, the same at a3aa139a).
+
+A failing file whose path holds a space is never compared (#813, outside
+this change).
 
 Measuring a two-runner row file by file (`plan.md` Alternative F) and the
 runners collection alone cannot reach (`spec.md` Axis B) stay out, as the
