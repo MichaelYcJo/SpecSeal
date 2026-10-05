@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #801 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `fa8a5c3c09a107305a09dfec21a9bd916f30f568..b5dbc88c1897d22372305f6434c63ba5e6ba98df`, 3 commits |
+| Contract changes | none |
+| New units | test_a_held_coordinate_with_two_places_on_a_dated_row_is_left_and_named (depth 1); test_a_held_ledger_coordinate_the_run_moves_is_re_stamped (depth 1) |
 | Needs a fix | yes — 🟡 1 (a held coordinate with no place on a row the run dates is left silently, with no BROKEN part), 🟡 2 (a held coordinate naming a ledger line the run rewrites is left stale, so `--strict` goes red where the base was clean), 🟡 3 (the ledger home's definition of the (ii) case) |
 | Loses a record or crashes | no — nothing written is lost and nothing crashes; 🟡 1 leaves out one pact-change BROKEN row the base wrote, in a narrow shape, which is a missing write rather than a lost record |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Spec compliance first against `spec.md` D1–D5 (the once-before-the-walk judgme
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | a held coordinate with no one place, on a row the run dates, is left with no `left` line and no BROKEN part, and the family line names no remedy | `skills/evidence-check/scripts/evidence_check.py:3344` | open | p1 executed at the target and the base, with the freeze and without it; MOVES read, and executed with the fix in p5 |
-| 🟡 2 | a held coordinate naming a ledger line the run rewrites is left at a stale hash: `--reverify` exits 1 and `--strict` exits 2, where the base exits 0 and 0 | `skills/evidence-check/scripts/evidence_check.py:3343` | open | p2 executed at the target and the base; the premise is at `evidence_check.py:3062` and in spec D1 |
-| 🟡 3 | the ledger home defines the (ii) case as two shapes, and S12's tree (a statement gone from edited code) is neither | `docs/the-evidence-ledger.md:186` | open | read against every `left` reason in `reverify` and against the S12 tree |
-| ⬜ 4 | two `Re-read ·` verdicts (0.4.0:59, 0.18.2:129) hold only once 🟡 1 is fixed, and the phase-3 grounds for 0.4.0:59 need the dated-row qualifier | `seal/ledger/1791163980-an-in-place-reverify-leaves-history-alone-and-reports-each-row-once.md` | open | a correction to the run's paperwork; follows 🟡 1 |
-| ⬜ 5 | `family_view` now runs twice per in-place or frozen `--reverify` | `skills/evidence-check/scripts/evidence_check.py:3221` | open | p4: 7.46 s per pass over 42 ledgers; nothing ships wrong |
+| 🟡 1 | a held coordinate with no one place, on a row the run dates, is left with no `left` line and no BROKEN part, and the family line names no remedy | `skills/evidence-check/scripts/evidence_check.py:3344` | **fixed** `9003fde0` | fixed at 9003fde0; p1 executed at the target and the base, with the freeze and without it; MOVES read, and executed with the fix in p5 |
+| 🟡 2 | a held coordinate naming a ledger line the run rewrites is left at a stale hash: `--reverify` exits 1 and `--strict` exits 2, where the base exits 0 and 0 | `skills/evidence-check/scripts/evidence_check.py:3343` | **fixed** `9003fde0` | fixed at 9003fde0; p2 executed at the target and the base; the premise is at `evidence_check.py:3062` and in spec D1 |
+| 🟡 3 | the ledger home defines the (ii) case as two shapes, and S12's tree (a statement gone from edited code) is neither | `docs/the-evidence-ledger.md:186` | **fixed** `7c91a342` | fixed at 7c91a342; read against every `left` reason in `reverify` and against the S12 tree |
+| ⬜ 4 | two `Re-read ·` verdicts (0.4.0:59, 0.18.2:129) hold only once 🟡 1 is fixed, and the phase-3 grounds for 0.4.0:59 need the dated-row qualifier | `seal/ledger/1791163980-an-in-place-reverify-leaves-history-alone-and-reports-each-row-once.md` | answered | corrected at b5dbc88c: 0.4.0:59 and 0.18.2:129 re-read after 🟡 1 with `--reverify --into … --checked 2026-10-05`, and the phase-3 grounds carry the dated-row qualifier; a correction to the run's paperwork; follows 🟡 1 |
+| ⬜ 5 | `family_view` now runs twice per in-place or frozen `--reverify` | `skills/evidence-check/scripts/evidence_check.py:3221` | answered | no fix asked by the round; nothing prints wrong, and the cost is the report's p4 measurement; p4: 7.46 s per pass over 42 ledgers; nothing ships wrong |
 | 🟢 | divergence 1: a held coordinate rides a row the run dates | `skills/evidence-check/scripts/evidence_check.py:3563` | confirmed | keeps `--strict` at the base; the narrower date-compare rule buys nothing #785 asked for; p3, the rider through a moved citation, is byte-identical to the base and inside spec §Out |
 | 🟢 | divergence 2: a held two-place coordinate on a row the run does not date is left silently | `skills/evidence-check/scripts/evidence_check.py:3344` | confirmed | the family's newest reading still holds; the dated-row half is 🟡 1 |
 | 🟢 | divergence 3: a `left` line exactly where the last walk left the coordinate | `skills/evidence-check/scripts/evidence_check.py:3037` | confirmed | spec Class 2 contradicts S9; `walked_move` and `owed_moves` side with S9; the 36-sequence case asserts line and BROKEN together |
