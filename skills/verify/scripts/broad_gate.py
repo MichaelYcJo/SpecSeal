@@ -1893,6 +1893,14 @@ NOTHING_TOGETHER = (
     "the run was handed is missing where the row runs pytest, and a run that "
     "is not of one file alone does not say which"
 )
+# Formatted with the part whose report settled the walk and the later part
+# whose report the collection pass found (`compare_at_base`).
+MULTI_RUNNER = (
+    f"{NOT_MEASURED}: the row runs pytest in more than one part (part {{first}} "
+    "wrote the report the gate asked for, and part {second} wrote one under "
+    "--collect-only, kept as runners-at-base-{second}.txt), so the gate cannot "
+    "tell which runner a failing file belongs to"
+)
 
 
 def report_cases(text):
@@ -2181,13 +2189,28 @@ def compare_at_base(root, base, command, files, keep):
     nominated: it runs with the others, that run's report counts no test,
     and each file of it reads `NOTHING_TOGETHER`, never a counterfeit.
 
-    **A row with a runner in each of two directories is not measured by
-    this** (#761 round 1). A candidate's run settles at the first runner a
-    prefix reaches, in that runner's directory, and a file a later runner
-    named can read `new` or `failing on base too` from the wrong one.
-    Telling the runners apart would take a reading this module does not
-    have, so `templates/config.md` rule 3 names the shape for the row's
-    author, with the cost and both limits above.
+    **A row that runs pytest in more than one part gives no measured word**
+    (#789). A run settles at the first runner a prefix reaches, in that
+    runner's directory, and a file a later runner named read `new` or
+    `failing on base too` from the wrong one (#761 round 1). The report does
+    not count the runners, because the first one also receives the gate's
+    arguments. So where the first prefix that wrote its report is not the
+    whole row, each later prefix runs once more, with ` --collect-only`
+    added to `PYTEST_ADDOPTS`, nothing appended but its own report's path,
+    and kept as `runners-at-base-<j>.txt`. Collection alone runs no test, so
+    a failing root suite does not stop `&&` before the second runner, and no
+    inner run exists to confuse it. Where any of them writes its report,
+    every failing file reads `MULTI_RUNNER`. This is once per comparison,
+    because how many runners a row has is the row's property, and a row
+    whose runner is its last part never pays it.
+
+    **What collection alone does not reach** is named in rule 3 rather than
+    claimed: a runner behind a part that exits non-zero at the base under
+    collection alone — a failing lint, an earlier runner with a collection
+    error or one that collects nothing — and a runner behind `||`. Such a row
+    is read as one with a single runner, and the words above can return.
+    Telling "not pytest" from "not reached" would take a reading of the shell
+    this module does not have.
     """
     scratch = tempfile.mkdtemp(prefix="broad-gate-base-")
     added = git(root, "worktree", "add", "--detach", scratch, base)
@@ -2207,32 +2230,55 @@ def compare_at_base(root, base, command, files, keep):
         ]
         others = [f for f in files if f not in candidates]
         # One group of every other file, kept as `suite-at-base-<k>.txt`, then
-        # one group per candidate, kept as `suite-at-base-<k>-<n>.txt`. One
-        # loop runs them all, so the `run` call stays one call (the shell-site
+        # one group per candidate, kept as `suite-at-base-<k>-<n>.txt`, then
+        # the collection pass over the prefixes after the runner, kept as
+        # `runners-at-base-<j>.txt` (`None` in place of a group). One loop
+        # runs them all, so the `run` call stays one call (the shell-site
         # case counts calls).
         groups = [(others, "")] if others else []
         groups += [([f], f"-{n}") for n, f in enumerate(candidates, 1)]
+        groups.append((None, ""))
         prefixes = row_prefixes(command, cmd_exe_reads())
         # The report's path is absolute, so a `cd` part does not move it.
         kept = os.path.abspath(keep)
+        collecting_env = dict(os.environ)
+        collecting_env["PYTEST_ADDOPTS"] = (
+            collecting_env.get("PYTEST_ADDOPTS", "") + " --collect-only"
+        ).strip()
         verdicts = {}
+        settled, second = [], None
         for group, alone in groups:
-            paths = " ".join(quote(f) for f in group)
+            collecting = group is None
+            # The collection pass counts runners after the first one, and
+            # where no prefix wrote a report there is no first one.
+            if collecting and not settled:
+                break
+            first = min(settled) if collecting else 0
             words = None
             for k, prefix in enumerate(prefixes, 1):
-                name = f"suite-at-base-{k}{alone}"
+                if k <= first:
+                    continue
+                stem = "runners" if collecting else "suite"
+                name = f"{stem}-at-base-{k}{alone}"
                 report = os.path.join(kept, f"{name}.xml")
                 # A report left by an earlier run into the same directory
                 # would settle a prefix that wrote nothing.
                 if os.path.exists(report):
                     os.remove(report)
+                appended = "" if collecting else " ".join(quote(f) for f in group) + " "
                 tried = run(
                     name,
-                    f"{prefix} {paths} {quote(JUNIT_REPORT.format(path=report))}",
+                    f"{prefix} {appended}{quote(JUNIT_REPORT.format(path=report))}",
                     scratch,
                     keep,
                     shell=True,
+                    env=collecting_env if collecting else None,
                 )
+                if collecting:
+                    if report_cases(written_report(report)) is not None:
+                        second = k
+                        break
+                    continue
                 words = report_words(
                     written_report(report),
                     group,
@@ -2241,8 +2287,13 @@ def compare_at_base(root, base, command, files, keep):
                     alone=bool(alone),
                 )
                 if words is not None:
+                    settled.append(k)
                     break
-            verdicts.update(words or {f: NO_RUNNER for f in group})
+            if not collecting:
+                verdicts.update(words or {f: NO_RUNNER for f in group})
+        if second is not None:
+            reason = MULTI_RUNNER.format(first=min(settled), second=second)
+            return {f: reason for f in files}
         return {f: verdicts[f] for f in files}
     finally:
         subprocess.run(

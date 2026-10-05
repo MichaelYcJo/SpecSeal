@@ -4302,6 +4302,12 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "the run was handed is missing where the row runs pytest, and a run that "
         "is not of one file alone does not say which"
     )
+    assert gate.MULTI_RUNNER == (
+        "new? not measured: the row runs pytest in more than one part (part "
+        "{first} wrote the report the gate asked for, and part {second} wrote "
+        "one under --collect-only, kept as runners-at-base-{second}.txt), so "
+        "the gate cannot tell which runner a failing file belongs to"
+    )
     readers = {
         ("agents", "sealer.md"): "`new?`",
         ("agents", "smith.md"): "`new?` is neither",
@@ -4368,8 +4374,9 @@ def test_a_file_named_below_a_cd_is_run_at_the_base_and_not_called_new(tmp_path)
 
 def test_a_runner_first_row_runs_once_at_the_base(tmp_path):
     """A3 (#747). Where the runner is the row's first part, the first prefix
-    prints pytest's summary and is the only one run: the parts after it cost
-    the base comparison nothing."""
+    writes pytest's report and is the only one run with the files: the parts
+    after it cost the base comparison one collection run each, which counts
+    the row's runners (#789, `runners-at-base-<j>.txt`)."""
     repo = base_then_feature(
         tmp_path / "repo",
         f"{SUITE_ROW} && {LINT}",
@@ -4381,6 +4388,8 @@ def test_a_runner_first_row_runs_once_at_the_base(tmp_path):
     assert verdict_of(out.stdout, "tests/test_two.py") == gate_module().ON_BASE
     kept = sorted(p.name for p in (tmp_path / "out").glob("suite-at-base-*.txt"))
     assert kept == ["suite-at-base-1.txt"], kept
+    counted = sorted(p.name for p in (tmp_path / "out").glob("runners-at-base-*"))
+    assert counted == ["runners-at-base-2.txt"], counted
 
 
 def test_a_row_is_cut_at_the_semicolon_its_shell_reads(tmp_path):
@@ -5011,6 +5020,83 @@ def test_a_relative_kept_directory_still_receives_the_report_under_a_cd(tmp_path
     assert (tmp_path / "out" / "suite-at-base-2-1.xml").is_file()
 
 
+def two_runner_row(xdist):
+    return f"{suite_row(xdist)} && cd sub && {suite_row(xdist)}"
+
+
+# Round 1's p1 and p1b and round 2's p1c of #761, in one repository. The root
+# runner passes on the branch, so `&&` reaches the runner in `sub`, which
+# names its three failing files `tests/test_x.py`, `tests/test_y.py` and
+# `tests/test_z.py`.
+TWO_RUNNERS_AT_BASE = {
+    # p1: the base fails it in `sub`, and the root has no such file.
+    "sub/tests/test_x.py": FAILING_TEST.replace("test_two", "test_x"),
+    # p1b: the base fails a root file of the same name, and has none in `sub`.
+    "tests/test_y.py": FAILING_TEST.replace("test_two", "test_y"),
+    # p1c: the base fails it in `sub`, and passes a root file of the same name.
+    "sub/tests/test_z.py": FAILING_TEST.replace("test_two", "test_z"),
+    "tests/test_z.py": PASSING_TEST.replace("test_one", "test_z"),
+    "sub/tests/test_one.py": PASSING_TEST,
+}
+TWO_RUNNERS_ON_FEATURE = {
+    "sub/tests/test_x.py": FAILING_TWO.replace("test_two", "test_x"),
+    "tests/test_y.py": PASSING_TEST.replace("test_one", "test_y"),
+    "sub/tests/test_y.py": FAILING_TWO.replace("test_two", "test_y"),
+    "sub/tests/test_z.py": FAILING_TWO.replace("test_two", "test_z"),
+}
+
+
+@pytest.mark.parametrize("xdist", UNDER)
+def test_a_row_with_two_runners_gives_every_failing_file_no_word(tmp_path, xdist):
+    """S7 (#789 member 1, #761 round 1's 🟡 2 and round 2's ⬜ 2). Each file
+    was asked of the first runner a prefix reaches, in the root: p1 read
+    `new` for a file the base fails in `sub`, p1b `failing on base too` for a
+    file the base never ran, and p1c `new` where only the root's same-named
+    file passes. The later prefixes are run once under `--collect-only`, the
+    third writes its report, and every failing file reads `new?` naming the
+    two parts."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        two_runner_row(xdist),
+        TWO_RUNNERS_AT_BASE,
+        TWO_RUNNERS_ON_FEATURE,
+    )
+    keep = tmp_path / "out"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    expected = gate.MULTI_RUNNER.format(first=1, second=3)
+    for path in ("tests/test_x.py", "tests/test_y.py", "tests/test_z.py"):
+        assert verdict_of(out.stdout, path) == expected, out.stdout
+    kept = sorted(p.name for p in keep.glob("runners-at-base-*"))
+    assert kept == [
+        "runners-at-base-2.txt",
+        "runners-at-base-3.txt",
+        "runners-at-base-3.xml",
+    ], kept
+
+
+def test_a_part_after_the_runner_that_is_not_pytest_keeps_the_words(tmp_path):
+    """S8 (#789). The runner comes first and a part that is not pytest
+    follows it. The collection pass runs the whole row once under
+    `--collect-only`, the last part writes no report, and the words the
+    runner measured stand."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{SUITE_ROW} && {sys.executable} -c pass",
+        {"tests/test_two.py": FAILING_TEST},
+        {"tests/test_two.py": FAILING_TWO, "tests/test_three.py": FAILING_THREE},
+    )
+    keep = tmp_path / "out"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.ON_BASE, out.stdout
+    assert verdict_of(out.stdout, "tests/test_three.py") == gate.NEW, out.stdout
+    kept = sorted(p.name for p in keep.glob("runners-at-base-*"))
+    assert kept == ["runners-at-base-2.txt"], kept
+
+
 def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
     """S7 (#761, contract §14). The candidate's run costs a run per such
     file, and it has two limits a row's author can meet. Rule 3 is the one
@@ -5048,13 +5134,27 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "writes no report where the gate asked for one, so each file reads "
         "`new?` where it used to read `new` for a file it never ran. Write such "
         "a part so it passes its arguments on, `--junitxml` included",
-        # #761 round 1's 🟡 2.
-        "A row that runs pytest in more than one directory — `pytest -q && "
-        "cd sub && pytest -q` — is asked about every failing file by the first "
-        "runner a prefix reaches, in that runner's directory: a file a later "
-        "runner named reads `new` where that directory has no such file or a "
-        "same-named file there passes at the base, and `failing on base too` where "
-        "a same-named file there fails at the base.",
+        # #789, replacing #761 round 1's 🟡 2 two-runner sentence: the
+        # behaviour, its cost, and what collection alone does not reach.
+        "A row that runs pytest in more than one part — `pytest -q && cd sub "
+        "&& pytest -q` — reads `new?` for every failing file, because the gate "
+        "cannot tell which runner a file belongs to",
+        "To count the runners, each prefix after the one whose report settled "
+        "the walk runs once more at the base with ` --collect-only` added to "
+        "`PYTEST_ADDOPTS` and only its own `--junitxml` appended, kept as "
+        "`runners-at-base-<j>.txt`: one collection run per prefix after the "
+        "runner, once per comparison and only on a failing gate, so a row whose "
+        "runner is its last part never pays it.",
+        "A runner that does not read `PYTEST_ADDOPTS` runs its tests there "
+        "instead of collecting them.",
+        "Collection alone does not reach a runner behind a part that exits "
+        "non-zero at the base under it — a lint that fails there, an earlier "
+        "runner with a collection error or one that collects nothing — nor one "
+        "behind `||`; such a row is read as one with a single runner, and a file "
+        "a later runner named can read `new` or `failing on base too` from the "
+        "first runner's directory.",
+        "runner first costs one run at the base and a collection run of each "
+        "prefix after it (below)",
         # #761 round 2's ⬜ 3: the clause round 1's survivor-check corrected.
         "each file reads `new?` with the reason, and never `new` unless it "
         "ran alone and that run collected nothing (below).",

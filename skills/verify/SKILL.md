@@ -505,7 +505,8 @@ about to run it a second time after the change.
 - **New?**, with a reason — nothing at the base measured it: no part of the
   `Broad gate` row wrote the report the gate asked pytest for there (it
   appends `--junitxml=<path>` to every run at the base), that report did not
-  place a test on the file alone, or the run there stopped
+  place a test on the file alone, the row runs pytest in more than one part,
+  or the run there stopped
   before every test ran. It is a question about the file, not a finding
   either way; open the kept `suite-at-base-*.txt` files and run the file at
   the base by hand before calling it either of the two above.
