@@ -3191,6 +3191,30 @@ def test_two_units_sharing_one_claim_line_stay_ambiguous(repo):
     assert "ambiguous" in r.stdout, r.stdout
 
 
+def test_a_claim_row_is_never_re_pointed(repo):
+    """A claim's recorded hash is of a statement, and a unit can reconstruct
+    it: here the claim quotes the heading line of `## A`, and `## A` was
+    renamed `## B` with nothing under it, so `## B` with its old name put
+    back hashes to exactly that line. That is not a destination, because the
+    claim's statement is not the unit; `--reverify` leaves the row in the
+    check's words, as it always did (#824 keeps `judge`'s destination for a
+    row with no claim). Red with a claim row re-pointed."""
+    (repo / "notes.md").write_text(
+        "# Notes\n\n## B\n\n## C\n\nbody\n", encoding="utf-8"
+    )
+    coord = 'notes.md#"## A">"## A"'
+    ledger = repo / "seal" / "ledger" / "f.md"
+    ledger.write_text(
+        f"# frag\n\n| C | `{coord}@{ec.content_hash(['## A'])}` |\n", encoding="utf-8"
+    )
+    before = ledger.read_text(encoding="utf-8")
+    rr = run(["--reverify", "."], str(repo))
+    assert ledger.read_text(encoding="utf-8") == before, rr.stdout
+    assert "->" not in rr.stdout, rr.stdout
+    (said,) = [s for s in rr.stdout.splitlines() if s.startswith(f"  {coord}  ")]
+    assert said.startswith(f"  {coord}  locator not found"), said
+
+
 def test_the_escaping_row_reverify_leaves_names_its_claim(repo):
     """Every other line `--reverify` prints carries the claim; this one did
     not, so two claim rows on one unit read as the same row (round 8, 🟡 F)."""

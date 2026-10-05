@@ -4016,6 +4016,72 @@ def test_a_row_naming_one_that_never_settles_is_restamped(repo):
     assert y_coord not in "\n".join(named), fix.stdout
 
 
+def test_of_two_rows_quoting_each_other_only_the_one_still_moved_is_named(repo):
+    """S6, a cycle of two. A quotes B's line and carries `handler`; B quotes
+    A's line. Every re-stamp of either moves the other, so both are left at
+    the bound. Left there, A's line moves once, by `handler` and its date,
+    and B's not at all: A's quotation of B still holds, and is named
+    nowhere, while B's of A does not, and is named. Red with every
+    coordinate left on a cycle named, whatever it reads at the end."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    a_names_b = f'{R_FILE}#"{SECTION}">"\\| B · quotes"'
+    b_names_a = f'{R_FILE}#"{SECTION}">"\\| A · quotes"'
+    b = f"| B · quotes A | `{b_names_a}@0000beef` | read | 2026-01-01 | |"
+    a = (
+        f"| A · quotes B | `src/service.py#handler@{h}`, "
+        f"`{a_names_b}@{line_hash(b)}` | read | 2026-01-01 | |"
+    )
+    released(repo, [a, b])
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    lines = (repo / R_FILE).read_text(encoding="utf-8").splitlines()
+    assert lines[5] == b, lines
+    named = [line for line in fix.stdout.splitlines() if "does not settle" in line]
+    assert len(named) == 1 and b_names_a in named[0], fix.stdout
+
+
+def test_a_re_point_is_judged_against_the_section_the_run_writes(repo):
+    """A row names a section of `seal/releases/0.2.0.md` that moved, intact,
+    to `seal/releases/0.3.0.md`, and the run re-stamps a row of that section.
+    Against the tree on disk the moved section reconstructs the row's hash,
+    a destination; against the text the run writes it does not, so the row
+    is left with the check's sentence and is not re-pointed onto content no
+    longer identical. Red with a BROKEN verdict kept from the first round
+    the way an unchanged file's is."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    moved = "### 2000000009-moved"
+    released(
+        repo,
+        [f"| P · other doubles | `src/service.py#other@{o}` | read | 2026-01-01 | |"],
+        version="0.2.0",
+        section="### 2000000008-stays",
+    )
+    released(
+        repo,
+        [
+            f"| M · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+        version="0.3.0",
+        section=moved,
+    )
+    text = (repo / "seal/releases/0.3.0.md").read_text(encoding="utf-8")
+    (place,) = ec.resolve_unit("seal/releases/0.3.0.md", f'"{moved}"', text)[0]
+    section = ec.content_hash(ec.gfm_lines(text)[place[0] - 1 : place[1]])
+    coord = f'seal/releases/0.2.0.md#"{moved}"'
+    f = fragment(
+        repo, [f"| F · names a section | `{coord}@{section}` | read | 2026-01-01 | |"]
+    )
+    before = f.read_text(encoding="utf-8")
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert f.read_text(encoding="utf-8") == before, fix.stdout
+    (said,) = [s for s in fix.stdout.splitlines() if s.startswith(f"  {coord}  ")]
+    assert said.endswith(" — left"), said
+    assert "same name at seal/releases/0.3.0.md (content differs)" in said, said
+
+
 def six_files(repo):
     """The tree of the walk-order case #824 removed: a release file citing a
     row of itself, two release files citing each other, a release file no
