@@ -3851,7 +3851,8 @@ def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tm
 # #747. The comparison re-ran the row's first `&&` part, and a lint-first row's
 # first part is the linter: no `FAILED` line could appear, and every failing
 # file read `new` whatever the base did. The row is now cut where its shell
-# cuts it, and each prefix is tried until one prints pytest's summary.
+# cuts it, and each prefix is tried until one writes the report the gate
+# asks pytest for (#789).
 
 
 @pytest.mark.parametrize(
