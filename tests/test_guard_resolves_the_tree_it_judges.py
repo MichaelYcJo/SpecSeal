@@ -2508,3 +2508,17 @@ def test_a_guess_through_any_fetch_refspec_is_read_as_a_switch(tmp_path, fetch):
     for carrier in ("checkout N", "checkout N --"):
         tokens = ["git", *CARRIERS[carrier]("onfork")]
         assert wg.classify(tokens, str(d)) == "switch", (fetch, carrier)
+
+
+def test_the_first_newly_read_checkout_is_the_one_judged(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 1 of 1791163981, 🟡 3's fix. Where the base read no switch, the
+    first `checkout` only #790's lookups read takes the slot, as `main` takes
+    the first switch of a command everywhere else (#630). Seen red with the
+    last one taking it."""
+    other = tmp_path / "other"
+    shutil.copytree(repo, other)
+    command = f"git checkout ':/base' && git -C {other} checkout ':/base'"
+    decision, reason, top = run(monkeypatch, capsys, command, repo)
+    assert top and os.path.samefile(top, repo), (top, decision, reason)
