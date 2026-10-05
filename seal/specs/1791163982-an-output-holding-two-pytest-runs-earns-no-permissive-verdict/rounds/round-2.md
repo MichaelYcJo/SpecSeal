@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #804 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `562ab360f45bb4ae7eb8e46d98417350e83b5872..bf8669c2f5c885a3bf88d231b75ee358538c668c`, 4 commits |
 | Contract changes | report_words → round-1-report.md, round-1.md, round-2-report.md, round-2.md, compare_at_base, pytest |
 | New units | joined (depth 1); directories_holding (depth 1); test_an_inherited_tests_file_is_kept_only_where_its_name_starts_with_it (depth 1); TREE_READINGS (depth 1); test_a_report_path_is_read_against_the_bases_tracked_files (depth 1); test_a_same_named_module_every_test_sits_beside_is_not_placed_on_the_file (depth 1); test_a_shorter_same_named_path_is_not_placed_on_the_file (depth 1); MIXIN (depth 1); test_a_test_another_module_inherits_is_not_placed_on_the_defining_file (depth 1); test_a_test_a_file_inherits_from_a_helper_is_placed_on_that_file (depth 1) |
