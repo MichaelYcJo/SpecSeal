@@ -2866,7 +2866,8 @@ def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
     `check_ledger` is now that call plus `old_format_rows`, and the consumer
     that has to act on the flag is the loop, wherever it lives. Since #715
     the loop's body is `classify`, one occurrence at a time, because the
-    reader of a released row's family grades each reading by it too."""
+    reader of a released row's family grades each reading by it too. Since
+    #824 `classify` is `judge`'s finding, and `judge` is the reader."""
     import ast as ast_mod
 
     tree = ast_mod.parse(open(SCRIPT, encoding="utf-8").read())
@@ -2878,7 +2879,7 @@ def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
             if isinstance(inner, ast_mod.Call) and isinstance(inner.func, ast_mod.Name):
                 if inner.func.id in ("resolve", "resolve_unit"):
                     calls.setdefault(node.name, set()).add(inner.func.id)
-    for consumer in ("classify", "reverify"):
+    for consumer in ("judge", "reverify"):
         assert calls.get(consumer) == {"resolve_unit"}, (
             f"{consumer} does not ask for the resurrection flag: {calls.get(consumer)}"
         )

@@ -2218,3 +2218,51 @@ def test_a_reading_its_family_holds_records_no_pact_change(repo):
     assert code == 0, out
     assert (repo / a_file).read_bytes() == before, out
     assert not [r for r in record_rows(repo) if a_file in r], out
+
+
+# --- #809: a claim on a place the declaration rule is unsure of (#824) ------
+
+UNSURE_CS = "public new void Render(int x) {\n    var a = x + 2;\n}\n"
+
+
+def _unsure_claim(repo):
+    """A `.cs` unit whose only place the declaration rule is unsure of --
+    `new` is a statement word elsewhere -- and a claim quoting a statement
+    inside it. Returns the coordinate, without its hash, and the hash the
+    statement holds now."""
+    (repo / "src" / "a.cs").write_text(UNSURE_CS, encoding="utf-8")
+    places, unsure = ec.resolve_unit("src/a.cs", "Render", UNSURE_CS)
+    assert unsure and len(places) == 1, places
+    (inside,) = ec.minor_region("src/a.cs", UNSURE_CS, places[0], '"var a"')
+    now = ec.content_hash(ec.gfm_lines(UNSURE_CS)[inside[0] - 1 : inside[1]])
+    return 'src/a.cs#Render>"var a"', now
+
+
+def test_under_the_freeze_a_claim_on_an_unsure_place_is_recorded_as_a_move(repo):
+    """#809, cell C8, under the freeze. `--strict` calls a claim on a place
+    the declaration rule is unsure of DRIFTED, and `--into` re-reads it at
+    its statement's hash: the `Re-read ·` row carries that hash, and the
+    record holds the move, never BROKEN. Red at e6d5a055, which said *no one
+    place to hash* and recorded BROKEN."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"), ("Pact", PACT_URL), ("Ledger frozen from", "0")
+        ),
+        encoding="utf-8",
+    )
+    coord, now = _unsure_claim(repo)
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("O1", f"`{CLAUSE}`, ", f"{coord}@0000beef"),
+        encoding="utf-8",
+    )
+    cite(repo, [])
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert f"`{coord}@{now}`" in (repo / FRAGMENT).read_text(encoding="utf-8"), out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | `{coord}@0000beef` "
+        f"→ `@{now}` | 2026-09-04 |"
+    ], out

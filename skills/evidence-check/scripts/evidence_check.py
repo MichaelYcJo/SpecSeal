@@ -105,6 +105,7 @@ citation whose row is gone are each named.
 import argparse
 import ast
 import bisect
+import collections
 import datetime
 import functools
 import glob
@@ -1661,20 +1662,65 @@ def coordinate_of(m):
 
 def classify(m, root, maps, default_repo, scan_cache):
     """`(status, coordinate, detail)` for one `ANCHOR_RE` match: the anchor
-    reading for a single occurrence.
+    reading for a single occurrence, which is `judge`'s finding.
 
     Split out of `check_text` so the reader of a released row's family
     (`ledger_families`, #715) grades each reading by this code path rather
     than by a second implementation of it. `scan_cache` is shared by a caller
     that classifies many matches, so a repo-wide scan is paid once.
     """
+    return tuple(judge(m, root, maps, default_repo, scan_cache)[:3])
+
+
+# What `judge` answers for one coordinate. STATUS, COORD and DETAIL are the
+# check's finding, the triple `classify` returns. NOW is the hash the
+# coordinate holds where exactly one region can be hashed -- its minor
+# region for a claim -- and None otherwise; REGION is that `(start, end)`,
+# or the unit a claim's statement is gone from, or None. DEST is the one
+# provable destination of a BROKEN row with no claim, `(path, name, hash)`
+# with PATH relative to the row's checkout, or None.
+Verdict = collections.namedtuple(
+    "Verdict", ("status", "coord", "detail", "now", "region", "dest")
+)
+
+
+def judge(m, root, maps, default_repo, scan_cache):
+    """The one reading of one `ANCHOR_RE` match, which every command acts on.
+
+    `--strict` reads its finding (`classify`); `--reverify` re-stamps a
+    DRIFTED coordinate at NOW, re-points a BROKEN one onto DEST, and leaves
+    every other with DETAIL as its reason; `--into` writes NOW into its
+    `Re-read ·` row. A second reading of a coordinate is how the commands came
+    to describe one row two ways (#809), so there is none: a caller that needs
+    to know what a place holds asks this.
+
+    The file is read through `read`, so while a `--reverify` plan is open a
+    coordinate naming a ledger the run writes is judged against the text the
+    run will write there.
+    """
     raw_path, want = m.group("path"), m.group("hash")
     locator, claim = m.group("locator"), m.group("claim")
     coord = coordinate_of(m)
 
+    def found(status, detail, now=None, region=None, dest=None):
+        return Verdict(status, coord, detail, now, region, dest)
+
+    def destination(repo, rel, hashes):
+        """The one unit reconstructing the recorded hash, where the row has
+        no claim: the evidence that licenses a re-point. A claim's hash is of
+        a statement, which no unit reconstructs, so a claim row is never
+        re-pointed."""
+        if claim or len(hashes) != 1:
+            return None
+        path, name, (a, b) = hashes[0]
+        body = read(os.path.join(repo, path))
+        if body is None:
+            return None
+        return path, name, content_hash(gfm_lines(body)[a - 1 : b])
+
     repo, rel = place(root, maps, default_repo, raw_path)
     if repo is None:
-        return ("BROKEN", coord, "path escapes the repository")
+        return found("BROKEN", "path escapes the repository")
     full = os.path.join(repo, rel)
 
     body = read(full)
@@ -1686,13 +1732,9 @@ def classify(m, root, maps, default_repo, scan_cache):
             # one manufactures evidence, and did — a cross-repo row was
             # re-anchored onto a local look-alike (round 4, 🔴 4).
             if "/" in rel and not os.path.exists(os.path.join(root, rel.split("/")[0])):
-                return (
-                    "EXTERNAL",
-                    coord,
-                    "not in this repo; pass --map/--default-repo",
-                )
+                return found("EXTERNAL", "not in this repo; pass --map/--default-repo")
             else:
-                return ("BROKEN", coord, "file not found")
+                return found("BROKEN", "file not found")
         # No cross-repo intent anywhere, or the row is mapped into a repo
         # we can honestly search: a missing file is a broken citation
         # whatever directory it sat in, and the same graded scan that
@@ -1710,7 +1752,7 @@ def classify(m, root, maps, default_repo, scan_cache):
             detail += f" — same name at {names[0][0]} (content differs)"
         if capped:
             detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
-        return ("BROKEN", coord, detail)
+        return found("BROKEN", detail, dest=destination(repo, rel, hashes))
 
     places, resurrected = resolve_unit(rel, locator, body)
     unsure, hit = [], []
@@ -1746,10 +1788,8 @@ def classify(m, root, maps, default_repo, scan_cache):
             if hit
             else "none holds the recorded content"
         )
-        return (
-            "BROKEN",
-            coord,
-            f"locator is ambiguous — {len(places)} places: {at} ({held})",
+        return found(
+            "BROKEN", f"locator is ambiguous — {len(places)} places: {at} ({held})"
         )
     if not places:
         detail = "locator not found"
@@ -1785,26 +1825,28 @@ def classify(m, root, maps, default_repo, scan_cache):
             detail += f" — same name at {names[0][0]} (content differs)"
         if capped:
             detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
-        return ("BROKEN", coord, detail)
+        return found("BROKEN", detail, dest=destination(repo, rel, hashes))
     unit = places[0]
     if claim:
         inside = minor_region(rel, body, unit, claim)
         if not inside:
             # WIDEN, never break. The minor anchor's place changed, which
             # is something to re-read rather than a ledger to edit.
-            return (
+            return found(
                 "DRIFTED",
-                coord,
                 f"the anchored statement is gone from {locator} "
                 f"({unit[0]}-{unit[1]}) — re-verify",
+                region=unit,
             )
         unit = inside[0]
 
     start, end = unit
     got = content_hash(gfm_lines(body)[start - 1 : end])
     if got != want:
-        return ("DRIFTED", coord, f"content changed at {start}-{end} — re-verify")
-    return ("OK", coord, f"{start}-{end}")
+        return found(
+            "DRIFTED", f"content changed at {start}-{end} — re-verify", got, unit
+        )
+    return found("OK", f"{start}-{end}", got, unit)
 
 
 def old_format_rows(text):
@@ -3372,7 +3414,7 @@ def reverify(
                 holds = spot[1] in held_at.get((ident, spot[0]), ()) and (
                     named is None or planned_key(os.path.join(named, at)) not in writes
                 )
-                if holds and current_hash(m, root, maps, default_repo) is None:
+                if holds and judge(m, root, maps, default_repo, scan_cache).now is None:
                     # A newest reading resolves it, so this reading of it is
                     # history, unless the run dates its row (below).
                     unplaced.append((m.start(), key, m))
@@ -3864,29 +3906,6 @@ def frozen_from(root):
     return int(value), None
 
 
-def current_hash(m, root, maps, default_repo):
-    """What the coordinate of match M holds now, or None where it has no one
-    place to hash: gone, ambiguous, a place the declaration rule is unsure
-    of, or a minor anchor that no longer matches."""
-    repo, rel = place(root, maps, default_repo, m.group("path"))
-    if repo is None:
-        return None
-    body = read(os.path.join(repo, rel))
-    if body is None:
-        return None
-    places, resurrected = resolve_unit(rel, m.group("locator"), body)
-    if resurrected or len(places) != 1:
-        return None
-    start, end = places[0]
-    claim = m.group("claim")
-    if claim:
-        inside = minor_region(rel, body, places[0], claim)
-        if not inside:
-            return None
-        start, end = inside[0]
-    return content_hash(gfm_lines(body)[start - 1 : end])
-
-
 def newest_hash(view, key, coord, m):
     """The hash the newest reading of COORD recorded in the family rooted at
     KEY -- the row `view.newest` names, and its first reading of COORD -- or
@@ -4210,6 +4229,10 @@ def reverify_into(
     view, drifted, broken = released_drift(
         ledgers, view_paths, root, maps, default_repo
     )
+    # Each drifted coordinate's hash is `judge`'s, the reading `--strict`
+    # graded it by, so a claim on a place the declaration rule is unsure of
+    # takes its statement's hash here as it does in place (#809).
+    scan = {}
     today = (today or datetime.date.today()).isoformat()
     # A fragment is named for its work item, so the row can say whose
     # reading it records, as the spec's own example does.
@@ -4251,7 +4274,7 @@ def reverify_into(
                             key[1],
                             coord,
                             newest_hash(view, key, coord, m),
-                            current_hash(m, root, maps, default_repo),
+                            judge(m, root, maps, default_repo, scan).now,
                         )
                     )
             date, coord, at = stale
@@ -4277,7 +4300,7 @@ def reverify_into(
             continue
         stamped = []
         for coord, m in drifted[key].items():
-            new = current_hash(m, root, maps, default_repo)
+            new = judge(m, root, maps, default_repo, scan).now
             if new is None:
                 left.append((where, f"{coord} — no one place to hash, so not re-read"))
                 # Recorded BROKEN through the same record step (round 2 of

@@ -3832,3 +3832,45 @@ def test_an_older_reading_outside_the_narrowing_names_no_ledger_remedy(repo):
     family = [line for line in fix.stdout.splitlines() if "still DRIFTED" in line]
     assert len(family) == 1 and family[0].startswith(f"  LEFT  {file}:5"), fix.stdout
     assert "this run left" in family[0] and "--ledger" not in family[0], family[0]
+
+
+# --- one judge for every command (#824, closing #809) ------------------------
+#
+# `judge` is the one reading of a coordinate: `--strict` prints its finding,
+# `--reverify` acts on it, and `--into` writes its hash. A claim on a place the
+# declaration rule is unsure of is what the readings disagreed about (#809).
+
+UNSURE_CS = "public new void Render(int x) {\n    var a = x + 2;\n}\n"
+UNSURE_CLAIM = 'src/a.cs#Render>"var a"'
+
+
+def unsure_claim(repo, body=UNSURE_CS):
+    """Write `src/a.cs` holding BODY, whose `Render` the declaration rule is
+    unsure of (`new` is a statement word elsewhere), and return the hash of
+    the statement `UNSURE_CLAIM` quotes, as the check hashes it."""
+    (repo / "src" / "a.cs").write_text(body, encoding="utf-8")
+    places, unsure = ec.resolve_unit("src/a.cs", "Render", body)
+    assert unsure and len(places) == 1, places
+    (inside,) = ec.minor_region("src/a.cs", body, places[0], '"var a"')
+    return ec.content_hash(ec.gfm_lines(body)[inside[0] - 1 : inside[1]])
+
+
+def test_into_re_reads_a_claim_on_an_unsure_place_at_its_statement(repo):
+    """S3a, the `--into` arm (#809, cell C8). `--strict` calls a stale claim
+    on a place the declaration rule is unsure of DRIFTED; `--into` writes a
+    `Re-read ·` row carrying the statement's hash, and the tree reads clean.
+    Red at e6d5a055, which left the row with *no one place to hash*."""
+    now = unsure_claim(repo)
+    released(
+        repo,
+        [f"| R1 · render adds two | `{UNSURE_CLAIM}@0000beef` | read | 2026-01-01 | |"],
+    )
+    frozen(repo, "0")
+    check = run(["--strict", "."], repo)
+    assert f"DRIFTED  {UNSURE_CLAIM}  content changed" in check.stdout, check.stdout
+    assert "BROKEN" not in check.stdout, check.stdout
+    fix = run(["--reverify", "--into", INTO, "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    assert f"`{UNSURE_CLAIM}@{now}`" in (repo / INTO).read_text(encoding="utf-8")
+    assert "no one place to hash" not in fix.stdout, fix.stdout
+    assert run(["--strict", "."], repo).returncode == 0
