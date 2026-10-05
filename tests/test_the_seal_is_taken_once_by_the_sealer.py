@@ -3999,176 +3999,305 @@ def base_then_feature(d, row, at_base, on_feature):
     return repo
 
 
-# What pytest 9.1.1 printed at the end of a run, measured for `questions.md`
-# Q3 in a scratch directory: a collection error with and without xdist, a
-# fixture error in setup, and `-x` with and without xdist. Each is
-# `(output, files asked about, the words expected)`. pytest writes its
-# `FAILED` and `ERROR` lines only under its `short test summary info` rule,
-# after every test's captured output, and its `!` rules after them (#761
-# round 2), so each ending carries the rule.
-MEASURED_ENDINGS = [
-    (
-        "=========================== short test summary info ============================\n"
-        "ERROR tests/b.py\n"
-        "!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n"
-        "1 error in 0.06s\n",
-        ["tests/b.py", "tests/f.py"],
-        ["failing on base too", "STOPPED_EARLY"],
-    ),
-    (
-        "=========================== short test summary info ============================\n"
-        "FAILED tests/f.py::test_b - assert False\n"
-        "ERROR tests/b.py - ImportError while importing test module '/pr...\n"
-        "ERROR tests/s.py::test_d - RuntimeError: x\n"
-        "2 failed, 1 passed, 2 errors in 0.22s\n",
-        ["tests/b.py", "tests/s.py", "tests/f.py", "tests/ok.py"],
-        ["failing on base too", "failing on base too", "failing on base too", "new"],
-    ),
-    (
-        "=========================== short test summary info ============================\n"
-        "FAILED tests/f.py::test_b - assert False\n"
-        "!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-        "1 failed in 0.01s\n",
-        ["tests/f.py", "tests/ok.py"],
-        ["failing on base too", "STOPPED_EARLY"],
-    ),
-    (
-        "=========================== short test summary info ============================\n"
-        "FAILED tests/f.py::test_b - assert False\n"
-        "!!!!!!!!!!!! xdist.dsession.Interrupted: stopping after 1 failures !!!!!!!!!!!!!\n"
-        "1 failed, 1 passed, 1 error in 0.30s\n",
-        ["tests/ok.py"],
-        ["STOPPED_EARLY"],
-    ),
-    # Round 1's 🟡 4: at `COLUMNS=40`, the narrowest width pytest honours, the
-    # rule is one `!` each side.
-    (
-        "=========================== short test summary info ============================\n"
-        "ERROR tests/b.py\n"
-        "! Interrupted: 1 error during collection !\n"
-        "1 error in 0.06s\n",
-        ["tests/b.py", "tests/f.py"],
-        ["failing on base too", "STOPPED_EARLY"],
-    ),
-    # #761 round 2: a failing test's captured output, printed above pytest's
-    # own rule, carries lines an inner pytest run printed. Only what follows
-    # the last `short test summary info` rule is this run's own.
-    (
-        "___________________________________ test_f ___________________________________\n"
-        "----------------------------- Captured stdout call -----------------------------\n"
-        "FAILED tests/g.py::test_g - inner\n"
-        "ERROR tests/h.py - inner\n"
-        "!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-        "=========================== short test summary info ============================\n"
-        "FAILED tests/f.py::test_f - assert False\n"
-        "1 failed, 2 passed in 0.03s\n",
-        ["tests/f.py", "tests/g.py", "tests/h.py"],
-        ["failing on base too", "new", "new"],
-    ),
-    # No rule at all: pytest printed no `FAILED` line of its own (`-rN`), so
-    # one in a test's captured output names nothing.
-    (
-        "----------------------------- Captured stdout call -----------------------------\n"
-        "FAILED tests/g.py::test_g - inner\n"
-        "1 failed, 1 passed in 0.02s\n",
-        ["tests/g.py"],
-        ["new"],
-    ),
-    # The inner run printed a rule of its own: the LAST rule is this run's.
-    (
-        "----------------------------- Captured stdout call -----------------------------\n"
-        "=========================== short test summary info ============================\n"
-        "FAILED tests/g.py::test_g - inner\n"
-        "=========================== short test summary info ============================\n"
-        "FAILED tests/f.py::test_f - assert False\n"
-        "1 failed, 1 passed in 0.02s\n",
-        ["tests/f.py", "tests/g.py"],
-        ["failing on base too", "new"],
-    ),
-    # No rule, and a `!` rule: with nothing to bound pytest's own lines the
-    # stop is believed wherever it stands, which can only cost a word.
-    (
-        "!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-        "1 failed in 0.01s\n",
-        ["tests/ok.py"],
-        ["STOPPED_EARLY"],
-    ),
-    (None, ["tests/f.py"], ["NO_RUNNER"]),
-]
+def junit(cases, root="testsuites"):
+    """A JUnit report in the shape pytest writes for `--junitxml`: a
+    `testsuites` root holding one `testsuite`, or a bare `testsuite` where
+    `root` says so, with one `testcase` per `(classname, name, outcome)` and
+    a `failure` or `error` element where the outcome names one."""
+    body = "".join(
+        f'<testcase classname="{c}" name="{n}" time="0.001">'
+        + (f'<{outcome} message="planted" />' if outcome else "")
+        + "</testcase>"
+        for c, n, outcome in cases
+    )
+    suite = (
+        f'<testsuite name="pytest" errors="0" failures="0" skipped="0" '
+        f'tests="{len(cases)}" time="0.010">{body}</testsuite>'
+    )
+    if root == "testsuites":
+        suite = f'<testsuites name="pytest tests">{suite}</testsuites>'
+    return f'<?xml version="1.0" encoding="utf-8"?>{suite}'
 
 
-# What decides that a run at the base was pytest's: its counts and its clock
-# alone on a line. Each is `(line, whether it is pytest's)`. The pytest lines
-# are pytest 9.1.1's, bare under `-q` and between `=` rules; the others print
-# a count and a clock too, measured in round 1 (cargo) and here.
-SUMMARY_LINES = [
-    ("1 failed, 1 passed in 0.02s", True),
-    ("1 error in 0.06s", True),
-    ("2 failed, 1 passed, 2 errors in 0.22s", True),
-    ("==== 768 passed, 1 skipped, 3 warnings in 612.34s (0:10:12) ====", True),
-    # pytest 9.1.1 with the built-in `subtests` fixture (round 2's 🟡 1).
-    ("2 failed, 1 subtests passed in 0.01s", True),
-    ("1 passed, 2 subtests passed in 0.00s", True),
-    (
-        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; "
-        "1 filtered out; finished in 0.00s",
+# What pytest's report names, and the words it gives (#789). Each is
+# `(report, files appended, exit code, stopped, run alone, words)`. The names
+# are the ones pytest 9.1.1 wrote in `phases/phase-1.md`'s probe, the same
+# under 8.3.5 and 7.4.4: a function, a class's method, a parametrised test
+# whose id holds `/`, `.` and `::`, a setup error, a collection error (an empty
+# `classname` and the dotted path in `name`), a doctest in a module and in a
+# text file, `--import-mode=importlib`, and a rootdir above and below the
+# directory pytest runs in. A word in capitals is the module's constant.
+REPORTS = [
+    pytest.param(
+        junit(
+            [
+                ("tests.test_f", "test_a", "failure"),
+                ("tests.test_f", "test_p[a/b]", "failure"),
+                ("tests.test_f", "test_p[p::q]", "failure"),
+                ("tests.test_s", "test_d", "error"),
+                ("tests.test_ok", "test_ok", ""),
+            ]
+        ),
+        ["tests/test_f.py", "tests/test_s.py", "tests/test_ok.py"],
+        1,
         False,
+        False,
+        ["ON_BASE", "ON_BASE", "NEW"],
+        id="function-param-setup-error",
     ),
-    ("no tests ran in 0.00s", False),
-    ("Found 2 errors.", False),
-    ("Ran 3 tests in 0.001s", False),
-    ("Resolved 12 packages in 3ms", False),
-    ("3 files would be reformatted in 0.5s", False),
-    ("4 checks in 12", False),
-    # Constructed, not measured: each holds one edge of the label's shape --
-    # a later label of three words, a first label of two, and counts that
-    # no comma separates (round 2).
-    ("1 passed, 3 files would reformat in 0.5s", False),
-    ("2 subtests passed in 0.01s", False),
-    ("3 tests 2 suites in 1.2s", False),
-    ("1 passed in 0.01s, and a linter went on talking", False),
-    ("\x1b[31m1 failed\x1b[0m, \x1b[32m1 passed\x1b[0m\x1b[31m in 0.02s\x1b[0m", False),
+    pytest.param(
+        junit(
+            [
+                ("tests.test_f.TestK", "test_m", "failure"),
+                ("tests.test_f", "test_a", ""),
+            ]
+        ),
+        ["tests/test_f.py"],
+        1,
+        False,
+        False,
+        ["ON_BASE"],
+        id="class-method",
+    ),
+    pytest.param(
+        junit([("", "tests.test_b", "error")]),
+        ["tests/test_b.py", "tests/test_f.py"],
+        2,
+        True,
+        False,
+        ["ON_BASE", "STOPPED_EARLY"],
+        id="collection-error",
+    ),
+    pytest.param(
+        junit([("tests.test_f", "test_a", "failure")]),
+        ["tests/test_f.py", "tests/test_ok.py"],
+        1,
+        True,
+        False,
+        ["ON_BASE", "STOPPED_EARLY"],
+        id="stopped",
+    ),
+    pytest.param(
+        junit([("tests.test_doc", "test_doc.f", "failure")]),
+        ["tests/test_doc.py"],
+        1,
+        False,
+        False,
+        ["ON_BASE"],
+        id="doctest-module",
+    ),
+    pytest.param(
+        junit([("tests.test_doc.txt", "test_doc.txt", "failure")]),
+        ["tests/test_doc.txt"],
+        1,
+        False,
+        False,
+        ["ON_BASE"],
+        id="doctest-text",
+    ),
+    # Constructed: the text file's name reads as a class `txt` in the module
+    # beside it, so its failure could be either file; the module's own
+    # failure is placed on the module alone.
+    pytest.param(
+        junit(
+            [
+                ("tests.test_doc", "test_doc.f", "failure"),
+                ("tests.test_doc.txt", "test_doc.txt", "failure"),
+            ]
+        ),
+        ["tests/test_doc.py", "tests/test_doc.txt"],
+        1,
+        False,
+        False,
+        ["ON_BASE", "UNPLACED"],
+        id="doctest-text-beside-its-module",
+    ),
+    # `cd inner` with the ini file one directory up.
+    pytest.param(
+        junit([("inner.tests.test_two", "test_two", "failure")]),
+        ["tests/test_two.py"],
+        1,
+        False,
+        False,
+        ["ON_BASE"],
+        id="rootdir-above",
+    ),
+    # From the root, with the ini file in `sub`.
+    pytest.param(
+        junit([("pkg.tests.test_x", "test_x", "failure")]),
+        ["sub/pkg/tests/test_x.py"],
+        1,
+        False,
+        False,
+        ["ON_BASE"],
+        id="rootdir-below",
+    ),
+    # No ini file: the rootdir is the arguments' common directory, `tests`,
+    # which is this module's own fixture rows.
+    pytest.param(
+        junit([("test_two", "test_two", "failure"), ("test_one", "test_one", "")]),
+        ["tests/test_two.py", "tests/test_one.py"],
+        1,
+        False,
+        False,
+        ["ON_BASE", "NEW"],
+        id="rootdir-is-tests",
+    ),
+    # Constructed: a failure two of the appended files could each be.
+    pytest.param(
+        junit(
+            [
+                ("sub.tests.test_two", "test_two", "failure"),
+                ("tests.test_one", "test_one", ""),
+            ]
+        ),
+        ["tests/test_two.py", "sub/tests/test_two.py", "tests/test_one.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED", "UNPLACED", "NEW"],
+        id="two-files",
+    ),
+    # Constructed: one appended file named at two offsets is two files of
+    # the run, and the failing one may not be it.
+    pytest.param(
+        junit(
+            [
+                ("tests.test_two", "test_two", ""),
+                ("other.tests.test_two", "test_two", "failure"),
+            ]
+        ),
+        ["tests/test_two.py"],
+        1,
+        False,
+        False,
+        ["UNPLACED"],
+        id="two-offsets",
+    ),
+    # A failure of a file the row collected besides the appended ones.
+    pytest.param(
+        junit(
+            [
+                ("tests.test_one", "test_one", "failure"),
+                ("tests.test_two", "test_two", ""),
+            ]
+        ),
+        ["tests/test_two.py"],
+        1,
+        False,
+        False,
+        ["NEW"],
+        id="failure-elsewhere",
+    ),
+    # Nothing shows the run ran the appended file.
+    pytest.param(
+        junit([("tests.test_one", "test_one", "")]),
+        ["tests/test_two.py"],
+        0,
+        False,
+        False,
+        ["UNPLACED"],
+        id="not-named",
+    ),
+    pytest.param(
+        junit([]), ["tests/test_two.py"], 4, False, True, ["NEW"], id="alone-4"
+    ),
+    pytest.param(
+        junit([]), ["tests/test_two.py"], 5, False, True, ["NEW"], id="alone-5"
+    ),
+    pytest.param(
+        junit([]),
+        ["tests/test_two.py"],
+        1,
+        False,
+        True,
+        ["NOTHING_TOGETHER"],
+        id="alone-1",
+    ),
+    pytest.param(
+        junit([]),
+        ["tests/a.py", "tests/b.py"],
+        4,
+        False,
+        False,
+        ["NOTHING_TOGETHER", "NOTHING_TOGETHER"],
+        id="several-4",
+    ),
+    # A run of the others that held one file is not a candidate's run.
+    pytest.param(
+        junit([]),
+        ["tests/a.py"],
+        5,
+        False,
+        False,
+        ["NOTHING_TOGETHER"],
+        id="others-of-one",
+    ),
+    pytest.param(
+        junit([("tests.test_two", "test_two", "failure")], root="testsuite"),
+        ["tests/test_two.py"],
+        1,
+        False,
+        False,
+        ["ON_BASE"],
+        id="bare-testsuite",
+    ),
 ]
 
 
-@pytest.mark.parametrize("line, pytests", SUMMARY_LINES)
-def test_only_pytests_own_summary_line_says_pytest_ran(line, pytests):
-    """Round 1's 🟡 1. `suite_counts` takes any count followed by a clock,
-    which is right for the panel and wrong for choosing the run at the base:
-    `cargo test` prints one, and read as pytest's it gave `new` for a file
-    the base fails. A coloured line is not read either, and a run that
-    prints only that reads `new?`, which costs a measurement and fakes none."""
-    found = gate_module().PYTEST_SUMMARY_RE.search(f"F.\n{line}\n")
-    assert bool(found) is pytests, line
-
-
-@pytest.mark.parametrize("text, files, words", MEASURED_ENDINGS)
-def test_the_base_run_is_read_off_what_pytest_printed(text, files, words):
-    """`verdicts_at_base` over pytest's own endings (#747, `questions.md` Q1
-    and Q3): a `FAILED` or `ERROR` line in any of its three measured shapes
-    names a file, a `!` rule means the run stopped early, and no run means
-    nothing was measured. A word in capitals is the module's constant."""
+@pytest.mark.parametrize("report, files, code, stopped, alone, words", REPORTS)
+def test_the_base_run_is_read_off_pytests_report(
+    report, files, code, stopped, alone, words
+):
+    """S9 (#789). `report_words` places each test pytest's report names on
+    the appended files by its dotted name, in either direction between the
+    rootdir and the directory pytest runs in; a failing test placed on one
+    file alone gives `failing on base too`, anything it cannot place gives
+    `new?`, and a report with no test is `new` only for a file run alone
+    with exit 4 or 5."""
     gate = gate_module()
     expected = [getattr(gate, w) if w.isupper() else w for w in words]
-    assert list(gate.verdicts_at_base(text, files).values()) == expected
+    got = gate.report_words(report, files, code, stopped, alone=alone)
+    assert list(got.values()) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [None, "", "no report here", "<html></html>", '<?xml version="1.0"?><testsuites'],
+)
+def test_what_is_not_a_report_settles_nothing(text):
+    """S9 (#789). A prefix settles only where its report was written and
+    parses as one; anything else lets the walk go on, and ends in
+    `NO_RUNNER` where no prefix wrote one."""
+    assert gate_module().report_words(text, ["tests/test_two.py"], 1, False) is None
 
 
 def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
-    """A9 (#747, contract §14). The two reasons are text a person reads and
-    acts on, so they are pinned whole, and each starts with the word that
-    marks it unmeasured. Every document that tells a reader what the gate's
-    words mean names `new?` beside the other two, so a sealer handing it on
-    and a smith reading it are both told it is not `new`."""
+    """A9 (#747, contract §14), and S10 (#789). The reasons are text a person
+    reads and acts on, so they are pinned whole, and each starts with the
+    word that marks it unmeasured. Every document that tells a reader what
+    the gate's words mean names `new?` beside the other two, so a sealer
+    handing it on and a smith reading it are both told it is not `new`."""
     gate = gate_module()
     assert gate.NO_RUNNER == (
-        "new? not measured: no part of the row printed a line the gate reads as "
-        "pytest's summary at the base (each part tried is kept as "
-        "suite-at-base-<k>.txt, or as suite-at-base-<k>-<n>.txt for the n-th "
-        "file run alone)"
+        "new? not measured: no part of the row wrote the report the gate asked "
+        "pytest for at the base (each part tried is kept as suite-at-base-<k>.txt, "
+        "or as suite-at-base-<k>-<n>.txt for the n-th file run alone, with the "
+        "--junitxml path it was handed beside it as .xml)"
     )
     assert gate.STOPPED_EARLY == (
         "new? not measured: the run at the base stopped before every test ran, "
         "and it does not name this file"
+    )
+    assert gate.UNPLACED == (
+        "new? not measured: pytest's report at the base does not place a test on "
+        "this file alone (it names none of this file's tests, or a failing test "
+        "it names could be this file or another one)"
+    )
+    assert gate.NOTHING_TOGETHER == (
+        "new? not measured: pytest's report at the base counts no test, so a file "
+        "the run was handed is missing where the row runs pytest, and a run that "
+        "is not of one file alone does not say which"
     )
     readers = {
         ("agents", "sealer.md"): "`new?`",
@@ -4181,34 +4310,27 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     for parts, phrase in readers.items():
         with open(os.path.join(ROOT, *parts), encoding="utf-8") as handle:
             assert phrase in handle.read(), f"{'/'.join(parts)} does not name `new?`"
-    # Round 2's ⬜ 2: the reason a reader acts on says the summary was not
-    # READ, since with colour forced on pytest prints one the gate does not.
+    # #789: the reason a reader acts on names the report the gate asked
+    # pytest for, which replaced the summary line it used to read.
     with open(
         os.path.join(ROOT, "skills", "verify", "SKILL.md"), encoding="utf-8"
     ) as handle:
-        assert "printed a line the gate reads as pytest's summary" in handle.read()
+        assert "wrote the report the gate asked pytest for" in handle.read()
     with open(GATE, encoding="utf-8") as handle:
         docstring = ast.get_docstring(ast.parse(handle.read()))
     assert "`new?` with the reason no run measured it" in docstring
 
 
-def test_the_one_counterfeit_the_gate_cannot_see_is_named():
-    """Round 1's 🟡 5. A part that prints pytest's summary without running the
-    files appended to it gives `new` for a file it never ran, and pytest
-    under `-q` names no file that passed, so nothing mechanical tells. The
-    row's author is told in rule 3, and `compare_at_base` says it rather than
-    claiming every `new` measured."""
-    with open(os.path.join(ROOT, "templates", "config.md"), encoding="utf-8") as handle:
-        assert "a wrapper that drops its arguments" in handle.read()
-    gate = gate_module()
-    assert "part that drops its arguments" in gate.compare_at_base.__doc__
-
-
 def test_a_part_that_is_not_pytest_is_passed_over_though_it_prints_counts(tmp_path):
     """Round 1's 🟡 1, end to end. The first part prints what `cargo test`
-    prints for a filter that matched nothing; it is not pytest, so the
-    comparison goes on to the part that is, and the base's failure is found."""
-    cargo = next(line for line, _ in SUMMARY_LINES if line.startswith("test result:"))
+    prints for a filter that matched nothing, a count and a clock that the
+    text reader once took for pytest's summary. It writes no report, so the
+    comparison goes on to the part that does, and the base's failure is
+    found."""
+    cargo = (
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; "
+        "1 filtered out; finished in 0.00s"
+    )
     repo = base_then_feature(
         tmp_path / "repo",
         f"{sys.executable} -c \"print('{cargo}')\" && {SUITE_ROW}",
@@ -4508,9 +4630,12 @@ def test_a_file_the_base_carries_only_at_the_root_is_not_measured_under_a_cd(
     base carries `tests/test_two.py` at the root and nothing at
     `sub/tests/test_two.py`, and the branch adds a failing one there. The
     root's tree finds the path, so the file is not run alone; it runs with
-    the others, that run collects nothing, and it reads `new?`. A run of
-    several files that collects nothing never gives `new`: it does not say
-    which of them the base lacks."""
+    the others, that run collects nothing, and it reads `new?`. A run that
+    is not of one candidate alone and collects nothing never gives `new`: it
+    does not say which of its files the base lacks. Since #789 its report,
+    which counts no test, settles the walk at the runner and the word is
+    `NOTHING_TOGETHER`, where the walk used to go on and end in
+    `NO_RUNNER`."""
     repo = base_then_feature(
         tmp_path / "repo",
         f"cd sub && {SUITE_ROW}",
@@ -4520,7 +4645,9 @@ def test_a_file_the_base_carries_only_at_the_root_is_not_measured_under_a_cd(
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RUNNER, out.stdout
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NOTHING_TOGETHER, (
+        out.stdout
+    )
 
 
 def test_a_candidate_whose_run_at_the_base_crashes_is_not_measured(tmp_path):
@@ -4546,7 +4673,9 @@ def test_a_run_of_several_that_counted_only_warnings_is_not_measured(tmp_path, x
     every run a warning. The run of the two files collects nothing, and its
     last line is `1 warning in <t>s` (`3 warnings` under xdist) rather than
     `no tests ran`. That line is not a measurement: `tests/test_one.py`,
-    which the base fails, reads `new?`, never `new`."""
+    which the base fails, reads `new?`, never `new`. Since #789 the report
+    is read instead of the line, and it counts no test whatever the
+    warnings, so both read `NOTHING_TOGETHER`."""
     repo = base_then_feature(
         tmp_path / "repo",
         f"cd sub && {suite_row(xdist)}",
@@ -4563,8 +4692,8 @@ def test_a_run_of_several_that_counted_only_warnings_is_not_measured(tmp_path, x
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert verdict_of(out.stdout, "tests/test_one.py") == gate.NO_RUNNER, out.stdout
-    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RUNNER, out.stdout
+    for path in ("tests/test_one.py", "tests/test_two.py"):
+        assert verdict_of(out.stdout, path) == gate.NOTHING_TOGETHER, out.stdout
 
 
 # A base test that fails after printing what an inner pytest run printed: a
@@ -4623,114 +4752,220 @@ def test_what_a_test_printed_is_not_read_as_pytests_own_lines(
     assert verdict_of(out.stdout, "tests/test_two.py") == expected, out.stdout
 
 
-# The last line of a pytest 9.1.1 run, and whether it is the summary of a run
-# that collected something. `_pytest/terminal.py`'s
-# `_build_normal_summary_stats_line` joins one `<count> <type>` per type
-# counted, in `KNOWN_TYPES` order — failed, passed, skipped, deselected,
-# xfailed, xpassed, warnings, error, then the three subtests types — and a
-# plugin's own after them, and writes `no tests ran` where nothing was
-# counted. A run that collected nothing counts no test outcome, so its line
-# is `no tests ran` or a count of warnings alone (#761 round 1).
-# `summary_stats` writes it between `=` rules, bare under `-q`, and not at
-# all under `-qq`. A run whose tests were all deselected collected them, and
-# plain its line is a summary; under pytest-xdist 3.8.0 the controller
-# prints no deselected count, so the same run ends `no tests ran` or a
-# warning count and reads as one that collected nothing (#761 round 2).
-SUMMARIES = [
-    ("1 failed, 1 passed in 0.02s", True),
-    ("1 passed, 1 warning in 0.01s", True),
-    ("1 warning, 1 error in 0.01s", True),
-    ("3 deselected in 0.01s", True),
-    ("2 deselected, 1 warning in 0.01s", True),
-    ("==== 768 passed, 1 skipped, 3 warnings in 612.34s (0:10:12) ====", True),
-    ("no tests ran in 0.00s", False),
-    ("1 warning in 0.00s", False),
-    ("3 warnings in 0.49s", False),
-    (
-        "============================ 3 warnings in 0.49s ============================",
-        False,
+# --- 1791163982: an output holding two pytest runs earns no permissive word ---
+#
+# #789. The words used to be read off the text pytest printed, and that text
+# can hold a second run's lines: an inner run a test writes to a stream pytest
+# does not capture (`-s`, `--capture=sys`), or one pytest prints in captured
+# output where it writes no rule of its own (`-rN`, `-rP`) or no summary
+# (`-qq`). Each run at the base now appends `--junitxml=<path>`, and the words
+# come from the report only the run the gate asked about writes.
+
+PASSING_G = "def test_g():\n    assert True\n"
+FAILING_G = "def test_g():\n    assert False, 'planted on the feature'\n"
+FAILING_ERR = "def test_err():\n    assert False, 'planted on the feature'\n"
+
+
+def inner_run(fd, fails):
+    """A base `tests/test_err.py` whose test runs pytest in a subprocess over
+    a scratch `tests/test_g.py` that fails there, and writes that run's
+    output straight to file descriptor `fd`, past `sys`-level capture. The
+    inner run's `FAILED tests/test_g.py::test_g` line names a path the outer
+    run passes. The test fails where `fails` is true."""
+    return (
+        "import os\nimport subprocess\nimport sys\n\n\n"
+        "def test_err(tmp_path):\n"
+        "    (tmp_path / 'tests').mkdir()\n"
+        "    (tmp_path / 'tests' / 'test_g.py').write_text(\n"
+        "        'def test_g():\\n    assert False\\n'\n"
+        "    )\n"
+        "    inner = subprocess.run(\n"
+        "        [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests'],\n"
+        "        cwd=tmp_path, capture_output=True, text=True,\n"
+        "    )\n"
+        f"    os.write({fd}, inner.stdout.encode())\n"
+        f"    assert {not fails}, 'planted'\n"
+    )
+
+
+# The base fails `tests/test_err.py`, whose inner run fails `tests/test_g.py`,
+# and passes `tests/test_g.py`; the branch fails both.
+FAILING_BASE_INNER_ON_STDERR = {
+    "tests/test_err.py": inner_run(2, fails=True),
+    "tests/test_g.py": PASSING_G,
+}
+# The base passes everything, and its `tests/test_err.py` writes an inner run
+# that fails `tests/test_g.py` to stdout.
+PASSING_BASE_INNER_ON_STDOUT = {
+    "tests/test_err.py": inner_run(1, fails=False),
+    "tests/test_g.py": PASSING_G,
+}
+BOTH_FAIL = {"tests/test_err.py": FAILING_ERR, "tests/test_g.py": FAILING_G}
+# The same, where the branch's own run writes no `FAILED` line (`-rN`, `-rP`):
+# its failing test prints the two lines the branch's list of files is read
+# from, in its captured output (`spec.md` Axis C).
+BOTH_FAIL_NAMED = {
+    "tests/test_err.py": (
+        "def test_err():\n"
+        "    print('FAILED tests/test_err.py::test_err - planted')\n"
+        "    print('FAILED tests/test_g.py::test_g - planted')\n"
+        "    assert False, 'planted on the feature'\n"
     ),
-    ("2 warnings in 65.00s (0:01:05)", False),
-    # #761 round 2: pytest writes its own line after everything a test
-    # printed, so an inner run's line in a failing test's captured output,
-    # above the real one, does not decide; a later one does.
-    ("=== no tests ran in 0.01s ===\n1 failed in 0.18s", True),
-    ("1 warning in 0.00s\n1 failed in 0.01s", True),
-    ("1 passed in 0.10s\nno tests ran in 0.00s", False),
-    ("1 passed in 0.10s\n1 warning in 0.00s", False),
-]
+    "tests/test_g.py": FAILING_G,
+}
 
 
-@pytest.mark.parametrize("line, summary", SUMMARIES)
-def test_a_run_that_collected_nothing_is_never_read_as_a_summary(line, summary):
-    """#761 round 1's 🟡 1. `PYTEST_SUMMARY_RE` reads `1 warning in 0.00s`,
-    because it is a count and a clock; it is still the line of a run that
-    collected nothing, so it measures no file."""
-    found = gate_module().measured_summary(f"F.\n{line}\n")
-    assert bool(found) is summary, line
+def words_of(out):
+    return {
+        f: verdict_of(out.stdout, f) for f in ("tests/test_err.py", "tests/test_g.py")
+    }
 
 
-# What pytest 9.1.1 printed for a run that collected nothing, measured in
-# `phases/phase-1.md` (runs 1, 2 and 7), joined the way `run` joins stdout and
-# stderr, with the exit code. Each is `(output, exit code, nothing collected)`.
-NOTHING_COLLECTED = [
-    # Plain pytest, one appended path missing: run 1.
-    (
-        "\nno tests ran in 0.00s\n\n"
-        "ERROR: file or directory not found: tests/test_two.py\n\n",
-        4,
-        True,
-    ),
-    # `-n 2`: run 2, where no not-found reply is printed at all.
-    (
-        "bringing up nodes...\nbringing up nodes...\n\n\nno tests ran in 0.21s\n",
-        5,
-        True,
-    ),
-    # `-n 2` without `-q`: run 7, the line ruled with `=`.
-    (
-        "============================= test session starts "
-        "==============================\n"
-        "platform darwin -- Python 3.14.3, pytest-9.1.1, pluggy-1.6.0\n"
-        "rootdir: <scratch>/sub\n"
-        "plugins: xdist-3.8.0\n"
-        "created: 2/2 workers\n"
-        "2 workers [0 items]\n\n\n"
-        "============================ no tests ran in 0.23s "
-        "=============================\n",
-        5,
-        True,
-    ),
-    # A run that collected nothing but counted warnings: pytest gives their
-    # count in place of `no tests ran` (#761 round 1, an ini key it does not
-    # know), plain beside the not-found reply and ruled under xdist.
-    ("1 warning in 0.00s\nERROR: file or directory not found: tests/x.py\n", 4, True),
-    ("=== 3 warnings in 0.49s ===\n", 5, True),
-    ("1 warning in 0.00s\n", 1, False),
-    ("1 passed, 1 warning in 0.01s\n", 0, False),
-    ("1 warning, 1 error in 0.01s\n", 2, False),
-    # The line with an exit code pytest does not give for collecting nothing.
-    ("no tests ran in 0.21s\n", 0, False),
-    ("no tests ran in 0.21s\n", 1, False),
-    # A run that collected something.
-    ("1 failed in 0.22s\n", 1, False),
-    ("1 failed in 0.22s\n", 5, False),
-    # The words inside a longer line, at either end.
-    ("echo: no tests ran in 0.21s\n", 5, False),
-    ("no tests ran in 0.21s, and a linter went on talking\n", 5, False),
-]
+@pytest.mark.parametrize("xdist", UNDER)
+def test_an_inner_run_on_stderr_under_s_is_not_read_as_the_runs_own(tmp_path, xdist):
+    """S1 (#789 member 2; #761 round 3's regression test). Under `-s` a test
+    writes to the real stderr, and `run` joins stdout and then stderr, so the
+    inner run's `short test summary info` rule stood after pytest's own and
+    its `FAILED` line was read as the run's: `tests/test_g.py`, which the
+    base passes, read `failing on base too`, and `tests/test_err.py`, which
+    it fails, read `new`. pytest's report names only the outer run's tests."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{suite_row(xdist)} -s",
+        FAILING_BASE_INNER_ON_STDERR,
+        BOTH_FAIL,
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert words_of(out) == {
+        "tests/test_err.py": gate.ON_BASE,
+        "tests/test_g.py": gate.NEW,
+    }, out.stdout
 
 
-@pytest.mark.parametrize("text, code, nothing", NOTHING_COLLECTED)
-def test_a_run_that_collected_nothing_is_read_off_its_line_and_its_exit(
-    text, code, nothing
+@pytest.mark.parametrize("capture", ["-s", "--capture=sys"])
+def test_an_inner_run_on_stdout_beside_a_passing_base_gives_no_word(tmp_path, capture):
+    """S2 (#789, the shape the issue did not name). The base passes
+    everything, so pytest writes no rule of its own, and an inner run a
+    passing test writes to stdout carries the only rule in the output: its
+    `FAILED` line gave `failing on base too` to a file the base passes.
+    Keeping stdout and stderr apart would not have closed it."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{SUITE_ROW} {capture}",
+        PASSING_BASE_INNER_ON_STDOUT,
+        BOTH_FAIL,
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert words_of(out) == {
+        "tests/test_err.py": gate.NEW,
+        "tests/test_g.py": gate.NEW,
+    }, out.stdout
+
+
+@pytest.mark.parametrize(
+    "flag, at_base, words",
+    [
+        pytest.param("-rN", FAILING_BASE_INNER_ON_STDERR, ("ON_BASE", "NEW"), id="rN"),
+        pytest.param("-rP", FAILING_BASE_INNER_ON_STDERR, ("ON_BASE", "NEW"), id="rP"),
+        pytest.param(
+            "-rP", PASSING_BASE_INNER_ON_STDOUT, ("NEW", "NEW"), id="rP-passing-base"
+        ),
+    ],
+)
+def test_a_run_with_no_rule_of_its_own_is_read_off_its_report(
+    tmp_path, flag, at_base, words
 ):
-    """S5 (#761). A candidate's run at the base that collected nothing means
-    the base, run as the row runs it, has no test in that file. pytest says so
-    with `no tests ran in <t>s` alone on a line, and exits 4 where an
-    argument was missing or 5 where nothing was collected; under xdist that
-    line is the only trace (`phases/phase-1.md`)."""
-    assert gate_module().collected_nothing(text, code) is nothing
+    """S3 (#789 member 3). Under `-rN`, and under `-rP` with no failure to
+    list, pytest writes no `short test summary info` rule, so the last rule in
+    the output was the one an inner run printed in a test's captured output,
+    and its `FAILED` line was read as the run's own. The branch's run writes
+    no `FAILED` line of its own either, so its failing test prints the two
+    the list of files is read from."""
+    repo = base_then_feature(
+        tmp_path / "repo", f"{SUITE_ROW} {flag}", at_base, BOTH_FAIL_NAMED
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    expected = dict(
+        zip(
+            ("tests/test_err.py", "tests/test_g.py"),
+            (getattr(gate, w) for w in words),
+            strict=True,
+        )
+    )
+    assert words_of(out) == expected, out.stdout
+
+
+@pytest.mark.parametrize(
+    "at_base, on_feature, expected",
+    [
+        pytest.param(
+            {"tests/test_two.py": PASSING_TWO},
+            {"tests/test_two.py": FAILING_TWO},
+            {"tests/test_two.py": "NEW"},
+            id="no-summary",
+        ),
+        # The rule here is pytest's own, so a3aa139a read it right too; kept
+        # as the guard on the inner summary `-qq` leaves as the last one.
+        pytest.param(
+            FAILING_BASE_INNER_ON_STDERR,
+            BOTH_FAIL,
+            {"tests/test_err.py": "ON_BASE", "tests/test_g.py": "NEW"},
+            id="inner-summary",
+        ),
+    ],
+)
+def test_a_run_with_no_summary_line_is_read_off_its_report(
+    tmp_path, at_base, on_feature, expected
+):
+    """S4 (#789 member 3). Under `-qq` pytest prints no summary line, so no
+    prefix printed one and a file the base passes read `new?`; where an inner
+    run printed one in captured output, that line was the only summary."""
+    repo = base_then_feature(tmp_path / "repo", f"{SUITE_ROW} -q", at_base, on_feature)
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    for path, word in expected.items():
+        assert verdict_of(out.stdout, path) == getattr(gate, word), out.stdout
+
+
+DROPS_ITS_ARGUMENTS = [
+    # The shell hands what is appended to `sh -c` as `$0` and `$1`, which the
+    # script never reads: it runs its own `tests` and prints a summary.
+    pytest.param(
+        f"sh -c '{sys.executable} -m pytest -q -p no:cacheprovider tests'",
+        True,
+        id="sh-c",
+    ),
+    # pytest without its JUnit writer refuses the option the gate appends.
+    pytest.param(f"{SUITE_ROW} -p no:junitxml", False, id="no-junitxml"),
+]
+
+
+@pytest.mark.parametrize("row, posix_only", DROPS_ITS_ARGUMENTS)
+def test_a_part_that_drops_the_gates_arguments_gives_no_word(tmp_path, row, posix_only):
+    """S6 (#789 Scope 2), replacing the case that named this the one
+    counterfeit the gate could not see (round 1's 🟡 5 of #747). A part that
+    prints pytest's summary without running the files appended to it used to
+    read `new` for a file it never ran. It writes no report where the gate
+    asked for one, so the file reads `new?`, whatever the base does."""
+    if posix_only:
+        posix_row_shell_or_skip()
+    repo = base_then_feature(
+        tmp_path / "repo",
+        row,
+        {"tests/test_two.py": PASSING_TWO},
+        {"tests/test_two.py": FAILING_TWO},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RUNNER, out.stdout
 
 
 def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
@@ -4744,18 +4979,32 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "A failing file the base's tree does not carry at the repository root "
         "is run alone at the base, through the same prefixes, which costs one "
         "more run of each prefix up to and including the runner per such file.",
-        "A file that run collects nothing from (pytest's `no tests ran` line, or "
-        "a count of warnings alone, with exit 4 or 5) reads `new`, so a base file "
+        "A file that run collects nothing from (a report that counts no test, "
+        "with exit 4 or 5) reads `new`, so a base file "
         "with no test in it reads `new` too: the base cannot fail a test it does "
         "not have.",
         "Where a row runs its tests below a directory and the base carries a "
         "same-named file at the root but not below that directory, the file is "
         "not run alone: it runs with the others, that run collects nothing, "
         "and each file in it reads `new?`.",
-        # #761 round 3's 🟡 1: an inner run a `-s` test writes to stderr.
-        "an inner pytest run written there is read as the run's own, so a file "
-        "it names reads `failing on base too` and a file the base fails can "
-        "read `new`.",
+        # #789: what the gate asks pytest for, and what that closes. These
+        # replace #761 round 3's `-s` sentence and round 1's 🟡 5 of #747.
+        "and runs each prefix with the files appended, and after them "
+        "`--junitxml=<path>`, a path beside the run's kept output, until one "
+        "writes that report (#789).",
+        "The words are read off pytest's report and never off what was printed, "
+        "so nothing a test prints decides them: not an inner pytest run a test "
+        "writes to stdout or stderr under `-s`, not one in captured output where "
+        "pytest writes no rule of its own (`-rN`, `-rP`), and not one under `-qq`.",
+        "A file the report places a failing or erroring test on, and no other "
+        "file, reads `failing on base too`, and a file whose tests the report "
+        "names with none failing reads `new`.",
+        "A part that does not hand the appended arguments on to pytest — a "
+        "`sh -c '…'`, a `make` target, a wrapper that drops its arguments or "
+        "refuses an option it does not know, a runner given `-p no:junitxml` — "
+        "writes no report where the gate asked for one, so each file reads "
+        "`new?` where it used to read `new` for a file it never ran. Write such "
+        "a part so it passes its arguments on, `--junitxml` included",
         # #761 round 1's 🟡 2.
         "A row that runs pytest in more than one directory — `pytest -q && "
         "cd sub && pytest -q` — is asked about every failing file by the first "

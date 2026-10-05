@@ -63,9 +63,11 @@ repository's command fails AND its output names failing test files does the
 gate add a scratch worktree at `<base>`, run the part of the row that runs
 pytest on those files there, remove the worktree, and label each file `new`,
 `failing on base too`, or `new?` with the reason no run measured it. That
-part is found by running each prefix of the row until one prints pytest's
-summary, never by its name or its place (#747). It decides nothing about any
-of the words: they go in the report and the reader acts.
+part is found by running each prefix of the row until one writes the JUnit
+report the gate asks pytest for, never by its name or its place (#747), and
+the words are read off that report rather than off what was printed (#789).
+It decides nothing about any of the words: they go in the report and the
+reader acts.
 
 **Drawn on success only, and only where a person is looking** (#400). The
 stamp — the disc and a panel carrying the tree and its branch, the base and
@@ -166,6 +168,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from xml.etree import ElementTree
 
 # --- the interpreter floor -----------------------------------------------
 #
@@ -1832,13 +1835,6 @@ def quote(path, windows=None):
     return f'"{path}"' if windows else shlex.quote(path)
 
 
-# pytest's short-summary line for a file or test that errored, printed under
-# `-q` too, measured against pytest 9.1.1: `ERROR tests/x.py` where the file
-# could not be collected, `ERROR tests/x.py - ImportError…` beside xdist, and
-# `ERROR tests/x.py::test_d - RuntimeError: x` where a fixture failed in setup.
-# A `FAILED` line is read alongside it, through `FAILED_RE`. The file ends at
-# `::`, at a blank, or at the newline the summary line always follows.
-ERROR_RE = re.compile(r"^ERROR\s+(\S+?)(?:::|\s)", re.M)
 # The rule of `!` pytest writes when a run stops before every collected test
 # has run. Measured against pytest 9.1.1: `!!! Interrupted: 1 error during
 # collection !!!`, `!!! stopping after 1 failures !!!`, and under xdist `!!!
@@ -1850,54 +1846,27 @@ ERROR_RE = re.compile(r"^ERROR\s+(\S+?)(?:::|\s)", re.M)
 # `!` each side, so at 40 columns, the narrowest pytest honours, it reads
 # `! Interrupted: 1 error during collection !` (round 1's 🟡 4).
 STOPPED_EARLY_RE = re.compile(r"^!+ .+ !+$", re.M)
-# The rule pytest writes above its own `FAILED` and `ERROR` lines, padded
-# with `=` to the terminal's width (#761 round 2). What a test printed into
-# its captured output stands above it, so where pytest wrote this rule a
-# run's own lines are the ones after the last one. pytest writes it only
-# where a line follows (none under `-rN`, and none for `-rP` on a run with
-# no failures), and a test's stderr under `-s` lands after it; in those
-# runs the last rule can be one a test printed (#761 round 3, #789).
-SHORT_SUMMARY_RE = re.compile(r"^=+ short test summary info =+$", re.M)
-# The line that says pytest ran: its counts and its wall clock alone on a
-# line, bare under `-q` or between `=` rules — `1 failed, 1 passed in 0.02s`,
-# `== 768 passed in 612.34s (0:10:12) ==`. `suite_counts` takes any count
-# followed by a clock, which is right for the panel and wrong for choosing the
-# run at the base: `cargo test` prints `test result: ok. 0 passed; …; finished
-# in 0.00s`, and read as pytest's it gave `new` for a file the base fails
-# (round 1's 🟡 1). A label is the category pytest or a plugin reports, and
-# one of pytest 9's own is two words — `2 failed, 1 subtests passed in
-# 0.01s` (round 2's 🟡 1). pytest lists its own categories first
-# (`KNOWN_TYPES` in `_pytest/terminal.py`) and a plugin's after them, and
-# every test reports one of its own, so the first label is one word and a
-# later one is one lowercase word or two. A run whose line carries colour
-# codes, a longer label, or no line at all (`-qq`) is not read as pytest's,
-# and its files read `new?`.
-PYTEST_SUMMARY_RE = re.compile(
-    r"^=*\s*\d+ [a-z]+(?:, \d+ [a-z]+(?: [a-z]+)?)* in \d+(?:\.\d+)?s"
-    r"(?: \(\d+:\d\d:\d\d\))?\s*=*$",
-    re.M,
-)
-# The line that says pytest collected nothing: `no tests ran in 0.21s`, alone
-# on a line, bare under `-q` or between `=` rules as the summary is (#761).
-# Measured against pytest 9.1.1 and pytest-xdist 3.8.0 in that work item's
-# `phases/phase-1.md`: given a path that does not exist, plain pytest prints
-# it beside `ERROR: file or directory not found: <path>` and exits 4, and
-# under xdist it is the only trace and the exit is 5.
+# What the gate appends to every run at the base (#789), after the files: the
+# path of a JUnit report it chose, in the kept directory beside the run's
+# text. **Only the pytest process handed the gate's arguments writes that
+# path.** An inner run a test starts, in process or in a subprocess, is handed
+# arguments of its own, so the report is pytest's account of the one run the
+# gate asked about, whatever a test printed, on whichever stream, under
+# whichever reporting flags. The text used to be read instead, and a line a
+# test printed and a line pytest wrote could not be told apart in it: an inner
+# run's rule under `-s`, one in captured output where pytest wrote none of its
+# own (`-rN`, `-rP`), an inner summary where it printed none (`-qq`). pytest
+# takes the last value an option is given, so this one overrides a
+# `--junitxml` in the row or in its ini file's `addopts`.
 #
-# **Where the run counted warnings, their count takes its place** (#761 round
-# 1): `1 warning in 0.00s` plain and `3 warnings in 0.49s` under xdist, with
-# an ini key pytest does not know. `_pytest/terminal.py`'s
-# `_build_normal_summary_stats_line` writes one `<count> <type>` per type it
-# counted and `no tests ran` only where it counted none, and a run that
-# collected nothing counts no test outcome, so a count of warnings alone is
-# the one other line such a run ends with. A deselected count means tests
-# were collected, so `3 deselected in …` is a summary and not read here; so
-# is a warning count beside any other (`1 warning, 1 error in …`).
-NOTHING_COLLECTED_RE = re.compile(
-    r"^=*\s*(?:no tests ran|\d+ warnings?) in \d+(?:\.\d+)?s"
-    r"(?: \(\d+:\d\d:\d\d\))?\s*=*$",
-    re.M,
-)
+# Measured against pytest 9.1.1 and pytest-xdist 3.8.0 (#789's frame, and its
+# `phases/phase-1.md` for the names): the report is written on exit 1, on
+# exit 2 (a collection error, as a test with an empty `classname` and the
+# dotted path in `name`), on exit 4 (a missing path, plain) and on exit 5 (a
+# missing path, under xdist, where the controller writes it), and a run that
+# collected nothing writes it with no `testcase` at all. `-p no:junitxml`
+# makes the option a usage error and writes nothing.
+JUNIT_REPORT = "--junitxml={path}"
 # pytest's exit codes for a missing argument (4, a usage error) and for a run
 # that collected no test (5).
 NOTHING_COLLECTED_EXITS = (4, 5)
@@ -1905,93 +1874,158 @@ NOTHING_COLLECTED_EXITS = (4, 5)
 # is never read as `new`, and says the comparison was not measured.
 NOT_MEASURED = f"{NEW}? not measured"
 NO_RUNNER = (
-    f"{NOT_MEASURED}: no part of the row printed a line the gate reads as "
-    "pytest's summary at the base (each part tried is kept as "
-    "suite-at-base-<k>.txt, or as suite-at-base-<k>-<n>.txt for the n-th "
-    "file run alone)"
+    f"{NOT_MEASURED}: no part of the row wrote the report the gate asked "
+    "pytest for at the base (each part tried is kept as suite-at-base-<k>.txt, "
+    "or as suite-at-base-<k>-<n>.txt for the n-th file run alone, with the "
+    "--junitxml path it was handed beside it as .xml)"
 )
 STOPPED_EARLY = (
     f"{NOT_MEASURED}: the run at the base stopped before every test ran, "
     "and it does not name this file"
 )
+UNPLACED = (
+    f"{NOT_MEASURED}: pytest's report at the base does not place a test on "
+    "this file alone (it names none of this file's tests, or a failing test "
+    "it names could be this file or another one)"
+)
+NOTHING_TOGETHER = (
+    f"{NOT_MEASURED}: pytest's report at the base counts no test, so a file "
+    "the run was handed is missing where the row runs pytest, and a run that "
+    "is not of one file alone does not say which"
+)
 
 
-def verdicts_at_base(text, files):
-    """{file: word} for `files`, read off one run at the base, or off none.
+def report_cases(text):
+    """Every test pytest's report names, as `(address, failed)`, or None
+    where `text` is not a report (#789).
 
-    `text` is the output of the run that printed pytest's summary, or `None`
-    where no run did. **A word is given only where that run measured it**:
-
-      - `failing on base too` where a `FAILED` or `ERROR` line names the file
-        — a file the base cannot collect fails there (`questions.md` Q1);
-      - `new` where no such line names it AND the run did not stop early, so
-        every test it collected ran — which is not proof the files appended
-        to it were among them (`compare_at_base` names the one shape);
-      - `NO_RUNNER` or `STOPPED_EARLY` otherwise, both reading `new?`.
-
-    The second condition is round 1's 🟡 4 of 0.10.0 in a new shape: one
-    file's collection error interrupts the run, and every other file it was
-    asked about would read `new` for having never run.
-
-    **Only pytest's own lines are read** (#761 round 2). pytest prints every
-    test's captured output first, then its `short test summary info` rule
-    with the `FAILED` and `ERROR` lines under it, then its `!` rules, then
-    the summary (`_pytest/terminal.py`, `pytest_sessionfinish`). A failing
-    test that ran pytest itself carries that run's lines in its captured
-    output, and read anywhere an inner `FAILED` line gave `failing on base
-    too` to a file the base passes. So the lines are read after the last
-    rule. Where there is no rule, pytest printed no such line (`-rN`), and
-    a `!` rule is still looked for everywhere, which can only cost a word.
+    `address` is the test's dotted name split at its dots: its `classname`,
+    or its `name` where `classname` is empty, which is how pytest reports a
+    file it could not collect. `failed` is true where pytest recorded a
+    `failure` or an `error` for it, an error in setup or teardown included.
+    The root is `testsuites`, or a bare `testsuite` from an older pytest.
     """
     if text is None:
-        return {f: NO_RUNNER for f in files}
-    rules = list(SHORT_SUMMARY_RE.finditer(text))
-    own = text[rules[-1].end() :] if rules else ""
-    named = set(FAILED_RE.findall(own)) | set(ERROR_RE.findall(own))
-    stopped = STOPPED_EARLY_RE.search(own if rules else text)
-    unnamed = STOPPED_EARLY if stopped else NEW
-    return {f: (ON_BASE if f in named else unnamed) for f in files}
-
-
-def collected_nothing(text, code):
-    """True where one run at the base collected no test at all (#761):
-    pytest's `no tests ran in <t>s`, or a count of warnings alone, on a line
-    of its own (`NOTHING_COLLECTED_RE`), and an exit of 4 or 5.
-
-    `compare_at_base` asks it of a file run alone, and there it is a
-    measurement: the base, run as the row runs it and from the directory the
-    row runs it in, has no test in that file to fail — the file is missing
-    there, or holds none. Either way the failing test arrived with this
-    branch. Both halves are needed: the line alone is text any part of a row
-    could print, and an exit of 4 or 5 alone is any program's.
-    """
-    return code in NOTHING_COLLECTED_EXITS and bool(NOTHING_COLLECTED_RE.search(text))
-
-
-def measured_summary(text):
-    """pytest's summary line in `text` where the run collected something, or
-    None (#761 round 1).
-
-    `PYTEST_SUMMARY_RE` reads any count and clock, and a run that collected
-    nothing but counted warnings ends `1 warning in 0.00s`, which it reads.
-    That run measured no file, so where the run's own last line is one
-    `NOTHING_COLLECTED_RE` reads, there is no summary, whatever the exit
-    code: read as one, a run of several files that the base lacks one of
-    gave `new` for a file the base fails.
-
-    **Only the last such line decides** (#761 round 2). pytest writes its own
-    line after everything a test printed, and a failing test that runs
-    pytest itself carries that inner run's `no tests ran` line in its
-    captured output, above the real `1 failed in …`. Read anywhere, that
-    line turned a run that measured the file into `new?`.
-    """
-    found = list(PYTEST_SUMMARY_RE.finditer(text))
-    if not found:
         return None
-    nothing = list(NOTHING_COLLECTED_RE.finditer(text))
-    if nothing and nothing[-1].start() >= found[-1].start():
+    try:
+        root = ElementTree.fromstring(text)
+    except ElementTree.ParseError:
         return None
-    return found[-1]
+    if root.tag not in ("testsuites", "testsuite"):
+        return None
+    cases = []
+    for case in root.iter("testcase"):
+        where = case.get("classname") or case.get("name") or ""
+        failed = case.find("failure") is not None or case.find("error") is not None
+        cases.append((tuple(where.split(".")), failed))
+    return cases
+
+
+def dotted(path):
+    """`path` as pytest's report spells a file: `/` read as `.` and a final
+    `.py` dropped (`_pytest/junitxml.py`'s `mangle_test_address`), split at
+    the dots. `tests/test_two.py` is `("tests", "test_two")`, and a doctest
+    file `docs/x.txt` is `("docs", "x", "txt")`."""
+    stem = path[: -len(".py")] if path.endswith(".py") else path
+    return tuple(stem.replace("/", ".").split("."))
+
+
+def offsets(path, address):
+    """Every way `address` can name the file `path`, as the offset between
+    pytest's rootdir and the directory the row runs pytest in (#789).
+
+    pytest names a test from its rootdir, and the branch's `FAILED` lines
+    name a file from the directory pytest was invoked in, so the two differ
+    by directories at the front, in either direction. Measured: `cd sub` with
+    the ini file at the root names the appended `tests/test_two.py`
+    `sub.tests.test_two` (offset 1, the address longer), and a row run from
+    the root with the ini file in `sub` names the appended
+    `sub/tests/test_two.py` `tests.test_two` (offset -1, the path longer). A
+    class name or a doctest's name can follow the file's part of the address.
+    """
+    found = set()
+    n = len(path)
+    for shift in range(len(address) - n + 1):
+        if address[shift : shift + n] == path:
+            found.add(shift)
+    for shift in range(1, n):
+        if address[: n - shift] == path[shift:]:
+            found.add(-shift)
+    return found
+
+
+def report_words(text, files, code, stopped, alone=False):
+    """{file: word} for `files`, read off pytest's report of one run at the
+    base, or None where `text` is no report (#789). `code` is the run's exit
+    code, `stopped` whether its output carries a `!` rule
+    (`STOPPED_EARLY_RE`, read anywhere, which can only cost a word), and
+    `alone` whether `files` is one candidate run on its own.
+
+    **A word is given only where the report measured it.** One run has one
+    rootdir, so every test of one file is named at one offset (`offsets`):
+
+      - `UNPLACED` where tests are named at two offsets for one file, which
+        is then two files of the run, and the gate cannot tell which is it;
+      - `failing on base too` where a failing or erroring test is placed on
+        this file and on no other — a file the base cannot collect fails
+        there;
+      - `UNPLACED` where a failing test could be this file or another one;
+      - `STOPPED_EARLY` where the run stopped before every test ran;
+      - `UNPLACED` where the report names no test of this file, so nothing
+        shows the run ran it: a name the gate cannot place, or a part that
+        honoured the report's path and dropped the files;
+      - `new` otherwise: the report names this file's tests and none failed.
+
+    A failing test placed on none of the files is a failure of a file the row
+    collected besides them, and it decides nothing here.
+
+    **A report with no test at all** gives `new` to a file run alone with exit
+    4 or 5 — the base, run as the row runs it, has no test in that file to
+    fail — and `NOTHING_TOGETHER` otherwise: the row's runner was reached,
+    and the run does not say which of its files is missing (#761).
+    """
+    cases = report_cases(text)
+    if cases is None:
+        return None
+    if not cases:
+        word = NEW if alone and code in NOTHING_COLLECTED_EXITS else NOTHING_TOGETHER
+        return {f: word for f in files}
+    paths = {f: dotted(f) for f in files}
+    named = {f: set() for f in files}
+    places = []
+    for address, failed in cases:
+        hit = set()
+        for f in files:
+            found = offsets(paths[f], address)
+            if found:
+                named[f] |= found
+                hit.add(f)
+        if failed and hit:
+            places.append(hit)
+    words = {}
+    for f in files:
+        if len(named[f]) > 1:
+            words[f] = UNPLACED
+        elif {f} in places:
+            words[f] = ON_BASE
+        elif any(f in hit for hit in places):
+            words[f] = UNPLACED
+        elif stopped:
+            words[f] = STOPPED_EARLY
+        elif not named[f]:
+            words[f] = UNPLACED
+        else:
+            words[f] = NEW
+    return words
+
+
+def written_report(path):
+    """The bytes of the report at `path`, or None where nothing wrote one."""
+    try:
+        with open(path, "rb") as handle:
+            return handle.read()
+    except OSError:
+        return None
 
 
 # The operators that end one part of a row and begin the next, in each
@@ -2037,7 +2071,7 @@ def row_prefixes(command, cmd_exe=False):
     cut where the shell has none. A cut in the wrong place makes a prefix
     that is not valid shell or runs no test, so it costs the comparison a
     measurement and never fakes one: `compare_at_base` gives a word only
-    from a run whose output carries pytest's summary. An unclosed quote or
+    from a run that wrote the report it asked pytest for. An unclosed quote or
     group leaves nothing after it top-level, so the row ends in one part.
     A prefix ending before a `|` runs the producer without its consumer,
     which is the point where the runner comes first (`pytest -q | tee x`),
@@ -2101,52 +2135,51 @@ def compare_at_base(root, base, command, files, keep):
     place** (#747). The row used to be cut at its first `&&`, and a
     lint-first row's first part is the linter: no `FAILED` line could
     appear, and every file read `new` whatever the base did. Now each prefix
-    `row_prefixes` returns is run in turn, the failing files appended to
-    it, until one prints pytest's summary line of a run that collected
-    something (`measured_summary`); that run is the measurement, and
-    `verdicts_at_base` reads it. A prefix keeps every part before it, so a
-    `cd` or an `export` still applies, and the parts before the runner run
-    once per prefix tried. Where no prefix prints such a line, each file of
-    the run reads `new?`; a file run alone is the one that can also read
-    `new` without one, below.
+    `row_prefixes` returns is run in turn, the failing files appended to it
+    and then `--junitxml=<path>` (`JUNIT_REPORT`), until one writes that
+    report; that run is the measurement, and `report_words` reads the report.
+    A prefix keeps every part before it, so a `cd` or an `export` still
+    applies, and the parts before the runner run once per prefix tried. Where
+    no prefix writes the report, each file of the run reads `NO_RUNNER`.
 
-    **The one thing a summary does not prove is that the appended files
-    ran.** A part that drops its arguments — a `sh -c '…'`, a `make` target —
-    prints a summary over something else, and every file reads `new`. pytest
-    under `-q` names no passing file, so nothing here can tell;
-    `templates/config.md` rule 3 names it for the row's author (round 1's
-    🟡 5). A `failing on base too` is never this shape: it comes from a line
-    that names the file.
+    **The words come from pytest's report and never from its text** (#789).
+    Only the pytest process handed the gate's arguments writes the report,
+    so nothing a test printed reaches it: not an inner run on stderr under
+    `-s`, not one in captured output where pytest wrote no rule of its own,
+    not an inner summary under `-qq`. And a part that drops its arguments —
+    a `sh -c '…'`, a `make` target, a wrapper — writes no report where the
+    gate asked for one, so it reads `new?` rather than the `new` a summary
+    over something else used to give. `templates/config.md` rule 3 tells
+    the row's author to pass the option on.
 
     The `run` call stays in this function's own body: the shell sites are
     `gate` and this function, and a case holds that.
 
     **A file the base's tree lacks at the root is run alone, and that run
     decides it** (#761). pytest handed a path that does not exist runs
-    nothing: plain, it prints `no tests ran` beside a not-found reply and
-    exits 4; under xdist it prints `no tests ran` alone and exits 5. One run
-    over every failing file therefore loses the measurement for ALL of them
-    (round 1's 🟡 4), and every branch that adds a test module is that
-    shape. So the root's tree is asked first, and only to NOMINATE: a failing
-    file whose path `HEAD` of the base does not carry is a candidate, and a
-    candidate is never given a word by that check. pytest names a failing
-    file from the directory it was invoked in, and a `cd` part, a `make -C`
-    or a runner script that changes directory moves that, so the root's
-    tree can be asking the wrong directory — it once gave `new` unrun to a
-    `cd` row's file the base fails (#761).
+    nothing: plain, it exits 4 beside a not-found reply; under xdist it exits
+    5. Either way its report counts no test. One run over every failing file
+    therefore loses the measurement for ALL of them (round 1's 🟡 4), and
+    every branch that adds a test module is that shape. So the root's tree is
+    asked first, and only to NOMINATE: a failing file whose path `HEAD` of
+    the base does not carry is a candidate, and a candidate is never given a
+    word by that check. pytest names a failing file from the directory it was
+    invoked in, and a `cd` part, a `make -C` or a runner script that changes
+    directory moves that, so the root's tree can be asking the wrong
+    directory — it once gave `new` unrun to a `cd` row's file the base fails
+    (#761).
 
     Every other failing file goes through the prefixes together, as above.
     Each candidate then goes through them on its own, kept as
     `suite-at-base-<k>-<n>.txt` for the n-th candidate at prefix k, and the
-    first prefix that settles it decides: a summary is read by
-    `verdicts_at_base` like any run; `collected_nothing` — the base, run as
-    the row runs it, has no test in that file — gives `new`, measured; and
-    where no prefix settles it, `NO_RUNNER`. Every run is kept, the others'
-    as `suite-at-base-<k>.txt`. A file the root's tree does carry while the
-    directory pytest runs in at the base does not is never nominated: it
-    runs with the others, that run collects nothing, which is never read as
-    pytest's summary even where warnings give its last line a count, and
-    each file of it reads `new?`, never a counterfeit.
+    first prefix whose report is written decides: a report that counts no
+    test, with exit 4 or 5 — the base, run as the row runs it, has no test
+    in that file — gives `new`, measured; and where no prefix writes one,
+    `NO_RUNNER`. Every run is kept, the others' as `suite-at-base-<k>.txt`,
+    each report as the `.xml` beside it. A file the root's tree does carry
+    while the directory pytest runs in at the base does not is never
+    nominated: it runs with the others, that run's report counts no test,
+    and each file of it reads `NOTHING_TOGETHER`, never a counterfeit.
 
     **A row with a runner in each of two directories is not measured by
     this** (#761 round 1). A candidate's run settles at the first runner a
@@ -2180,31 +2213,36 @@ def compare_at_base(root, base, command, files, keep):
         groups = [(others, "")] if others else []
         groups += [([f], f"-{n}") for n, f in enumerate(candidates, 1)]
         prefixes = row_prefixes(command, cmd_exe_reads())
+        # The report's path is absolute, so a `cd` part does not move it.
+        kept = os.path.abspath(keep)
         verdicts = {}
         for group, alone in groups:
             paths = " ".join(quote(f) for f in group)
-            measured, nothing = None, False
+            words = None
             for k, prefix in enumerate(prefixes, 1):
+                name = f"suite-at-base-{k}{alone}"
+                report = os.path.join(kept, f"{name}.xml")
+                # A report left by an earlier run into the same directory
+                # would settle a prefix that wrote nothing.
+                if os.path.exists(report):
+                    os.remove(report)
                 tried = run(
-                    f"suite-at-base-{k}{alone}",
-                    f"{prefix} {paths}",
+                    name,
+                    f"{prefix} {paths} {quote(JUNIT_REPORT.format(path=report))}",
                     scratch,
                     keep,
                     shell=True,
                 )
-                # Only for a file run alone: a group of several that collects
-                # nothing does not say which of them the base lacks, and its
-                # run is never read as a summary (`measured_summary`).
-                if alone and collected_nothing(tried.text, tried.code):
-                    nothing = True
+                words = report_words(
+                    written_report(report),
+                    group,
+                    tried.code,
+                    bool(STOPPED_EARLY_RE.search(tried.text)),
+                    alone=bool(alone),
+                )
+                if words is not None:
                     break
-                if measured_summary(tried.text):
-                    measured = tried.text
-                    break
-            if nothing:
-                verdicts.update({f: NEW for f in group})
-            else:
-                verdicts.update(verdicts_at_base(measured, group))
+            verdicts.update(words or {f: NO_RUNNER for f in group})
         return {f: verdicts[f] for f in files}
     finally:
         subprocess.run(

@@ -163,19 +163,20 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "(file, token) so neither one lets the number through anywhere else"
     ),
     ("skills/verify/scripts/broad_gate.py", "9.1.1"): (
-        "pytest's, named in the comments over `ERROR_RE`, `STOPPED_EARLY_RE` "
-        "and `NOTHING_COLLECTED_RE` as the build whose endings were measured: "
-        "the `ERROR` line shapes and the `!` rules the base comparison reads "
-        "(#747), and the line of a run that collected nothing (#761). The "
+        "pytest's, named in the comments over `STOPPED_EARLY_RE` and "
+        "`JUNIT_REPORT` as the build whose output was measured: the `!` rules "
+        "the base comparison reads (#747), and the report it reads its words "
+        "off, written on each exit a run at the base can end with (#789). The "
         "third member of "
         "the class the row above names, a loaded file naming the tool build a "
         "measurement was taken on; an ending read off an unnamed pytest is "
         "not a measurement, and no release of SpecSeal makes the number wrong"
     ),
     ("skills/verify/scripts/broad_gate.py", "3.8.0"): (
-        "pytest-xdist's, named in the comment over `NOTHING_COLLECTED_RE` as "
-        "the build on which a run with a missing path was measured to print "
-        "`no tests ran` and exit 5 with no not-found reply (#761). The fourth "
+        "pytest-xdist's, named in the comment over `JUNIT_REPORT` as the build "
+        "on which a run with a missing path was measured to exit 5 with a "
+        "report its controller writes and that counts no test (#761, #789). "
+        "The fourth "
         "member of the same class: what xdist prints is a property of the "
         "build it was read off, and no release of SpecSeal makes it wrong"
     ),
