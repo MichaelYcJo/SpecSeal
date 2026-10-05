@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #804 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `3a98dcf56814634ffcf52b9f489a54f71b46a808..3a98dcf56814634ffcf52b9f489a54f71b46a808`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (a dotted-name placement is never read against the tree: an inherited test or a `--junit-prefix` row reopens P1 and Q1), 🟡 2 (a test file the row generates moves the rootdir to a vendored directory), 🟡 3 (rule 3, the docstring and the changelog promise `new?` for a file tracked under both runners' directories, which holds only where every failing file of its run is). |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ The verifying round over round 2's fixes (562ab360..bf8669c2), and the last roun
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A dotted-name placement is never read against the tree. An inherited test, and every test under `--junit-prefix`, falls back to the offset rule, and P1's package and Q1's deeper module are placed on a module the base holds no test in. A regression against a3aa139a, introduced by 9639f2ff | `skills/verify/scripts/broad_gate.py:1952`, `skills/verify/scripts/broad_gate.py:2113-2116` | open | Executed R1, R1-ini, R2, R2b: `failing on base too` at 56c8eb0d, `new` at a3aa139a, `UNPLACED` at 8662f9bf and with the fix |
-| 🟡 2 | The tree is the base's tracked files, so a test file the row generates is missing and a vendored directory holding every report path is taken for the rootdir. The root's failing test is placed on the handed file. A regression against a3aa139a, and rule 3 promises `new?` | `skills/verify/scripts/broad_gate.py:2357`, `skills/verify/scripts/broad_gate.py:2011-2029`, `templates/config.md:333` | open | Executed R3: `failing on base too` at 56c8eb0d, 225af880 and 8662f9bf, `new` at a3aa139a, `UNPLACED` with the fix |
-| 🟡 3 | "A file the base tracks under both runners' directories reads `new?`" is false where another failing file of its run is tracked under the measured runner's directory only. The word is the base's; the sentence is new, in four places and a pin | `templates/config.md:333`, `skills/verify/scripts/broad_gate.py:2329-2334`, `seal/specs/1791163982-an-output-holding-two-pytest-runs-earns-no-permissive-verdict/changelog.md` | open | Executed P7-mixed: `tests/test_y.py` `failing on base too` at all four SHAs |
-| ⬜ 4 | The `UNPLACED` reason's parenthetical does not name a second directory that fits the run, which the tree reading added | `skills/verify/scripts/broad_gate.py:1897-1901` | open | Read; Q10b reads the reason while the report names the file's test |
-| ⬜ 5 | `overview.md` §*Not done* says every pytest writes `file` and that an untracked test file makes the run read `new?`; the target drops `file` under `--junit-prefix`, and R3 reads `failing on base too` | `seal/specs/1791163982-an-output-holding-two-pytest-runs-earns-no-permissive-verdict/overview.md` | open | A correction to this run's paperwork, not counted in Needs a fix |
+| 🟡 1 | A dotted-name placement is never read against the tree. An inherited test, and every test under `--junit-prefix`, falls back to the offset rule, and P1's package and Q1's deeper module are placed on a module the base holds no test in. A regression against a3aa139a, introduced by 9639f2ff | `skills/verify/scripts/broad_gate.py:1952`, `skills/verify/scripts/broad_gate.py:2113-2116` | deferred #812 | #812 — the run is capped; fixed post-review on this branch, and #812 is what that fix closes; Executed R1, R1-ini, R2, R2b: `failing on base too` at 56c8eb0d, `new` at a3aa139a, `UNPLACED` at 8662f9bf and with the fix |
+| 🟡 2 | The tree is the base's tracked files, so a test file the row generates is missing and a vendored directory holding every report path is taken for the rootdir. The root's failing test is placed on the handed file. A regression against a3aa139a, and rule 3 promises `new?` | `skills/verify/scripts/broad_gate.py:2357`, `skills/verify/scripts/broad_gate.py:2011-2029`, `templates/config.md:333` | deferred #812 | #812 — fixed with 🟡 1 post-review; Executed R3: `failing on base too` at 56c8eb0d, 225af880 and 8662f9bf, `new` at a3aa139a, `UNPLACED` with the fix |
+| 🟡 3 | "A file the base tracks under both runners' directories reads `new?`" is false where another failing file of its run is tracked under the measured runner's directory only. The word is the base's; the sentence is new, in four places and a pin | `templates/config.md:333`, `skills/verify/scripts/broad_gate.py:2329-2334`, `seal/specs/1791163982-an-output-holding-two-pytest-runs-earns-no-permissive-verdict/changelog.md` | deferred #812 | #812 — the sentence follows the post-review fix; Executed P7-mixed: `tests/test_y.py` `failing on base too` at all four SHAs |
+| ⬜ 4 | The `UNPLACED` reason's parenthetical does not name a second directory that fits the run, which the tree reading added | `skills/verify/scripts/broad_gate.py:1897-1901` | deferred #812 | #812 — the reason text follows the post-review fix; Read; Q10b reads the reason while the report names the file's test |
+| ⬜ 5 | `overview.md` §*Not done* says every pytest writes `file` and that an untracked test file makes the run read `new?`; the target drops `file` under `--junit-prefix`, and R3 reads `failing on base too` | `seal/specs/1791163982-an-output-holding-two-pytest-runs-earns-no-permissive-verdict/overview.md` | deferred #812 | #812 — the overview follows the post-review fix; A correction to this run's paperwork, not counted in Needs a fix |
 | 🟢 | round 2's first finding is closed — Q1, Q3 and Q3b are not placed on the handed file, and Q10 and Q11 keep their words | `skills/verify/scripts/broad_gate.py:2003-2029`, `skills/verify/scripts/broad_gate.py:2099-2112` | confirmed | Executed Q1, Q3, Q3b `UNPLACED`; Q10, Q11 `failing on base too`; Q10b `UNPLACED` |
 | 🟢 | round 2's second finding is closed — an inherited test is not placed on the defining file | `skills/verify/scripts/broad_gate.py:1945-1955` | confirmed | Executed Q4 `UNPLACED`, Q4b `new`, Q4c `failing on base too` |
 | 🟢 | round 2's third finding is closed — the four uncounted runners are named in rule 3, the docstring and the changelog | `templates/config.md:333`, `skills/verify/scripts/broad_gate.py:2321-2329` | confirmed | Read; Q8 executed, `UNPLACED` |
@@ -245,4 +245,4 @@ R6 inherited and own failing test           failing on base too   failing on bas
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| A failing file whose path holds a space is never compared at the base: `FAILED_RE` stops at the space, at every SHA including a3aa139a. Strict, outside this change | a new issue | the orchestrator, who files issues |
+| A failing file whose path holds a space is never compared at the base: `FAILED_RE` stops at the space, at every SHA including a3aa139a. Strict, outside this change | #813 | the orchestrator, who files issues |
