@@ -94,9 +94,9 @@ Vertical slices — each phase ends with something runnable and verified.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | The arm in `chain_check.py` (S1–S8, S10) and the section of `docs/the-record-layout.md` that owns the rule and that the notice names, ending `Enforced by:` the arm and its cases; the module docstring's *What it reads* row | a new test module, every case seen red before the arm or with its condition reverted (contract §15); `tests/test_chain_check_at_the_pull_request.py` and the `docs/` hygiene modules that read the touched files | |
-| 2 | The three links (`agents/smith.md`, `skills/implement/SKILL.md` §5, `skills/code-review/orchestration.md`) and a `RULES` row in `tests/test_the_rules_have_one_owner.py` (S9) | `tests/test_the_rules_have_one_owner.py` seen red with the owner's sentence removed; `tests/test_no_passage_is_pasted_into_a_second_file.py`, `tests/test_one_word_one_meaning.py`, and every other module that names one of the three files | |
-| 3 | This item's ledger fragment rows, `overview.md`, and its `changelog.md` fragment | `evidence-check --strict .` narrowed to this item's fragment; `tests/test_no_real_identifiers.py` | |
+| 1 | The arm in `chain_check.py` (S1–S8, S10) and the section of `docs/the-record-layout.md` that owns the rule and that the notice names, ending `Enforced by:` the arm and its cases; the module docstring's *What it reads* row | a new test module, every case seen red before the arm or with its condition reverted (contract §15); `tests/test_chain_check_at_the_pull_request.py` and the `docs/` hygiene modules that read the touched files | 1b1a1ed2 |
+| 2 | The three links (`agents/smith.md`, `skills/implement/SKILL.md` §5, `skills/code-review/orchestration.md`) and a `RULES` row in `tests/test_the_rules_have_one_owner.py` (S9) | `tests/test_the_rules_have_one_owner.py` seen red with the owner's sentence removed; `tests/test_no_passage_is_pasted_into_a_second_file.py`, `tests/test_one_word_one_meaning.py`, and every other module that names one of the three files | 8b83fbcf |
+| 3 | This item's ledger fragment rows, `overview.md`, and its `changelog.md` fragment | `evidence-check --strict .` narrowed to this item's fragment; `tests/test_no_real_identifiers.py` | 1752792c |
 
 This table is also where the work records how far it got. There is no separate
 task list: a list of tasks is mutable progress, and a stale one asserts a state
