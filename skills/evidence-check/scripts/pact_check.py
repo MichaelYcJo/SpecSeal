@@ -1,57 +1,57 @@
 #!/usr/bin/env python3
-"""Does every signatory still agree with the pact? Run at the pact's repository.
+"""Does every signer still agree with the pact? Run at the pact's repository.
 
 Issue #647. A work item that commits in more than one repository, where those
 repositories keep a contract together, keeps the one copy of that contract in
 `seal/pact.md` in one of them -- the pact's repository -- and every repository
-of the work item is a signatory (`docs/the-pact.md`). A signatory cites the
+of the work item is a signer (`docs/the-pact.md`). A signer cites the
 clauses it was built against as pact anchors,
 
   pact:<name>/"<heading path>"@<hash>
 
 in its specs' Grounding and in its ledger rows. This command reads every
-signatory from the pact's repository and grades each of those anchors against
+signer from the pact's repository and grades each of those anchors against
 the clause as the pact holds it now.
 
   pact-check            in the pact's repository
   pact-check ROOT       the pact's repository at ROOT
 
-**Local only.** No CI runs it: a signatory's pull request can read one
-repository, and this needs all of them (#647's decision 2). What a signatory's
+**Local only.** No CI runs it: a signer's pull request can read one
+repository, and this needs all of them (#647's decision 2). What a signer's
 CI does instead is print the relationship, `chain_check.py#pact_notices`.
 
-## Where the signatories are
+## Where the signers are
 
-The pact's `| Signatory |` table lists them by origin remote URL, and a
+The pact's `| Signer |` table lists them by origin remote URL, and a
 checkout is found for each, in this order and with nothing guessed:
 
   1. `~/.claude/specseal/pact-paths.md`, a `| Remote | Path |` table kept per
      machine and never committed, keyed by remote URL compared normalised;
   2. every sibling directory of the pact's repository whose origin remote
-     normalises to the signatory's -- exactly one of them.
+     normalises to the signer's -- exactly one of them.
 
-A signatory neither finds is reported with the map line to add.
+A signer neither finds is reported with the map line to add.
 
 ## What each anchor reads
 
   OK          the hash matches the clause in the pact's current checkout
   SUPERSEDED  it does not, and a commit in HEAD's own history of the pact
-              gave the clause this hash: the signatory was built against a
+              gave the clause this hash: the signer was built against a
               superseded clause. Re-read it there and re-anchor
   NOT TAKEN   it does not, and a commit reachable from another ref but not
               from HEAD gave it this hash, named: the pact has not taken the
-              signatory's recorded change. Land that ref's change, or
+              signer's recorded change. Land that ref's change, or
               reconcile
   UNMATCHED   no commit here gave the clause this hash: squashed away, or
               never a version. Read both sides
   BROKEN      the heading path resolves to no clause, or to more than one:
-              renamed or removed. Re-coordinate the signatory
+              renamed or removed. Re-coordinate the signer
 
 ## What each pact change reads
 
-A signatory's re-read records a pact change in its
+A signer's re-read records a pact change in its
 `seal/pact-changes/<work-item-id>.md` (`evidence_check.py#record_pact_changes`).
-Every such record is read, following the signatory's `Pact notify` as read
+Every such record is read, following the signer's `Pact notify` as read
 now:
 
   NOT TAKEN   a row citing a clause of this pact that no pact review here
@@ -59,13 +59,13 @@ now:
               work item, and the record's content hash, which is the value a
               pact review writes. A record a review took at another hash
               names both
-  NOTED       a `—` row from a signatory whose notify is `always`, printed
+  NOTED       a `—` row from a signer whose notify is `always`, printed
               until a pact review takes it; no exit class, because a pact
               review is owed only where a clause is cited
 
 Under `when the pact is touched` a `—` row is not read, and under `never` no
 row is. A pact review is a row of `seal/pact-reviews/<work-item-id>.md` here
-naming the signatory and `<work-item-id>@<content hash>`, verdict `holds` or
+naming the signer and `<work-item-id>@<content hash>`, verdict `holds` or
 `amended`; it takes the record at that hash and no other.
 
 Git is asked one thing: which way a mismatch points. It never decides `OK`,
@@ -75,21 +75,29 @@ and the summary says so.
 
 ## Exit codes
 
-  0  every listed signatory was read, and every anchor is `OK`
+  0  every listed signer was read, and every anchor is `OK`
   1  a `SUPERSEDED`, `NOT TAKEN` or `UNMATCHED` anchor, a `NOT TAKEN` pact
-     change, or a signatory not found on this machine
+     change, or a signer not found on this machine
   2  unusable input: no pact here, a pact or file that cannot be read, a
      `BROKEN` anchor, an anchor naming this pact that does not parse, a
      `Pact` row or notify value that will not parse, a relationship
      recorded on one side only, a pact's repository with no origin
      remote, a record of pact changes or of pact reviews that will not read
-     or parse, or a pact review row that cannot be true: a signatory the
-     pact does not list, a record that signatory does not hold, a verdict
+     or parse, or a pact review row that cannot be true: a signer the
+     pact does not list, a record that signer does not hold, a verdict
      other than `holds` and `amended`, or `amended`, at the record's
      current hash, for a clause that still has the hash the record recorded
 
 These mirror `evidence-check`'s classes, where `BROKEN` is exit 2 and drift is
 exit 1. Nothing is ever written.
+
+## A header written before 0.19.0
+
+A pact whose table, or a pact review record whose table, is headed with the
+word 0.18.x used is read exactly as one headed `Signer`, and one line before
+that file's other lines names the file, both headers and the release that
+renamed them (`hooks/config.py#renamed_header`). The line is in no exit
+class: the exit is what it would be under the new header (#822).
 """
 
 import argparse
@@ -178,17 +186,17 @@ NOT_FOUND, ONE_SIDED, REFUSED, UNREADABLE = (
     "REFUSED",
     "UNREADABLE",
 )
-# A signatory's pact change that cites no clause, recorded under `Pact notify
+# A signer's pact change that cites no clause, recorded under `Pact notify
 # | always`: printed until a pact review takes it, and in no exit class,
 # because a pact review is owed only where a clause is cited (#647's decision
 # 4).
 NOTED = "NOTED"
-# A pact review's `Change` cell: the signatory's work-item id and the content
+# A pact review's `Change` cell: the signer's work-item id and the content
 # hash of its record.
 CHANGE_RE = re.compile(r"(?P<item>[^\s@]+)@(?P<hash>[0-9a-f]{6,12})")
 # A token that begins a pact anchor and does not complete one, so a mistyped
 # citation -- `#` for `/`, no quotes, no hash -- is named rather than passed
-# over. It is otherwise read by nobody: not here, not by the signatory's own
+# over. It is otherwise read by nobody: not here, not by the signer's own
 # check, which passes pact anchors over by design, and not by chain-check
 # (round 1 of #647, yellow 4).
 #
@@ -280,7 +288,7 @@ def path_map(config, home_dir):
     """({normalised remote: path}, refusal or None) from the machine-local
     map under HOME_DIR. No map is an empty one; a map that is there and will
     not read is a refusal, because reading it as empty would report every
-    signatory it names as not found."""
+    signer it names as not found."""
     where = os.path.join(home_dir, MAP)
     if not os.path.lexists(where):
         return {}, None
@@ -305,10 +313,10 @@ def path_map(config, home_dir):
     return found, None
 
 
-def checkout(config, signatory, root, mapped, home_dir=None):
-    """(path, None) for the signatory's checkout, or (None, why not), every
+def checkout(config, signer, root, mapped, home_dir=None):
+    """(path, None) for the signer's checkout, or (None, why not), every
     path in the reason as `shown` prints it."""
-    written, normalised, _name = signatory
+    written, normalised, _name = signer
     if normalised in mapped:
         path = mapped[normalised]
         if not os.path.isdir(path):
@@ -353,7 +361,7 @@ def checkout(config, signatory, root, mapped, home_dir=None):
 
 
 def anchor_files(home):
-    """Every file of a signatory's root its pact anchors are read from: its
+    """Every file of a signer's root its pact anchors are read from: its
     ledger files and every work item's `spec.md`."""
     files = [os.path.join(home, "ledger.md")]
     for pattern in ("ledger/*.md", "releases/*.md", "specs/*/spec.md"):
@@ -444,7 +452,7 @@ def grade(checker, pact_text, history, locator, want):
     if current is None:
         return BROKEN, (
             f"the heading path {why}: the clause was renamed or removed. "
-            "Re-coordinate the signatory"
+            "Re-coordinate the signer"
         )
     if current == want:
         return OK, ""
@@ -452,15 +460,15 @@ def grade(checker, pact_text, history, locator, want):
         text = history.text(sha)
         if text is not None and clause_hash(checker, text, locator)[0] == want:
             return SUPERSEDED, (
-                f"the signatory was built against a superseded clause, the one "
+                f"the signer was built against a superseded clause, the one "
                 f"at {sha[:8]}; it reads @{current} now. Re-read it in the "
-                "signatory and re-anchor"
+                "signer and re-anchor"
             )
     for sha in history.other():
         text = history.text(sha)
         if text is not None and clause_hash(checker, text, locator)[0] == want:
             return NOT_TAKEN, (
-                f"the pact has not taken the signatory's recorded change: this "
+                f"the pact has not taken the signer's recorded change: this "
                 f"hash is the clause on {history.ref_holding(sha)} (at "
                 f"{sha[:8]}), which HEAD does not hold. Land that ref's pact "
                 "change, or reconcile"
@@ -473,7 +481,7 @@ def grade(checker, pact_text, history, locator, want):
 
 
 def check(root, out=sys.stdout, home_dir=None):
-    """Read the pact at ROOT and every signatory; print; return the exit."""
+    """Read the pact at ROOT and every signer; print; return the exit."""
     config = load(os.path.join(HOOKS, "config.py"), "specseal_config_for_pact")
     optin = load(os.path.join(HOOKS, "optin.py"), "specseal_optin_for_pact")
     checker = load(CHECKER, "specseal_evidence_for_pact")
@@ -521,29 +529,33 @@ def check(root, out=sys.stdout, home_dir=None):
 
     findings = []
 
-    def found(status, signatory, where, detail):
+    def found(status, signer, where, detail):
         findings.append(status)
         say(
-            f"{status} {signatory} {where} — {detail}"
+            f"{status} {signer} {where} — {detail}"
             if where
-            else f"{status} {signatory} — {detail}"
+            else f"{status} {signer} — {detail}"
         )
 
-    signatories, refusals = config.pact_signatories(pact_text)
+    signers, refusals, header = config.pact_signers(pact_text)
+    renamed(config, f"seal/{PACT_FILE}", header, config.SIGNER_HEADER, say)
     for refusal in refusals:
         found(REFUSED, f"seal/{PACT_FILE}", "", f"the pact {refusal}")
+    # The table's own word in the lines below, so a refusal about a pact
+    # headed the old way names the header the pact holds.
+    table = f"`{(header or config.SIGNER_HEADER)[0]}` table"
     mapped, map_refusal = path_map(config, home_dir)
     if map_refusal:
         found(REFUSED, MAP_SHOWN, "", map_refusal)
-    reviews = pact_reviews(config, home, repo, home_dir, signatories, found)
+    reviews = pact_reviews(config, home, repo, home_dir, (signers, table), (found, say))
     changes_read = changes_taken = 0
 
     counts = dict.fromkeys((OK, SUPERSEDED, NOT_TAKEN, UNMATCHED, BROKEN), 0)
     read_count = 0
-    for signatory in signatories:
-        written = signatory[0]
-        if signatory[1] == config.normalise_remote(mine):
-            # The owner's definition makes the pact's repository a signatory
+    for signer in signers:
+        written = signer[0]
+        if signer[1] == config.normalise_remote(mine):
+            # The owner's definition makes the pact's repository a signer
             # too, so listing it is a plausible slip; the sibling search
             # skips this repository and would call it not found here (round
             # 1 of #647, white 9).
@@ -551,11 +563,11 @@ def check(root, out=sys.stdout, home_dir=None):
                 REFUSED,
                 written,
                 f"seal/{PACT_FILE}",
-                "the pact lists its own repository; the `Signatory` table "
-                "lists every OTHER signatory, so take this row out",
+                f"the pact lists its own repository; the {table} lists every "
+                "OTHER signer, so take this row out",
             )
             continue
-        path, why = checkout(config, signatory, repo, mapped, home_dir)
+        path, why = checkout(config, signer, repo, mapped, home_dir)
         if path is None:
             found(NOT_FOUND, written, "", why)
             continue
@@ -590,7 +602,7 @@ def check(root, out=sys.stdout, home_dir=None):
                 f"the pact lists it, and its config names no `{config.PACT_ROW}` "
                 f"row for {mine}: the relationship is recorded on one side "
                 f"only. Add `| {config.PACT_ROW} | {mine} |` there, or take it "
-                "out of the pact's `Signatory` table",
+                f"out of the pact's {table}",
             )
             continue
         read_count += 1
@@ -645,7 +657,7 @@ def check(root, out=sys.stdout, home_dir=None):
         got, took = pact_changes(
             config,
             checker,
-            (path, their_home, signatory, notify),
+            (path, their_home, signer, notify),
             (name, pact_text, home_dir),
             reviews,
             found,
@@ -661,8 +673,8 @@ def check(root, out=sys.stdout, home_dir=None):
         )
 
     summary = (
-        f"pact-check: the pact `{name}` — {read_count} of {len(signatories)} "
-        f"signator{'y' if len(signatories) == 1 else 'ies'} read · "
+        f"pact-check: the pact `{name}` — {read_count} of {len(signers)} "
+        f"signer{'' if len(signers) == 1 else 's'} read · "
         + " · ".join(f"{counts[s]} {s.lower()}" for s in counts)
         + f" · {changes_read} pact change{'' if changes_read == 1 else 's'} read"
         f" · {changes_taken} taken"
@@ -680,16 +692,31 @@ def check(root, out=sys.stdout, home_dir=None):
     return 0
 
 
-def pact_reviews(config, home, repo, home_dir, signatories, found):
+def renamed(config, where, header, current, say):
+    """Print the line naming the rename where HEADER, the header a file at
+    WHERE was read under, is the one CURRENT was written as before 0.19.0.
+    In no exit class: the file reads exactly as under CURRENT (#822)."""
+    old, sentence = config.renamed_header(current)
+    if header is not None and header == old:
+        say(f"pact-check: {where} {sentence}")
+
+
+def pact_reviews(config, home, repo, home_dir, pact, report):
     """Every row of the pact's `seal/pact-reviews/*.md` that can be true, as
-    `(where, signatory normalised, as listed, item, hash, verdict)`; every
+    `(where, signer normalised, as listed, item, hash, verdict)`; every
     row that cannot is refused through FOUND, at exit 2.
 
-    A row names a signatory the pact lists, a change written
+    PACT is `(the pact's signers, its table's name)` and REPORT
+    `(FOUND, SAY)`; SAY prints the rename line for a record headed as 0.18.x
+    wrote it, before that record's other lines (`renamed`).
+
+    A row names a signer the pact lists, a change written
     `<work-item-id>@<content hash>`, and `holds` or `amended`. Whether the
-    signatory holds that record, and whether `amended` is true, are asked
-    where the signatory is read (`pact_changes`)."""
-    listed = {normalised: written for written, normalised, _name in signatories}
+    signer holds that record, and whether `amended` is true, are asked
+    where the signer is read (`pact_changes`)."""
+    signers, table = pact
+    found, say = report
+    listed = {normalised: written for written, normalised, _name in signers}
     out = []
     pattern = os.path.join(home, config.PACT_REVIEWS, "*.md")
     for path in sorted(glob.glob(pattern)):
@@ -698,20 +725,21 @@ def pact_reviews(config, home, repo, home_dir, signatories, found):
         if text is None:
             found(UNREADABLE, where, "", "the pact review could not be read")
             continue
-        rows, refusals = config.pact_reviews(text)
+        rows, refusals, header = config.pact_reviews(text)
+        renamed(config, where, header, config.PACT_REVIEW_HEADER, say)
         for refusal in refusals:
             found(REFUSED, where, "", f"the record {refusal}")
-        for line, signatory, change, verdict in rows:
+        for line, signer, change, verdict in rows:
             at = f"{where}:{line}"
-            normalised = config.normalise_remote(signatory)
+            normalised = config.normalise_remote(signer)
             taken = CHANGE_RE.fullmatch(change)
             if normalised not in listed:
                 found(
                     REFUSED,
                     at,
                     "",
-                    f"the pact review names `{signatory}`, which the pact's "
-                    "`Signatory` table does not list",
+                    f"the pact review names `{signer}`, which the pact's "
+                    f"{table} does not list",
                 )
             elif not taken:
                 found(
@@ -743,19 +771,19 @@ def pact_reviews(config, home, repo, home_dir, signatories, found):
     return out
 
 
-def pact_changes(config, checker, signatory_at, pact, reviews, found):
-    """(read, taken) for one signatory's records of pact changes, printing a
+def pact_changes(config, checker, signer_at, pact, reviews, found):
+    """(read, taken) for one signer's records of pact changes, printing a
     `NOT TAKEN` or `NOTED` line for each row read that no pact review has
     taken, and refusing what cannot be true.
 
-    SIGNATORY_AT is `(checkout, its seal/ root, the signatory, its notify)`
-    and PACT `(this pact's name, its text, HOME_DIR)`. The signatory's
+    SIGNER_AT is `(checkout, its seal/ root, the signer, its notify)`
+    and PACT `(this pact's name, its text, HOME_DIR)`. The signer's
     `Pact notify`, as read now, decides what is read: a row citing a clause
     of this pact always, unless `never`; a `—` row only under `always`. A
-    record is taken when a pact review row names the signatory and its work
+    record is taken when a pact review row names the signer and its work
     item at the record's current content hash; one taken at another hash
     reads `NOT TAKEN` again, naming both."""
-    checkout, their_home, (written, normalised, _n), notify = signatory_at
+    checkout, their_home, (written, normalised, _n), notify = signer_at
     name, pact_text, home_dir = pact
     mine = [r for r in reviews if r[1] == normalised]
     held = set()
@@ -837,7 +865,7 @@ def pact_changes(config, checker, signatory_at, pact, reviews, found):
                     written,
                     f"{where}:{line} {clause}",
                     f"the pact has not taken work item {item}'s pact change: a "
-                    "pact review here takes it with a row naming the signatory "
+                    "pact review here takes it with a row naming the signer "
                     f"and {take}",
                 )
         for review in reviewed:
@@ -876,7 +904,7 @@ def pact_changes(config, checker, signatory_at, pact, reviews, found):
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="pact-check",
-        description="At the pact's repository: does every signatory still "
+        description="At the pact's repository: does every signer still "
         "agree with the pact?",
     )
     ap.add_argument(

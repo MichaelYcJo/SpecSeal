@@ -1,7 +1,7 @@
 """One table walker, held to cmark-gfm over an enumerated corpus (#647, C and D).
 
 `hooks/config.py#gfm_table` reads three tables out of markdown: the pact's
-`| Signatory |`, a signatory's record of pact changes, and the pact's record
+`| Signer |`, a signer's record of pact changes, and the pact's record
 of pact reviews. This module holds it to GitHub's renderer, `cmarkgfm`, through
 `tests/gfm_table_oracle.py`, and the property is S1 of the work item's
 `spec.md`: **on every shape, the walker's cells equal cmark-gfm's, or the walker
@@ -45,9 +45,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 config = load_hook_module("config.py", "config_for_the_table_walker")
 
 HEADERS = {
-    "signatory": ("Signatory",),
+    "signer": ("Signer",),
     "pact change": ("Clause", "Row", "Code", "Checked"),
-    "pact review": ("Signatory", "Change", "Verdict"),
+    "pact review": ("Signer", "Change", "Verdict"),
 }
 
 # CommonMark 0.29 §4.6, HTML block start condition 6: the block-level tag
@@ -365,14 +365,12 @@ def test_the_oracle_reads_a_table_and_a_row_gfm_adds():
     """The two facts round 3 of #735 executed, read through the oracle: an
     autolink line under a table is one of its rows, and a thematic break
     ends it."""
-    head = "| Signatory |\n|---|\n| https://example.com/org/a |\n"
-    assert oracle.rows_under(
-        head + "<https://example.com/org/b>\n", ("Signatory",)
-    ) == [
+    head = "| Signer |\n|---|\n| https://example.com/org/a |\n"
+    assert oracle.rows_under(head + "<https://example.com/org/b>\n", ("Signer",)) == [
         ("https://example.com/org/a",),
         ("https://example.com/org/b",),
     ]
-    assert oracle.rows_under(head + "***\n| x |\n", ("Signatory",)) == [
+    assert oracle.rows_under(head + "***\n| x |\n", ("Signer",)) == [
         ("https://example.com/org/a",)
     ]
 
@@ -476,17 +474,17 @@ def test_the_shapes_round_1_measured_are_refused():
     u = "https://example.com/org/a"
     opener = "<" + "!-- old list, being retired"
     for text in (
-        f"| Name |\n|---|\n| x |\n| Signatory |\n|---|\n| {u} |\n",
-        f"Intro\n-\n2. second\n| Signatory |\n|---|\n| {u} |\n",
-        f"1) one\n<a>\n___\n>\n| Signatory |\n|---|\n| {u} |\n",
-        f"# Pact\n\n{opener}\n\n| Signatory |\n|---|\n| {u} |\n",
-        f"<pre>\nexample\n\n| Signatory |\n|---|\n| {u} |\n",
-        f"<?php\n\n| Signatory |\n|---|\n| {u} |\n",
-        f"<![CDATA[\n\n| Signatory |\n|---|\n| {u} |\n",
-        f"<!DOCTYPE\n\n| Signatory |\n|---|\n| {u} |\n",
+        f"| Name |\n|---|\n| x |\n| Signer |\n|---|\n| {u} |\n",
+        f"Intro\n-\n2. second\n| Signer |\n|---|\n| {u} |\n",
+        f"1) one\n<a>\n___\n>\n| Signer |\n|---|\n| {u} |\n",
+        f"# Pact\n\n{opener}\n\n| Signer |\n|---|\n| {u} |\n",
+        f"<pre>\nexample\n\n| Signer |\n|---|\n| {u} |\n",
+        f"<?php\n\n| Signer |\n|---|\n| {u} |\n",
+        f"<![CDATA[\n\n| Signer |\n|---|\n| {u} |\n",
+        f"<!DOCTYPE\n\n| Signer |\n|---|\n| {u} |\n",
     ):
-        assert oracle.rows_under(text, ("Signatory",)) is None, text
-        _rows, refusals = config.gfm_table(text, ("Signatory",))
+        assert oracle.rows_under(text, ("Signer",)) is None, text
+        _rows, refusals = config.gfm_table(text, ("Signer",))
         assert refusals, text
 
 
@@ -495,11 +493,11 @@ def test_an_html_block_closed_above_the_header_leaves_the_table(oracle_check=Tru
     a later line, a blank line, then the table, renders, and is read."""
     u = "https://example.com/org/a"
     for text in (
-        f"<pre>\nx\n</pre>\n\n| Signatory |\n|---|\n| {u} |\n",
-        f"<?php\nx\n?>\n\n| Signatory |\n|---|\n| {u} |\n",
+        f"<pre>\nx\n</pre>\n\n| Signer |\n|---|\n| {u} |\n",
+        f"<?php\nx\n?>\n\n| Signer |\n|---|\n| {u} |\n",
     ):
-        assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
-        rows, refusals = config.gfm_table(text, ("Signatory",))
+        assert oracle.rows_under(text, ("Signer",)) == [(u,)], text
+        rows, refusals = config.gfm_table(text, ("Signer",))
         assert refusals == [] and [c for _l, c in rows] == [(u,)], text
 
 
@@ -550,8 +548,8 @@ def test_random_documents_are_read_as_cmark_gfm_renders_them_or_refused(which):
 def test_round_3s_shapes_are_inside_the_corpus():
     """Round 3 of #735 compared 21 shapes and named their kinds; each falls
     inside the enumeration, so they are not listed separately (spec item 1).
-    Written here as round 3 wrote them, against the `Signatory` header."""
-    header = HEADERS["signatory"]
+    Written here as round 3 wrote them, against the `Signer` header."""
+    header = HEADERS["signer"]
     texts = {text for _key, text in corpus(header)}
     named = [
         ("autolink", "after the last row", ""),
@@ -586,15 +584,39 @@ def test_the_corpus_is_counted():
     generating shapes is a red case rather than a smaller number nobody
     reads."""
     sizes = {which: len(corpus(header)) for which, header in HEADERS.items()}
-    assert sizes == {"signatory": 5454, "pact change": 5455, "pact review": 5455}, sizes
+    assert sizes == {"signer": 5454, "pact change": 5455, "pact review": 5455}, sizes
+
+
+@pytest.mark.parametrize(
+    "above", ["", "<div>\n\n", "- x\n\n"], ids=["plain", "div", "list"]
+)
+def test_the_old_header_is_read_through_the_second_attempt(above):
+    """#822: a pact written in 0.18.x heads its table `| Signatory |`. The
+    walker reads it as cmark-gfm renders it, through `pact_signers`' second
+    attempt, and says which header it read; the old table is not read where
+    a `Signer` table stands above it, under a heading of its own."""
+    u = "https://example.com/org/a"
+    text = f"# Pact\n\n{above}| Signatory |\n|---|\n| {u} |\n"
+    assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
+    signers, refusals, header = config.pact_signers(text)
+    assert refusals == [] and [s[0] for s in signers] == [u], (text, refusals)
+    assert header == ("Signatory",)
+    v = "https://example.com/org/b"
+    both = (
+        f"# Pact\n\n| Signer |\n|---|\n| {v} |\n\n## Before\n\n"
+        + text.split("\n\n", 1)[1]
+    )
+    signers, refusals, header = config.pact_signers(both)
+    assert refusals == [] and header == ("Signer",), (both, refusals)
+    assert [s[0] for s in signers] == [v], (both, signers)
 
 
 def test_a_half_written_tag_does_not_hide_the_table_from_the_oracle():
     """`<h1` with no `>` above a table: cmark-gfm renders the table, and an
     oracle printing raw HTML handed `html.parser` a tag that swallowed the
     `<table>` after it, so the oracle said no table."""
-    text = "<h1\n\n| Signatory |\n|---|\n| https://example.com/org/a |\n"
-    assert oracle.rows_under(text, ("Signatory",)) == [("https://example.com/org/a",)]
+    text = "<h1\n\n| Signer |\n|---|\n| https://example.com/org/a |\n"
+    assert oracle.rows_under(text, ("Signer",)) == [("https://example.com/org/a",)]
 
 
 @pytest.mark.parametrize(
@@ -617,9 +639,9 @@ def test_a_table_under_a_block_that_has_ended_is_read(above):
     kind-6 block, and a kind 1-5 block closed on its opening line is closed.
     cmark-gfm renders each table, and the walker reads it."""
     u = "https://example.com/org/a"
-    text = f"# Pact\n\n{above}| Signatory |\n|---|\n| {u} |\n"
-    assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
-    rows, refusals = config.gfm_table(text, ("Signatory",))
+    text = f"# Pact\n\n{above}| Signer |\n|---|\n| {u} |\n"
+    assert oracle.rows_under(text, ("Signer",)) == [(u,)], text
+    rows, refusals = config.gfm_table(text, ("Signer",))
     assert refusals == [] and [c for _l, c in rows] == [(u,)], (text, refusals)
 
 
@@ -659,18 +681,18 @@ def test_a_hidden_line_directly_above_the_header_is_refused(above):
     hid. So these are refused with the blank-line remedy, as a paragraph
     directly above already is (round 1, yellow 5). Every template and the
     writer leave the blank line."""
-    text = f"# Pact\n\n{above}| Signatory |\n|---|\n| https://example.com/org/a |\n"
-    _rows, refusals = config.gfm_table(text, ("Signatory",))
+    text = f"# Pact\n\n{above}| Signer |\n|---|\n| https://example.com/org/a |\n"
+    _rows, refusals = config.gfm_table(text, ("Signer",))
     assert refusals and "blank line above the header" in refusals[0], refusals
 
 
 @pytest.mark.parametrize(
     "text",
     [
-        "- x\n\n  | Signatory |\n|---|\n| {u} |\n",
-        "1) one\n\n   | Signatory |\n|---|\n| {u} |\n",
-        "{c} open\n```\n-->\n- note\n| Signatory |\n|---|\n| {u} |\n",
-        "<div>\n```\nx\n```\n| Signatory |\n|---|\n| {u} |\n",
+        "- x\n\n  | Signer |\n|---|\n| {u} |\n",
+        "1) one\n\n   | Signer |\n|---|\n| {u} |\n",
+        "{c} open\n```\n-->\n- note\n| Signer |\n|---|\n| {u} |\n",
+        "<div>\n```\nx\n```\n| Signer |\n|---|\n| {u} |\n",
     ],
     ids=[
         "a header indented into a bullet item",
@@ -685,8 +707,8 @@ def test_the_shapes_round_2_measured_are_refused(text):
     line, a list item `unfenced` hid under a comment holding a fence, and
     the named kind 6-7 limit, a fence inside an HTML block directly above."""
     text = text.format(u="https://example.com/org/a", c="<" + "!--")
-    assert oracle.rows_under(text, ("Signatory",)) is None, text
-    _rows, refusals = config.gfm_table(text, ("Signatory",))
+    assert oracle.rows_under(text, ("Signer",)) is None, text
+    _rows, refusals = config.gfm_table(text, ("Signer",))
     assert refusals, text
 
 
@@ -694,9 +716,9 @@ def test_an_indented_table_with_no_list_above_is_read():
     """The other side of the list-item refusal: an indented header under a
     heading, with no list item since it, renders and is read (S3)."""
     u = "https://example.com/org/a"
-    text = f"- x\n\n# Pact\n\n  | Signatory |\n|---|\n| {u} |\n"
-    assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
-    rows, refusals = config.gfm_table(text, ("Signatory",))
+    text = f"- x\n\n# Pact\n\n  | Signer |\n|---|\n| {u} |\n"
+    assert oracle.rows_under(text, ("Signer",)) == [(u,)], text
+    rows, refusals = config.gfm_table(text, ("Signer",))
     assert refusals == [] and [c for _l, c in rows] == [(u,)], refusals
 
 
@@ -706,9 +728,9 @@ def test_a_heading_inside_the_list_item_does_not_end_it():
     cmark-gfm renders no table, so only a heading at the start of a line
     resets the look upward."""
     u = "https://example.com/org/a"
-    text = f"- x\n\n  # h\n\n  | Signatory |\n|---|\n| {u} |\n"
-    assert oracle.rows_under(text, ("Signatory",)) is None, text
-    _rows, refusals = config.gfm_table(text, ("Signatory",))
+    text = f"- x\n\n  # h\n\n  | Signer |\n|---|\n| {u} |\n"
+    assert oracle.rows_under(text, ("Signer",)) is None, text
+    _rows, refusals = config.gfm_table(text, ("Signer",))
     assert refusals and "indented under a list item" in refusals[0], refusals
 
 
@@ -716,7 +738,7 @@ def test_a_list_marker_in_indented_code_is_no_list_item():
     """`    - x` is indented code, not a list item, so an indented table under
     it renders and is read."""
     u = "https://example.com/org/a"
-    text = f"# Pact\n\n    - x\n\n  | Signatory |\n|---|\n| {u} |\n"
-    assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
-    rows, refusals = config.gfm_table(text, ("Signatory",))
+    text = f"# Pact\n\n    - x\n\n  | Signer |\n|---|\n| {u} |\n"
+    assert oracle.rows_under(text, ("Signer",)) == [(u,)], text
+    rows, refusals = config.gfm_table(text, ("Signer",))
     assert refusals == [] and [c for _l, c in rows] == [(u,)], refusals

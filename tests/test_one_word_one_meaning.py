@@ -608,7 +608,7 @@ PACT_PRINTED = (
     # (round 2 of #647, white 15).
     (("hooks", "config.py"), "pact_declaration"),
     (("hooks", "config.py"), "remote_entries"),
-    (("hooks", "config.py"), "pact_signatories"),
+    (("hooks", "config.py"), "pact_signers"),
     (("hooks", "config.py"), "_stops_at"),
     # The walker every pact table is read through, and the words the
     # `Signatory` table's refusals are put in (#647, steps C and D).
@@ -626,7 +626,7 @@ PACT_PRINTED = (
         ("skills", "evidence-check", "scripts", "evidence_check.py"),
         "PACT_CHANGE_REPAIR",
     ),
-    (("hooks", "config.py"), "_signatory"),
+    (("hooks", "config.py"), "_signer"),
 )
 # The thread's working words, and the noun the owner withheld from the
 # repository holding the pact: each would give one thing a second name. The
@@ -682,7 +682,7 @@ def test_the_pacts_words_keep_one_meaning():
     policy = flat("docs", "the-pact.md")
     assert (
         "**The pact is the one copy of what two or more repositories keep "
-        "together, and every repository of such a work item is a signatory, "
+        "together, and every repository of such a work item is a signer, "
         "the one holding the pact included.**"
     ) in policy
     assert "it is the pact's repository" in policy

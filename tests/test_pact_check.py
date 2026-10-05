@@ -1,8 +1,8 @@
-"""`pact-check` reads every signatory from the pact's repository (#647, B).
+"""`pact-check` reads every signer from the pact's repository (#647, B).
 
 Two temporary repositories side by side: the pact's repository, whose
 `seal/pact.md` carries one clause committed as v1 and then v2 on `main`, with
-v3 on a side branch HEAD does not hold; and a signatory, which names the pact
+v3 on a side branch HEAD does not hold; and a signer, which names the pact
 in its `seal/config.md` and cites the clause from a ledger fragment. `HOME`
 is a temporary directory, so the machine-local map is whatever a case writes
 there. S3 and S8-S12 of the work item's `spec.md`.
@@ -21,7 +21,7 @@ SCRIPT = os.path.join(ROOT, "skills", "evidence-check", "scripts", "pact_check.p
 WRAPPER = os.path.join(ROOT, "bin", "pact-check")
 
 PACT_URL = "git@example.com:org/orders-api.git"
-SIGNATORY_URL = "https://example.com/org/orders-web"
+SIGNER_URL = "https://example.com/org/orders-web"
 LOCATOR = '"## Order response shape / ### Fields"'
 
 
@@ -67,10 +67,10 @@ def write(repo, rel, text):
     path.write_text(text, encoding="utf-8")
 
 
-def pact(fields, signatories=(SIGNATORY_URL,)):
-    rows = "".join(f"| {s} |\n" for s in signatories)
+def pact(fields, signers=(SIGNER_URL,)):
+    rows = "".join(f"| {s} |\n" for s in signers)
     return (
-        "# Pact\n\n| Signatory |\n|---|\n"
+        "# Pact\n\n| Signer |\n|---|\n"
         + rows
         + f"\n## Order response shape\n\n### Fields\n\n{fields}\n\n## Errors\n\nx\n"
     )
@@ -100,7 +100,7 @@ def ledger_row(anchor):
 
 @pytest.fixture
 def world(tmp_path):
-    """The pact's repository and the signatory as siblings under `work/`,
+    """The pact's repository and the signer as siblings under `work/`,
     and an empty HOME."""
     return make_world(tmp_path)
 
@@ -126,9 +126,9 @@ def make_world(tmp_path):
     web = work / "orders-web"
     web.mkdir()
     git(web, "init", "-q", "-b", "main")
-    git(web, "remote", "add", "origin", SIGNATORY_URL)
+    git(web, "remote", "add", "origin", SIGNER_URL)
     write(web, "seal/config.md", config(("Pact", PACT_URL)))
-    commit(web, "signatory")
+    commit(web, "signer")
     return {"api": api, "web": web, "home": home, "tmp": tmp_path}
 
 
@@ -151,8 +151,8 @@ def run(world, root=None):
     return code, " ".join(out.getvalue().split())
 
 
-def test_s12_a_signatory_citing_the_current_clause_is_clean(world):
-    """S12. Every listed signatory resolves, names this repository, and
+def test_s12_a_signer_citing_the_current_clause_is_clean(world):
+    """S12. Every listed signer resolves, names this repository, and
     cites the current hash: exit 0 and the summary line."""
     cite(world, clause(V2))
     write(
@@ -163,13 +163,108 @@ def test_s12_a_signatory_citing_the_current_clause_is_clean(world):
     code, out = run(world)
     assert code == 0, out
     assert (
-        f"READ {SIGNATORY_URL} {posix(world['web'])} — `Pact notify`: when the pact is "
+        f"READ {SIGNER_URL} {posix(world['web'])} — `Pact notify`: when the pact is "
         "touched; 2 pact anchors naming `orders-api`"
     ) in out, out
     assert (
-        "pact-check: the pact `orders-api` — 1 of 1 signatory read · 2 ok · 0 "
+        "pact-check: the pact `orders-api` — 1 of 1 signer read · 2 ok · 0 "
         "superseded · 0 not taken · 0 unmatched · 0 broken"
     ) in out, out
+
+
+# --- the header 0.18.x wrote (#822) ------------------------------------------
+#
+# A pact begun before 0.19.0 heads its table with the word the release
+# renamed. It reads as one headed `Signer`, and one line names the rename;
+# the exit is what the new header gives.
+
+RENAME = (
+    "pact-check: seal/pact.md heads its table `| Signatory |`, the word before "
+    "0.19.0 — `| Signer |` is the header now; rename it when the file is next "
+    "edited"
+)
+
+
+def old_header(text):
+    return text.replace("| Signer |\n|---|", "| Signatory |\n|---|", 1)
+
+
+def test_s1_a_pact_headed_signer_reads_with_no_word_of_a_rename(world):
+    """S1 of #822. The header `templates/pact.md` now begins a pact with is
+    read as the old one was, and nothing is said about a rename."""
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 0, out
+    assert (
+        f"READ {SIGNER_URL} {posix(world['web'])} — `Pact notify`: when the pact "
+        "is touched; 1 pact anchor naming `orders-api`"
+    ) in out, out
+    assert "heads its table" not in out and "Signatory" not in out, out
+
+
+def test_s2_a_pact_headed_as_0_18_wrote_it_reads_the_same_and_names_it(world):
+    """S2 of #822. The same pact headed `| Signatory |` reads identically,
+    one line before its `READ` line names the file, both headers and the
+    release, and the exit is the new header's."""
+    cite(world, clause(V2))
+    new_code, new_out = run(world)
+    write(world["api"], "seal/pact.md", old_header(pact(V2)))
+    commit(world["api"], "the pact as 0.18.0 began it")
+    code, out = run(world)
+    assert code == new_code == 0, (out, new_out)
+    assert out.count(RENAME) == 1, out
+    read = f"READ {SIGNER_URL} {posix(world['web'])}"
+    assert read in out and out.index(RENAME) < out.index(read), out
+    assert out.replace(RENAME + " ", "") == new_out, (out, new_out)
+
+
+def test_s2_a_broken_table_under_the_old_header_is_refused_naming_it(world):
+    """The refusal names the header the walk was asked for, so a table
+    under the old header that will not read says `Signatory`, beside the
+    rename line; the exit is the refusal's."""
+    text = old_header(pact(V2)).replace(
+        f"| {SIGNER_URL} |\n",
+        f"| {SIGNER_URL} |\n| https://example.com/org/orders-mobile\n",
+    )
+    write(world["api"], "seal/pact.md", text)
+    commit(world["api"], "an old header over a row with no closing pipe")
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 2, out
+    assert RENAME in out, out
+    assert (
+        "REFUSED seal/pact.md — the pact has a `Signatory` table that stops at "
+        "`| https://example.com/org/orders-mobile`"
+    ) in out, out
+
+
+def test_s2_a_refusal_naming_the_table_names_the_header_the_pact_holds(world):
+    """`pact-check`'s own sentences about the pact's table call it by the
+    header the pact holds, so a person told to edit the table finds it."""
+    write(world["api"], "seal/pact.md", old_header(pact(V2, (SIGNER_URL, PACT_URL))))
+    commit(world["api"], "an old pact lists itself")
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        f"REFUSED {PACT_URL} seal/pact.md — the pact lists its own repository; "
+        "the `Signatory` table lists every OTHER signer, so take this row out"
+    ) in out, out
+
+
+def test_s7_the_summary_counts_two_signers(world):
+    """S7 of #822: the plural. The second signer has no checkout here, so
+    one of the two is read."""
+    write(
+        world["api"],
+        "seal/pact.md",
+        pact(V2, (SIGNER_URL, "https://example.com/org/orders-mobile")),
+    )
+    commit(world["api"], "a second signer")
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 1, out
+    assert "pact-check: the pact `orders-api` — 1 of 2 signers read · " in out, out
 
 
 def test_s8_a_hash_from_heads_own_history_is_superseded(world):
@@ -178,8 +273,8 @@ def test_s8_a_hash_from_heads_own_history_is_superseded(world):
     code, out = run(world)
     assert code == 1, out
     assert (
-        f"SUPERSEDED {SIGNATORY_URL} seal/ledger/1790000000-x.md:1 {anchor} — the "
-        "signatory was built against a superseded clause"
+        f"SUPERSEDED {SIGNER_URL} seal/ledger/1790000000-x.md:1 {anchor} — the "
+        "signer was built against a superseded clause"
     ) in out, out
     assert f"it reads @{clause(V2)} now" in out, out
 
@@ -190,8 +285,8 @@ def test_s9_a_hash_only_another_ref_holds_is_not_taken_and_names_it(world):
     code, out = run(world)
     assert code == 1, out
     assert (
-        f"NOT TAKEN {SIGNATORY_URL} seal/ledger/1790000000-x.md:1 {anchor} — the "
-        "pact has not taken the signatory's recorded change: this hash is the "
+        f"NOT TAKEN {SIGNER_URL} seal/ledger/1790000000-x.md:1 {anchor} — the "
+        "pact has not taken the signer's recorded change: this hash is the "
         "clause on side"
     ) in out, out
 
@@ -212,7 +307,7 @@ def test_s10_a_heading_path_that_resolves_to_nothing_is_broken(world):
     assert (
         "BROKEN " in out
         and "the heading path resolves to no clause in the pact: the clause was "
-        "renamed or removed. Re-coordinate the signatory"
+        "renamed or removed. Re-coordinate the signer"
         in out
     ), out
 
@@ -226,8 +321,8 @@ def test_s11_a_checkout_nowhere_on_this_machine_names_the_map_line(world):
     code, out = run(world)
     assert code == 1, out
     assert (
-        f"NOT FOUND {SIGNATORY_URL} — no checkout of it was found on this "
-        f"machine: add `| {SIGNATORY_URL} | <the path of its checkout> |` to "
+        f"NOT FOUND {SIGNER_URL} — no checkout of it was found on this "
+        f"machine: add `| {SIGNER_URL} | <the path of its checkout> |` to "
         "~/.claude/specseal/pact-paths.md"
     ) in out, out
     # The map finds it, keyed by the URL compared normalised.
@@ -243,13 +338,13 @@ def test_s11_a_checkout_nowhere_on_this_machine_names_the_map_line(world):
 
 
 def test_s11_a_relationship_recorded_on_one_side_is_refused(world):
-    """S11, second half: the pact lists the signatory and its config does
+    """S11, second half: the pact lists the signer and its config does
     not name the pact, so exit 2."""
     write(world["web"], "seal/config.md", config())
     code, out = run(world)
     assert code == 2, out
     assert (
-        f"ONE-SIDED {SIGNATORY_URL} seal/config.md — the pact lists it, and its "
+        f"ONE-SIDED {SIGNER_URL} seal/config.md — the pact lists it, and its "
         f"config names no `Pact` row for {PACT_URL}: the relationship is "
         "recorded on one side only"
     ) in out, out
@@ -282,13 +377,13 @@ def test_s3_a_notify_value_outside_the_vocabulary_is_exit_2(world, notify, refus
     cite(world, clause(V2))
     code, out = run(world)
     assert code == 2, out
-    assert f"REFUSED {SIGNATORY_URL} seal/config.md — {refusal}" in out, out
+    assert f"REFUSED {SIGNER_URL} seal/config.md — {refusal}" in out, out
     assert "— `Pact notify`: will not parse;" in out, out
 
 
-def test_s7_a_notify_row_below_the_signatorys_table_is_exit_2(world):
+def test_s7_a_notify_row_below_the_signers_table_is_exit_2(world):
     """S7 of #759. A `Pact notify` row under a blank line that ended the
-    signatory's table was read as the default and the run was clean. It
+    signer's table was read as the default and the run was clean. It
     names a pact and is not a pact row in the one spelling read, so it is
     refused, naming the line, and the notify reads as no value."""
     write(
@@ -300,7 +395,7 @@ def test_s7_a_notify_row_below_the_signatorys_table_is_exit_2(world):
     code, out = run(world)
     assert code == 2, out
     assert (
-        f"REFUSED {SIGNATORY_URL} seal/config.md — `| Pact notify | always |` "
+        f"REFUSED {SIGNER_URL} seal/config.md — `| Pact notify | always |` "
         "names a pact and is not a `Pact` or `Pact notify` row in the one "
         "spelling read: write it as `| Pact | … |` or `| Pact notify | … |` "
         "inside the `| Item | Value |` table, or take it out of this file"
@@ -318,7 +413,7 @@ def test_no_pact_here_and_no_origin_are_unusable_input(world):
 
 
 def test_an_anchor_naming_another_pact_is_not_read(world):
-    """A signatory of two pacts cites the other one too; only this pact's
+    """A signer of two pacts cites the other one too; only this pact's
     name is graded here."""
     write(
         world["web"],
@@ -361,13 +456,13 @@ def test_a_heading_path_naming_two_clauses_is_broken(world):
     assert "the heading path resolves to 2 clauses in the pact" in out, out
 
 
-def test_two_siblings_with_the_signatorys_origin_are_not_guessed_between(world):
-    """Nothing is guessed: two checkouts of one signatory, and no map line,
-    is a signatory not found, with both named."""
+def test_two_siblings_with_the_signers_origin_are_not_guessed_between(world):
+    """Nothing is guessed: two checkouts of one signer, and no map line,
+    is a signer not found, with both named."""
     twin = world["web"].parent / "orders-web-2"
     twin.mkdir()
     git(twin, "init", "-q", "-b", "main")
-    git(twin, "remote", "add", "origin", SIGNATORY_URL)
+    git(twin, "remote", "add", "origin", SIGNER_URL)
     code, out = run(world)
     assert code == 1, out
     assert "2 sibling directories have its origin" in out, out
@@ -375,7 +470,7 @@ def test_two_siblings_with_the_signatorys_origin_are_not_guessed_between(world):
 
 
 def test_a_map_that_will_not_read_is_refused_rather_than_read_as_empty(world):
-    """Read as empty, every signatory it names would be reported missing."""
+    """Read as empty, every signer it names would be reported missing."""
     (world["home"] / ".claude" / "specseal" / "pact-paths.md").mkdir(parents=True)
     cite(world, clause(V2))
     code, out = run(world)
@@ -396,7 +491,7 @@ def test_a_pact_under_local_mode_has_no_history_and_says_so(world):
     anchor = cite(world, clause(V1))
     code, out = run(world)
     assert code == 1, out
-    assert f"UNMATCHED {SIGNATORY_URL} seal/ledger/1790000000-x.md:1 {anchor}" in out
+    assert f"UNMATCHED {SIGNER_URL} seal/ledger/1790000000-x.md:1 {anchor}" in out
     assert (
         "The pact sits under the git directory (local mode), so it has no "
         "history and every mismatch reads unmatched"
@@ -405,7 +500,7 @@ def test_a_pact_under_local_mode_has_no_history_and_says_so(world):
 
 def test_a_map_line_naming_a_checkout_of_another_repository_is_not_trusted(world):
     """The map is keyed by URL and the checkout it names must have that
-    origin; a stale line pointing elsewhere is a signatory not found."""
+    origin; a stale line pointing elsewhere is a signer not found."""
     other = world["tmp"] / "unrelated"
     other.mkdir()
     git(other, "init", "-q", "-b", "main")
@@ -413,12 +508,12 @@ def test_a_map_line_naming_a_checkout_of_another_repository_is_not_trusted(world
     write(
         world["home"],
         ".claude/specseal/pact-paths.md",
-        f"| Remote | Path |\n|---|---|\n| {SIGNATORY_URL} | {other} |\n",
+        f"| Remote | Path |\n|---|---|\n| {SIGNER_URL} | {other} |\n",
     )
     code, out = run(world)
     assert code == 1, out
     assert (
-        f"NOT FOUND {SIGNATORY_URL} — the map names {posix(other)}, whose origin is"
+        f"NOT FOUND {SIGNER_URL} — the map names {posix(other)}, whose origin is"
     ) in out, out
 
 
@@ -438,7 +533,7 @@ def test_an_anchor_quoted_in_a_closed_fence_is_an_example_and_not_graded(world):
 
 def test_a_clause_a_merge_did_not_keep_is_still_heads_history(world):
     """Main held v2; a branch cut from v1 changed the clause, and the merge
-    kept the branch's text. A signatory built against v2 is SUPERSEDED, not
+    kept the branch's text. A signer built against v2 is SUPERSEDED, not
     UNMATCHED: v2 is in HEAD's history, on the side git's default history
     simplification does not follow."""
     api = world["api"]
@@ -455,12 +550,12 @@ def test_a_clause_a_merge_did_not_keep_is_still_heads_history(world):
     assert "SUPERSEDED" in out and "UNMATCHED " not in out, out
 
 
-def test_a_signatory_row_the_table_walk_cannot_read_is_exit_2(world):
-    """The row with no closing pipe is refused at the pact, so a signatory
+def test_a_signer_row_the_table_walk_cannot_read_is_exit_2(world):
+    """The row with no closing pipe is refused at the pact, so a signer
     below it is never reported as clean by omission."""
     text = pact(V2).replace(
-        f"| {SIGNATORY_URL} |\n",
-        f"| {SIGNATORY_URL} |\n| https://example.com/org/orders-mobile\n",
+        f"| {SIGNER_URL} |\n",
+        f"| {SIGNER_URL} |\n| https://example.com/org/orders-mobile\n",
     )
     write(world["api"], "seal/pact.md", text)
     commit(world["api"], "a row with no closing pipe")
@@ -468,7 +563,7 @@ def test_a_signatory_row_the_table_walk_cannot_read_is_exit_2(world):
     code, out = run(world)
     assert code == 2, out
     assert (
-        "REFUSED seal/pact.md — the pact has a `Signatory` table that stops at "
+        "REFUSED seal/pact.md — the pact has a `Signer` table that stops at "
         "`| https://example.com/org/orders-mobile`"
     ) in out, out
 
@@ -483,19 +578,19 @@ def test_a_signatory_row_the_table_walk_cannot_read_is_exit_2(world):
     ids=["hash for slash", "no quotes", "no hash"],
 )
 def test_a_pact_anchor_that_does_not_parse_is_refused(world, anchor):
-    """A mistyped citation is read by nobody else: not the signatory's own
+    """A mistyped citation is read by nobody else: not the signer's own
     check, not chain-check. Here it is named and exit 2."""
     write(world["web"], "seal/ledger/1790000000-x.md", ledger_row(anchor))
     code, out = run(world)
     assert code == 2, out
-    assert (f"REFUSED {SIGNATORY_URL} seal/ledger/1790000000-x.md:1 — `") in out, out
+    assert (f"REFUSED {SIGNER_URL} seal/ledger/1790000000-x.md:1 — `") in out, out
     assert (
         'does not parse as `pact:orders-api/"<heading path>"@<hash>`, so '
         "nothing grades it"
     ) in out, out
 
 
-def test_a_signatory_with_no_seal_root_is_one_sided(world):
+def test_a_signer_with_no_seal_root_is_one_sided(world):
     """Without a root it cannot name the pact, and nothing is read from the
     directory the command happens to stand in."""
     import shutil
@@ -504,20 +599,20 @@ def test_a_signatory_with_no_seal_root_is_one_sided(world):
     code, out = run(world)
     assert code == 2, out
     assert (
-        f"ONE-SIDED {SIGNATORY_URL} {posix(world['web'])} — the pact lists it, and it "
+        f"ONE-SIDED {SIGNER_URL} {posix(world['web'])} — the pact lists it, and it "
         "has no seal/ root to name this pact in: the relationship is recorded "
         "on one side only"
     ) in out, out
 
 
-def test_a_signatory_config_that_will_not_read_is_unreadable(world):
+def test_a_signer_config_that_will_not_read_is_unreadable(world):
     (world["web"] / "seal" / "config.md").unlink()
     (world["web"] / "seal" / "config.md").mkdir()
     code, out = run(world)
     assert code == 2, out
-    # Relative to the signatory's checkout and in POSIX form: the sentence
+    # Relative to the signer's checkout and in POSIX form: the sentence
     # used to join a native absolute path with `/` (#647's separator note).
-    assert f"UNREADABLE {SIGNATORY_URL} seal/config.md — could not be read" in out, out
+    assert f"UNREADABLE {SIGNER_URL} seal/config.md — could not be read" in out, out
 
 
 def test_an_anchor_file_that_will_not_read_is_unreadable(world):
@@ -525,7 +620,7 @@ def test_an_anchor_file_that_will_not_read_is_unreadable(world):
     code, out = run(world)
     assert code == 2, out
     assert (
-        f"UNREADABLE {SIGNATORY_URL} seal/ledger/1790000000-x.md — could not be read"
+        f"UNREADABLE {SIGNER_URL} seal/ledger/1790000000-x.md — could not be read"
     ) in out, out
 
 
@@ -540,24 +635,24 @@ def test_a_pact_that_will_not_read_is_unreadable(world):
 def test_a_pact_listing_its_own_repository_says_so(world):
     """Not `NOT FOUND`, which would send a person looking for a checkout of
     the repository they stand in."""
-    write(world["api"], "seal/pact.md", pact(V2, (SIGNATORY_URL, PACT_URL)))
+    write(world["api"], "seal/pact.md", pact(V2, (SIGNER_URL, PACT_URL)))
     commit(world["api"], "the pact lists itself")
     cite(world, clause(V2))
     code, out = run(world)
     assert code == 2, out
     assert (
         f"REFUSED {PACT_URL} seal/pact.md — the pact lists its own repository; "
-        "the `Signatory` table lists every OTHER signatory, so take this row out"
+        "the `Signer` table lists every OTHER signer, so take this row out"
     ) in out, out
     assert "NOT FOUND" not in out, out
 
 
-def test_a_signatory_row_below_a_blank_line_is_refused(world):
+def test_a_signer_row_below_a_blank_line_is_refused(world):
     """A blank line ends the table's walk; a row written below it is a
-    signatory nobody reads, so it is refused rather than passed over."""
+    signer nobody reads, so it is refused rather than passed over."""
     text = pact(V2).replace(
-        f"| {SIGNATORY_URL} |\n",
-        f"| {SIGNATORY_URL} |\n\n| https://example.com/org/orders-mobile |\n",
+        f"| {SIGNER_URL} |\n",
+        f"| {SIGNER_URL} |\n\n| https://example.com/org/orders-mobile |\n",
     )
     write(world["api"], "seal/pact.md", text)
     commit(world["api"], "a blank line inside the table")
@@ -565,9 +660,9 @@ def test_a_signatory_row_below_a_blank_line_is_refused(world):
     code, out = run(world)
     assert code == 2, out
     assert (
-        "REFUSED seal/pact.md — the pact has a `Signatory` table that ends above "
+        "REFUSED seal/pact.md — the pact has a `Signer` table that ends above "
         "`| https://example.com/org/orders-mobile |`, a row the walk never "
-        "reaches — it and every signatory below it would go unread"
+        "reaches — it and every signer below it would go unread"
     ) in out, out
 
 
@@ -604,35 +699,35 @@ def test_a_pact_name_inside_a_graded_anchors_heading_is_not_a_near_miss(world):
     assert "does not parse" not in out, out
 
 
-def test_a_signatory_written_as_an_autolink_is_never_passed_over(world):
-    """S2 (🟡 18 of #735's round 3). GFM renders a second signatory from an
+def test_a_signer_written_as_an_autolink_is_never_passed_over(world):
+    """S2 (🟡 18 of #735's round 3). GFM renders a second signer from an
     autolink line under the table; the walk refuses the line rather than end
-    the table there, so the run never says every signatory was read."""
+    the table there, so the run never says every signer was read."""
     text = pact(V2).replace(
-        f"| {SIGNATORY_URL} |\n",
-        f"| {SIGNATORY_URL} |\n<https://example.com/org/orders-mobile>\n",
+        f"| {SIGNER_URL} |\n",
+        f"| {SIGNER_URL} |\n<https://example.com/org/orders-mobile>\n",
     )
     write(world["api"], "seal/pact.md", text)
-    commit(world["api"], "a signatory written as an autolink")
+    commit(world["api"], "a signer written as an autolink")
     cite(world, clause(V2))
     code, out = run(world)
     assert code == 2, out
     assert (
-        "REFUSED seal/pact.md — the pact has a `Signatory` table that continues "
+        "REFUSED seal/pact.md — the pact has a `Signer` table that continues "
         "with `<https://example.com/org/orders-mobile>`, a line with no pipe "
         "that GFM reads as one of its rows — write it as `| … |`"
     ) in out, out
 
 
 def test_an_entry_refusal_is_printed_after_the_pact(world):
-    text = pact(V2).replace(f"| {SIGNATORY_URL} |\n", f"| {SIGNATORY_URL} |\n|  |\n")
+    text = pact(V2).replace(f"| {SIGNER_URL} |\n", f"| {SIGNER_URL} |\n|  |\n")
     write(world["api"], "seal/pact.md", text)
     commit(world["api"], "an empty row")
     cite(world, clause(V2))
     code, out = run(world)
     assert code == 2, out
     assert (
-        "REFUSED seal/pact.md — the pact has a `Signatory` entry that will not "
+        "REFUSED seal/pact.md — the pact has a `Signer` entry that will not "
         "read: an empty row"
     ) in out, out
 
@@ -648,8 +743,8 @@ def test_the_map_is_named_in_posix_form_on_every_platform(world, monkeypatch):
         patched.setattr(os.path, "join", ntpath.join)
         windows = load()
     config = pc.load(os.path.join(pc.HOOKS, "config.py"), "config_for_posix_map")
-    signatory = (SIGNATORY_URL, "example.com/org/orders-web", "orders-web")
-    _, why = windows.checkout(config, signatory, str(world["tmp"] / "nowhere"), {})
+    signer = (SIGNER_URL, "example.com/org/orders-web", "orders-web")
+    _, why = windows.checkout(config, signer, str(world["tmp"] / "nowhere"), {})
     assert "~/.claude/specseal/pact-paths.md" in why, why
     assert "\\" not in why, why
 
