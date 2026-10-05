@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #801 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `52e2315eb3985538136731b514338edb1cc9f0ac..52e2315eb3985538136731b514338edb1cc9f0ac`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (a regression against the base: a held coordinate whose only place is unsure is left BROKEN on a dated row where the base re-pointed it, and `--strict` goes red where the base was clean); 🟡 2 (pre-existing at the base: a claim tie is BROKEN to the check and silent to `reverify`, fixed at both sites or deferred whole) |
 | Loses a record or crashes | no — nothing written is lost and nothing crashes; 🟡 1 writes a BROKEN pact-change part a second run contradicts, and 🟡 2 omits one, both in narrow shapes |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ The verifying round over round 2's fixes (930078de..4d510880), and the last roun
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | a held coordinate whose only place is one the declaration rule is unsure of, on a row the run dates, is named `left` and handed a BROKEN part where the base re-pointed it onto its one provable destination; `--strict` after exits 2 where the base exits 0, and the loop's line drops `, and no destination is provable` | `skills/evidence-check/scripts/evidence_check.py:3599` | open | C10 executed at a3aa139a, fceff8ce and the target; a regression against the base since phase 1; the fix and its case executed in the clone, red at the target and green with the fix, 693 passed in the three narrow modules |
-| 🟡 2 | a claim coordinate whose minor content two or more places hold is BROKEN to the check and silent to both `reverify` paths; on a dated held row the run's own date turns the family BROKEN with no line | `skills/evidence-check/scripts/evidence_check.py:3382` | open | S1 and C4 executed at a3aa139a, fceff8ce and the target; pre-existing at the base in the ordinary path, which the loop copies; fceff8ce named the dated cell and round 2's fix silenced it again; the fix executed in the clone, 906 passed in four modules |
-| ⬜ 3 | an unsure place with a claim that does not hold the row's hash is left with a BROKEN part, where the check reads it DRIFTED | `skills/evidence-check/scripts/evidence_check.py:3394` | deferred a new issue against `reverify`'s unsure-place rule | C8 executed, identical at the base; the round-6 never-write rule against `classify`'s round-8 DRIFTED; a design question, not this item's |
-| ⬜ 4 | the loop's comment, the overview's grounds, spec D1, A1 and the `0.4.0.md:59` re-read say a place holding the recorded content is OK to the check, or that every flagged row gets a line, which a claim tie contradicts | `seal/specs/1791163980-an-in-place-reverify-leaves-history-alone-and-reports-each-row-once/overview.md` | open | a correction to the run's paperwork; follows 🟡 1 and 🟡 2 |
+| 🟡 1 | a held coordinate whose only place is one the declaration rule is unsure of, on a row the run dates, is named `left` and handed a BROKEN part where the base re-pointed it onto its one provable destination; `--strict` after exits 2 where the base exits 0, and the loop's line drops `, and no destination is provable` | `skills/evidence-check/scripts/evidence_check.py:3599` | deferred #808 | #808 — the run is capped; fixed post-review on this branch, and #808 is what that fix closes; C10 executed at a3aa139a, fceff8ce and the target; a regression against the base since phase 1; the fix and its case executed in the clone, red at the target and green with the fix, 693 passed in the three narrow modules |
+| 🟡 2 | a claim coordinate whose minor content two or more places hold is BROKEN to the check and silent to both `reverify` paths; on a dated held row the run's own date turns the family BROKEN with no line | `skills/evidence-check/scripts/evidence_check.py:3382` | deferred #808 | #808 — fixed with 🟡 1 at both sites, so the loop and the ordinary path answer a claim tie one way; S1 and C4 executed at a3aa139a, fceff8ce and the target; pre-existing at the base in the ordinary path, which the loop copies; fceff8ce named the dated cell and round 2's fix silenced it again; the fix executed in the clone, 906 passed in four modules |
+| ⬜ 3 | an unsure place with a claim that does not hold the row's hash is left with a BROKEN part, where the check reads it DRIFTED | `skills/evidence-check/scripts/evidence_check.py:3394` | deferred #809 | C8 executed, identical at the base; the round-6 never-write rule against `classify`'s round-8 DRIFTED; a design question, not this item's |
+| ⬜ 4 | the loop's comment, the overview's grounds, spec D1, A1 and the `0.4.0.md:59` re-read say a place holding the recorded content is OK to the check, or that every flagged row gets a line, which a claim tie contradicts | `seal/specs/1791163980-an-in-place-reverify-leaves-history-alone-and-reports-each-row-once/overview.md` | deferred #808 | #808 — the paperwork follows the code of the post-review fix; a correction to the run's paperwork; follows 🟡 1 and 🟡 2 |
 | 🟢 | round 2's blocking finding is closed — a held two-place coordinate one place holds is silent on a dated row | `skills/evidence-check/scripts/evidence_check.py:3609` | confirmed | p6 re-run at four SHAs, both variants, both freeze arms; the planted cases red with 930078de's script and green at the target |
 | 🟢 | the `still` call removed in c4c6a73e was equivalent | `skills/evidence-check/scripts/evidence_check.py:3613` | confirmed | read: one key takes one branch on every walk; executed: the target and a copy with the call restored identical in 49 cell-arms |
 | 🟢 | round 2's white 2 was answered at 4d510880 | `seal/ledger/1791163980-an-in-place-reverify-leaves-history-alone-and-reports-each-row-once.md` | confirmed | A1's qualifier, the re-stamp at the current `reverify` hash and the phase-3 grounds read; the remainder is ⬜ 4 |
