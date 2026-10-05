@@ -479,6 +479,38 @@ def test_the_ci_merge_ref_names_the_items_commit_and_not_the_siblings(
         assert sibling[:7] not in line, line
 
 
+def test_a_merge_on_the_branch_keeps_the_branch_as_the_tip(repo, monkeypatch, capsys):
+    """The other side of `walk_tip`: a merge whose FIRST parent descends from
+    round 1's target is the branch integrating something, so the walk stays
+    on the branch. Starting it at the merged-in side instead would lose the
+    branch's own fix."""
+    target = built(repo)
+    start = open_round(repo, 1, target)
+    git(repo, "switch", "-qc", "side")
+    change(repo, "hooks/side.py", message="a topic commit")
+    git(repo, "switch", "-q", "feature")
+    fix = change(repo, "hooks/x.py", message="fix")
+    close_round(repo, 1, target, start, fix)
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "merge",
+        "-q",
+        "--no-ff",
+        "-m",
+        "merge the topic",
+        "side",
+    )
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    line = notice(out)
+    assert line is not None, out
+    assert fix[:7] in line, line
+
+
 def test_an_honest_fragment_on_the_ci_merge_ref_is_not_named(repo, monkeypatch, capsys):
     """Round 1's 🔴 1, the other direction: an item that brought its fragment
     along was told a sibling's squash had left it behind."""
