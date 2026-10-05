@@ -4757,8 +4757,8 @@ def test_what_a_test_printed_is_not_read_as_pytests_own_lines(
     carries that run's lines there. Read anywhere, an inner `no tests ran`
     turned a run that measured the file into `new?` with a false reason, and
     an inner `FAILED` line named a file the base passes `failing on base
-    too`. Only pytest's own last summary line, and what follows its last
-    `short test summary info` rule, are this run's."""
+    too`. Since #789 the words come from the JUnit report the gate asks
+    pytest for, which no inner run writes, and both cases keep their word."""
     repo = base_then_feature(tmp_path / "repo", suite_row(xdist), at_base, on_feature)
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
