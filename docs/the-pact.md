@@ -38,7 +38,7 @@ gives; at the pact's repository `chain-check`'s notice carries the same
 sentence and its exit does not move. No command rewrites a pact: the line
 says to rename the header when the file is next edited, and every text
 this plugin ships says `signer`.
-Enforced by: tests/test_pact_check.py::test_s2_a_pact_headed_as_0_18_wrote_it_reads_the_same_and_names_it, tests/test_a_pact_review_takes_a_pact_change.py::test_s5_a_review_record_written_in_0_18_still_takes_its_change, tests/test_a_signers_ci_prints_its_pact.py::test_a_pact_headed_as_0_18_wrote_it_is_counted_and_the_rename_named, tests/test_a_signer_declares_its_pact.py::test_s4_a_pact_holding_both_tables_is_read_from_signer_alone
+Enforced by: tests/test_pact_check.py::test_s2_a_pact_headed_as_0_18_wrote_it_reads_the_same_and_names_it, tests/test_a_pact_review_takes_a_pact_change.py::test_s5_a_review_record_written_in_0_18_still_takes_its_change, tests/test_a_signers_ci_prints_its_pact.py::test_a_pact_headed_as_0_18_wrote_it_is_counted_and_the_rename_named, tests/test_a_signer_declares_its_pact.py::test_s4_a_pact_holding_both_tables_is_read_from_signer_alone, tests/test_one_word_one_meaning.py::test_no_pact_text_names_a_signer_the_way_0_18_did
 
 ## When there is a pact at all
 

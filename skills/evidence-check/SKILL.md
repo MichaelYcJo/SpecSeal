@@ -328,7 +328,7 @@ unit can be cited by several rows, and the check names the coordinate once.
 Read every row that cites a drifted coordinate before typing the date, or
 narrow the write with `--ledger` to the files you did read.
 
-**In a signatory, the re-read also records a pact change** (#647,
+**In a signer, the re-read also records a pact change** (#647,
 `docs/the-pact.md`). Where `seal/config.md` names a pact in a `Pact` row and a
 row whose hash this moves — in place, or into a `Re-read ·` row under
 `--into` — cites one of its clauses as a pact anchor, or a coordinate of such
@@ -359,7 +359,7 @@ and the next run re-stamps without recording twice. An `--into` that is
 there and will not read is refused before anything is written.
 
 **A line saying a ledger was written prints after it was.** Every
-`--reverify` run, in a signatory or not, holds the hash lines, the count
+`--reverify` run, in a signer or not, holds the hash lines, the count
 line, the dated list, `wrote` and `citing rows written` until the record
 step is done and the file each names is written, so a run that writes no
 ledger file prints none of them. A ledger it would write, and the record,
@@ -492,12 +492,12 @@ person's act, and a merge driver for the file would have to understand what a
 row claims — which is the judgment this whole ledger is built around a person
 making.
 
-## `pact-check` — the signatories against the pact
+## `pact-check` — the signers against the pact
 
 Some work items commit in more than one repository, and where those
 repositories keep a contract together, the one copy of it is the pact,
 `seal/pact.md` in one of them (`docs/the-pact.md`). Every repository of such
-a work item is a signatory. A signatory other than the pact's repository
+a work item is a signer. A signer other than the pact's repository
 names it in a `Pact` row of its `seal/config.md`, and cites the clauses it
 was built against as pact anchors:
 
@@ -519,16 +519,16 @@ What grades them is a second command, run at the pact's repository:
 pact-check
 ```
 
-It reads the pact's `| Signatory |` table, finds each signatory's checkout
+It reads the pact's `| Signer |` table, finds each signer's checkout
 through `~/.claude/specseal/pact-paths.md` (a `| Remote | Path |` table kept
 per machine) or a sibling directory with that origin, guessing nothing, and
-refuses a signatory whose config does not name this pact. Then it grades every
-anchor naming this pact in the signatory's ledger files and specs: `OK`;
+refuses a signer whose config does not name this pact. Then it grades every
+anchor naming this pact in the signer's ledger files and specs: `OK`;
 `SUPERSEDED`, built against a clause HEAD's own history replaced; `NOT TAKEN`,
 citing a version only another ref holds, which it names; `UNMATCHED`, a hash
 no commit gave the clause; `BROKEN`, a heading path naming no single clause.
 Git is asked which way a mismatch points and never whether an anchor is `OK`.
-Exit 0 when every signatory was read and every anchor is `OK`, 1 for the three
+Exit 0 when every signer was read and every anchor is `OK`, 1 for the three
 mismatches or a checkout not found, 2 for `BROKEN`, a refused row or file, an
 anchor naming the pact that does not parse, a relationship recorded on one
 side only, or no origin remote. A token that begins an anchor — `pact:<name>`
@@ -538,25 +538,31 @@ quoted heading path with a hash, or a fenced code block for an example.
 Every path it prints is in POSIX form on every platform: relative to its
 repository inside one, and beginning `~/` where it lies under `~`.
 
-**It reads every signatory's pact changes too** — the
-`seal/pact-changes/<work-item-id>.md` records a signatory's `--reverify`
-writes (§*Re-verifying is recomputing the hash*), following that signatory's
+**It reads every signer's pact changes too** — the
+`seal/pact-changes/<work-item-id>.md` records a signer's `--reverify`
+writes (§*Re-verifying is recomputing the hash*), following that signer's
 `Pact notify` as read now. A row citing a clause of this pact is `NOT TAKEN`,
 exit 1, until a pact review here takes it: the line names the record and
 line, the clause, the work item and the record's content hash, which is the
-value the review writes. A `—` row from a signatory whose notify is `always`
+value the review writes. A `—` row from a signer whose notify is `always`
 is `NOTED` and moves no exit. A pact review is a work item at the pact's
 repository whose record, `seal/pact-reviews/<work-item-id>.md`
-(`templates/pact-review.md`), has one row per record it takes: the signatory,
+(`templates/pact-review.md`), has one row per record it takes: the signer,
 `<work-item-id>@<content hash>`, and `holds` or `amended`. A record is taken
 at that hash alone, so one that grows after its review reads `NOT TAKEN`
-again, naming both hashes. A review row naming a signatory the pact does not
-list, a record that signatory does not hold, another verdict, or `amended`
+again, naming both hashes. A review row naming a signer the pact does not
+list, a record that signer does not hold, another verdict, or `amended`
 for a clause that still has the recorded hash is refused at exit 2, as is a
 record that will not read or parse. The `READ` line and the summary count the
 pact changes read and taken.
 
-**It is local only.** A signatory's pull request can read one repository, so
+**A table headed with the word 0.18.x used still reads.** A pact, or a pact
+review record, whose table header predates `Signer` is read exactly as one
+headed `Signer`, and one line before that file's others names the file, both
+headers and 0.19.0. The line moves no exit; it says to rename the header when
+the file is next edited (`docs/the-pact.md` §*The words*).
+
+**It is local only.** A signer's pull request can read one repository, so
 its CI prints the relationship and verifies nothing (`chain-check`'s pact
 notices), and this command is where the reconciliation runs. A `SUPERSEDED`
 or `UNMATCHED` line names the clause's current hash, so a new citation can be

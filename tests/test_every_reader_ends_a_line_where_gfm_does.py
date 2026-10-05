@@ -689,7 +689,7 @@ OUT_OF_CLASS.update(
             1,
             F,
         ),
-        # The one GFM table walker the pact's `Signatory` table and both pact
+        # The one GFM table walker the pact's `Signer` table and both pact
         # records are read through, reading what `unfenced` shows it as
         # `config_rows` does (#647; ⬜ 21 of #735's round 3).
         ("hooks/config.py", "gfm_table"): (1, F),
