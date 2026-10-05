@@ -56,7 +56,8 @@
     fixture's error lands on each session's last test, a flaky test fails in
     one run and not the other;
   - a row whose measuring runner sends its output to a file, so the only
-    session the extra run shows is another runner's.
+    session the extra run shows is another runner's, one that collected
+    nothing at the base included (#815).
 
   A row earns the measured word back by letting the files the gate appends
   be pytest's only paths, for example `pytest -q` with `testpaths` in the

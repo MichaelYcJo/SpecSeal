@@ -149,6 +149,17 @@ proof needs the measuring runner's own node ids.
   a3aa139a did not give. The table below is phase 2's and stays as it was
   measured then.
 
+### Corrected by #815, after round 3
+
+Round 3 found one more regression the round 2 head carried: a silent
+measuring runner beside a later runner that collected nothing at the base
+(swallow0, swallow-desel) passed the proof with zero node ids. #815's fix
+requires a node id or an `ERROR` line naming the file. The corpus re-run at
+that fix (this table's layouts, round 1's four, round 2's ten, round 3's
+three, and the 96-run matrix, against a3aa139a's gate) gives no `failing on
+base too` that a3aa139a did not give; swallow0 and swallow-desel read
+`new?`.
+
 ### The corpus, word by word
 
 `own` is the row the record ran the layout with, `files` the same row

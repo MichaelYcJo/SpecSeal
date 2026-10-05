@@ -16,7 +16,7 @@ show that reads `new?`.
 | Earlier word assertions | `spec.md` S16: "Every other word assertion is unchanged" / STOPPED_EARLY retires (Scope 6), and a group that decides nothing now runs file by file (Scope 4) | three cases changed word; `phases/phase-1.md` lists them | Scope 4 and Scope 6 are the design; S16's sentence cannot hold beside them. At phase 1 one of the three, and the files-only parameter of the cannot-collect case, gave `failing on base too` where a3aa139a was stricter. Corrected at fd98c2c8 by round 1's fix pass: both now read `new?` with `COMPANY` (the next row) |
 | A group of several failing files | `spec.md` §*The class*, condition 1: "`h` ran alone" treats a run alone as the cure / round 1's 🔴 1, then round 2's 🔴 1: a file the base passes beside the others but fails alone read `failing on base too`, and a count comparison let another file's failures make up the count | every file of a group whose run at the base did not give `new` reads `COMPANY`; none runs alone and none is proven | the owner's decision of 2026-10-05 after round 2: a group of several failing files never earns `failing on base too`. Inferred during review |
 | A runner without the gate's environment | `spec.md` Scope 7: a second runner the pass does not reach with the gate's environment is a permissive limit "the same as at a3aa139a" / round 1's 🔴 2: for a FIRST such runner the measurement moved to the runner after it, where a3aa139a read `new` | an outcome line of a session that ran tests, in the proof's output, reads `MULTI_RUNNER`; rule 3's limit keeps only such a runner that prints nothing (`-qq` or quieter) | round 1's report; only a runner that did not read `PYTEST_ADDOPTS` runs tests under the proof. Inferred during review |
-| The session the proof reads | `spec.md` Scope 5: the proof shows one session listing the file / round 2's 🟡 2: the measuring runner's output went to a file, and the one session seen was the next runner's | the proof hands the measuring runner `-o verbosity_test_cases=-1` after the file and needs its node ids; a session listed by file reads `MULTI_RUNNER` | round 2's report's alternative, executed against a pytest 8.1 release, a pytest 8.3 release and 9.1.1, plain and under `-n 2`. Inferred during review |
+| The session the proof reads | `spec.md` Scope 5: the proof shows one session listing the file / round 2's 🟡 2: the measuring runner's output went to a file, and the one session seen was the next runner's | the proof hands the measuring runner `-o verbosity_test_cases=-1` after the file and needs its node ids; a session listed by file reads `MULTI_RUNNER`, and so does one with no node id and no `ERROR` line naming the file (#815, round 3) | round 2's report's alternative, executed against a pytest 8.1 release, a pytest 8.3 release and 9.1.1, plain and under `-n 2`. Inferred during review |
 | Q4, the names | `questions.md` Q4: "wording and names are phase 1's" | `NOT_ENDED`, `COLLECTED_BEYOND`, `MULTI_RUNNER`; `NO_RUNNER` reworded | `phases/phase-1.md` |
 
 ## Not verified
@@ -30,10 +30,15 @@ show that reads `new?`.
 ## Not done
 
 **Every exception to "no new permissive word" (`spec.md` S17), with its
-reason.** After round 2's fix pass there is none. The corpus re-run at the
-head (the 46 phase-2 layouts, round 1's four, round 2's ten, and the 96-run
-inner-run matrix, each under both rows: 516 words against a3aa139a's gate)
-gives `failing on base too` only where a3aa139a gave it too. The S3–S5
+reason.** After #815's fix there is none. Round 3 found one more after
+round 2's fix pass, a regression against a3aa139a: a silent measuring
+runner beside a later runner that collected nothing at the base (no test in
+its directory, or every test deselected) passed the proof with zero node
+ids. #815 closed it: the proof needs a node id or an `ERROR` line naming
+the file. The corpus re-run at the head (the 46 phase-2 layouts, round 1's
+four, round 2's ten, round 3's three, and the 96-run inner-run matrix, each
+under both rows where the two differ, against a3aa139a's gate) gives
+`failing on base too` only where a3aa139a gave it too. The S3–S5
 shape, the last exception after round 1, is gone: its file is one of two
 failing files of one run at the base, and reads `new?`. Round 2's two
 regressions are closed rather than named: a group whose count another file
