@@ -1314,7 +1314,12 @@ def test_an_unfrozen_narrowed_reverify_names_a_family_it_could_not_clear(repo):
     assert out.returncode == 1, out.stdout
     left = [line for line in out.stdout.splitlines() if "LEFT" in line]
     assert left and "seal/releases/0.1.0.md:5" in left[0], out.stdout
+    # The newest reading sits in the fragment the narrowing left out, so the
+    # `--ledger` remedy is the true one, and the run left nothing itself
+    # (#792, S11).
     assert "newest reading" in left[0], left[0]
+    assert left[0].endswith("run it without `--ledger`"), left[0]
+    assert "this run left" not in left[0], left[0]
 
 
 def test_a_checked_cell_the_calendar_does_not_have_does_not_outrank_a_re_read(repo):
@@ -2700,14 +2705,12 @@ def test_a_ledger_coordinate_restamped_on_two_walks_is_one_move(repo):
     assert run(["--strict", "."], repo).returncode == 0
 
 
-def test_a_restamp_a_later_walk_leaves_is_a_move_and_then_broken(repo):
-    """Post-review of #791. X1's coordinate names the `Re-read ·` line of its
-    own self-citing release, by a claim quoting that line's citation hash. A
-    walk moves X1 to the line as that walk found it, and the next walk
-    re-stamps the citation, so the quoted text is gone and X1 is left. The
-    file keeps the hash that walk wrote. MOVES holds that move and then
-    BROKEN at the hash the file holds; BROKEN from the hash the ledger held
-    before the run drops a re-stamp that landed. Red at 5ef5d315."""
+def moved_then_left(repo):
+    """X1's coordinate names the `Re-read ·` line of its own self-citing
+    release, by a claim quoting that line's citation hash. A walk moves X1 to
+    the line as that walk found it, and the next walk re-stamps the citation,
+    so the quoted text is gone and X1 is left. Returns X1's coordinate as
+    written; `handler` is edited, so the run has its moves to make."""
     h = unit_hash(repo, "src/service.py", "handler")
     o = unit_hash(repo, "src/service.py", "other")
     r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
@@ -2732,6 +2735,15 @@ def test_a_restamp_a_later_walk_leaves_is_a_move_and_then_broken(repo):
     )
     assert run(["--strict", "."], repo).returncode == 0
     edit_handler(repo)
+    return line
+
+
+def test_a_restamp_a_later_walk_leaves_is_a_move_and_then_broken(repo):
+    """Post-review of #791, in `moved_then_left`'s tree. The file keeps the
+    hash the walk that moved X1 wrote. MOVES holds that move and then BROKEN
+    at the hash the file holds; BROKEN from the hash the ledger held before
+    the run drops a re-stamp that landed. Red at 5ef5d315."""
+    line = moved_then_left(repo)
     moves = []
     ec.reverify([str(repo / R_FILE)], str(repo), {}, None, "2026-03-01", moves)
     after = (repo / R_FILE).read_text(encoding="utf-8")
@@ -2780,16 +2792,13 @@ def test_every_walk_sequence_hands_over_what_the_file_holds(walks):
     assert parts == want, (walks, parts)
 
 
-def test_a_coordinate_left_and_then_read_unchanged_records_nothing(repo):
-    """Second post-review pass of #791. A walk can leave a coordinate and a
-    later walk read it unchanged. X1 was stamped while handler was at v1,
-    quoting the citation hash its `Re-read ·` line held then; handler moved
-    and came back, so the run re-stamps that line back to the bytes X1
-    recorded. Two walks find the quoted hash gone and leave X1, the third
-    reads it unchanged, and the file ends where X1's hash says. MOVES holds
-    nothing for X1: a BROKEN from the walks that left it would write the
-    permanent record a trigger for a coordinate `--strict` reads clean. Red
-    with `still` a no-op."""
+def left_then_unchanged(repo, stale=False):
+    """X1 was stamped while handler was at v1, quoting the citation hash its
+    `Re-read ·` line held then; handler moved and came back, so the run
+    re-stamps that line back to the bytes X1 recorded. Two walks find the
+    quoted hash gone and leave X1, and the third reads it unchanged, or,
+    where X1's hash is STALE, re-stamps it. Returns R_FILE's text as X1's
+    hash says it ends."""
     o = unit_hash(repo, "src/service.py", "other")
     day = "2026-03-01"
 
@@ -2825,10 +2834,19 @@ def test_a_coordinate_left_and_then_read_unchanged_records_nothing(repo):
     before = (repo / R_FILE).read_text(encoding="utf-8")
     edit_handler(repo)
     h2 = unit_hash(repo, "src/service.py", "handler")
-    write(h2, cite_for(h2), x)
+    write(h2, cite_for(h2), x.rsplit("@", 1)[0] + "@0000beef" if stale else x)
     (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+    return before
+
+
+def test_a_coordinate_left_and_then_read_unchanged_records_nothing(repo):
+    """Second post-review pass of #791, in `left_then_unchanged`'s tree: the
+    file ends where X1's hash says. MOVES holds nothing for X1: a BROKEN from
+    the walks that left it would write the permanent record a trigger for a
+    coordinate `--strict` reads clean. Red with `still` a no-op."""
+    before = left_then_unchanged(repo)
     moves = []
-    ec.reverify([str(repo / R_FILE)], str(repo), {}, None, day, moves)
+    ec.reverify([str(repo / R_FILE)], str(repo), {}, None, "2026-03-01", moves)
     assert (repo / R_FILE).read_text(encoding="utf-8") == before
     assert [m for m in moves if m[1] == 10] == [], moves
     assert run(["--strict", "."], repo).returncode == 0
@@ -2948,3 +2966,869 @@ def test_the_home_names_each_thing_no_re_read_clears(sentence):
     ) as handle:
         text = " ".join(handle.read().split())
     assert sentence in text, sentence
+
+
+# --- an in-place re-stamp leaves a reading its family already holds (#785) ---
+#
+# The family paragraph counts only a coordinate's newest readings, so a
+# reading a newer one outranks is history. Re-stamping and dating it claims a
+# reading nobody took, and the date can make it the newest. `reverify` judges
+# each code coordinate once, before its first walk, by `family_view`'s own
+# `held` and `superseded`.
+
+A_ITEM = "2000000001-a"
+B_ITEM = "3000000001-b"
+
+
+def at_version(repo, n):
+    """Write `handler` as `y = x + N`, and return its hash."""
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("y = x + 1", f"y = x + {n}"), encoding="utf-8"
+    )
+    return unit_hash(repo, "src/service.py", "handler")
+
+
+def re_read_of(r, h, day, extra=""):
+    """A `Re-read ·` row citing released R1 (row R), recording `handler` at H
+    on DAY, with EXTRA coordinates after it."""
+    return (
+        f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+        f"`src/service.py#handler@{h}`{extra} | read | {day} | Re-read {day} |"
+    )
+
+
+def outranked_family(repo, b_day="2026-03-01"):
+    """#785's probe: R1 at h0 on 2026-01-01, fragment A re-reading it at h1 on
+    2026-02-01, fragment B at h2 on B_DAY, and the code at h2. Returns A's
+    file. B holds, so `--strict` reads the family OK."""
+    h0 = at_version(repo, 1)
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    h1 = at_version(repo, 2)
+    a = fragment(repo, [re_read_of(r, h1, "2026-02-01")], name=A_ITEM)
+    h2 = at_version(repo, 3)
+    fragment(repo, [re_read_of(r, h2, b_day)], name=B_ITEM)
+    return a
+
+
+@pytest.mark.parametrize("checked", [True, False], ids=["dated", "undated"])
+def test_an_in_place_reverify_leaves_a_reading_its_family_holds(repo, checked):
+    """S1 and S6 (#785). Under the freeze, A is outranked by B, which holds.
+    The run leaves A byte for byte, names it on no hash line, no dated line
+    and no undated line, and exits 0; `--strict` still exits 0. Red at
+    a3aa139a, which re-stamped A to h2 and dated it `2026-02-01 ·
+    2026-04-01`, or named it undated."""
+    a = outranked_family(repo)
+    frozen(repo, "0")
+    assert run(["--strict", "."], repo).returncode == 0
+    before = a.read_bytes()
+    dated = ["--checked", "2026-04-01"] if checked else []
+    fix = run(["--reverify", *dated, "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    assert a.read_bytes() == before, fix.stdout
+    assert f"seal/ledger/{A_ITEM}.md" not in fix.stdout, fix.stdout
+    assert not [line for line in fix.stdout.splitlines() if HASH_LINE.match(line)]
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+@pytest.mark.parametrize("narrowed", [False, True], ids=["every ledger", "R's file"])
+def test_an_unfrozen_reverify_leaves_a_root_a_newer_reading_holds(repo, narrowed):
+    """S2 (#785). No freeze: R1 records h0, and fragment B, newer, holds h2.
+    R1's line is left byte for byte, the run exits 0 and prints no `LEFT`
+    line, over every ledger and narrowed to R1's file. Red at a3aa139a: the
+    unnarrowed run re-stamped and dated R1, and the narrowed one did too,
+    which moved the line B cites and exited 1 on `citations_left`."""
+    h0 = at_version(repo, 1)
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    h2 = at_version(repo, 3)
+    fragment(repo, [re_read_of(r, h2, "2026-02-01")], name=B_ITEM)
+    assert run(["--strict", "."], repo).returncode == 0
+    before = (repo / R_FILE).read_bytes()
+    flags = ["--ledger", R_FILE] if narrowed else []
+    fix = run(["--reverify", "--checked", "2026-03-01", *flags, "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    assert (repo / R_FILE).read_bytes() == before, fix.stdout
+    assert "LEFT" not in fix.stdout, fix.stdout
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_a_reading_tied_with_one_that_holds_is_left_alone(repo):
+    """S3 (#785). A and B are dated the same day; B holds and A does not.
+    Readings on one date are a union, so the family holds and A is left.
+    Red at a3aa139a."""
+    a = outranked_family(repo, b_day="2026-02-01")
+    frozen(repo, "0")
+    assert run(["--strict", "."], repo).returncode == 0
+    before = a.read_bytes()
+    fix = run(["--reverify", "--checked", "2026-04-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    assert a.read_bytes() == before, fix.stdout
+
+
+def test_a_superseded_root_is_left_and_its_correction_re_stamped(repo):
+    """S4 (#785). No freeze: R1 drifted, and a `Corrected ·` row citing it,
+    whose own coordinate drifted too. `--strict` checks none of R1's
+    coordinates, so R1 is left byte for byte; the correcting row's own
+    coordinate is re-stamped and dated as before. Red at a3aa139a, which
+    re-stamped R1."""
+    h0 = at_version(repo, 1)
+    o = unit_hash(repo, "src/service.py", "other")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    c = fragment(
+        repo,
+        [
+            f"| Corrected · handler adds two | `{citation(r, 'R1 · handler adds one')}`, "
+            f"`src/service.py#other@{o}` | read | 2026-02-01 | Corrected 2026-02-01 |"
+        ],
+        name=A_ITEM,
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("y = x + 1", "y = x + 2").replace("x * 2", "x * 3"),
+        encoding="utf-8",
+    )
+    before = (repo / R_FILE).read_bytes()
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    assert (repo / R_FILE).read_bytes() == before, fix.stdout
+    o2 = unit_hash(repo, "src/service.py", "other")
+    after = c.read_text(encoding="utf-8")
+    assert f"src/service.py#other@{o2}`" in after and "2026-03-01" in after, after
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_a_family_no_reading_holds_is_re_stamped_as_before(repo):
+    """S5, the control (#785). No freeze: R1 at h0 and A at h1, the code at
+    h2, so no reading holds. Every member whose hash moves is re-stamped and
+    dated, as before. Green at a3aa139a; red with every family member left
+    alone."""
+    h0 = at_version(repo, 1)
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    h1 = at_version(repo, 2)
+    a = fragment(repo, [re_read_of(r, h1, "2026-02-01")], name=A_ITEM)
+    h2 = at_version(repo, 3)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    for path in (repo / R_FILE, a):
+        text = path.read_text(encoding="utf-8")
+        assert f"src/service.py#handler@{h2}`" in text, text
+        assert "· 2026-03-01 |" in text, text
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_a_held_coordinate_on_a_row_the_run_dates_is_re_stamped_with_it(repo):
+    """#785, a row carrying two coordinates. B holds `handler`, and A's
+    `other` drifted with no reading holding it. The run re-stamps A's
+    `other` and dates A, which makes A the newest reading of every
+    coordinate on it, `handler` included: A's `handler` is re-stamped with
+    it, because the date says the whole row was read. Left at h1, it would
+    outrank B and the family would read DRIFTED. Green at a3aa139a, which
+    re-stamped every coordinate; red with a held coordinate always left."""
+    o0 = unit_hash(repo, "src/service.py", "other")
+    a = outranked_family(repo)
+    a.write_text(
+        a.read_text(encoding="utf-8").replace(
+            "` | read |", f"`, `src/service.py#other@{o0}` | read |", 1
+        ),
+        encoding="utf-8",
+    )
+    frozen(repo, "0")
+    (repo / "src" / "service.py").write_text(
+        (repo / "src" / "service.py")
+        .read_text(encoding="utf-8")
+        .replace("x * 2", "x * 3"),
+        encoding="utf-8",
+    )
+    fix = run(["--reverify", "--checked", "2026-04-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    text = a.read_text(encoding="utf-8")
+    assert f"src/service.py#handler@{h2}`" in text, text
+    assert "· 2026-04-01 |" in text, text
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
+
+
+def test_a_superseded_familys_citation_is_still_re_stamped(repo):
+    """#785's judgment is about code coordinates: a citation is a ledger
+    line no family grades. R1, re-read by A and corrected by C, had its
+    Notes edited, so both citations of it read DRIFTED. R1's family is
+    superseded, and A's citation is re-stamped all the same, as C's is;
+    `--strict` exits 0 after. Red with a citation judged as a code
+    coordinate."""
+    h0 = at_version(repo, 1)
+    o = unit_hash(repo, "src/service.py", "other")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    fragment(repo, [re_read_of(r, h0, "2026-02-01")], name=A_ITEM)
+    fragment(
+        repo,
+        [
+            f"| Corrected · handler adds one, then other | "
+            f"`{citation(r, 'R1 · handler adds one')}`, `src/service.py#other@{o}` "
+            "| read | 2026-02-01 | Corrected 2026-02-01 |"
+        ],
+        name=B_ITEM,
+    )
+    path = repo / R_FILE
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "| 2026-01-01 | |", "| 2026-01-01 | x |"
+        ),
+        encoding="utf-8",
+    )
+    assert run(["--strict", "."], repo).returncode == 2
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
+
+
+TWICE = SERVICE + "\n\ndef handler(x):\n    return x\n"
+
+
+def test_a_held_coordinate_with_two_places_is_left_alone(repo):
+    """#785. `handler` names two places, and B's hash is what one of them
+    holds, so the family holds it. A's older hash matches neither place,
+    and a re-stamp would leave A BROKEN with a `left` line; a reading the
+    family holds is history, so A is left, silently. Red with the
+    resolution guard removed."""
+    h0 = at_version(repo, 1)
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    h1 = at_version(repo, 2)
+    a = fragment(repo, [re_read_of(r, h1, "2026-02-01")], name=A_ITEM)
+    (repo / "src" / "service.py").write_text(TWICE, encoding="utf-8")
+    text = TWICE
+    places, _ = ec.resolve_unit("src/service.py", "handler", text)
+    assert len(places) == 2, places
+    a_, b_ = places[0]
+    held = ec.content_hash(ec.gfm_lines(text)[a_ - 1 : b_])
+    fragment(repo, [re_read_of(r, held, "2026-03-01")], name=B_ITEM)
+    frozen(repo, "0")
+    assert run(["--strict", "."], repo).returncode == 0
+    before = a.read_bytes()
+    fix = run(["--reverify", "--checked", "2026-04-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    assert a.read_bytes() == before, fix.stdout
+    assert "src/service.py#handler" not in fix.stdout, fix.stdout
+
+
+@pytest.mark.parametrize("checked", ["2026-04-01", None], ids=["dated", "undated"])
+def test_a_held_coordinate_with_two_places_on_a_dated_row_is_left_and_named(
+    repo, capsys, checked
+):
+    """Round 1, yellow 1: the rider rule meeting the resolution guard. B
+    holds `handler` through one of its two places; A carries it at an older
+    hash beside `other`, which drifted with no reading holding it. Dated for
+    `other`, A becomes the newest reading of `handler`, at a hash neither
+    place holds: the run names it `left` and hands MOVES a BROKEN part, as
+    for any coordinate no one place holds. Undated, A is not the newest
+    reading, and `handler` stays silent. Red at 0667af2e, which was silent
+    on the dated row too."""
+    o0 = unit_hash(repo, "src/service.py", "other")
+    h0 = at_version(repo, 1)
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    h1 = at_version(repo, 2)
+    a = fragment(
+        repo,
+        [re_read_of(r, h1, "2026-02-01", extra=f", `src/service.py#other@{o0}`")],
+        name=A_ITEM,
+    )
+    places, _ = ec.resolve_unit("src/service.py", "handler", TWICE)
+    x, y = places[0]
+    held = ec.content_hash(ec.gfm_lines(TWICE)[x - 1 : y])
+    b = fragment(repo, [re_read_of(r, held, "2026-03-01")], name=B_ITEM)
+    (repo / "src" / "service.py").write_text(
+        TWICE.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    moves = []
+    ec.reverify([str(a), str(b)], str(repo), {}, None, checked, moves)
+    out = capsys.readouterr().out
+    said = [
+        line
+        for line in out.splitlines()
+        if line.startswith("  src/service.py#handler  ") and line.endswith("left")
+    ]
+    # The line gives the check's reason, `left_because`'s (round 2).
+    assert all("2 places, none holding the recorded content" in s for s in said), out
+    broken = ("src/service.py#handler", h1, None) in [m[2:] for m in moves]
+    assert (len(said), broken) == ((1, True) if checked else (0, False)), (
+        out,
+        moves,
+    )
+
+
+def test_a_held_coordinate_one_of_whose_places_holds_it_rides_a_dated_row_silently(
+    repo, capsys
+):
+    """Round 2, yellow 1. A records `handler` at what one of its two places
+    holds, and carries `other`, which drifted. Dated for `other`, A becomes
+    the newest reading of `handler` at content one place holds, which the
+    check calls OK: the run says nothing about `handler` and records no
+    BROKEN for it, as on a row no family holds. Red at 930078de, which named
+    it `left` and handed MOVES a BROKEN part."""
+    o0 = unit_hash(repo, "src/service.py", "other")
+    h0 = at_version(repo, 1)
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    places, _ = ec.resolve_unit("src/service.py", "handler", TWICE)
+    x, y = places[0]
+    held = ec.content_hash(ec.gfm_lines(TWICE)[x - 1 : y])
+    a = fragment(
+        repo,
+        [re_read_of(r, held, "2026-02-01", extra=f", `src/service.py#other@{o0}`")],
+        name=A_ITEM,
+    )
+    (repo / "src" / "service.py").write_text(
+        TWICE.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    moves = []
+    ec.reverify([str(a)], str(repo), {}, None, "2026-04-01", moves)
+    out = capsys.readouterr().out
+    assert "src/service.py#handler" not in out, out
+    assert [m for m in moves if m[2] == "src/service.py#handler"] == [], moves
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+LEFT_BEHIND = (
+    "func main() {\n    return handler(1)\n}\n\nfunc other(x) {\n    return x * 2\n}\n"
+)
+
+
+@pytest.mark.parametrize(
+    "destination", ["one", "one, renamed", "none"], ids=lambda d: d
+)
+def test_a_held_coordinate_with_an_unsure_place_on_a_dated_row_heals_to_its_destination(
+    repo, capsys, destination
+):
+    """#808, round 3 of #785's review, yellow 1. B holds `handler` in
+    `src/lib.go` through the one place the declaration rule is unsure of, the
+    call a move left behind; A records the unit itself, which now lives in
+    `src/moved.go`, and carries `other`, which drifted. Dated for `other`, A
+    becomes the newest reading of `handler`, and the run reads it as the
+    ordinary path reads such a coordinate: it heals A onto the one
+    destination that reconstructs A's hash, and `--strict` reads the tree
+    clean; with no destination it is left, `and no destination is provable`,
+    with its BROKEN part. Where the unit was renamed as it moved, the hash
+    follows the name and MOVES gets the move. Red at 0de15c70, which named
+    the first two `left` with BROKEN parts, and dropped the last's
+    wording."""
+    lib, dest = "src/lib.go", "src/moved.go"
+    (repo / "src" / "lib.go").write_text(LEFT_BEHIND, encoding="utf-8")
+    unit = "func handler(x) {\n    y := x + 2\n    return y\n}\n"
+    (repo / "src" / "moved.go").write_text(unit, encoding="utf-8")
+    places, unsure = ec.resolve_unit(lib, "handler", LEFT_BEHIND)
+    assert unsure and len(places) == 1, places
+    x, y = places[0]
+    held = ec.content_hash(ec.gfm_lines(LEFT_BEHIND)[x - 1 : y])
+    a_at = unit_hash(repo, dest, "handler")
+    name = "handler"
+    if destination == "none":
+        (repo / "src" / "moved.go").unlink()
+    elif destination == "one, renamed":
+        name = "total"
+        (repo / "src" / "moved.go").write_text(
+            unit.replace("func handler(", "func total("), encoding="utf-8"
+        )
+    o0 = unit_hash(repo, lib, "other")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `{lib}#handler@{line_hash('    return handler(0)')}` "
+            "| read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler adds one")
+    a = fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, `{lib}#handler@{a_at}`, "
+            f"`{lib}#other@{o0}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+        name=A_ITEM,
+    )
+    b = fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, `{lib}#handler@{held}` "
+            "| read | 2026-03-01 | Re-read 2026-03-01 |"
+        ],
+        name=B_ITEM,
+    )
+    (repo / "src" / "lib.go").write_text(
+        LEFT_BEHIND.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    moves = []
+    ec.reverify([str(a), str(b)], str(repo), {}, None, "2026-04-01", moves)
+    out = capsys.readouterr().out
+    broken = [m for m in moves if m[2] == f"{lib}#handler" and m[4] is None]
+    if destination != "none":
+        assert f"{lib}#handler -> {dest}#{name}  (identical content)" in out, out
+        assert broken == [], moves
+        now = unit_hash(repo, dest, name)
+        assert f"`{dest}#{name}@{now}`" in a.read_text(encoding="utf-8")
+        moved = [m[3:] for m in moves if m[2] == f"{lib}#handler"]
+        assert moved == ([] if now == a_at else [(a_at, now)]), moves
+        assert run(["--strict", "."], repo).returncode == 0
+    else:
+        assert (
+            f"  {lib}#handler  only a place the declaration rule is unsure of, and "
+            "no destination is provable — left"
+        ) in out, out
+        assert len(broken) == 1, moves
+
+
+THRICE = (
+    SERVICE
+    + "\n\ndef handler(x):\n    y = x + 1\n    return y * 2\n"
+    + "\n\ndef handler(x):\n    y = x + 9\n    return y * 3\n"
+)
+
+
+def test_a_held_claim_two_places_tie_on_a_dated_row_is_left_and_named(repo, capsys):
+    """#808, round 3 of #785's review, yellow 2, the dated cell. B holds the
+    claim `handler>"y = x"` at the third of three `handler` units; A, older,
+    records the line the first two share, and carries `other`, which
+    drifted. Dated for `other`, A becomes the newest reading, and two places
+    holding a claim's minor hash is a tie the check calls BROKEN: the run
+    names it `left` in the check's terms and hands MOVES the BROKEN part.
+    Red at 0de15c70, which read the tie as unchanged and said nothing."""
+    claim = 'src/service.py#handler>"y = x"'
+    places, _ = ec.resolve_unit("src/service.py", "handler", THRICE)
+    assert len(places) == 3, places
+
+    def minor(n):
+        (inside,) = ec.minor_region("src/service.py", THRICE, places[n], '"y = x"')
+        return ec.content_hash(ec.gfm_lines(THRICE)[inside[0] - 1 : inside[1]])
+
+    o0 = unit_hash(repo, "src/service.py", "other")
+    h0 = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler adds one")
+    a = fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, `{claim}@{minor(0)}`, "
+            f"`src/service.py#other@{o0}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+        name=A_ITEM,
+    )
+    b = fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, `{claim}@{minor(2)}` "
+            "| read | 2026-03-01 | Re-read 2026-03-01 |"
+        ],
+        name=B_ITEM,
+    )
+    (repo / "src" / "service.py").write_text(
+        THRICE.replace("x * 2\n", "x * 3\n", 1), encoding="utf-8"
+    )
+    moves = []
+    ec.reverify([str(a), str(b)], str(repo), {}, None, "2026-04-01", moves)
+    out = capsys.readouterr().out
+    assert (
+        f"  {claim}  3 places, 2 holding the recorded content, a tie the recorded "
+        "hash cannot break — left"
+    ) in out, out
+    assert (claim, minor(0), None) in [m[2:] for m in moves], moves
+
+
+def test_a_held_ledger_coordinate_the_run_moves_is_re_stamped(repo):
+    """Round 1, yellow 2. #785's judgment is made before the walk, on the
+    premise that a walk moves no code. A coordinate naming a line of a ledger
+    the run writes is the exception: Q and B both name R1's line, B newer and
+    holding it, and the run re-stamps R1 in place, which moves that line. Q
+    and B are re-stamped with it, as before #785, and `--strict` reads the
+    tree clean. Red at 0667af2e, which left both at the stale hash."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+    released(repo, [r1])
+    lc = citation(r1, "R1 · handler adds one")
+    second = "### 1000000002-the-second-item"
+    q = f"| Q · beside R1 | `{lc}` | read | 2026-01-01 | |"
+    released(repo, [q], version="0.2.0", section=second)
+    cq = citation(q, "Q · beside R1", version="0.2.0", section=second)
+    fragment(
+        repo,
+        [
+            f"| Re-read · Q · beside R1 | `{cq}`, `{lc}` | read | 2026-02-01 | "
+            "Re-read 2026-02-01 |"
+        ],
+        name=B_ITEM,
+    )
+    assert run(["--strict", "."], repo).returncode == 0
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
+
+
+@pytest.mark.parametrize(
+    "where, sentence",
+    [
+        (
+            "docs/the-evidence-ledger.md",
+            "No such reading is owed where the family already holds a coordinate, "
+            "or where a `Corrected ·` row supersedes the family, so an in-place "
+            "re-stamp leaves that coordinate's hash and date as they are (#785).",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "On a row it dates for another coordinate it moves a held one's hash "
+            "too, since that date makes the row its newest reading.",
+        ),
+        (
+            "skills/evidence-check/SKILL.md",
+            "**Where no re-read is owed, the hash and the date stay** (#785).",
+        ),
+        (
+            "skills/evidence-check/SKILL.md",
+            "A row the run dates for another coordinate takes a held one's new "
+            "hash too, because its date makes it that coordinate's newest reading.",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "A reading whose family's newest reading holds the code, and a "
+            "superseded family's, stay as they are",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "**A coordinate its family already holds, or that a superseded family "
+            "carries, stays where it stands** (#785, `left_alone`).",
+        ),
+    ],
+    ids=[
+        "the home: no re-read owed",
+        "the home: a dated row",
+        "the skill: the hash and the date stay",
+        "the skill: a dated row",
+        "the usage text",
+        "reverify's docstring",
+    ],
+)
+def test_the_documents_say_a_held_reading_is_left_alone(where, sentence):
+    """§14 for #785: every place that says what an in-place `--reverify`
+    rewrites says which readings it leaves, sentence by sentence."""
+    with open(os.path.join(ROOT, where), encoding="utf-8") as handle:
+        text = " ".join(handle.read().split())
+    assert sentence in text, sentence
+
+
+# --- each coordinate's outcome is printed once, after the walks (#792) -------
+
+
+@pytest.mark.parametrize(
+    "walks",
+    [
+        sequence
+        for n in (2, 3)
+        for sequence in itertools.product(WALK_OUTCOMES, repeat=n)
+    ],
+    ids=lambda walks: ", ".join(walks),
+)
+def test_every_walk_sequence_prints_what_the_file_holds(walks):
+    """#792's comment, enumerated by construction beside the MOVES case. One
+    coordinate walked two or three times, each walk moving it, reading it
+    unchanged, or leaving it for a reason of that walk's own. The printed
+    lines are the fold MOVES is: a hash line where a move landed, and a
+    `left` line, with that walk's reason, where the last walk left it. A walk
+    reading the coordinate unchanged takes the line back, as it takes back
+    BROKEN in MOVES (#791). Red with the first walk's reason kept."""
+    held_hash, seen, fresh = "h0", None, iter(f"h{n}" for n in range(1, 9))
+    for n, outcome in enumerate(walks):
+        if outcome == "moved":
+            new = next(fresh)
+            seen = ec.walked_outcome(seen, held_hash, new)
+            held_hash = new
+        elif outcome == "left":
+            seen = ec.walked_outcome(seen, held_hash, None, f"walk {n} left it")
+        else:
+            seen = ec.walked_outcome(seen, held_hash, held_hash)
+    state, why = seen
+    assert (state[1] is not None) == ("moved" in walks), (walks, state)
+    last = len(walks) - 1
+    want = f"walk {last} left it" if walks[last] == "left" else None
+    assert why == want, (walks, why)
+    # The line and the record's BROKEN part are one decision.
+    assert ((held_hash, None) in ec.owed_moves(state)) == (why is not None), walks
+
+
+@pytest.mark.parametrize("last", ["unchanged", "moved"])
+def test_a_left_line_a_later_walk_takes_back_is_not_printed(repo, last):
+    """S9 (#792's comment), `left_then_unchanged`'s tree through `main`. Two
+    walks leave X1 and the third reads it unchanged, or re-stamps it where
+    its hash was stale, so no line says X1 is left, and `--strict` reads it
+    clean. Red at a3aa139a, which printed walk 0's `the anchored statement is
+    gone … left` and nothing after it."""
+    before = left_then_unchanged(repo, stale=last == "moved")
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    if last == "unchanged":
+        assert (repo / R_FILE).read_text(encoding="utf-8") == before
+    else:
+        assert "0000beef -> " in fix.stdout, fix.stdout
+    assert "— left" not in fix.stdout and "; left" not in fix.stdout, fix.stdout
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+def a_correction_whose_statement_is_gone(repo):
+    """A10's tree, folded: a `Corrected ·` row in `seal/releases/0.2.0.md`
+    roots its own family, and its one coordinate names a statement `other`
+    no longer has. Returns the file it sits in."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    text = (repo / "src" / "service.py").read_text(encoding="utf-8")
+    places, _ = ec.resolve_unit("src/service.py", "other", text)
+    (inside,) = ec.minor_region("src/service.py", text, places[0], '"x * 2"')
+    stated = ec.content_hash(ec.gfm_lines(text)[inside[0] - 1 : inside[1]])
+    where = placed(
+        repo,
+        f"| Corrected · other doubles | `{citation(r, 'R1 · handler adds one')}`, "
+        f'`src/service.py#other>"x * 2"@{stated}` | read | 2026-02-01 | '
+        "Corrected 2026-02-01 by work item 2000000001 |",
+        "folded",
+        "0.2.0",
+        "2000000001-c",
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    return where
+
+
+@pytest.mark.parametrize(
+    "tree, narrowed",
+    [
+        ("a move, then left", False),
+        ("a correction whose statement is gone", False),
+        ("a correction whose statement is gone", True),
+    ],
+    ids=[
+        "S10: a move then left, every ledger",
+        "S10: A10 folded, every ledger",
+        "S12: A10 folded, narrowed to its file",
+    ],
+)
+def test_a_coordinate_the_run_left_itself_names_no_ledger_remedy(repo, tree, narrowed):
+    """S10 and S12 (#792). The run leaves a coordinate itself, on a row in a
+    file it writes, and no reading outside the run is newer: the family
+    `LEFT` line names the coordinate and says the run left it, and names no
+    `--ledger` remedy, which could not clear it. The line naming why it was
+    left is printed once, and the exit stays 1. Red at a3aa139a, which told
+    the person to run it without `--ledger`."""
+    if tree == "a move, then left":
+        line = moved_then_left(repo)
+        coord, where = line.rsplit("@", 1)[0], f"{R_FILE}:10"
+        flags = []
+    else:
+        file = a_correction_whose_statement_is_gone(repo)
+        coord, where = 'src/service.py#other>"x * 2"', f"{file}:5"
+        flags = ["--ledger", file] if narrowed else []
+    fix = run(["--reverify", "--checked", "2026-03-01", *flags, "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    family = [
+        line for line in fix.stdout.splitlines() if line.startswith(f"  LEFT  {where}")
+    ]
+    assert len(family) == 1, fix.stdout
+    assert f"this run left {coord} where it stands" in family[0], family[0]
+    assert "--ledger" not in family[0], family[0]
+    said = [
+        line
+        for line in fix.stdout.splitlines()
+        if line.startswith(f"  {coord}  ") and line.endswith("left")
+    ]
+    assert len(said) == 1, fix.stdout
+
+
+def test_a_family_no_remedy_clears_is_named_without_one(repo):
+    """Questions Q3, the measured shape: the family's newest reading sits in
+    a ledger the run walks and cannot read strictly, so neither reason
+    holds. The family `LEFT` line names the coordinate and says it is still
+    DRIFTED, and names no remedy it cannot support; the `ledger unreadable`
+    line beside it names the file. Red at a3aa139a, which named the
+    `--ledger` remedy."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    bad = repo / "seal" / "ledger" / f"{A_ITEM}.md"
+    bad.parent.mkdir(parents=True)
+    bad.write_bytes(
+        (re_read_of(r, h, "2026-02-01") + "\n")
+        .encode("utf-8")
+        .replace(b"| read |", b"| caf\xe9 |")
+    )
+    edit_handler(repo)
+    fix = run(["--reverify", "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    assert f"  LEFT  seal/ledger/{A_ITEM}.md  ledger unreadable" in fix.stdout
+    family = [line for line in fix.stdout.splitlines() if "still DRIFTED" in line]
+    assert len(family) == 1, fix.stdout
+    assert "src/service.py#handler" in family[0], family[0]
+    assert "--ledger" not in family[0] and "this run left" not in family[0], family[0]
+
+
+@pytest.mark.parametrize(
+    "where, sentence",
+    [
+        (
+            "docs/the-evidence-ledger.md",
+            "The line names a remedy per coordinate, by why the family is still "
+            "owed one (#792).",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "Only where a newest reading of it sits in a file the run did not "
+            "write does it say to run without `--ledger`.",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "Where the run left the coordinate itself, on a `left` line or by "
+            "leaving its row whole for want of a date cell, the line says so and "
+            "points at the line naming why, and a run over every ledger names "
+            "such a family too.",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "A `left` line names why: a path outside the repository or any known "
+            "checkout, a file the run could not read, no one place holding the "
+            "unit, or a quoted statement its file no longer has.",
+        ),
+        ("docs/the-evidence-ledger.md", "Where neither is found it names no remedy."),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "**Every `left` line goes through `walked_outcome`** (#792): kept per "
+            "coordinate under the key its hash line uses, the last walk's reason "
+            "winning, and printed once the walks end, in the order they first met "
+            "the coordinates.",
+        ),
+    ],
+    ids=[
+        "the home: per coordinate",
+        "the home: --ledger only outside",
+        "the home: left by the run",
+        "the home: every left reason",
+        "the home: neither",
+        "reverify's docstring: the fold",
+    ],
+)
+def test_the_documents_say_each_outcome_is_printed_once(where, sentence):
+    """§14 for #792: the paragraph a person reads beside a family `LEFT`
+    line, and the docstring a contributor adding a `left` reason reads."""
+    with open(os.path.join(ROOT, where), encoding="utf-8") as handle:
+        text = " ".join(handle.read().split())
+    assert sentence in text, sentence
+
+
+def test_reverifys_docstring_no_longer_says_a_later_walk_is_silent():
+    """#792's comment: `a walk after the first names nothing the first one
+    named` described the defect. Red at a3aa139a."""
+    assert "names nothing the first one named" not in " ".join(
+        ec.reverify.__doc__.split()
+    )
+
+
+def test_a_row_left_whole_for_want_of_a_date_cell_is_named_as_left_by_the_run(
+    repo,
+):
+    """#792, reason (ii)'s second shape. A released row outside every family
+    sits in a table with no date column, so `--checked` leaves it whole and
+    it stays DRIFTED. The family `LEFT` line says the run left it, beside the
+    line naming why, and names no `--ledger` remedy. Red at a3aa139a."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (repo / "seal" / "releases").mkdir(parents=True)
+    (repo / R_FILE).write_text(
+        f"## 0.1.0 — 2026-01-01\n\n{SECTION}\n\n"
+        "| Clause | Code grounds | Verified behavior | Notes |\n|---|---|---|---|\n"
+        f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | |\n",
+        encoding="utf-8",
+    )
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    assert f"  LEFT  {R_FILE}:7  its hash moved and the row has no date cell" in (
+        fix.stdout
+    )
+    family = [line for line in fix.stdout.splitlines() if "still DRIFTED" in line]
+    assert len(family) == 1, fix.stdout
+    assert "this run left src/service.py#handler where it stands" in family[0]
+    assert "--ledger" not in family[0], family[0]
+
+
+def test_an_older_reading_outside_the_narrowing_names_no_ledger_remedy(repo):
+    """#792, reason (i) is about the newest readings. A10's folded
+    correction is the newest reading of its coordinate, and the run leaves
+    it; an older `Re-read ·` of it sits in a fragment the narrowing left
+    out. A run without `--ledger` would re-stamp that older one and clear
+    nothing, so the line names only the run's own leaving. Red with every
+    reading counted, not only the newest."""
+    file = a_correction_whose_statement_is_gone(repo)
+    text = (repo / file).read_text(encoding="utf-8")
+    row = text.splitlines()[4]
+    cite = ec.citation_for(str(repo), str(repo / file), 5)
+    stated = row.split('"x * 2"@', 1)[1].split("`", 1)[0]
+    fragment(
+        repo,
+        [
+            f"| Re-read · other doubles | `{cite}`, "
+            f'`src/service.py#other>"x * 2"@{stated}` | read | 2026-01-15 | '
+            "Re-read 2026-01-15 |"
+        ],
+        name=B_ITEM,
+    )
+    fix = run(["--reverify", "--checked", "2026-03-01", "--ledger", file, "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    family = [line for line in fix.stdout.splitlines() if "still DRIFTED" in line]
+    assert len(family) == 1 and family[0].startswith(f"  LEFT  {file}:5"), fix.stdout
+    assert "this run left" in family[0] and "--ledger" not in family[0], family[0]

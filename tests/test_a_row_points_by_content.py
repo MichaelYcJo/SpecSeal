@@ -766,6 +766,41 @@ def test_a_renamed_markdown_heading_is_named_too(repo):
     assert 'identical content at #"## New name"' in r.stdout, r.stdout
 
 
+def test_reverify_names_a_claim_two_places_hold_as_the_check_does(repo):
+    """#808, round 3 of #785's review, yellow 2. A claim's minor hash in two
+    places is a tie the recorded hash cannot break, so the check calls the
+    row BROKEN (`classify`, round 8). `--reverify` asked only whether any
+    place held the hash, read the row as unchanged and said nothing: a
+    flagged row answered with silence. It now names it `left` in the
+    check's terms. Red at 0de15c70, which printed nothing for `handler`."""
+    twice = SERVICE + "\n\ndef handler(x):\n    y = x + 1\n    return y * 2\n"
+    (repo / "src" / "service.py").write_text(twice, encoding="utf-8")
+    places, _ = ec.resolve_unit("src/service.py", "handler", twice)
+    assert len(places) == 2, places
+    (inside,) = ec.minor_region("src/service.py", twice, places[0], '"y = x"')
+    h = ec.content_hash(ec.gfm_lines(twice)[inside[0] - 1 : inside[1]])
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x"@{h}` |\n',
+        encoding="utf-8",
+    )
+    check = run(["--strict", "."], str(repo))
+    assert check.returncode == 2
+    # Two places hold it, so the reason says so, in both commands (#810).
+    assert "(2 hold the recorded content, a tie it cannot break)" in check.stdout, (
+        check.stdout
+    )
+    r = run(["--reverify", "."], str(repo))
+    said = [
+        line
+        for line in r.stdout.splitlines()
+        if line.startswith('  src/service.py#handler>"y = x"  ')
+    ]
+    assert said == [
+        '  src/service.py#handler>"y = x"  2 places, 2 holding the recorded '
+        "content, a tie the recorded hash cannot break — left"
+    ], r.stdout
+
+
 def test_reverify_re_anchors_a_row_whose_content_provably_moved(repo):
     """The hint's condition is strong enough to fix, not just to point.
 
