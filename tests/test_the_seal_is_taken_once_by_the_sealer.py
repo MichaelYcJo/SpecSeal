@@ -6190,6 +6190,9 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         # #789 round 2: the owner's group rule, the measuring runner's own
         # session, and the two routes that never meet a group.
         "**A group of several failing files never earns `failing on base too`.**",
+        "Where several failing files the base carries ran together and that "
+        "run did not give each `new`, every one of them reads `new?`, and none "
+        "runs alone",
         "Only a file that runs alone from the start can earn the word: the one "
         "failing file the base carries at the root, or one the root's tree does "
         "not carry.",
