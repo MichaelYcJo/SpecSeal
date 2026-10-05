@@ -15,6 +15,7 @@ import os
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 
@@ -1289,16 +1290,59 @@ def test_the_guard_policy_says_a_hidden_file_checkout_is_asked():
 
 
 def test_the_guard_policy_says_what_it_reads_past_the_base():
-    """§14 of the agent contract, for #764 and #738 (work item 1791119071):
-    the paragraph that says the command is read as `86256492` read it names
-    the one rule now read past it, on whose answer and when, and what stays
-    the base's. Red against the paragraph as it stood at `94d7b2e0`."""
+    """§14 of the agent contract, for #764 and #738 (work item 1791119071)
+    and #790 (work item 1791163981): the paragraph that says the command is
+    read as `86256492` read it names the two rules now read past it, on whose
+    act and when, and what stays the base's. Red against the paragraph as it
+    stood at `94d7b2e0`, and its #790 sentences against `a3aa139a`'s; the
+    round 1 sentences of 1791163981 against `85e77dc8`'s, and round 2's
+    against `f659c466`'s."""
     text = _policy_text()
     assert (
-        "One rule is read past the base, since #764 and #738 on the owner's "
-        "answer of 2026-10-04: a `checkout`'s and a `switch`'s own words are "
-        "read as git's option parser sees them once bash has taken the "
-        "redirections off"
+        "Two rules are read past the base. The first, since #764 and #738 on "
+        "the owner's answer of 2026-10-04: a `checkout`'s and a `switch`'s own "
+        "words are read as git's option parser sees them once bash has taken "
+        "the redirections off"
+    ) in text
+    assert (
+        "The second, since #790 on the owner's placement of it in the "
+        "milestone of the release that ships it, on 2026-10-05: a `checkout`'s "
+        "name is looked up the "
+        "way `git checkout` resolves it. The name is a branch to switch to "
+        "where it names a commit once resolved and peeled, as every "
+        "single-revision form does, a message search (`git checkout ':/fix "
+        "typo'`) included, and where `rev-parse` reads the word as a range "
+        "git's object lookup reads it whole, as `git checkout` does; where it "
+        "is `<a>...<b>` with exactly one merge base, a side left empty meaning "
+        "`HEAD`; and where a remote-tracking branch of any remote ends in it, "
+        "or a remote's fetch refspec maps `refs/heads/<name>` to a ref that "
+        "exists, which is git's guess. The base's lookup is still asked first, "
+        "so no name it read as a branch goes quiet. A `checkout` only these "
+        "lookups read as a switch takes the place of no switch the base read "
+        "in the same command, and it takes no question away from candidate C "
+        "below: it is judged only where the base read no switch at all."
+    ) in text
+    assert (
+        "a few names git refuses are still read as a branch, so the command is "
+        "asked although it would not run"
+    ) in text
+    # Round 2 of 1791163981, ⬜ 2: the limit the placement leaves, in the
+    # walk's paragraph and in §*Known limits*.
+    assert (
+        "Since #790 the first switch is the first the base's lookups read, and "
+        "a `checkout` only #790's lookups read takes the place only where they "
+        "read none"
+    ) in text
+    assert (
+        "so one in a second, dirty tree, written before a switch the frozen "
+        "reading reads in a clean tree, goes unasked, as it did at the base."
+    ) in text
+    # Round 1 of 1791163981, 🟡 2: the guess reads the fetch refspecs, so the
+    # sentence that it never guesses less than git is true.
+    assert (
+        "The guard reads each remote's fetch refspec, as git's guess does, but "
+        "no `checkout.guess`, `checkout.defaultRemote` or `--no-guess`, so it "
+        "guesses where git would not, never the other way."
     ) in text
     assert (
         "Which segments are git, the `-C` values each names and where every "
@@ -1374,8 +1418,9 @@ KINDS = {
     "checkout .": (["git", "checkout", "."], None),
     "checkout -- path": (["git", "checkout", "--", "f"], None),
     "checkout with no name": (["git", "checkout", "-q"], None),
-    # §*Which tree*'s words: a `--` takes every name out of a checkout, and
-    # `-B` is a switch with or without one (round 3 of #737).
+    # §*Which tree*'s words: a `--` with a word after it takes every name out
+    # of a checkout, and `-B` is a switch with or without one (round 3 of
+    # #737).
     "checkout a name before --": (["git", "checkout", "x", "--", "f"], None),
     # Round 1 of 1791119071, 🔴 1: a `--` with nothing after it only says the
     # name before it is no file, and git switches to it.
@@ -1877,3 +1922,712 @@ def test_an_ambiguous_long_prefix_takes_nothing():
     )
     assert wg._long_option(options, "a") == (False, False)
     assert wg._long_option(options, "ab") == (True, True)
+
+
+# --- #790: a checkout's name, looked up the way `git checkout` resolves it ---
+#
+# Work item 1791163981. `spec.md` §*The class* enumerates the three routes git
+# takes from a `checkout`'s name to a commit: C1 a single-revision expression,
+# C2 the merge-base shorthand, C3 the remote-tracking guess. Phase 1's M1 ran
+# every form below under every carrier with git 2.54.0, and the verdicts in
+# these tables are what it found (executed).
+
+
+def _git(d, *args):
+    return subprocess.run(
+        ["git", "-C", str(d), *args],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def _commit(d, path, message):
+    (d / path).write_text(path + "\n", encoding="utf-8")
+    _git(d, "add", path)
+    _git(d, "commit", "-qm", message)
+
+
+@pytest.fixture(scope="module")
+def a_history(tmp_path_factory):
+    """A repository whose names reach every route of `spec.md` §*The class*:
+    commit messages to search, two branches with one merge base and two with
+    two (a criss-cross), an annotated tag, an upstream, a previous branch, and
+    two remotes, `origin` and `upstream`, holding a branch only `origin` has,
+    one only `upstream` has and one both have. Read-only for every case."""
+    root = tmp_path_factory.mktemp("a-history")
+    d = root / "r"
+    for bare in ("o.git", "u.git"):
+        subprocess.run(
+            ["git", "init", "-q", "--bare", str(root / bare)],
+            check=True,
+            capture_output=True,
+        )
+    subprocess.run(["git", "init", "-q", str(d)], check=True, capture_output=True)
+    _git(d, "symbolic-ref", "HEAD", "refs/heads/main")
+    _git(d, "config", "user.email", "t@t")
+    _git(d, "config", "user.name", "t")
+    _commit(d, "README.md", "initial commit")
+    for branch in ("side", "cx1", "cx2"):
+        _git(d, "branch", branch)
+    _commit(d, "alpha.txt", "add alpha feature")
+    _git(d, "tag", "-a", "v1", "-m", "v1")
+    _commit(d, "beta.txt", "add beta !bang")
+    _git(d, "switch", "-q", "side")
+    _commit(d, "side.txt", "side work")
+    _git(d, "switch", "-q", "cx1")
+    _commit(d, "x.txt", "cx one")
+    _git(d, "switch", "-q", "cx2")
+    _commit(d, "y.txt", "cx two")
+    _git(d, "merge", "-q", "--no-edit", "cx1")
+    _git(d, "switch", "-q", "cx1")
+    _git(d, "merge", "-q", "--no-edit", "cx2~1")
+    _git(d, "remote", "add", "origin", str(root / "o.git"))
+    _git(d, "remote", "add", "upstream", str(root / "u.git"))
+    for branch, remotes in (
+        ("onorigin", ("origin",)),
+        ("onupstream", ("upstream",)),
+        ("inboth", ("origin", "upstream")),
+    ):
+        _git(d, "branch", branch, "main")
+        for remote in remotes:
+            _git(d, "push", "-q", remote, branch)
+        _git(d, "branch", "-D", branch)
+    _git(d, "push", "-q", "-u", "origin", "main")
+    _git(d, "fetch", "-q", "--all")
+    _git(d, "switch", "-q", "side")
+    _git(d, "switch", "-q", "main")
+    return str(d)
+
+
+# The carriers, `spec.md` §*The class*: the words that make a segment read a
+# name. `switch` reads any word as a switch already, so it carries no lookup.
+CARRIERS = {
+    "checkout N": lambda n: ["checkout", n],
+    "checkout N --": lambda n: ["checkout", n, "--"],
+    "checkout --detach N": lambda n: ["checkout", "--detach", n],
+    "checkout --detach N --": lambda n: ["checkout", "--detach", n, "--"],
+}
+
+# Forms git switches or detaches on under every carrier above (M1), and which
+# `a3aa139a`'s lookup read: False is a shape it was silent on, and None one
+# whose answer at the base depends on the platform's regex library.
+MOVES = {
+    "C1 a message search": (":/alpha", False),
+    "C1 a message search for a leading !": (":/!!bang", False),
+    # The base appended `^{commit}` to the pattern. On macOS the negative
+    # search for `alpha^{commit}` matched a commit, so the base read a
+    # switch by accident (`phases/phase-1.md`, M1); on CI's ubuntu and
+    # windows it read none (run 37267402962). Which way a platform's regex
+    # library takes that pattern was not measured further.
+    "C1 a negative message search": (":/!-alpha", None),
+    "C1 a branch": ("side", True),
+    "C1 an annotated tag": ("v1", True),
+    "C1 an ancestor": ("main~1", True),
+    "C1 the previous branch": ("@{-1}", True),
+    "C1 an upstream": ("main@{upstream}", True),
+    "C1 a search from a revision": ("main^{/alpha}", True),
+    "C1 another remote's branch, named": ("upstream/onupstream", True),
+    "C2 a merge base": ("main...side", False),
+    "C2 a merge base with HEAD on the left": ("...side", False),
+    "C2 a merge base with HEAD on the right": ("side...", False),
+}
+
+# The guess: git creates the branch and switches under the two carriers with
+# no `--detach`, and refuses under the other two (M1).
+GUESSED = {
+    "C3 a branch only origin holds": ("onorigin", True),
+    "C3 a branch only another remote holds": ("onupstream", False),
+}
+
+# Forms git refuses under every carrier (M1). Each keeps the base's verdict,
+# which is silence.
+REFUSED = {
+    "C1 a message search matching nothing": ":/nomatch-xyz",
+    "C1 a blob": "HEAD:README.md",
+    "C1 a tree": "main^{tree}",
+    "C1 past the reflog": "main@{9999}",
+    "C2 two merge bases": "cx1...cx2",
+    "C2 a side naming nothing": "main...nosuch",
+    "range two dots": "side..main",
+    "range a commit alone": "main^!",
+    "range every parent": "main^@",
+    "C3 a name no remote holds": "nosuch",
+}
+
+
+def _moving_shapes():
+    for form_name, (form, _base) in MOVES.items():
+        for carrier, make in CARRIERS.items():
+            yield f"{form_name}, {carrier}", ["git", *make(form)]
+    for form_name, (form, _base) in GUESSED.items():
+        for carrier in ("checkout N", "checkout N --"):
+            yield f"{form_name}, {carrier}", ["git", *CARRIERS[carrier](form)]
+
+
+MOVING_SHAPES = dict(_moving_shapes())
+
+
+@pytest.mark.parametrize("name", sorted(MOVING_SHAPES))
+def test_every_name_git_moves_the_tree_on_is_read_as_a_switch(a_history, name):
+    """`spec.md` A2. Each of `classify` with its tree, `switch_kind` without
+    one, and candidate C reads the shape, and C finds nothing the frozen
+    reading missed. Red at `a3aa139a` for every message search but the
+    negative one, every merge-base form and the guess from `upstream`: the
+    lookup asked `<name>^{commit}`, which a `:/` search reads as its pattern
+    and `rev-parse --verify` cannot read beside `...`, and it guessed from
+    `origin` alone."""
+    tokens = MOVING_SHAPES[name]
+    assert wg.classify(tokens, a_history) == "switch", name
+    assert wg.switch_kind(wg.parse_git(tokens)) == "switch", name
+    assert wg.wider_only_kinds(shlex.join(tokens), a_history) == set(), name
+
+
+@pytest.mark.parametrize("name", sorted(REFUSED))
+def test_a_name_git_refuses_keeps_the_bases_silence(a_history, name):
+    """`spec.md` A2's other half: a form git refuses under every carrier is
+    not read as a switch, as at `a3aa139a` (M1)."""
+    for carrier, make in CARRIERS.items():
+        tokens = ["git", *make(REFUSED[name])]
+        assert wg.classify(tokens, a_history) is None, (name, carrier)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "(git checkout :/alpha)",
+        "(git checkout main...side)",
+        "(git checkout onupstream)",
+    ],
+)
+def test_a_subshell_checkout_resolves_a_name_git_resolves(a_history, command):
+    """The `)` peel reads through the same lookups: the parenthesis rides on
+    the name, and the name without it is what git resolves. Red at
+    `a3aa139a`."""
+    segments, _ = wg.split_command(command)
+    assert wg.classify(segments[0], a_history) == "switch", command
+
+
+@pytest.mark.parametrize(
+    "tokens",
+    [
+        ["git", "checkout", ":/alpha", "--", "README.md"],
+        ["git", "checkout", "main...side", "--", "README.md"],
+        ["git", "checkout", "onupstream", "--", "README.md"],
+        ["git", "checkout", "--", "README.md"],
+    ],
+)
+def test_a_restore_naming_a_resolvable_name_stays_a_restore(a_history, tokens):
+    """`spec.md` A5. A word after `--` makes the segment a restore before any
+    name is looked up, as at `a3aa139a`."""
+    assert wg.classify(tokens, a_history) is None, tokens
+
+
+def _the_bases_lookup(name, cwd):
+    """`a3aa139a`'s `is_ref`, verbatim: one `<name>^{commit}`."""
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{name}^{{commit}}"],
+            cwd=cwd or None,
+            capture_output=True,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def test_nothing_the_base_read_as_a_switch_goes_quiet(monkeypatch, a_history):
+    """`spec.md` A4. Over every form of the three tables under every carrier,
+    bare and inside a subshell, the build's `classify` reads a switch wherever
+    `a3aa139a`'s did. The base is the build's `classify` with the base's
+    lookup put back and the guess from other remotes taken out, which is all
+    the change touched. It holds by the OR in `spec.md` §*Scope* In 1 and In
+    2; red with resolve-then-peel in place of the base's lookup rather than
+    beside it (`plan.md` C), which turns `checkout ^main` quiet."""
+    forms = [
+        *(form for form, _ in MOVES.values()),
+        *(form for form, _ in GUESSED.values()),
+        *REFUSED.values(),
+        "inboth",
+        "^main",
+    ]
+    shapes = []
+    for form in forms:
+        for make in CARRIERS.values():
+            words = ["git", *make(form)]
+            shapes.append(words)
+            shapes.append(wg.split_command(f"({shlex.join(words)})")[0][0])
+    with monkeypatch.context() as m:
+        m.setattr(wg, "is_ref", _the_bases_lookup)
+        m.setattr(wg, "tracked_in_any_remote", lambda name, cwd: False)
+        base = [wg.classify(tokens, a_history) for tokens in shapes]
+    asked = [tokens for tokens, verdict in zip(shapes, base, strict=True) if verdict]
+    assert len(asked) > len(shapes) // 4, "the base read too few shapes to compare"
+    quieter = [tokens for tokens in asked if not wg.classify(tokens, a_history)]
+    assert not quieter, quieter
+    for form, read in (*MOVES.values(), *GUESSED.values()):
+        # None: the base's answer rests on the platform's regex library.
+        if read is None:
+            continue
+        assert bool(base[shapes.index(["git", "checkout", form])]) is read, form
+
+
+def test_a_message_search_over_a_dirty_tree_is_asked(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """`spec.md` A3, #790's own shape through `main()`: `git checkout
+    ':/<message>'` detaches at the newest commit whose message matches, so it
+    moves a dirty tree, and the dirty-tree row asks. The same search matching
+    nothing is refused by git and stays silent. Red at `a3aa139a`, where both
+    were silent."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, top = run(
+        monkeypatch, capsys, "cd w && git checkout ':/base'", session
+    )
+    assert decision == "ask", (decision, reason)
+    assert "f.txt" in reason, reason
+    assert top and os.path.samefile(top, session / "w"), top
+    decision, reason, _ = run(
+        monkeypatch, capsys, "cd w && git checkout ':/nomatch-xyz'", session
+    )
+    assert decision == "silent", (decision, reason)
+
+
+# --- #780: a consent token inside a here-document body is not read ---------
+#
+# Work item 1791163981. `has_token` reads a token only where the command as
+# written AND the command with its here-document bodies taken out carry it,
+# the rule `hooks/tokens.py#given` has kept for the commit gate since #773.
+# Each body below is one a consent read must not take a token from: the one
+# shape `hooks/one_heredoc.py` matches byte for byte, and a body behind an
+# unquoted delimiter, which `hooks/cmdline.py` finds.
+
+BODY_TOKENS = {
+    "[shared-tree-ok] in the one shape's body": (
+        "python3 - <<'EOF'\n# [shared-tree-ok]\nEOF\ngit switch feature/x",
+        "[shared-tree-ok]",
+    ),
+    "[shared-tree-ok] behind an unquoted delimiter": (
+        "cat <<EOF >/dev/null\n[shared-tree-ok]\nEOF\ngit switch feature/x",
+        "[shared-tree-ok]",
+    ),
+    "[worktree-ok] in the one shape's body": (
+        "python3 - <<'EOF'\n# [worktree-ok]\nEOF\ngit worktree add ../wt -b y",
+        "[worktree-ok]",
+    ),
+    "[worktree-ok] behind an unquoted delimiter": (
+        "cat <<EOF >/dev/null\n[worktree-ok]\nEOF\ngit worktree add ../wt -b y",
+        "[worktree-ok]",
+    ),
+}
+
+# The documented forms, each beside a here-document in the same command.
+TYPED_BESIDE_A_BODY = {
+    "a trailing comment before a body": (
+        "git switch feature/x  # [shared-tree-ok]\ncat <<'EOF' >/dev/null\nb\nEOF",
+        "[shared-tree-ok]",
+    ),
+    "a trailing comment after the one shape's terminator": (
+        "python3 - <<'EOF'\nprint(1)\nEOF\ngit switch feature/x  # [shared-tree-ok]",
+        "[shared-tree-ok]",
+    ),
+    "a bare word after the command": (
+        "git switch feature/x [shared-tree-ok]\ncat <<EOF >/dev/null\nb\nEOF",
+        "[shared-tree-ok]",
+    ),
+    "a bare word before the command": (
+        "cat <<EOF >/dev/null\nb\nEOF\n: [shared-tree-ok]; git switch feature/x",
+        "[shared-tree-ok]",
+    ),
+    "inside a subshell": (
+        "(git worktree add ../wt f [worktree-ok])\ncat <<EOF >/dev/null\nb\nEOF",
+        "[worktree-ok]",
+    ),
+    "a comment after a creation, a body behind it": (
+        "git worktree add ../wt f  # [worktree-ok]\ncat <<'EOF' >/dev/null\nb\nEOF",
+        "[worktree-ok]",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(BODY_TOKENS))
+def test_a_token_only_a_body_carries_is_not_read(monkeypatch, capsys, repo, name):
+    """`spec.md` A6. A `[shared-tree-ok]` only a body carries leaves the
+    cannot-tell row's choice in place, and a `[worktree-ok]` only a body
+    carries leaves the single-stream creation denied. Red at `a3aa139a`, where
+    the first was silent and the second asked."""
+    command, token = BODY_TOKENS[name]
+    assert not wg.has_token(command, token), name
+    if token == "[shared-tree-ok]":
+        decision, reason, _ = run(
+            monkeypatch, capsys, command, repo, sessions=([], [], False)
+        )
+        assert decision == "deny", (name, decision, reason)
+        assert "[shared-tree-ok]" in reason, reason
+    else:
+        decision, reason, _ = run(monkeypatch, capsys, command, repo)
+        assert decision == "deny", (name, decision, reason)
+        assert "[worktree-ok]" in reason, reason
+
+
+@pytest.mark.parametrize("name", sorted(TYPED_BESIDE_A_BODY))
+def test_a_typed_token_beside_a_body_is_still_read(name):
+    """`spec.md` A7. Every documented form still carries consent when a
+    here-document stands in the same command."""
+    command, token = TYPED_BESIDE_A_BODY[name]
+    assert wg.has_token(command, token), name
+
+
+def _raises(command):
+    raise RuntimeError("the wider body reader is broken")
+
+
+def _a_guard_whose_wider_reader_exits_at_load(monkeypatch, tmp_path):
+    """The guard loaded from a copy of `hooks/` whose `cmdline.py` raises
+    `SystemExit` at load, as
+    `test_a_wider_reader_that_exits_at_load_costs_only_the_question` makes
+    it, so `tokens.without_bodies` fails on its own import."""
+    hooks = tmp_path / "hooks"
+    shutil.copytree(os.path.join(os.path.dirname(__file__), "..", "hooks"), hooks)
+    (hooks / "cmdline.py").write_text("raise SystemExit(3)\n", encoding="utf-8")
+    monkeypatch.delitem(sys.modules, "cmdline", raising=False)
+    monkeypatch.syspath_prepend(str(hooks))
+    spec = importlib.util.spec_from_file_location(
+        "wg_exiting_reader_780", hooks / "worktree-guard.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.wide is None
+    return module
+
+
+@pytest.mark.parametrize("break_it", ["cmdline exits at load", "without_bodies"])
+def test_a_broken_wider_reader_reads_no_body_token_and_keeps_a_typed_one(
+    monkeypatch, tmp_path, break_it
+):
+    """`spec.md` A8. Where `hooks/cmdline.py` does not load, or where
+    `hooks/tokens.py#without_bodies` raises, the bodies are found by the
+    frozen reader `_judgment_text` uses. A body token is still not read and a
+    typed one still is (`plan.md` G and H). The body half is red at
+    `a3aa139a`."""
+    guard = wg
+    if break_it == "without_bodies":
+        monkeypatch.setattr(wg.tokens, "without_bodies", _raises)
+    else:
+        guard = _a_guard_whose_wider_reader_exits_at_load(monkeypatch, tmp_path)
+    for name, (command, token) in BODY_TOKENS.items():
+        assert not guard.has_token(command, token), name
+    for name, (command, token) in TYPED_BESIDE_A_BODY.items():
+        assert guard.has_token(command, token), name
+
+
+def _the_bases_token_read(command, token):
+    """`a3aa139a`'s `has_token`, verbatim: the command as written."""
+    segments, _clean = wg._tokenize(command)
+    return any(
+        tok == token or tok.strip("()") == token for toks in segments for tok in toks
+    )
+
+
+# Commands whose raw text the frozen splitter cannot finish, while the same
+# text with its body taken out splits: a token there is one the command as
+# written never offered (`plan.md` F, #773's reason for its AND).
+UNREADABLE_UNTIL_THE_BODY_GOES = (
+    "cat <<'EOF' >/dev/null\nit's\nEOF\ngit switch feature/x  # [shared-tree-ok]",
+    "cat <<EOF >/dev/null\ndon't\nEOF\ngit worktree add ../wt f  # [worktree-ok]",
+)
+
+TOKEN_COMMANDS = (
+    *(command for command, _ in BODY_TOKENS.values()),
+    *(command for command, _ in TYPED_BESIDE_A_BODY.values()),
+    *UNREADABLE_UNTIL_THE_BODY_GOES,
+    "git switch feature/x  # [shared-tree-ok]",
+    "git switch feature/x && echo done  # [shared-tree-ok]",
+    "git switch feature/x && echo 'we documented [shared-tree-ok] today'",
+    "git switch x && echo the [shared-tree-ok] token is documented",
+    "git worktree add ../wt f  # [worktree-ok]",
+    'git worktree add ../wt -b b origin/main && echo "wip; go"  # [worktree-ok]',
+    'git worktree add ../wt f && echo "we agreed on [worktree-ok] yesterday',
+    "git worktree add ../wt f  # [worktree-ok] but don't",
+    "(git worktree add ../wt f [worktree-ok])",
+    "git switch x [shared-tree-ok])",
+)
+
+
+@pytest.mark.parametrize("token", ["[worktree-ok]", "[shared-tree-ok]"])
+@pytest.mark.parametrize("break_it", [None, "without_bodies"])
+def test_the_token_read_never_reads_more_than_the_base(monkeypatch, token, break_it):
+    """`spec.md` A9. Over every command of A6-A8, the two the splitter cannot
+    finish until the body goes, and the existing token cases, `has_token` is
+    True only where `a3aa139a`'s was, with the wider body reader working
+    and raising. It holds by the AND in `spec.md` §*Scope* In 5; red with the
+    read over the body-free text alone (`plan.md` F)."""
+    if break_it:
+        monkeypatch.setattr(wg.tokens, "without_bodies", _raises)
+    read = [command for command in TOKEN_COMMANDS if wg.has_token(command, token)]
+    assert read, "no command carried the token where both reads find it"
+    more = [command for command in read if not _the_bases_token_read(command, token)]
+    assert not more, more
+
+
+def test_the_guard_policy_and_readmes_say_a_body_token_is_not_read():
+    """§14 of the agent contract, for #780: §*Choice sites* and the two token
+    rows of both READMEs say a token inside a here-document body is not
+    read. Red against `a3aa139a`'s texts."""
+    assert (
+        "**Where the token is read from.** The command, and only the command. "
+        "Not from a here-document body, since #780: a token counts only where "
+        "the command as written and the command with its here-document bodies "
+        "taken out both carry it"
+    ) in _policy_text()
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "README.md"), encoding="utf-8") as f:
+        readme = f.read()
+    with open(os.path.join(root, "README.ko.md"), encoding="utf-8") as f:
+        readme_ko = f.read()
+    assert (
+        "Read as a bare word, so it does not count inside a quoted message, "
+        "and not inside a here-document body either."
+    ) in readme
+    assert "Read as a bare word, and not inside a here-document body." in readme
+    assert (
+        "따옴표 안의 문장에 적힌 것은 세지 않고, here-document 본문에 적힌 "
+        "것도 세지 않는다."
+    ) in readme_ko
+    assert (
+        "명령의 낱말로 있을 때만 세고, here-document 본문에 적힌 것은 세지 않는다."
+    ) in readme_ko
+
+
+# --- round 1 of 1791163981: nothing the base asked goes quiet through `main()` ---
+#
+# `classify` reads more names as a switch since #790, and `main` judges only
+# the first switch of a command and hands candidate C the kinds it judged. So
+# a newly read `checkout` in front must neither take the slot of the switch
+# the base judged nor take C's question away (🟡 3).
+
+
+def _a_dirty_clone_beside(repo, tmp_path):
+    other = tmp_path / "other"
+    shutil.copytree(repo, other)
+    (other / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
+    return other
+
+
+@pytest.mark.parametrize(
+    "behind",
+    [
+        "git -C {other} switch feature/x",
+        "2>/dev/null git -C {other} switch feature/x",
+    ],
+    ids=["a switch the frozen reading reads", "a switch only candidate C reads"],
+)
+@pytest.mark.parametrize("front", ["git checkout ':/base'", "git checkout ':/nomatch'"])
+def test_a_newly_read_checkout_in_front_takes_no_question_away(
+    monkeypatch, capsys, repo, tmp_path, front, behind
+):
+    """Round 1 of 1791163981, 🟡 3. A `checkout` that is a switch only through
+    #790's lookups, in a clean single-session tree, stands in front of a
+    switch in a second, dirty tree. `a3aa139a` read no switch in front, so it
+    judged the second tree's switch, or C asked about it; the guard still
+    asks. The two `:/base` cases were red at `85e77dc8`, where the checkout
+    took the slot and C's question and the command went through silently.
+    The two `:/nomatch` cases are controls, a search git refuses, and pass
+    at every version."""
+    other = _a_dirty_clone_beside(repo, tmp_path)
+    command = f"{front} && {behind.format(other=other)}"
+    decision, reason, _ = run(monkeypatch, capsys, command, repo)
+    assert decision == "ask", (command, decision, reason)
+
+
+def _a_repository(d):
+    subprocess.run(["git", "init", "-q", str(d)], check=True, capture_output=True)
+    _git(d, "symbolic-ref", "HEAD", "refs/heads/main")
+    _git(d, "config", "user.email", "t@t")
+    _git(d, "config", "user.name", "t")
+
+
+def _writable_then(func, path, _exc):
+    """An `onexc` handler for `shutil.rmtree`: git writes its object files
+    read-only, and Windows will not unlink a read-only file, so the bit is
+    cleared and the removal tried again. `onexc` is 3.12's, the floor CI
+    runs."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def _where_git_checkout_lands(d, name):
+    """The commit `git checkout NAME` detaches or switches to in a copy of D,
+    or None where git refuses it."""
+    copy = d.parent / (d.name + "-copy")
+    if copy.exists():
+        shutil.rmtree(copy, onexc=_writable_then)
+    shutil.copytree(d, copy)
+    r = subprocess.run(
+        ["git", "-C", str(copy), "checkout", "-q", name], capture_output=True
+    )
+    landed = (
+        _git(copy, "rev-parse", "HEAD").stdout.strip() if not r.returncode else None
+    )
+    shutil.rmtree(copy, onexc=_writable_then)
+    return landed
+
+
+@pytest.mark.parametrize("search", [":/v1..v2", ":/notes.*v1..v2"])
+def test_a_message_search_holding_two_dots_is_read_as_a_switch(tmp_path, search):
+    """Round 1 of 1791163981, 🟡 1. `git rev-parse` reads `..` as a range
+    before it reads a name, so a message search holding it, both halves
+    resolving, was two revisions to both of `_commit_named`'s calls while
+    `git checkout` detached on it. Red at `85e77dc8`."""
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "a.txt", "notes for v1..v2")
+    _git(d, "tag", "v1")
+    _commit(d, "b.txt", "second")
+    _git(d, "tag", "v2")
+    assert _where_git_checkout_lands(d, search), search
+    for carrier, make in CARRIERS.items():
+        tokens = ["git", *make(search)]
+        assert wg.classify(tokens, str(d)) == "switch", (search, carrier)
+
+
+@pytest.mark.parametrize("name", [":/v1..v2", ":/minus|^!", ":/minus|^@", ":/bang|^-1"])
+def test_the_object_lookup_reads_a_word_rev_parse_reads_as_a_range(tmp_path, name):
+    """Round 1 of 1791163981, 🟡 1: `git rev-parse` reads `..` and, where the
+    regex library accepts an empty alternative, the parent shorthands `^!`,
+    `^@` and `^-<n>` before it reads a name. `_object_named` hands the word to
+    git's object lookup as `git checkout` does, so it finds the commit git
+    lands on whichever way `rev-parse` reads it."""
+    d = tmp_path / "r"
+    _a_repository(d)
+    for path, message in (("a", "notes for v1..v2"), ("b", "-1 minus"), ("c", "!x")):
+        _commit(d, path, message)
+        _git(d, "tag", "v1" if path == "a" else f"t{path}")
+    _git(d, "tag", "v2")
+    landed = _where_git_checkout_lands(d, name)
+    assert landed, name
+    assert wg._object_named(name, str(d)) == landed, name
+
+
+@pytest.mark.parametrize(
+    "fetch",
+    [
+        "+refs/heads/*:refs/fork/*",
+        "+refs/heads/*:refs/remotes/fork/x-*",
+        "refs/heads/onfork:refs/pinned/onfork",
+    ],
+    ids=["outside refs/remotes", "a partial glob", "an exact source"],
+)
+def test_a_guess_through_any_fetch_refspec_is_read_as_a_switch(tmp_path, fetch):
+    """Round 1 of 1791163981, 🟡 2. git's guess maps `refs/heads/<name>`
+    through each remote's fetch refspec, so a remote whose branches land
+    outside `refs/remotes/`, or under a renaming glob, is guessed from by git
+    and was not by the guard. Red at `85e77dc8`."""
+    subprocess.run(
+        ["git", "init", "-q", "--bare", str(tmp_path / "f.git")],
+        check=True,
+        capture_output=True,
+    )
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "README.md", "initial commit")
+    _git(d, "remote", "add", "fork", str(tmp_path / "f.git"))
+    _git(d, "config", "--replace-all", "remote.fork.fetch", fetch)
+    _git(d, "branch", "onfork")
+    _git(d, "push", "-q", "fork", "onfork")
+    _git(d, "branch", "-D", "onfork")
+    _git(d, "fetch", "-q", "fork")
+    assert _where_git_checkout_lands(d, "onfork"), fetch
+    for carrier in ("checkout N", "checkout N --"):
+        tokens = ["git", *CARRIERS[carrier]("onfork")]
+        assert wg.classify(tokens, str(d)) == "switch", (fetch, carrier)
+
+
+def test_the_first_newly_read_checkout_is_the_one_judged(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 1 of 1791163981, 🟡 3's fix. Where the base read no switch, the
+    first `checkout` only #790's lookups read takes the slot, as `main` takes
+    the first switch of a command everywhere else (#630). Seen red with the
+    last one taking it."""
+    other = tmp_path / "other"
+    shutil.copytree(repo, other)
+    command = f"git checkout ':/base' && git -C {other} checkout ':/base'"
+    decision, reason, top = run(monkeypatch, capsys, command, repo)
+    assert top and os.path.samefile(top, repo), (top, decision, reason)
+
+
+def test_a_guess_through_a_remote_whose_name_holds_a_space(tmp_path):
+    """Round 2 of 1791163981, 🟡 1. `git remote add` refuses a name holding a
+    space, but git fetches and guesses through one the config names, and `git
+    config --get-regexp` prints that key with the space in it, so a map that
+    split each line at its first space read no refspec. Red at `f659c466`."""
+    bare = tmp_path / "f.git"
+    subprocess.run(
+        ["git", "init", "-q", "--bare", str(bare)], check=True, capture_output=True
+    )
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "README.md", "initial commit")
+    _git(d, "branch", "onfork")
+    _git(d, "push", "-q", str(bare), "onfork")
+    _git(d, "branch", "-D", "onfork")
+    _git(d, "config", "remote.a b.url", str(bare))
+    _git(d, "config", "remote.a b.fetch", "+refs/heads/*:refs/spaced/*")
+    _git(d, "fetch", "-q", "a b")
+    assert _where_git_checkout_lands(d, "onfork")
+    for carrier in ("checkout N", "checkout N --"):
+        tokens = ["git", *CARRIERS[carrier]("onfork")]
+        assert wg.classify(tokens, str(d)) == "switch", carrier
+
+
+@pytest.mark.parametrize(
+    "space",
+    ["\u00a0", "\u3000", "\u0085", "\u2028"],
+    ids=["nbsp", "ideographic", "nel", "line separator"],
+)
+def test_a_guess_through_a_destination_ending_in_unicode_whitespace(tmp_path, space):
+    """#811, round 3 of 1791163981. git's config reader strips only ASCII
+    whitespace, so a fetch refspec whose destination ends in another space
+    character fetches into a ref that ends in it, and git guesses through
+    that ref. A map that ran `str.strip()` over the value, or split the ref
+    listing with `str.splitlines()`, read a ref that does not exist. Red at
+    `a8c7ab74`."""
+    bare = tmp_path / "f.git"
+    subprocess.run(
+        ["git", "init", "-q", "--bare", str(bare)], check=True, capture_output=True
+    )
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "README.md", "initial commit")
+    _git(d, "branch", "onfork")
+    _git(d, "push", "-q", str(bare), "onfork")
+    _git(d, "branch", "-D", "onfork")
+    _git(d, "config", "remote.fork.url", str(bare))
+    _git(d, "config", "remote.fork.fetch", "+refs/heads/*:refs/ws/*" + space)
+    _git(d, "fetch", "-q", "fork")
+    assert _where_git_checkout_lands(d, "onfork")
+    for carrier in ("checkout N", "checkout N --"):
+        tokens = ["git", *CARRIERS[carrier]("onfork")]
+        assert wg.classify(tokens, str(d)) == "switch", carrier
+
+
+def test_a_fetch_refspec_with_an_empty_destination_maps_no_ref(tmp_path):
+    """#811. The ref listing ends in a newline, and the empty word after it
+    is no ref, so a refspec whose destination is empty, which git refuses to
+    guess through, maps nothing. Seen red with the empty word kept."""
+    bare = tmp_path / "f.git"
+    subprocess.run(
+        ["git", "init", "-q", "--bare", str(bare)], check=True, capture_output=True
+    )
+    d = tmp_path / "r"
+    _a_repository(d)
+    _commit(d, "README.md", "initial commit")
+    _git(d, "branch", "onfork")
+    _git(d, "push", "-q", str(bare), "onfork")
+    _git(d, "branch", "-D", "onfork")
+    _git(d, "config", "remote.fork.url", str(bare))
+    _git(d, "config", "remote.fork.fetch", "refs/heads/onfork:")
+    assert not _where_git_checkout_lands(d, "onfork")
+    assert wg.classify(["git", "checkout", "onfork"], str(d)) is None

@@ -75,7 +75,8 @@ asked, an unwritable consent record counts as no consent.
 
 Retry tokens, one per direction, both matched as BARE WORDS of the command
 (has_token) -- a substring test read `echo 'we documented [shared-tree-ok]'`
-as consent and turned the guard off. `[worktree-ok]` carries the creation
+as consent and turned the guard off -- and never inside a heredoc body, which
+is text a command only carries (#780). `[worktree-ok]` carries the creation
 answer (that site asks -- creating a worktree always takes one confirmation)
 and `[shared-tree-ok]` carries the shared-tree answer, which passes the switch
 straight through at the two cannot-tell sites. `[shared-tree-ok]` is ignored
@@ -102,8 +103,9 @@ Note: sessions living in a linked worktree are already isolated and are NOT
 counted -- switching the shared tree cannot affect them. File-restore forms of
 `git checkout` (and `git restore`) are always allowed, as is every non-`add`
 worktree subcommand (`list`, `remove`, `prune`). `git switch -`/`checkout -`
-count as switches (they are). A `git checkout <name>` that would DWIM a
-remote-only branch is also a switch.
+count as switches (they are). A `git checkout <name>` is looked up the way
+git resolves it (`is_ref`, #790): a message search, a merge-base shorthand and
+a remote-only branch from any remote are all switches.
 """
 
 import json
@@ -123,13 +125,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 #
 # This guard reads through `hooks/cmdline_base.py`, the reader frozen at
 # `86256492`, and never chooses a segment or a tree through `cmdline.py` (#689;
-# the one question it asks that module is below): the splitter, `parse_git`,
+# the one question about kinds it asks that module is below, and `has_token`
+# has it take heredoc bodies out, #780): the splitter, `parse_git`,
 # `adds_a_worktree`, the walk and `Unresolved` all come from there, so what it
-# recognises and where it judges are the release base's by construction. One
-# rule is read past the base since #764 and #738, on the owner's answer of
-# 2026-10-04: a `checkout`'s and a `switch`'s own words, as git is handed
-# them (`read_switch_words`); the segments and words it reads still come from
-# here. The name `cmdline` is kept so the rest of this file reads as it did.
+# recognises and where it judges are the release base's by construction. Two
+# rules are read past the base. Since #764 and #738, on the owner's answer of
+# 2026-10-04, a `checkout`'s and a `switch`'s own words, as git is handed
+# them (`read_switch_words`). Since #790, a `checkout`'s name, looked up the
+# way `git checkout` resolves it (`is_ref`, `tracked_in_any_remote`). The
+# segments and words it reads still come from here. The name `cmdline` is
+# kept so the rest of this file reads as it did.
 # `worktree_consent` imports the same module, so the two share one `Unresolved`.
 import cmdline_base as cmdline
 import console
@@ -147,6 +152,16 @@ try:
     import cmdline as wide
 except (Exception, SystemExit):
     wide = None
+
+# The consent reads' rules, shared with the commit gate (#773, #780): asked
+# only for `without_bodies`, the command with its here-document bodies taken
+# out. Guarded like the import above, because this guard's rows do not need
+# it: where it cannot load, `has_token` finds the bodies with the frozen
+# reader instead.
+try:
+    import tokens
+except (Exception, SystemExit):
+    tokens = None
 
 # The AFTER half of this guard: it owns the consent record, and this file reads
 # it. A plain filename again -- and the reason that file's name carries an
@@ -254,9 +269,10 @@ def _judgment_text(command: str) -> str:
     Comments and heredoc bodies are both data, and a judgment read drops both
     for the same reason. The residual this file used to record — "a heredoc
     line that IS exactly a git command still matches" — is what the second one
-    closes. A CONSENT read (`has_token`, `parses_cleanly`) still reads the
-    command as written, because a retry token is written in a comment on
-    purpose.
+    closes. A CONSENT read keeps the comments, because a retry token is
+    written in a comment on purpose: `parses_cleanly` reads the command as
+    written, and `has_token` reads it both as written and with its heredoc
+    bodies taken out (#780), so a token counts only outside a body.
     """
     return cmdline.drop_heredoc_bodies(cmdline.drop_comments(command))
 
@@ -728,9 +744,10 @@ def parses_cleanly(command: str, windows=None) -> bool:
 
     Read from the original text, comments and all, because the one place this
     is consulted asks whether a retry token could have been READ -- and
-    `has_token` reads the original. Asking the comment-free text instead would
-    put "this command has an unbalanced quote" on commands whose only
-    unbalanced quote was in a comment that no longer matters.
+    `has_token` reads the original, beside its body-free text. Asking the
+    comment-free text instead would put "this command has an unbalanced
+    quote" on commands whose only unbalanced quote was in a comment that no
+    longer matters.
     """
     return _tokenize(command, windows)[1]
 
@@ -765,8 +782,18 @@ def has_token(command: str, token: str) -> bool:
     written in a comment on purpose — `git worktree add ../wt f
     # [worktree-ok]` is the documented form — so dropping comments first would
     throw away the only place the token is ever written.
+
+    **A here-document body is not read** (#780). A token counts only where
+    the command as written AND the command with its bodies taken out both
+    carry it, the rule `hooks/tokens.py#given` keeps for the commit gate
+    since #773. A body is text a command only carries, so a
+    `[shared-tree-ok]` written in one passed a switch nobody answered, and a
+    `[worktree-ok]` there lowered the single-stream deny to an ask. The AND
+    is what keeps the second read from finding more than the first: taking a
+    body out can let the splitter finish a command it gave up on, and a
+    token only that read finds is one the command as written never offered.
     """
-    segments, _clean = _tokenize(command)
+
     # A closing parenthesis rides on the last word of a segment, so a token
     # written at the end of `(git worktree add ../wt f [worktree-ok])` arrived
     # here with a `)` on it and matched nothing. The judgment read strips a
@@ -775,9 +802,36 @@ def has_token(command: str, token: str) -> bool:
     # unreadable token into a loop with no way out rather than one more
     # prompt. Widening a CONSENT read is the safe direction; the judgment
     # read is where a stray parenthesis must not decide anything.
-    return any(
-        tok == token or tok.strip("()") == token for toks in segments for tok in toks
-    )
+    def carries(text):
+        segments, _clean = _tokenize(text)
+        return any(
+            tok == token or tok.strip("()") == token
+            for toks in segments
+            for tok in toks
+        )
+
+    return carries(command) and carries(_without_bodies(command))
+
+
+def _without_bodies(command: str) -> str:
+    """COMMAND with its here-document bodies taken out and its comments kept,
+    for `has_token`.
+
+    `tokens.without_bodies`, the body reader every consent read shares
+    (#773). It imports `hooks/cmdline.py` when it runs, so where that module
+    cannot load, or where the read raises for any other reason, the frozen
+    reader's `drop_heredoc_bodies` finds the bodies instead, the one
+    `_judgment_text` already uses. Falling back to the command as written
+    would bring #780 back whenever that module is broken, and reading no
+    token at all would leave the single-stream creation deny, which has no
+    `ask` behind it, with no way past (`plan.md` G and H of work item
+    1791163981)."""
+    if tokens is not None:
+        try:
+            return tokens.without_bodies(command)
+        except (Exception, SystemExit):
+            pass
+    return cmdline.drop_heredoc_bodies(command)
 
 
 # The characters that make ONE segment do something besides run its command
@@ -969,25 +1023,208 @@ def segment_cwd(tokens, cwd: str) -> str:
     return apply_chdir(cwd, parsed[2])
 
 
-def is_ref(name: str, cwd: str) -> bool:
+def _verified(revision: str, cwd: str):
+    """The object name `git rev-parse --verify` gives REVISION in `cwd`, or
+    None where it gives none or cannot run."""
     try:
         r = subprocess.run(
-            ["git", "rev-parse", "--verify", "--quiet", f"{name}^{{commit}}"],
+            ["git", "rev-parse", "--verify", "--quiet", revision],
             cwd=cwd or None,
             capture_output=True,
+            encoding="utf-8",
+            errors="replace",
         )
-        return r.returncode == 0
+    except Exception:
+        return None
+    if r.returncode != 0:
+        return None
+    return r.stdout.strip() or None
+
+
+def _commit_named(name: str, cwd: str):
+    """The commit NAME names, or None: `<name>^{commit}` first, as at
+    `a3aa139a`, then NAME resolved alone and peeled by its object name, and
+    last NAME read by git's object lookup alone (`_object_named`) and peeled.
+
+    The second step exists because a suffix is not always read as one. A
+    message search (`:/<text>`) takes everything after `:/` as its pattern,
+    so `:/fix^{commit}` searches for a message holding `^{commit}` and finds
+    none, while `git checkout :/fix` detaches at the newest commit whose
+    message matches (#790). An object name holds no syntax a suffix could be
+    absorbed into, so it peels whatever named it.
+
+    The third exists because `rev-parse` reads a word as a range before it
+    reads it as a name (round 1 of 1791163981, 🟡 1): a message search
+    holding `..` is two revisions to it wherever both halves resolve, and one
+    ending in `^!`, `^@` or `^-<n>` can be a commit and its parents. `git
+    checkout` hands the whole word to the object lookup."""
+    found = _verified(f"{name}^{{commit}}", cwd)
+    if found is None:
+        named = _verified(name, cwd) or _object_named(name, cwd)
+        if named is not None:
+            found = _verified(f"{named}^{{commit}}", cwd)
+    return found
+
+
+_OBJECT_NAME = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+
+
+def _object_named(name: str, cwd: str):
+    """The object NAME names through git's object lookup alone, or None.
+
+    `git cat-file --batch-check` reads each input line as one object name,
+    with no range or parent shorthand read in front of it, which is how `git
+    checkout` reads its name. Where the lookup finds nothing it prints the
+    name and `missing`, which is no object name, and a name holding a newline
+    is two lines, whose two answers are not one object name either."""
+    try:
+        r = subprocess.run(
+            ["git", "cat-file", "--batch-check=%(objectname)"],
+            input=name + "\n",
+            cwd=cwd or None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except Exception:
+        return None
+    word = r.stdout.strip()
+    return word if _OBJECT_NAME.fullmatch(word) else None
+
+
+def _one_merge_base(name: str, cwd: str) -> bool:
+    """Whether `git checkout NAME` reads NAME as `<a>...<b>` and finds exactly
+    one merge base, as git's `checkout` does: split at the first `...`, an
+    empty side read as `HEAD`. `rev-parse --verify` takes one revision, so no
+    suffix and no peel reads this form."""
+    left, _, right = name.partition("...")
+    sides = [_commit_named(side or "HEAD", cwd) for side in (left, right)]
+    if None in sides:
+        return False
+    try:
+        r = subprocess.run(
+            ["git", "merge-base", "--all", *sides],
+            cwd=cwd or None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
     except Exception:
         return False
+    return r.returncode == 0 and len(r.stdout.split()) == 1
 
 
-def classify(tokens, cwd: str):
+def is_ref(name: str, cwd: str) -> bool:
+    """Whether `git checkout NAME` would find a commit for NAME in `cwd`.
+
+    Read the way `git checkout` resolves a name (#790, work item
+    1791163981): every single-revision expression of `gitrevisions(7)` that
+    peels to a commit (`_commit_named`), and the merge-base shorthand
+    `<a>...<b>` where it has exactly one base (`_one_merge_base`). Each step
+    runs only where the one before it said no, so a name `a3aa139a` resolved
+    answers yes with that commit's single call, and nothing it said yes to
+    becomes a no. A form git refuses can still answer yes, which asks about a
+    command that would not have run: `^<rev>`, read as a ref since before
+    #790, is one."""
+    if _commit_named(name, cwd) is not None:
+        return True
+    return "..." in name and _one_merge_base(name, cwd)
+
+
+def tracked_in_any_remote(name: str, cwd: str) -> bool:
+    """Whether a remote-tracking branch under `refs/remotes/` ends in
+    `/<name>`, which is where `git checkout NAME` guesses from when no branch
+    has that name (`--guess`, git's default).
+
+    git guesses from a remote by any name, where this guard used to ask
+    `origin/<name>` alone (#790). git refuses where two remotes hold the name
+    and no `checkout.defaultRemote` picks one, and under `--detach`; this
+    reads neither, so it asks about both, which is the louder direction. A
+    name a longer remote branch ends in (`x` beside `origin/feature/x`) is
+    read too, so a remote whose own name holds a `/` is never missed.
+
+    Where none ends so, the guess is read the way git makes it: each remote's
+    fetch refspec maps `refs/heads/<name>` to the ref it fetches into
+    (`_fetched_as`), and NAME counts where one of those refs exists. A remote
+    whose branches land outside `refs/remotes/`, or under a renaming glob, is
+    guessed from by git, and was silent here (round 1 of 1791163981, 🟡 2)."""
+    if any(ref.endswith("/" + name) for ref in _refs(["refs/remotes/"], cwd)):
+        return True
+    mapped = _fetched_as(name, cwd)
+    return bool(mapped) and any(ref in mapped for ref in _refs(sorted(mapped), cwd))
+
+
+def _refs(patterns, cwd: str):
+    """The refs `git for-each-ref` lists under PATTERNS in `cwd`. A failed
+    listing prints nothing, so it lists nothing."""
+    try:
+        r = subprocess.run(
+            ["git", "for-each-ref", "--format=%(refname)", *patterns],
+            cwd=cwd or None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except Exception:
+        return []
+    # A ref name holds no newline, and may hold U+0085, U+2028 or U+2029,
+    # which `splitlines` also splits at (#811). The listing ends in a
+    # newline, and the empty word after it is no ref.
+    return [ref for ref in r.stdout.split("\n") if ref]
+
+
+def _fetched_as(name: str, cwd: str) -> set:
+    """The refs `refs/heads/NAME` is fetched into, through every remote's
+    `remote.<remote>.fetch` refspec, as git's checkout guess maps it: an
+    exact source names its destination, a source with one `*` matches what it
+    stands for and puts it in place of the destination's `*`, and a refspec
+    with no `:` maps nothing (a negative refspec has none). The entries are
+    read NUL-separated, because a remote's name can hold a space, which `git
+    remote add` refuses and git's fetch and guess still read (round 2 of
+    1791163981, 🟡 1)."""
+    try:
+        r = subprocess.run(
+            ["git", "config", "-z", "--get-regexp", r"^remote\..*\.fetch$"],
+            cwd=cwd or None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except Exception:
+        return set()
+    source = "refs/heads/" + name
+    mapped = set()
+    for entry in r.stdout.split("\0"):
+        # No strip: git's config reader has already taken the ASCII
+        # whitespace off, and a ref name may end in a Unicode space that
+        # `str.strip` would remove (#811).
+        spec = entry.partition("\n")[2].lstrip("+")
+        src, colon, dst = spec.partition(":")
+        if not colon:
+            continue
+        if "*" not in src:
+            if src == source:
+                mapped.add(dst)
+            continue
+        head, _, tail = src.partition("*")
+        middle = source[len(head) : len(source) - len(tail)]
+        if source == head + middle + tail:
+            mapped.add(dst.replace("*", middle, 1))
+    return mapped
+
+
+def classify(tokens, cwd: str, base_only: bool = False):
     """Return a reason string if this segment switches branch or adds a worktree.
 
     Takes one segment's token list from `split_command`. Quoting is settled
     there: a quoted sentence is a single token, so it can never present itself
     here as a command word, and a command the lexer gave up on contributes the
     tokens it did read rather than nothing at all.
+
+    BASE_ONLY looks a `checkout`'s name up with `a3aa139a`'s lookups alone,
+    `<name>^{commit}` and `origin/<name>^{commit}`, which is how `main` tells
+    a switch the base read from one only #790's lookups read (round 1 of
+    1791163981, 🟡 3). Every other word is read the same either way.
     """
     parsed = parse_git(tokens)
     if not parsed:
@@ -1037,9 +1274,17 @@ def classify(tokens, cwd: str):
             or os.path.exists(first)
         ):
             return None  # restoring a file/dir, not switching branch
-        if is_ref(first, cwd):
+        # The name as `git checkout` resolves it (#790): a revision, a
+        # merge-base shorthand, or a branch guessed from a remote. The
+        # `origin/` lookup is the base's guess, kept beside the wider one so a
+        # name it found is still found by the same call.
+        if base_only:
+            looks_up, guesses = _the_bases_lookup, _no_guess
+        else:
+            looks_up, guesses = is_ref, tracked_in_any_remote
+        if looks_up(first, cwd):
             return "switch"
-        if is_ref(f"origin/{first}", cwd):
+        if looks_up(f"origin/{first}", cwd) or guesses(first, cwd):
             return "switch"  # DWIM checkout of a remote-only branch
         # `(git checkout topic)` puts the closing parenthesis on the BRANCH
         # NAME, so the lookups above ask about `topic)` and find nothing.
@@ -1052,11 +1297,27 @@ def classify(tokens, cwd: str):
         bare = first
         while bare.endswith(")"):
             bare = bare[:-1]
-            if is_ref(bare, cwd) or is_ref(f"origin/{bare}", cwd):
+            if (
+                looks_up(bare, cwd)
+                or looks_up(f"origin/{bare}", cwd)
+                or guesses(bare, cwd)
+            ):
                 return "switch"
         return None
 
     return None
+
+
+def _the_bases_lookup(name: str, cwd: str) -> bool:
+    """`a3aa139a`'s `is_ref`: the one `<name>^{commit}` call, which is also
+    the first step of `_commit_named`."""
+    return _verified(f"{name}^{{commit}}", cwd) is not None
+
+
+def _no_guess(name: str, cwd: str) -> bool:
+    """`a3aa139a` guessed from `origin/<name>` alone, which `classify` asks
+    through its lookup; it read no other remote."""
+    return False
 
 
 def ancestors(pid: int):
@@ -2510,9 +2771,16 @@ def main():
     # Only the first of each kind, which is what the writer records for a
     # creation. A switch in a second tree or a creation in a second clone is
     # still judged on the first (#630).
+    #
+    # A switch the base's lookups read keeps the first slot, and one only
+    # #790's lookups read (`classify`'s `base_only`) takes it only where the
+    # base read no switch in the whole command: `a3aa139a` judged the tree of
+    # the switch it read, and a newly read `checkout` in front must not move
+    # the verdict to another tree (round 1 of 1791163981, 🟡 3).
     switch_reason = None
     switch_at = cwd
     creation_at = None
+    newly_read = None
     for tokens, wheres in walk_command(command, cwd):
         creates = cmdline.adds_a_worktree(tokens)
         # Nothing left to learn from a segment of a kind already found.
@@ -2524,7 +2792,12 @@ def main():
             continue
         for where in wheres:
             here, target = judgeable(tokens, where, cwd)
-            found = classify(tokens, here)
+            found = classify(tokens, here, base_only=True)
+            if not found and not creates:
+                found = classify(tokens, here)
+                if found and newly_read is None:
+                    newly_read = (found, target)
+                continue
             if not found:
                 continue
             if creates:
@@ -2534,6 +2807,9 @@ def main():
             break
         if switch_reason is not None and creation_at is not None:
             break
+    past_the_base = switch_reason is None and newly_read is not None
+    if past_the_base:
+        switch_reason, switch_at = newly_read
     reason = switch_reason or ("worktree-add" if creation_at is not None else None)
 
     # #678's guard half, wired because it fired on none of the recorded runs
@@ -2544,9 +2820,14 @@ def main():
     # the frozen findings keep their slots and their verdicts. The kinds the
     # loop judged are handed over, because `classify` judges fewer than
     # `switch_kind` reads from the same words: a `git checkout README.md` in
-    # front must not take a hidden switch's kind out (round 1, yellow 3).
+    # front must not take a hidden switch's kind out (round 1, yellow 3). A
+    # switch only #790's lookups read is not handed over either: the base read
+    # no switch there, so C's question stays where the base asked it (round 1
+    # of 1791163981, 🟡 3).
     def quiet():
-        judged = {"switch"} if switch_reason is not None else set()
+        judged = (
+            {"switch"} if switch_reason is not None and not past_the_base else set()
+        )
         if creation_at is not None:
             judged.add("creation")
         hidden = wider_only_kinds(command, cwd, judged)

@@ -111,6 +111,13 @@ LADDER_OWNER = (
     "`docs/review-chain-spec.md` §*Where a leftover goes — the ladder, and "
     "why a new issue is not the default* owns"
 )
+# The document that owns which file a change writes, and so when a later
+# commit brings the changelog fragment along (#797).
+RECORD_LAYOUT = ("docs", "the-record-layout.md")
+FRAGMENT_OWNER = (
+    "`docs/the-record-layout.md` §*A commit after the build brings its "
+    "changelog fragment along* owns that rule"
+)
 
 
 def read(*parts):
@@ -276,6 +283,21 @@ RULES = {
             SMITH: LADDER_OWNER,
             TRACKER: LADDER_OWNER,
         },
+    ),
+    # A fifteenth, from #797. Three of six 0.18.2 fragments shipped false
+    # because the commits after the build changed behaviour and nothing told
+    # their writers the fragment came along. The owner is the document that
+    # already owns which file a change writes; the three carriers are where
+    # each writer of such a commit reads — the smith's fix pass, the
+    # implement skill's §5, and the orchestrator's own two commits. WHAT IT
+    # PINS: the owner's headline sentence and each carrier naming the section;
+    # the arm that names a lagging commit is pinned by
+    # `tests/test_a_fragment_left_behind_is_named.py`.
+    "15 a commit after the build brings its changelog fragment along": (
+        RECORD_LAYOUT,
+        "A commit after the build that changes what the work item ships "
+        "updates the work item's `changelog.md` in the same range.",
+        {SMITH: FRAGMENT_OWNER, IMPLEMENT: FRAGMENT_OWNER, ORCH: FRAGMENT_OWNER},
     ),
 }
 

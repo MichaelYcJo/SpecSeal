@@ -2151,3 +2151,70 @@ def test_an_in_place_move_starts_at_the_rows_own_hash(repo):
         f"| {CLAUSE} | seal/releases/0.1.0.md · R1 | "
         f"`src/orders.py#serialize@{h0}` → `@{h2}` | 2026-09-04 |"
     ], out
+
+
+def test_a_reading_its_family_holds_records_no_pact_change(repo):
+    """#785, S7. The freeze, `Pact notify | always` and a declared branch:
+    released R1 records `serialize` at s0, fragment A re-reads it at s1 on
+    2026-09-02, fragment B at s2 on 2026-09-03, and the code is at s2. B
+    holds, so the in-place run leaves A alone, and a coordinate left alone
+    hands the record nothing: no row names A. Red at a3aa139a, which
+    re-stamped A and recorded `s1 → s2` for it."""
+    git(repo, "init", "-q", "-b", "feat/x")
+    (repo / "seal" / "specs" / ITEM).mkdir(parents=True)
+    (repo / "seal" / "specs" / ITEM / "routing.md").write_text(
+        "| Axis | Answer |\n|---|---|\n| Review | straight to the PR |\n"
+        "| Destination | open the pull request |\n| Branch | feat/x |\n",
+        encoding="utf-8",
+    )
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"),
+            ("Pact", PACT_URL),
+            ("Pact notify", "always"),
+            ("Ledger frozen from", "0"),
+        ),
+        encoding="utf-8",
+    )
+    s0 = unit_hash(repo, "src/orders.py", "serialize")
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("R1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{s0}"),
+        encoding="utf-8",
+    )
+    citation = ec.citation_for(str(repo), str(released), 5)
+    a_file = "seal/ledger/2000000001-a.md"
+    for where, version, day in (
+        (a_file, "'id': order.id, 'n': 1", "2026-09-02"),
+        ("seal/ledger/3000000001-b.md", "'id': order.id, 'n': 2", "2026-09-03"),
+    ):
+        (repo / "src" / "orders.py").write_text(
+            SOURCE.replace("'id': order.id", version), encoding="utf-8"
+        )
+        h = unit_hash(repo, "src/orders.py", "serialize")
+        cite(
+            repo,
+            [
+                f"| Re-read · R1 · the field list | `{citation}`, "
+                f"`src/orders.py#serialize@{h}` | read | {day} | Re-read {day} |\n"
+            ],
+            where=where,
+        )
+    git(repo, "add", "-A")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "commit",
+        "-qm",
+        "x",
+    )
+    before = (repo / a_file).read_bytes()
+    code, out = run(repo, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert (repo / a_file).read_bytes() == before, out
+    assert not [r for r in record_rows(repo) if a_file in r], out

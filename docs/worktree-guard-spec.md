@@ -337,7 +337,9 @@ took the verdict, consent made it silent for a compound, and `git worktree add
 ../x -b x && git switch y` ran the switch over a tree another session was
 ACTIVE in — which *What does not change* below rules out. The walk now keeps
 the first switch and the first creation in either order and hands both to the
-table above. Both spellings get the same decision and the same reason in every
+table above. Since #790 the first switch is the first the base's lookups read,
+and a `checkout` only #790's lookups read takes the place only where they
+read none (§*Which tree*, §*Known limits*). Both spellings get the same decision and the same reason in every
 tree state, consent state and attempt, and the combined verdict is never
 weaker than the switch's alone or the creation's alone.
 
@@ -471,8 +473,15 @@ prose is a different matter and still passes — measured:
 Shell prose is usually quoted, so the residual is narrow, but it is a
 residual and not a property.
 
-**Where the token is read from.** The command, and only the command. The
-Agent/Task path has no command line and reads no token at all — see §B's
+**Where the token is read from.** The command, and only the command. Not
+from a here-document body, since #780: a token counts only where the command
+as written and the command with its here-document bodies taken out both carry
+it, the rule the commit gate's consent read has kept since #773
+(`hooks/tokens.py#without_bodies`). A body is text a command only carries, so
+a token there was read as an answer nobody typed. Where `hooks/cmdline.py`
+cannot load, the bodies are found by the frozen reader the judgment read
+already uses, so a token in a body is still not read and a typed one still
+is. The Agent/Task path has no command line and reads no token at all — see §B's
 "Why the Agent path counts nothing, asks once, and reads no token".
 
 | Token | Answer it carries | Effect |
@@ -583,26 +592,43 @@ in an environment is no longer a cost, it is an outage.
 
 The tree judged is the one the command acts on, by every row of §A — the
 tracked-changes row included, which until round 1 of work item 1790550712 read
-the session's own directory instead. `git -C <path>` names it
-outright, and a `cd` earlier in the command moves the shell to it — this guard
-is the reason a session is in that shape at all, since it refuses a switch and
-tells the user to work in a separate worktree, so the session stays where it
-was while the commands do not. The whole command is read the way the release
-base `86256492` read it, and not the way the commit gate reads it since #674
-(#689): which segments are git, the `-C` values each names, where every `cd`
-lands. One rule is read past the base, since #764 and #738 on the owner's
+the session's own directory instead. `git -C <path>` names it outright, and a
+`cd` earlier in the command moves the shell to it — this guard is the reason a
+session is in that shape at all, since it refuses a switch and tells the user
+to work in a separate worktree, so the session stays where it was while the
+commands do not. The whole command is read the way the release base `86256492`
+read it, and not the way the commit gate reads it since #674 (#689): which
+segments are git, the `-C` values each names, where every `cd` lands. Two
+rules are read past the base. The first, since #764 and #738 on the owner's
 answer of 2026-10-04: a `checkout`'s and a `switch`'s own words are read as
 git's option parser sees them once bash has taken the redirections off. So a
 creating option counts in any spelling git accepts (`-bNAME`, `-qb NAME`,
-`--orphan=NAME`, `--cre NAME`), an option's value is not a name (`git
-checkout --conflict merge feature/x` names `feature/x`), and a redirection is
-no word (`git checkout 2>/dev/null feature/x`, `git checkout
-feature/x>/dev/null`). Which segments are git, the `-C` values each names and
-where every `cd` lands stay the base's, and `hooks/cmdline_base.py` is
-unchanged. This guard and the consent writer read it through
-`hooks/cmdline_base.py`, which is that commit's `hooks/cmdline.py` copied byte
-for byte. Neither chooses a segment or a tree through `hooks/cmdline.py`; the
-guard asks that module one question, below, and its answer never names a tree.
+`--orphan=NAME`, `--cre NAME`), an option's value is not a name (`git checkout
+--conflict merge feature/x` names `feature/x`), and a redirection is no word
+(`git checkout 2>/dev/null feature/x`, `git checkout feature/x>/dev/null`).
+The second, since #790 on the owner's placement of it in the milestone of the
+release that ships it, on 2026-10-05: a `checkout`'s name is looked up the way
+`git checkout` resolves it. The name is a branch to switch to where it names a
+commit once resolved and peeled, as every single-revision form does, a message
+search (`git checkout ':/fix typo'`) included, and where `rev-parse` reads the
+word as a range git's object lookup reads it whole, as `git checkout` does;
+where it is `<a>...<b>` with exactly one merge base, a side left empty meaning
+`HEAD`; and where a remote-tracking branch of any remote ends in it, or a
+remote's fetch refspec maps `refs/heads/<name>` to a ref that exists, which is
+git's guess. The base's lookup is still asked first, so no name it read as a
+branch goes quiet. A `checkout` only these lookups read as a switch takes the
+place of no switch the base read in the same command, and it takes no question
+away from candidate C below: it is judged only where the base read no switch
+at all. The guess reads every remote on the default of `questions.md` P1 in
+work item 1791163981, taken under the owner's `automation` routing. Which
+segments are git, the `-C` values each names and where every `cd` lands stay
+the base's, and `hooks/cmdline_base.py` is unchanged. This guard and the
+consent writer read it through `hooks/cmdline_base.py`, which is that commit's
+`hooks/cmdline.py` copied byte for byte. Neither chooses a segment or a tree
+through `hooks/cmdline.py`; the guard asks that module one question about a
+command's kinds, below, and its answer never names a tree. Since #780 the
+guard's consent read also has it take a command's here-document bodies out
+(§*Choice sites*), which names no tree either.
 
 The reason is that this guard takes one answer where the gate takes all of
 them. It judges the first segment of each kind and the first directory in it
@@ -755,6 +781,25 @@ at one prompt against a wrong allow breaking another session's tree.
     -- <&1 README.md`, a restore, is judged a switch to `feature/x` too;
   - `git checkout -U 3 feature/x` reads `feature/x` as the name, although git
     refuses `-U` without `-p`, so a command git refuses is asked.
+- A `checkout`'s name is looked up as git resolves it (§*Which tree*), and a
+  few names git refuses are still read as a branch, so the command is asked
+  although it would not run: `^<rev>`, read as one since before #790; and a
+  guessed name under `--detach`, held by two remotes, or ending a longer
+  remote branch's name (`x` beside `origin/feature/x`), where git takes no
+  guess or refuses an ambiguous one. The guard reads each remote's fetch
+  refspec, as git's guess does, but no `checkout.guess`,
+  `checkout.defaultRemote` or `--no-guess`, so it guesses where git would not,
+  never the other way. A revision syntax a later git adds that neither `git
+  rev-parse --verify` nor git's object lookup reads as one name, as neither
+  reads `<a>...<b>`, reads as no branch until the guard learns it. Measured with git 2.54.0 (work item 1791163981,
+  `phases/phase-1.md`); `test_nothing_the_base_read_as_a_switch_goes_quiet`
+  in `tests/test_guard_resolves_the_tree_it_judges.py` pins the direction.
+- A `checkout` only #790's lookups read as a switch is judged only where the
+  frozen reading read no switch in the command (§*Which tree*), so one in a
+  second, dirty tree, written before a switch the frozen reading reads in a
+  clean tree, goes unasked, as it did at the base. Judging it first instead
+  took the question from the frozen reading's switch, which the base asked
+  (round 1 of 1791163981, 🟡 3).
 - On Windows the count of other sessions is always unusable. It walks the
   process table with `ps -o` and `ps -axo`, and Git for Windows' `ps` takes
   neither, so every tree state there reads as *detection unusable* and takes

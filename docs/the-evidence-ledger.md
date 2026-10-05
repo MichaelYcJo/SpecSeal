@@ -142,9 +142,14 @@ fragment re-reads carry is owed a re-read of a released root too. The
 `Checked` column holds the date somebody read the code, and
 `--checked` writes that date into every row whose hash it moves; it says
 every such row was re-read, so read each row citing a drifted coordinate
-first, or narrow the write with `--ledger` to the files you read. A
-`Re-read ·` row is a reading dated `--checked`, so where a coordinate it would
-carry has a reading dated later, that reading outranks it and the row would
+first, or narrow the write with `--ledger` to the files you read. No such
+reading is owed where the family already holds a coordinate, or where a
+`Corrected ·` row supersedes the family, so an in-place re-stamp leaves that
+coordinate's hash and date as they are (#785). On a row it dates for another
+coordinate it moves a held one's hash too, since that date makes the row its
+newest reading. A `Re-read ·` row is a reading dated `--checked`, so where a
+coordinate it would carry has a reading dated later, that reading outranks it
+and the row would
 clear nothing: the run writes no row for it, still records the pact changes
 its moved coordinates owe, names it with both dates and the place of the
 later reading, and exits 1. Read the code again and date that reading; a date
@@ -166,16 +171,25 @@ version's file on a `release/vX.Y.Z` base (#540). A `Corrected ·` row a merge
 drops while the released row it cites stands is reported as a loss.
 
 **Without the row, a released row is kept true where it stands.** A
-repository that does not declare the freeze re-stamps a re-read row in place
-with a dated note, corrects a false claim in place with a `Corrected <date>`
-note, and removes a row whose claim went with its code, writing the new claim
-into the branch's own fragment. That is what every installed copy does until
-it adds the row. Where citing rows exist anyway, a `--reverify` narrowed with
-`--ledger` names, by its root row, each family that a file it read holds a
-member of, released or fragment, where no in-place re-stamp of the files it
-read clears that family, whichever members carry the drifted coordinate, and
-exits 1. The root is named even where the
+repository that does not declare the freeze re-stamps a re-read row in place,
+adding the date of the reading to its `Checked` cell, corrects a false claim
+in place with a `Corrected <date>` note, and removes a row whose claim went
+with its code, writing the new claim into the branch's own fragment. That is
+what every installed copy does until it adds the row. Where citing rows exist
+anyway, a `--reverify` narrowed with `--ledger` names, by its root row, each
+family that a file it read holds a member of, released or fragment, where no
+in-place re-stamp of the files it read clears that family, whichever members
+carry the drifted coordinate, and exits 1. The root is named even where the
 narrowing left its file out, because the root is the row a `Re-read ·` cites.
+The line names a remedy per coordinate, by why the family is still owed one
+(#792). Only where a newest reading of it sits in a file the run did not
+write does it say to run without `--ledger`. Where the run left the
+coordinate itself, on a `left` line or by leaving its row whole for want of a
+date cell, the line says so and points at the line naming why, and a run over
+every ledger names such a family too. A `left` line names why: a path outside
+the repository or any known checkout, a file the run could not read, no one
+place holding the unit, or a quoted statement its file no longer has. Where
+neither is found it names no remedy.
 
 **Five things `--reverify` leaves at exit 0 while `--strict` exits 2.** This
 holds without the freeze, under it, and under it with `--into`, over every
