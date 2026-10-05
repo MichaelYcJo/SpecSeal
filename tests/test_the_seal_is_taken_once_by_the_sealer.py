@@ -4289,6 +4289,13 @@ PROOFS = [
         "MULTI_RUNNER",
         id="a-ruled-outcome-line",
     ),
+    # Constructed: a line that only begins like an outcome line is not one.
+    pytest.param(
+        "2 checks in 0.50s, all clean\n" + ONE_SESSION,
+        "tests/test_two.py",
+        None,
+        id="a-line-that-only-begins-like-an-outcome",
+    ),
     # This repository's own lint parts before the runner (phase 1's S18).
     pytest.param(
         "All checks passed!\n240 files already formatted\n" + ONE_SESSION,
@@ -5395,6 +5402,22 @@ TEARDOWN_FAILS = (
             },
             id="a-session-teardown-error-goes-to-each-sessions-last-test",
         ),
+        # A file that ends the process at import unless a sibling ran first:
+        # alone it writes no report, so it has no count, and the group's
+        # words cannot be checked against it.
+        pytest.param(
+            {
+                "tests/test_a.py": "import os\n\nos.environ['ALIVE'] = '1'\n\n\n"
+                + PRE_EXISTING,
+                "tests/test_b.py": "import os\n\nif not os.environ.get('ALIVE'):\n"
+                "    os._exit(3)\n\n\ndef test_b():\n    assert True\n",
+            },
+            {
+                "tests/test_b.py": "import os\n\nif not os.environ.get('ALIVE'):\n"
+                "    os._exit(3)\n\n\ndef test_b():\n    assert False\n"
+            },
+            id="a-file-with-no-count-alone",
+        ),
     ],
 )
 def test_a_file_the_base_fails_only_alone_is_not_called_failing_on_base_too(
@@ -5408,15 +5431,21 @@ def test_a_file_the_base_fails_only_alone_is_not_called_failing_on_base_too(
     alone. The group ran every test its files hold alone and failed fewer
     than they fail one by one, so some failure alone is not the base's in
     the row, and no count says whose: every file of the group reads `new?`
-    with the reason, numbered as its run alone."""
+    with the reason, numbered as its run alone. A file of the group with no
+    count alone, which ran in no report of its own, leaves the others'
+    words unchecked the same way, and reads `NO_RUNNER` itself."""
     repo = base_then_feature(tmp_path / "repo", FILES_ROW, at_base, on_feature)
     out = run_gate(repo, keep=tmp_path / "out")
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
     for path in ("tests/test_a.py", "tests/test_b.py"):
         assert verdict_of(out.stdout, path) != gate.ON_BASE, out.stdout
-    for n, path in enumerate(("tests/test_a.py", "tests/test_b.py"), 1):
-        assert verdict_of(out.stdout, path) == gate.COMPANY.format(n=n), out.stdout
+    assert verdict_of(out.stdout, "tests/test_a.py") == gate.COMPANY.format(n=1), (
+        out.stdout
+    )
+    no_count = "os._exit" in at_base["tests/test_b.py"]
+    expected = gate.NO_RUNNER if no_count else gate.COMPANY.format(n=2)
+    assert verdict_of(out.stdout, "tests/test_b.py") == expected, out.stdout
 
 
 # A container, emulated: it forwards its arguments, keeps its report inside
