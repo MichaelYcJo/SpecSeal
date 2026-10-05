@@ -330,7 +330,7 @@ written in three places is three places for it to disagree with itself.
 |---|---|---|
 | 1 | A check that is red repository-wide for reasons unrelated to any branch does not belong in the row | It would block every future work item for something none of them caused, and a gate that always fails is read as noise and then ignored |
 | 2 | A command that **fixes** the tree — `--fix`, `--write`, a formatter in write mode — is not a gate command | A gate asks what is wrong. One that changes the answer while reading it can only come back green, which is the counterfeit `skills/verify/SKILL.md` §*The Seal Test* names |
-| 3 | The suite runner is a part of the row a cut can stop after | On a failing test the gate re-runs the failing files alone at the base, in a scratch worktree it removes afterwards, and finds the runner by running rather than by its name or its place (#747). It cuts the row at its top-level operators — `&&`, `\|\|`, `;` and `\|` under `/bin/sh`, where a lone `&` is never a cut because the part before it runs in the background, and `&&`, `\|\|`, `&` and `\|` under `cmd.exe`, where `;` separates nothing — and runs each prefix with the files appended until one prints pytest's summary line. A file that run's `FAILED` or `ERROR` line names reads `failing on base too`, and one it does not name reads `new`. Where no prefix prints a line the gate reads as that summary, or the run stopped before every test ran, each file reads `new?` with the reason, never `new`. So the runner may come first or last, and the order is the repository's trade: runner first costs one run at the base, and lint first re-runs the parts before the runner once per prefix tried. A runner inside a `( … )` group or behind a part that fails at the base is never reached, and one whose output goes to a file, or whose summary line the gate does not read (none under `-qq`, colour codes when colour is forced on), is run but not read: each reads `new?`. One shape the gate cannot see through: a part that prints pytest's summary without running the files appended to it — a `sh -c '…'`, a `make` target, a wrapper that drops its arguments — reads `new` for a file it never ran, because pytest under `-q` names no file that passed. Where the runner is such a part, write it so it passes its arguments on, or read its `new` as the row's claim rather than a measurement |
+| 3 | The suite runner is a part of the row a cut can stop after | On a failing test the gate re-runs the failing files alone at the base, in a scratch worktree it removes afterwards, and finds the runner by running rather than by its name or its place (#747). It cuts the row at its top-level operators — `&&`, `\|\|`, `;` and `\|` under `/bin/sh`, where a lone `&` is never a cut because the part before it runs in the background, and `&&`, `\|\|`, `&` and `\|` under `cmd.exe`, where `;` separates nothing — and runs each prefix with the files appended until one prints pytest's summary line. A file that run's `FAILED` or `ERROR` line names reads `failing on base too`, and one it does not name reads `new`. Where no prefix prints a line the gate reads as that summary, or the run stopped before every test ran, each file reads `new?` with the reason, and never `new` unless it ran alone and that run collected nothing (below). So the runner may come first or last, and the order is the repository's trade: runner first costs one run at the base, and lint first re-runs the parts before the runner once per prefix tried. A failing file the base's tree does not carry at the repository root is run alone at the base, through the same prefixes, which costs one more run of each prefix up to and including the runner per such file. A file that run collects nothing from (pytest's `no tests ran` line, or a count of warnings alone, with exit 4 or 5) reads `new`, so a base file with no test in it reads `new` too: the base cannot fail a test it does not have. Where a row runs its tests below a directory and the base carries a same-named file at the root but not below that directory, the file is not run alone: it runs with the others, that run collects nothing, and each file in it reads `new?`. A row that runs pytest in more than one directory — `pytest -q && cd sub && pytest -q` — is asked about every failing file by the first runner a prefix reaches, in that runner's directory: a file a later runner named reads `new` where that directory has no such file or a same-named file there passes at the base, and `failing on base too` where a same-named file there fails at the base. Read either word as the row's claim rather than a measurement, or write the row so one runner runs every directory. A runner inside a `( … )` group or behind a part that fails at the base is never reached, and one whose output goes to a file, or whose summary line the gate does not read (none under `-qq`, colour codes when colour is forced on), is run but not read: each reads `new?`. A runner with `-s` lets a test write to stderr, and the gate reads stdout and then stderr, so what a failing test writes there stands after pytest's own lines: an inner pytest run written there is read as the run's own, so a file it names reads `failing on base too` and a file the base fails can read `new`. Read either word on such a row as the row's claim rather than a measurement. One shape the gate cannot see through: a part that prints pytest's summary without running the files appended to it — a `sh -c '…'`, a `make` target, a wrapper that drops its arguments — reads `new` for a file it never ran, because pytest under `-q` names no file that passed. Where the runner is such a part, write it so it passes its arguments on, or read its `new` as the row's claim rather than a measurement |
 
 Rules 1 and 2 were derived under pressure by the session that met the gate's
 refusal after its review rounds had settled, and were written nowhere until
@@ -386,15 +386,17 @@ is a signatory, and every one except the pact's repository names the pact
 here. The pact's repository needs no row: it is identified by holding
 `seal/pact.md`.
 
-```markdown
-| Pact | git@example.com:org/orders-api.git |
-| Pact notify | when the pact is touched |
-```
+Both rows are written in the table at the top of this file, and nowhere
+else in it:
 
-| Row | Value | Absent |
-|---|---|---|
-| `Pact` | the origin remote URL of the pact's repository; a signatory of pacts held in more than one repository lists them separated by `;` | no pact is held elsewhere |
-| `Pact notify` | `always` · `when the pact is touched` · `never` | `when the pact is touched` where a `Pact` row stands, and ignored where none does |
+- **`Pact`**: the origin remote URL of the pact's repository, such as
+  `git@example.com:org/orders-api.git`; a signatory of pacts held in more
+  than one repository lists them separated by `;`. Absent: no pact is held
+  elsewhere.
+- **`Pact notify`**: `always` · `when the pact is touched` · `never`.
+  Absent: `when the pact is touched` where a `Pact` row stands, and ignored
+  where none does. Written anywhere but the table above, or spelled any
+  other way, it is refused, not absent.
 
 **The URL is compared normalised**, so `git@example.com:org/orders-api.git`
 and `https://example.com/org/orders-api` name one repository. Its last path
@@ -402,22 +404,40 @@ segment is the name a pact anchor carries, `pact:orders-api/"## A"@1a2b3c4d`,
 so two pacts whose URLs end in the same segment are refused as ambiguous.
 
 **`Pact notify` decides which of this signatory's changes the pact's
-repository hears about.** When `evidence-check --reverify` moves the hash of
-a ledger row here — or leaves a coordinate of one BROKEN — it records a pact
-change in `seal/pact-changes/<work-item-id>.md`, and `pact-check` at the
-pact's repository reads that record until a pact review there takes it:
+repository hears about.** `evidence-check --reverify` records a pact change
+in `seal/pact-changes/<work-item-id>.md` where `docs/the-pact.md` §*A
+signatory records a pact change* says, and that section's first sentence is
+the whole trigger. `pact-check` at the pact's repository reads that record
+until a pact review there takes it:
 
-| Value | Recorded here | Read there |
-|---|---|---|
-| `when the pact is touched` | a row citing a clause of a pact the `Pact` row names | as `NOT TAKEN`, exit 1, until a pact review takes it |
-| `always` | that, and every other row whose code moved, with `—` for its clause | a `—` row as `NOTED`, which moves no exit |
-| `never` | nothing | nothing, whatever an earlier value recorded |
+- **`when the pact is touched`** records a row citing a clause of a pact
+  the `Pact` row names, and the pact's repository reads it as `NOT TAKEN`,
+  exit 1, until a pact review takes it.
+- **`always`** records that, and every other row whose code moved, with `—`
+  for its clause; the pact's repository reads a `—` row as `NOTED`, which
+  moves no exit.
+- **`never`** records nothing, and the pact's repository reads nothing,
+  whatever an earlier value recorded.
 
 **A row that will not parse is refused in a sentence**, never read as absent.
 At this repository's pull request `chain-check` prints the sentence and its
 exit status does not move: a signatory's CI prints and does not verify.
 `pact-check`, run at the pact's repository, reads the same rows through the
 same reader, `hooks/config.py#pact_declaration`, and exits 2 on them.
+
+**Both rows are read only where the table above holds them, spelled exactly
+`Pact` and `Pact notify`.** Any other line of `seal/config.md` that names a
+pact and holds a pipe is refused the same way: one written under the
+table, a fenced or commented example, or a row of the table whose item says
+`pact notify`, `**Pact notify**` or `` `Pact` ``. Keep both rows in that
+table. A sentence with no pipe in it may name the pact freely, which is why
+this section is written without one: this file can be copied whole. A file
+that also holds an HTML table cell's tag, a `td` or `th` opened with a `<`,
+anywhere, a comment or a code span included, refuses such a sentence too, so
+keep that tag out of this file. So does a line directly under the sentence
+that GFM reads as a table's delimiter row, such as `:-:`, `---:` or dashes
+between two pipes, which makes the sentence a one-column table's header; a
+line of dashes alone is a heading's underline and refuses nothing.
 
 ## The fold's values
 

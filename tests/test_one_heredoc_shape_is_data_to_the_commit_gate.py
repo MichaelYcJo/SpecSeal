@@ -380,3 +380,195 @@ def test_the_reduction_reaches_the_unparsed_fallback(tmp_path):
     assert decide(body_only, session)[0] == "silent"
     found, clean = gate.commit_invocations(gate.one_heredoc.reduce(body_only))
     assert (found, clean) == ([], False)
+
+
+# --- #773: a waiver inside a here-document body is data -----------------------
+#
+# Work item `1791119070-a-waiver-inside-a-here-document-body-is-data`,
+# scenarios S1, S2, S3, S5 and S6. Both consent reads, `has_marker` here and
+# `hooks/tokens.py#given` for the git hook, read the command without its
+# here-document bodies, and only where the base read also found the token.
+# Each command is built from named parts -- the opener, the body, the suffix --
+# and judged through the hook's decision function, never run as a command.
+# "The tokenless verdict" is the same command with the body's token replaced
+# by a plain word, judged in a fresh session.
+
+WAIVER = "[no-review]"
+
+
+def commit_into(repo):
+    """The suffix every case commits with: a `git -C` the reader can place."""
+    return f"git -C {q(repo)} add f && git -C {q(repo)} commit -m x"
+
+
+def tokenless(command):
+    """`command` with the waiver replaced by a word that waives nothing."""
+    assert WAIVER in command
+    return command.replace(WAIVER, "later")
+
+
+def s1_program_body(target):
+    """The one shape with the program: a Python string literal holds the
+    token, and the suffix commits into `target` (#769 round 1's probe)."""
+    body = f'note = "{WAIVER}"\nprint(note)'
+    return f"python3 - <<'EOF'\n{body}\nEOF\n{commit_into(target)}"
+
+
+# Openers the one-shape reader refuses, each feeding a body no shell runs:
+# `spec.md` case 3.
+OUTSIDE_THE_SHAPE = {
+    "a sink with an unquoted delimiter": "cat > {scratch} <<EOF",
+    "a sink with a double-quoted delimiter": 'cat > {scratch} <<"EOF"',
+    "another interpreter": "python - <<'EOF'",
+}
+
+
+def s2_body_outside_the_shape(opener, scratch, target):
+    """An opener `one_heredoc` refuses, the token alone on a body line, and a
+    commit after the terminator."""
+    return f"{opener.format(scratch=q(scratch))}\n{WAIVER}\nEOF\n{commit_into(target)}"
+
+
+def test_s1_a_token_in_the_program_body_waives_nothing(tmp_path):
+    """S1, `spec.md` case 2. Red at `94d7b2e0`: the base read the literal's
+    token as a bare word and the commit into the undeclared repository went
+    through silent."""
+    session = make_repo(tmp_path / "session")
+    target = make_repo(tmp_path / "undeclared")
+    command = s1_program_body(target)
+    assert gate.one_heredoc.reduce(command) is not None
+    got, out = decide(command, session, "with")
+    assert got == decide(tokenless(command), session, "without")[0], out
+    assert got in ("deny", "ask"), out
+
+
+@pytest.mark.parametrize("name", sorted(OUTSIDE_THE_SHAPE))
+def test_s2_a_token_in_a_body_outside_the_shape_waives_nothing(tmp_path, name):
+    """S2, `spec.md` case 3. Red at `94d7b2e0` for each opener: the body's
+    token silenced the commit after the terminator."""
+    session = make_repo(tmp_path / "session")
+    target = make_repo(tmp_path / "undeclared")
+    command = s2_body_outside_the_shape(
+        OUTSIDE_THE_SHAPE[name], tmp_path / "pr.md", target
+    )
+    assert gate.one_heredoc.reduce(command) is None
+    got, out = decide(command, session, "with")
+    assert got == decide(tokenless(command), session, "without")[0], out
+    assert got in ("deny", "ask"), out
+
+
+DOCUMENTED = {
+    "the no-op in front, outside the shape": (
+        ": '{w}'; cat > {scratch} <<EOF\nbody\nEOF\n{commit}"
+    ),
+    "a trailing comment after the terminator, outside the shape": (
+        "cat > {scratch} <<EOF\nbody\nEOF\n{commit}  # {w}"
+    ),
+    "a trailing comment on the program's suffix": (
+        "python3 - <<'EOF'\nprint(1)\nEOF\n{commit}  # {w}"
+    ),
+    "a trailing comment with an apostrophe": (
+        "cat > {scratch} <<EOF\nbody\nEOF\n{commit}  # don't {w}"
+    ),
+}
+
+
+def documented(name, scratch, target):
+    return DOCUMENTED[name].format(
+        w=WAIVER, scratch=q(scratch), commit=commit_into(target)
+    )
+
+
+@pytest.mark.parametrize("name", sorted(DOCUMENTED))
+def test_s3_the_documented_forms_still_waive_beside_a_body(tmp_path, name):
+    """S3. Green before and after: the token typed outside every body, in front
+    or in a comment, still waives. The tokenless command stops, so the token is
+    what silences it."""
+    session = make_repo(tmp_path / "session")
+    target = make_repo(tmp_path / "undeclared")
+    command = documented(name, tmp_path / "pr.md", target)
+    got, out = decide(command, session, "with")
+    assert got == "silent", out
+    assert decide(tokenless(command), session, "without")[0] in ("deny", "ask")
+
+
+def s5_shell_body(target, in_front=False):
+    """A body `bash` runs, holding a commit; the token either inside the body,
+    in front of that commit, or typed in front of the Bash call's own command."""
+    commit = commit_into(target)
+    if in_front:
+        return f": '{WAIVER}'; bash <<EOF\n{commit}\nEOF\n"
+    return f"bash <<EOF\n: '{WAIVER}'; {commit}\nEOF\n"
+
+
+def test_s5_a_token_inside_a_body_a_shell_runs_waives_nothing(tmp_path):
+    """S5, `spec.md` case 4: the cost the frame accepted, pinned. Red at
+    `94d7b2e0`, where the token inside the body silenced the commit the body
+    runs. Now it gets the tokenless verdict, and the same token typed in front
+    of the Bash call's own command is the way on."""
+    session = make_repo(tmp_path / "session")
+    target = make_repo(tmp_path / "undeclared")
+    command = s5_shell_body(target)
+    got, out = decide(command, session, "with")
+    assert got == decide(tokenless(command), session, "without")[0], out
+    assert got in ("deny", "ask"), out
+    assert decide(s5_shell_body(target, in_front=True), session, "front")[0] == (
+        "silent"
+    )
+
+
+# Two commands where taking the body out turns the raw text's split around, so
+# the read without bodies finds the token where the base read did not
+# (`plan.md` alternative F). Neither is a command a shell would run; each is
+# here because the AND is the only thing that refuses it.
+#   * the body's lone `"` quotes the token in the raw text; without the body,
+#     the quote after the token never closes and the substring fallback reads
+#     it (has_marker's half);
+#   * the raw text never closes its last quote and reads nothing; without the
+#     body, every quote closes and the token is a bare word (given's half).
+NEWLY_READ = {
+    "has_marker": f'cat <<EOF\n"\nEOF\necho {WAIVER} "',
+    "given": f'cat <<EOF\n"\nEOF\necho {WAIVER} "\n"',
+}
+
+
+def base_marker(command):
+    """`has_marker` as it stood at `94d7b2e0`: the strict scan over the raw
+    command where it splits cleanly, the substring test where it does not."""
+    segments, clean = gate.split_segments(command)
+    if not clean:
+        return WAIVER in command
+    return any(tok == WAIVER for toks in segments for tok in toks)
+
+
+def base_given(command):
+    """`tokens.given` as it stood at `94d7b2e0`: the bare words of the raw
+    command."""
+    found = {w.strip("()") for w in gate.tokens.words(command)}
+    return {t for t in gate.tokens.KNOWN if t in found}
+
+
+def every_case(tmp_path):
+    scratch, target = tmp_path / "pr.md", tmp_path / "undeclared"
+    yield s1_program_body(target)
+    for opener in OUTSIDE_THE_SHAPE.values():
+        yield s2_body_outside_the_shape(opener, scratch, target)
+    for name in DOCUMENTED:
+        yield documented(name, scratch, target)
+    yield s5_shell_body(target)
+    yield s5_shell_body(target, in_front=True)
+    yield from NEWLY_READ.values()
+
+
+def test_s6_neither_read_honours_a_token_the_base_did_not(tmp_path):
+    """S6. For every command above, each read finds a token only where the
+    base read found it. `NEWLY_READ` turns red the moment either read drops
+    the AND with its base read; the rest are green at `94d7b2e0` by
+    definition."""
+    for command in every_case(tmp_path):
+        assert not gate.has_marker(command, WAIVER) or base_marker(command), command
+        assert set(gate.tokens.given(command)) <= base_given(command), command
+    assert not base_marker(NEWLY_READ["has_marker"])
+    assert not gate.has_marker(NEWLY_READ["has_marker"], WAIVER)
+    assert not base_given(NEWLY_READ["given"])
+    assert gate.tokens.given(NEWLY_READ["given"]) == ()

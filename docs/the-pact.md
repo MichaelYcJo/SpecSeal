@@ -74,6 +74,33 @@ the same rows. A `Pact notify` value outside the vocabulary, or a row
 written twice, has no value at all: its first row is not the answer.
 Enforced by: tests/test_a_signatory_declares_its_pact.py::test_one_pact_reads_normalised_with_the_default_notify, tests/test_a_signatory_declares_its_pact.py::test_a_notify_value_outside_the_vocabulary_is_refused_naming_all_three, tests/test_a_signatory_declares_its_pact.py::test_a_notify_row_written_twice_has_no_value, tests/test_a_signatory_declares_its_pact.py::test_a_row_that_will_not_parse_is_refused_and_never_read_as_absent, tests/test_a_signatory_records_a_pact_change.py::test_s10_notify_decides_what_is_recorded
 
+<!-- specs/1791128260-a-pact-row-is-read-in-one-plain-spelling -->
+**A pact row is read in one spelling, and every other line of `seal/config.md`
+that names a pact is refused.** The one spelling is a row of the
+`| Item | Value |` table whose item is exactly `Pact` or `Pact notify`: that
+case, one space between the words, and nothing in its cell but the item and the
+spaces around it. A line names a pact where the letters `p`, `a`, `c` and `t`
+stand in that order with only non-letters between them and no letter before the
+`p`, as written or with its character references decoded and its compatibility
+letters folded (NFKC), so a fullwidth or mathematical `Pact` names one and
+`impact` names none. On a row of the table only the item is read, so a value
+that mentions a pact is never refused. Any other line is refused where it also
+holds a `|`: a row written below the table's end, in a second table, in a block
+quote, inside a code fence or an HTML comment, or cut by a character only
+Python ends a line at. An example kept in a fence or a comment is refused too,
+because telling it from a live row would mean modelling GFM; delete it. A line
+with no `|` has no value cell, so the pact can be named in prose. A line
+standing directly over a table's delimiter row is that table's header, and a
+one-column table needs no pipe anywhere, so such a line naming a pact is
+refused with or without a `|`, inside a block quote or a list item too. In a
+file that holds an HTML table cell's tag, `<td>` or `<th>`, anywhere, a code
+span, a fence or a comment included, a line naming a pact is refused with or
+without a `|`, because such a cell carries a value with no pipe beside it; take
+the tag out to name the pact in prose again. A refusal leaves `Pact notify`
+with no value, so `evidence-check --reverify` leaves every moved row it cannot
+rule out, `pact-check` exits 2, and a signatory's CI prints a notice.
+Enforced by: tests/test_a_signatory_declares_its_pact.py::test_s2_every_way_the_walk_passes_a_pact_row_by_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s2_a_pact_item_spelled_another_way_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s4_a_line_that_is_not_a_pact_row_in_another_spelling_is_silent, tests/test_a_signatory_declares_its_pact.py::test_s5_a_plain_row_in_a_fence_or_a_comment_is_refused_and_not_read, tests/test_a_signatory_records_a_pact_change.py::test_s6_a_pact_line_below_the_table_leaves_the_moved_row
+
 ## The pact anchor
 
 <!-- specs/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it -->
@@ -116,14 +143,23 @@ Enforced by: tests/test_pact_check.py::test_an_anchor_missing_its_slash_is_refus
 row that cites a clause of a pact its `Pact` row declares, finds the code
 under such a row moved where `--into` refuses it a `Re-read ·` row for a
 stale `--checked`, or leaves a coordinate of one BROKEN, the same command
-records a pact change, and that test is the whole trigger.** It needs no
+records a pact change, and that test is the whole trigger.** The hash is a
+code coordinate's: a citing row's citation of a released row is a ledger
+line, so its re-stamp records nothing (#772). It needs no
 judgment: a row carrying a pact anchor and a local coordinate is the link,
 and a re-read is the one act at which a session says code under a row
 moved. The record is written in both of the re-read's forms, a re-stamp in
 place and a `Re-read ·` row under `--into`, before the hash it read is gone,
 one row per ledger row. A row `--into` refuses is recorded by the run that
 refuses it, because its repair may be a `Corrected ·` row that no later
-re-read reaches (#746). `Pact
+re-read reaches (#746). **A move `--into` records starts at the hash the
+coordinate's newest reading holds**, whether it writes the row's `Re-read ·`
+row or refuses it. That can be a later `Re-read ·` row's hash rather than the
+released row's, so code that went back to the released hash records the move
+back. A re-stamp in place records each row's move from that row's own hash,
+one move per coordinate however many walks re-stamp it, and BROKEN after it
+at the hash it holds where a later walk leaves it (#791).
+A move whose two hashes agree is no move and is not recorded (#774). `Pact
 notify` decides what is recorded: `when the pact is touched` records rows
 citing a clause of a declared pact, `always` also records every other row
 whose code moved, with `—` for its clause, and `never` records nothing. The
@@ -142,7 +178,7 @@ run that can record it. A run killed after recording leaves the record
 written and the ledger unstamped; the next run finds the change already the
 record's last word for it, records nothing twice, and re-stamps. An `--into`
 that is there and will not read is refused before anything is written.
-Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_s7_a_drifted_row_citing_a_clause_is_recorded, tests/test_a_signatory_records_a_pact_change.py::test_s8_a_released_row_drifted_is_recorded_beside_its_reread, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_declared_branch_names_the_record, tests/test_a_signatory_records_a_pact_change.py::test_s9_with_no_work_item_nothing_is_recorded_and_the_row_is_left, tests/test_a_signatory_records_a_pact_change.py::test_s7_the_ledger_is_written_exactly_as_before, tests/test_a_signatory_records_a_pact_change.py::test_a_change_left_is_recorded_by_the_remedy_it_names, tests/test_a_signatory_records_a_pact_change.py::test_a_pact_row_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_always_a_declaration_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_the_freeze_the_reread_row_is_never_written, tests/test_a_signatory_records_a_pact_change.py::test_a_run_killed_after_its_record_is_finished_by_the_next, tests/test_a_signatory_records_a_pact_change.py::test_an_into_that_will_not_read_is_refused_before_anything_is_written
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_s7_a_drifted_row_citing_a_clause_is_recorded, tests/test_a_signatory_records_a_pact_change.py::test_s8_a_released_row_drifted_is_recorded_beside_its_reread, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_declared_branch_names_the_record, tests/test_a_signatory_records_a_pact_change.py::test_s9_with_no_work_item_nothing_is_recorded_and_the_row_is_left, tests/test_a_signatory_records_a_pact_change.py::test_s7_the_ledger_is_written_exactly_as_before, tests/test_a_signatory_records_a_pact_change.py::test_a_change_left_is_recorded_by_the_remedy_it_names, tests/test_a_signatory_records_a_pact_change.py::test_a_pact_row_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_always_a_declaration_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_the_freeze_the_reread_row_is_never_written, tests/test_a_signatory_records_a_pact_change.py::test_a_run_killed_after_its_record_is_finished_by_the_next, tests/test_a_signatory_records_a_pact_change.py::test_an_into_that_will_not_read_is_refused_before_anything_is_written, tests/test_a_signatory_records_a_pact_change.py::test_a_row_refused_for_a_stale_date_records_its_move_once, tests/test_a_signatory_records_a_pact_change.py::test_a_row_dated_after_today_has_its_move_recorded_before_its_correction, tests/test_a_signatory_records_a_pact_change.py::test_a_recorded_move_starts_at_the_newest_reading, tests/test_a_signatory_records_a_pact_change.py::test_a_part_whose_two_hashes_agree_is_not_recorded
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **A line saying the run wrote a ledger file prints only once that file is
@@ -297,19 +333,39 @@ Enforced by: tests/test_pact_check.py::test_a_pact_under_local_mode_has_no_histo
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **A hash edited by hand bypasses the writer, a vendored copy of
-`evidence_check.py` records nothing, and a pact under local mode keeps its
-pact reviews on one machine.** The record is written inside `--reverify`, so
-a signatory that types a new hash into a ledger row leaves no pact change,
-and nothing can see that it should have. A copy of the checker with no
-`hooks/` beside it cannot read the `Pact` row; it names each row citing a
-pact, and each other moved row where `seal/config.md` holds a `Pact` row and
-a `Pact notify` row that both carry a value, or will not read, says it
-recorded nothing, and re-stamps nothing, so the plugin's own checker records
-the change where the signatory is checked out. A pact under
-local mode keeps `seal/pact-reviews/` under the git directory, so another
-clone of the pact's repository reads the same changes as `NOT TAKEN`, which
-is loud in the right direction.
-Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_whose_config_will_not_read_leaves_the_row
+`evidence_check.py` records nothing, and a pact under local mode keeps its pact
+reviews on one machine.** The record is written inside `--reverify`, so a
+signatory that types a new hash into a ledger row leaves no pact change, and
+nothing can see that it should have. A copy of the checker with no `hooks/`
+beside it cannot read the `Pact` row; it names each row citing a pact, and each
+other moved row where `seal/config.md` holds a `Pact` row and a `Pact notify`
+row that both carry a value, holds a line that names a pact by the plugin's
+word and is neither row in the one spelling, reading a two-cell row other than
+a table's header by its item alone, as the plugin reads a walked row, or will
+not read, says it recorded nothing, and re-stamps nothing, so the plugin's own
+checker records the change where the signatory is checked out. A pact under
+local mode keeps `seal/pact-reviews/` under the git directory, so another clone
+of the pact's repository reads the same changes as `NOT TAKEN`, which is loud
+in the right direction.
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_whose_config_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_vendored_copy_leaves_where_the_plugin_refuses_a_pact_line, tests/test_a_signatory_declares_its_pact.py::test_s10_the_reader_and_the_vendored_copy_read_one_word
+
+<!-- specs/1791128260-a-pact-row-is-read-in-one-plain-spelling -->
+**A pact line with a letter written between the word's letters, or with a
+look-alike letter, from another script or its own, is read as no line at all.**
+The reader names a pact by its four letters with only non-letters between them,
+so the letters of markup break the word: a tag name in `P<b></b>act`, a link
+destination in `[P](x)act`, and an entity name the decode does not know. So
+does `Pаct` spelled with a Cyrillic `а`, U+0430, and `ᴘᴀᴄᴛ` in Latin small
+capitals, which NFKC does not fold. Each such line is read as it was before
+#759, and a notify value written in one is the default. YAML front matter is
+not read either: github.com shows it as a table, cmark-gfm does not, and a line
+of it naming a pact is refused only where it holds a `|`. Catching these would
+need a grammar of GFM's markup or a table of look-alike letters, and leaving
+both out is what keeps the rule one that refuses rather than one that models.
+Every spelling the review of the earlier design found is caught:
+`` `Pact notify` ``, `**Pact notify**`, `Pact` with a U+200B inside it,
+`[Pact notify](x)` and a character reference such as `P&#97;ct`.
+Enforced by: tests/test_a_signatory_declares_its_pact.py::test_the_blind_side_is_read_as_no_line, tests/test_a_signatory_declares_its_pact.py::test_s2_a_pact_item_spelled_another_way_is_refused
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **The record-first order holds against the process dying, and not against

@@ -125,8 +125,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # `86256492`, and never chooses a segment or a tree through `cmdline.py` (#689;
 # the one question it asks that module is below): the splitter, `parse_git`,
 # `adds_a_worktree`, the walk and `Unresolved` all come from there, so what it
-# recognises and where it judges are the release base's by construction. The
-# name `cmdline` is kept so the rest of this file reads as it did.
+# recognises and where it judges are the release base's by construction. One
+# rule is read past the base since #764 and #738, on the owner's answer of
+# 2026-10-04: a `checkout`'s and a `switch`'s own words, as git is handed
+# them (`read_switch_words`); the segments and words it reads still come from
+# here. The name `cmdline` is kept so the rest of this file reads as it did.
 # `worktree_consent` imports the same module, so the two share one `Unresolved`.
 import cmdline_base as cmdline
 import console
@@ -287,6 +290,242 @@ def walk_command(command: str, cwd: str, windows=None):
     return cmdline.walk_directories(items, cwd)
 
 
+# --- a `checkout`'s and a `switch`'s words, as git is handed them ----------
+#
+# #764 and #738 (work item 1791119071), on the owner's answer of 2026-10-04,
+# which reopened the per-subcommand rule `classify` had kept from `86256492`.
+# `hooks/cmdline_base.py` is not reopened: its segments and words are read as
+# they come, and the reading below happens here.
+
+# A redirection's operator at the start of a word: an optional descriptor,
+# a number or bash 4.1's `{name}`, then the operator, longer ones first.
+# `hooks/cmdline.py`'s `_REDIRECTION` names the same list, and is not imported
+# for it: `classify` keeps answering where that module fails to load, so
+# `test_the_reduction_takes_out_every_redirection_the_reader_names` binds the
+# two instead.
+_REDIRECTION = re.compile(
+    r"(?:[0-9]+|\{[A-Za-z_][A-Za-z0-9_]*\})?"
+    r"(?:<<<|<<-|<<|<>|<&|>&|&>>|&>|>>!|>>|>\||>!|>|<)"
+)
+
+
+def _redirection_width(words, i):
+    """How many of WORDS, from I, one redirection takes -- 0 where WORDS[I]
+    is none. A target glued to its operator is one word, a spaced one is the
+    next word, and a process substitution as the target runs to the word that
+    closes it. `hooks/cmdline.py#redirection_width` reads the same way."""
+    m = _REDIRECTION.match(words[i]) if i < len(words) else None
+    if not m:
+        return 0
+    target, j = words[i][m.end() :], i + 1
+    if not target:
+        if j >= len(words):
+            return 1
+        target, j = words[j], j + 1
+    if target.startswith(("(", ">(", "<(")):
+        depth = target.count("(") - target.count(")")
+        while depth > 0 and j < len(words):
+            depth += words[j].count("(") - words[j].count(")")
+            j += 1
+    return j - i
+
+
+def handed_words(words):
+    """WORDS as the program is handed them, once bash has taken its
+    redirections off the command line.
+
+    bash ends a word at `<` and `>` wherever they stand, so `feature/x>f`
+    hands git `feature/x`, and `checkout>f` hands it `checkout`; a number or a
+    `{name}` in front is the operator's own descriptor and stays with it. A
+    word holding whitespace was quoted, so it is not cut. An `&` the wider
+    splitter leaves on a word's end before a `>`-led word is `&>`'s, and goes
+    with it. Then every redirection is taken out, a spaced target with its
+    operator (#737, #738).
+    """
+    cut = []
+    for w in words:
+        k = min((w.find(c) for c in "<>" if c in w), default=-1)
+        if (
+            k > 0
+            and not w[:k].isdigit()
+            and not (w[0] == "{" and w[k - 1] == "}")
+            and not any(c.isspace() for c in w)
+        ):
+            cut += [w[:k], w[k:]]
+        else:
+            cut.append(w)
+    cut = [
+        w[:-1]
+        if w.endswith("&") and i + 1 < len(cut) and cut[i + 1].startswith(">")
+        else w
+        for i, w in enumerate(cut)
+    ]
+    cut = [w for w in cut if w]
+    out, i = [], 0
+    while i < len(cut):
+        width = _redirection_width(cut, i)
+        if width:
+            i += width
+            continue
+        out.append(cut[i])
+        i += 1
+    return out
+
+
+# What an option takes: nothing, a value it must be given (stuck to it, or
+# the next word), or a value it may be given stuck only (`git help cli`).
+NONE, VALUE, OPTIONAL = "none", "value", "optional"
+
+
+class _Options:
+    """One subcommand's options: `short` maps a letter, `long` a name, to
+    `(takes, creates)`."""
+
+    def __init__(self, short, long):
+        self.short = short
+        self.long = long
+
+
+# Every option `git checkout -h` and `git switch -h` list on git 2.54.0, which
+# hides none (`--git-completion-helper-all` names the same set). Static, and
+# bound to the installed git by `test_the_option_table_binds_the_installed_git`:
+# an option a later git adds reads as one that takes nothing until it is
+# listed here, which is how every value-taking option read before #764.
+SWITCH_OPTIONS = {
+    "checkout": _Options(
+        short={
+            "b": (VALUE, True),
+            "B": (VALUE, True),
+            "l": (NONE, False),
+            "q": (NONE, False),
+            "m": (NONE, False),
+            "d": (NONE, False),
+            "t": (OPTIONAL, False),
+            "f": (NONE, False),
+            "2": (NONE, False),
+            "3": (NONE, False),
+            "p": (NONE, False),
+            "U": (VALUE, False),
+        },
+        long={
+            "guess": (NONE, False),
+            "overlay": (NONE, False),
+            "auto-advance": (NONE, False),
+            "quiet": (NONE, False),
+            "recurse-submodules": (OPTIONAL, False),
+            "progress": (NONE, False),
+            "merge": (NONE, False),
+            "conflict": (VALUE, False),
+            "detach": (NONE, False),
+            "track": (OPTIONAL, False),
+            "force": (NONE, False),
+            "orphan": (VALUE, True),
+            "overwrite-ignore": (NONE, False),
+            "ignore-other-worktrees": (NONE, False),
+            "ours": (NONE, False),
+            "theirs": (NONE, False),
+            "patch": (NONE, False),
+            "unified": (VALUE, False),
+            "inter-hunk-context": (VALUE, False),
+            "ignore-skip-worktree-bits": (NONE, False),
+            "pathspec-from-file": (VALUE, False),
+            "pathspec-file-nul": (NONE, False),
+        },
+    ),
+    "switch": _Options(
+        short={
+            "c": (VALUE, True),
+            "C": (VALUE, True),
+            "q": (NONE, False),
+            "m": (NONE, False),
+            "d": (NONE, False),
+            "t": (OPTIONAL, False),
+            "f": (NONE, False),
+        },
+        long={
+            "create": (VALUE, True),
+            "force-create": (VALUE, True),
+            "guess": (NONE, False),
+            "discard-changes": (NONE, False),
+            "quiet": (NONE, False),
+            "recurse-submodules": (OPTIONAL, False),
+            "progress": (NONE, False),
+            "merge": (NONE, False),
+            "conflict": (VALUE, False),
+            "detach": (NONE, False),
+            "track": (OPTIONAL, False),
+            "force": (NONE, False),
+            "orphan": (VALUE, True),
+            "overwrite-ignore": (NONE, False),
+            "ignore-other-worktrees": (NONE, False),
+        },
+    ),
+}
+
+
+def _long_option(options, body):
+    """`(takes the next word, creates)` for the long option `--BODY`.
+
+    Resolved the way git's option parser resolves it: an exact name first,
+    then a unique prefix, and a value given after `=` takes no word. A name
+    git refuses, unknown or an ambiguous prefix, reads as an option that
+    takes nothing -- the reading every `-` word had before #764. A negation
+    (`--no-orphan`, `--no-cr`) takes no value and creates nothing, which is
+    that same reading, so it needs no rule of its own: no long name of either
+    subcommand begins with `no-`, and every `--no-` word lands there."""
+    name, stuck, _value = body.partition("=")
+    found = [name] if name in options.long else []
+    found = found or [n for n in options.long if n.startswith(name)]
+    if len(found) != 1:
+        return False, False
+    takes, creates = options.long[found[0]]
+    return takes == VALUE and not stuck, creates
+
+
+def read_switch_words(sub, args):
+    """`(creates, names, after)` for a `checkout` or `switch` whose
+    arguments are ARGS: whether a creating option is present, with or without
+    its value; the words git's option parser leaves as names, before any
+    `--`; and the words after a `--`, or None where there is none.
+
+    ARGS are read as git is handed them (`handed_words`), and then as its
+    option parser reads them (`git help cli`): options up to `--`, also
+    after a name; a short word a letter at a time, a letter that must take a
+    value taking the rest of the word or else the next word, one that may
+    take a value taking only the rest of the word; a long word by
+    `_long_option`. A lone `-` is a name. `--end-of-options` ends the options
+    and is no word itself."""
+    options = SWITCH_OPTIONS[sub]
+    words = handed_words(args)
+    creates, names, i, ended = False, [], 0, False
+    while i < len(words):
+        w = words[i]
+        i += 1
+        if w == "--":
+            return creates, names, words[i:]
+        if ended or w == "-" or not w.startswith("-"):
+            names.append(w)
+        elif w == "--end-of-options":
+            ended = True
+        elif w.startswith("--"):
+            takes_next, makes = _long_option(options, w[2:])
+            creates = creates or makes
+            i += 1 if takes_next else 0
+        else:
+            for j, letter in enumerate(w[1:], start=1):
+                found = options.short.get(letter)
+                if found is None:
+                    break
+                takes, makes = found
+                creates = creates or makes
+                if takes == NONE:
+                    continue
+                if takes == VALUE and j == len(w) - 1:
+                    i += 1
+                break
+    return creates, names, None
+
+
 def switch_kind(parsed):
     """The kind of a `parse_git` result from its words alone: "switch",
     "creation" or None.
@@ -294,13 +533,19 @@ def switch_kind(parsed):
     `classify` answers the same question against a tree: a `checkout` of a
     path that exists, or of a name that is no ref, is not a switch there. This
     reads no tree, so a `checkout` counts wherever its words alone can name a
-    branch, in `classify`'s order: one carrying `-b` or `-B` counts, with or
-    without a name; then one carrying `--` does not, whatever stands before
-    it; then one naming `-` or a word other than `.` does. That is the upper
-    bound phase 3 of work item 1790993140 counted with (`questions.md` D3),
-    and `docs/worktree-guard-spec.md` §*Which tree* states the same words. A
-    `switch` counts wherever it names a word or `-`, `--` or no `--`, and a
-    `switch -c` needs no test of its own, because `-c` always takes a name.
+    branch, in `classify`'s order: one carrying a creating option counts,
+    with or without a name; then one with a word after its `--` does not,
+    whatever stands before it; then one naming `-` or a word other than `.`
+    does, a `--` with nothing after it included, because git reads that `--`
+    as saying only that the name is no file. That is the
+    upper bound phase 3 of work item 1790993140 counted with (`questions.md`
+    D3), and `docs/worktree-guard-spec.md` §*Which tree* states the same
+    words. A `switch` counts wherever it names a word or `-`, `--` or no
+    `--`, or carries a creating option.
+
+    The words are git's (`read_switch_words`, #764 and #738): a creating
+    option counts in every spelling git's option parser accepts, an option's
+    value is not a name, and a redirection is no word.
     """
     if not parsed:
         return None
@@ -308,17 +553,17 @@ def switch_kind(parsed):
     if sub == "worktree":
         positionals = [a for a in args if not a.startswith("-")]
         return "creation" if positionals[:1] == ["add"] else None
-    if sub == "switch":
-        if any(a == "-" or not a.startswith("-") for a in args):
-            return "switch"
+    if sub not in SWITCH_OPTIONS:
         return None
-    if sub == "checkout":
-        if any(a in ("-b", "-B") for a in args):
-            return "switch"
-        if "--" in args:
-            return None
-        if any(a == "-" or (not a.startswith("-") and a != ".") for a in args):
-            return "switch"
+    creates, names, after = read_switch_words(sub, args)
+    if sub == "switch":
+        return "switch" if creates or names or after else None
+    if creates:
+        return "switch"
+    if after:
+        return None
+    if any(n != "." for n in names):
+        return "switch"
     return None
 
 
@@ -384,17 +629,14 @@ def _bare_words(tokens):
 
     bash ends a word at `<` and `>` wherever they stand, and at `&>`, so
     `checkout>/dev/null` hands git `checkout` and `.&>/dev/null` hands it `.`.
-    `unglued` cuts at the `>` and leaves the `&` on the word, so that `&` goes
-    too.
+
+    The reduction is `handed_words`, the one the frozen side reads through
+    too, so C's views and the segments they are compared with cannot reduce
+    differently. It replaced `wide.unglued` and `wide._without_redirections`
+    here after the two gave the same words for all 50,568 views of the
+    generated shapes (work item 1791119071, `questions.md` W1).
     """
-    cut = wide.unglued(tokens) or list(tokens)
-    cut = [
-        t[:-1]
-        if t.endswith("&") and i + 1 < len(cut) and cut[i + 1].startswith(">")
-        else t
-        for i, t in enumerate(cut)
-    ]
-    return wide._without_redirections([t for t in cut if t])
+    return handed_words(tokens)
 
 
 def ask_what_only_the_wider_reading_finds(kinds, cwd, session_id, transcript_path):
@@ -762,26 +1004,34 @@ def classify(tokens, cwd: str):
         # already ran and cannot import this file by name.
         return "worktree-add" if cmdline.adds_a_worktree(tokens) else None
 
+    # A `switch` or `checkout` is read by its words as git is handed them
+    # (`read_switch_words`, #764 and #738, on the owner's answer of
+    # 2026-10-04): a creating option in any spelling git's option parser
+    # accepts, the names left once every option has taken its value, and
+    # what stands after a `--`. A redirection is no word, so `feature/x>f`
+    # names `feature/x` and `2>/dev/null` names nothing.
     if sub == "switch":
         # git switch <branch> / -c <branch> / `-` (previous)  => switches tree
-        creating = any(a in ("-c", "-C") for a in args)
-        has_target = any(a == "-" or not a.startswith("-") for a in args)
-        if creating or has_target:
+        creating, names, after = read_switch_words(sub, args)
+        if creating or names or after:
             return "create+switch" if creating else "switch"
         return None
 
     if sub == "checkout":
-        if any(a in ("-b", "-B") for a in args):
+        creating, names, after = read_switch_words(sub, args)
+        if creating:
             return "create+switch"
-        if "--" in args:
-            return None  # explicit path restore
-        if "-" in args:
+        if after:
+            return None  # explicit path restore: a pathspec follows `--`
+        if "-" in names:
             return "switch"  # previous branch
-        positionals = [a for a in args if not a.startswith("-")]
-        if not positionals:
+        if not names:
             return None
-        first = positionals[0]
-        if (
+        first = names[0]
+        # A `--` with nothing after it (`git checkout <name> --`) only says the
+        # name before it is no file, and git switches to it (round 1 of work
+        # item 1791119071, red 1), so the path test is not asked of it.
+        if after is None and (
             first == "."
             or os.path.exists(os.path.join(cwd or ".", first))
             or os.path.exists(first)
