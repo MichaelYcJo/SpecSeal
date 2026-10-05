@@ -15,6 +15,7 @@ import os
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 
@@ -2010,11 +2011,17 @@ CARRIERS = {
 }
 
 # Forms git switches or detaches on under every carrier above (M1), and which
-# `a3aa139a`'s lookup read: False is a shape it was silent on.
+# `a3aa139a`'s lookup read: False is a shape it was silent on, and None one
+# whose answer at the base depends on the platform's regex library.
 MOVES = {
     "C1 a message search": (":/alpha", False),
     "C1 a message search for a leading !": (":/!!bang", False),
-    "C1 a negative message search": (":/!-alpha", True),
+    # The base appended `^{commit}` to the pattern. On macOS the negative
+    # search for `alpha^{commit}` matched a commit, so the base read a
+    # switch by accident (`phases/phase-1.md`, M1); on CI's ubuntu and
+    # windows it read none (run 37267402962). Which way a platform's regex
+    # library takes that pattern was not measured further.
+    "C1 a negative message search": (":/!-alpha", None),
     "C1 a branch": ("side", True),
     "C1 an annotated tag": ("v1", True),
     "C1 an ancestor": ("main~1", True),
@@ -2160,6 +2167,9 @@ def test_nothing_the_base_read_as_a_switch_goes_quiet(monkeypatch, a_history):
     quieter = [tokens for tokens in asked if not wg.classify(tokens, a_history)]
     assert not quieter, quieter
     for form, read in (*MOVES.values(), *GUESSED.values()):
+        # None: the base's answer rests on the platform's regex library.
+        if read is None:
+            continue
         assert bool(base[shapes.index(["git", "checkout", form])]) is read, form
 
 
@@ -2438,11 +2448,21 @@ def _a_repository(d):
     _git(d, "config", "user.name", "t")
 
 
+def _writable_then(func, path, _exc):
+    """An `onexc` handler for `shutil.rmtree`: git writes its object files
+    read-only, and Windows will not unlink a read-only file, so the bit is
+    cleared and the removal tried again. `onexc` is 3.12's, the floor CI
+    runs."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
 def _where_git_checkout_lands(d, name):
     """The commit `git checkout NAME` detaches or switches to in a copy of D,
     or None where git refuses it."""
     copy = d.parent / (d.name + "-copy")
-    shutil.rmtree(copy, ignore_errors=True)
+    if copy.exists():
+        shutil.rmtree(copy, onexc=_writable_then)
     shutil.copytree(d, copy)
     r = subprocess.run(
         ["git", "-C", str(copy), "checkout", "-q", name], capture_output=True
@@ -2450,7 +2470,7 @@ def _where_git_checkout_lands(d, name):
     landed = (
         _git(copy, "rev-parse", "HEAD").stdout.strip() if not r.returncode else None
     )
-    shutil.rmtree(copy)
+    shutil.rmtree(copy, onexc=_writable_then)
     return landed
 
 
