@@ -6,8 +6,11 @@
   merges. Every commit that changed a path outside `seal/` and outside a
   `tests` directory after the item's `changelog.md` last changed is named in
   one notice. Each is listed with its short SHA, up to three of its paths,
-  and the round whose `Fix range` holds it, or *after the last round*. The
-  notice says the release gathers the fragment as it stands and that nothing
+  and the round whose `Fix range` holds it, *after the last round*, or
+  *outside every round's fix range*. A move counts by both of its paths, so
+  a file moved under `tests/` is named. In CI, where the checkout is the pull
+  request merged into its base, the walk starts at the pull request's own
+  head, so a sibling's squash on the base is never named. The notice says the release gathers the fragment as it stands and that nothing
   is owed where it still says what ships. It prints and never refuses, so no
   exit status moves. It reaches a person at `round-record close`, at
   `round-record seal` and in CI. Measured over 42 work items, a refusal would

@@ -94,8 +94,12 @@ made false, and #795 corrected them by hand before the release.
 declared `through the review chain`, it walks the first-parent commits after
 round 1's `Target SHA`, merges skipped, and names each one that changed a path
 outside the `seal/` root and outside a `tests` directory after the fragment last
-changed. Each is attributed to the round whose `Fix range` holds it, or to
-*after the last round*. It prints and never refuses, which is the measurement
+changed. A move lists both its paths, so a file moved under `tests/` is named.
+Where the checkout is CI's, the pull request merged into its base, the walk
+starts at the pull request's own head rather than at the base. Each commit is
+attributed to the round whose `Fix range` holds it, to *after the last round*,
+or to *outside every round's fix range* for a commit between two rounds'
+ranges. It prints and never refuses, which is the measurement
 #797 took: over 42 work items a refusal would have stopped 24 runs, at least 9
 of them for a fragment that needed no change. So the notice says nothing is
 owed where the fragment still says what ships. It reaches a person at
