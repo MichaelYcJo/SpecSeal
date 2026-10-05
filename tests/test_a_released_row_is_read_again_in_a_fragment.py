@@ -3281,11 +3281,49 @@ def test_a_held_coordinate_with_two_places_on_a_dated_row_is_left_and_named(
         for line in out.splitlines()
         if line.startswith("  src/service.py#handler  ") and line.endswith("left")
     ]
+    # The line gives the check's reason, `left_because`'s (round 2).
+    assert all("2 places, none holding the recorded content" in s for s in said), out
     broken = ("src/service.py#handler", h1, None) in [m[2:] for m in moves]
     assert (len(said), broken) == ((1, True) if checked else (0, False)), (
         out,
         moves,
     )
+
+
+def test_a_held_coordinate_one_of_whose_places_holds_it_rides_a_dated_row_silently(
+    repo, capsys
+):
+    """Round 2, yellow 1. A records `handler` at what one of its two places
+    holds, and carries `other`, which drifted. Dated for `other`, A becomes
+    the newest reading of `handler` at content one place holds, which the
+    check calls OK: the run says nothing about `handler` and records no
+    BROKEN for it, as on a row no family holds. Red at 930078de, which named
+    it `left` and handed MOVES a BROKEN part."""
+    o0 = unit_hash(repo, "src/service.py", "other")
+    h0 = at_version(repo, 1)
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h0}` | read | 2026-01-01 | |"
+        ],
+    )
+    places, _ = ec.resolve_unit("src/service.py", "handler", TWICE)
+    x, y = places[0]
+    held = ec.content_hash(ec.gfm_lines(TWICE)[x - 1 : y])
+    a = fragment(
+        repo,
+        [re_read_of(r, held, "2026-02-01", extra=f", `src/service.py#other@{o0}`")],
+        name=A_ITEM,
+    )
+    (repo / "src" / "service.py").write_text(
+        TWICE.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    moves = []
+    ec.reverify([str(a)], str(repo), {}, None, "2026-04-01", moves)
+    out = capsys.readouterr().out
+    assert "src/service.py#handler" not in out, out
+    assert [m for m in moves if m[2] == "src/service.py#handler"] == [], moves
+    assert run(["--strict", "."], repo).returncode == 0
 
 
 def test_a_held_ledger_coordinate_the_run_moves_is_re_stamped(repo):

@@ -3154,7 +3154,8 @@ def reverify(
     MOVES. On a row the run dates for another coordinate, a held one is
     re-stamped as well: the date makes that row the newest reading of each
     coordinate on it, and one with no one place to re-stamp on such a row is
-    left and named, as any such coordinate is. A coordinate naming a line of
+    left and named, as any such coordinate is, unless one of its places holds
+    what the row recorded. A coordinate naming a line of
     a ledger this run writes is never judged held, because the walk can move
     that line. A citation is a ledger line no family grades, and it is
     re-stamped as before.
@@ -3590,19 +3591,34 @@ def reverify(
                 )
             kept.extend(spliced)
         # A held coordinate no one place holds, on a row the run dates: the
-        # date makes that row its newest reading, so it is left as any
-        # coordinate no one place holds is, named and handed to MOVES (round
-        # 1, yellow 1).
+        # date makes that row its newest reading, so it is read as the
+        # ordinary path reads such a coordinate (round 1, yellow 1). Where
+        # one of its places holds what this row recorded, the check calls it
+        # OK, and it is unchanged and records nothing; otherwise it is left,
+        # named in the check's own terms, and handed to MOVES (round 2).
         for offset, key, m in unplaced:
-            if bisect.bisect_right(starts, offset) in joined:
-                walked(
-                    key,
-                    m.group("hash"),
-                    None,
-                    f"  {coordinate_of(m)}  its row is dated by this run, and no "
-                    "one place holds it — left",
-                )
-                pending.append((offset, coordinate_of(m), m.group("hash"), None))
+            if bisect.bisect_right(starts, offset) not in joined:
+                continue
+            home, at = place(root, maps, default_repo, m.group("path"))
+            body = read(os.path.join(home, at)) if home is not None else None
+            places, resurrected = (
+                resolve_unit(at, m.group("locator"), body)
+                if body is not None
+                else ([], False)
+            )
+            if any(
+                recorded_here(at, body, p, m.group("hash"), m.group("claim"))
+                for p in places
+            ):
+                still(key, m.group("hash"))
+                continue
+            walked(
+                key,
+                m.group("hash"),
+                None,
+                f"  {coordinate_of(m)}  {left_because(places, resurrected)} — left",
+            )
+            pending.append((offset, coordinate_of(m), m.group("hash"), None))
         for offset, _coord, old, new in pending:
             if new is not None:
                 # A walk that re-stamps the coordinate, or would but for a
