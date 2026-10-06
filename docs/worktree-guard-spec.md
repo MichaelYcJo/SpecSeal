@@ -405,9 +405,9 @@ took the verdict, consent made it silent for a compound, and `git worktree add
 ../x -b x && git switch y` ran the switch over a tree another session was
 ACTIVE in — which *What does not change* below rules out. The walk now keeps
 the first switch and the first creation in either order and hands both to the
-table above. Since #790 the first switch is the first the base's lookups read,
-and a `checkout` only #790's lookups read takes the place only where they
-read none (§*Which tree*, §*Known limits*). Both spellings get the same decision and the same reason in every
+table above. Since #826 the switch is a `git switch`, and an unrecognised
+shape on the same line is stopped before either where its tree matters
+(§A). Both spellings get the same decision and the same reason in every
 tree state, consent state and attempt, and the combined verdict is never
 weaker than the switch's alone or the creation's alone.
 

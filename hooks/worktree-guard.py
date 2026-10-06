@@ -308,10 +308,11 @@ def walk_command(command: str, cwd: str, windows=None):
 
     The walk is `hooks/cmdline_base.py`'s, the reader frozen at `86256492`,
     and never the commit gate's wider one (#689). `main` judges the first
-    segment of each kind and the first directory in it that classifies, so
-    both which segments are git and the order of their directories pick the
-    tree, and every way of ordering the wider reading for this guard met a
-    new command. The cost is that a `cd` behind a redirection (`2>/dev/null
+    switch and the first creation, each in the first directory of its
+    segment, so both which segments are git and the order of their
+    directories pick the tree, and every way of ordering the wider reading
+    for this guard met a new command. An unrecognised shape is judged in its
+    own segment's tree (#826). The cost is that a `cd` behind a redirection (`2>/dev/null
     cd W`) does not move the tree judged here, and a git behind one
     (`2>/dev/null git switch x`) is not read as git, both as at `86256492`,
     while the commit gate reads both. Since #826 the second is an
