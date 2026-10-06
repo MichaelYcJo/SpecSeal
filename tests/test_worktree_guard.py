@@ -1169,6 +1169,8 @@ LISTED = (
     "git checkout feature/x -- README.md",
     "git restore README.md",
     "git -C W status",
+    "git worktree list",
+    "git stash",
     "F=$(git diff --name-only)",
     "echo `git rev-parse HEAD`",
     "diff <(git show HEAD:f.txt) f.txt",
@@ -1242,6 +1244,15 @@ UNRECOGNISED = {
     # P2 (a): a body is read through the same shapes, nested ones too.
     "echo $(echo $(git checkout x))": "`git switch <branch>`",
     "X=$(git symbolic-ref HEAD refs/heads/y)": "`git -C <scratch clone>`",
+    "echo $(2>&1 git switch x)": "Write `git` first",
+    # A `--` names a restore only with a path after it, and a redirection is
+    # no path: git reads each of these as `feature/x --` and switches.
+    "git checkout feature/x --": "`git switch <branch>`",
+    "git checkout feature/x -- >/dev/null": "`git switch <branch>`",
+    "git checkout feature/x -- > out.txt": "`git switch <branch>`",
+    "git stash branch y": "`git -C <scratch clone>`",
+    "git>/dev/null switch x": "Write `git` first",
+    "2>&1 git switch x": "Write `git` first",
 }
 
 
@@ -1273,6 +1284,40 @@ def test_the_stop_names_the_shape_it_read(monkeypatch, capsys, repo):
     ):
         decision, reason = verdict(monkeypatch, capsys, repo, command)
         assert decision == "ask" and quoted in reason, (command, reason)
+    # Each shape once, however often it is written, and the rest counted
+    # past the fifth.
+    decision, reason = verdict(
+        monkeypatch, capsys, repo, "git checkout x; git checkout x; git status"
+    )
+    assert reason.count("`git checkout x`") == 1, reason
+    six = "; ".join(f"git checkout b{n}" for n in range(6))
+    decision, reason = verdict(monkeypatch, capsys, repo, six)
+    assert "`git checkout b4`" in reason and "`git checkout b5`" not in reason
+    assert "  · and 1 more" in reason, reason
+
+
+def test_a_body_nested_past_the_bound_is_read_as_one_it_could_not_finish(
+    monkeypatch, capsys, repo
+):
+    """P2 (a) reads a body inside a body, to the commit gate's depth; a body
+    deeper than that stops rather than passing unread."""
+    in_state(monkeypatch, repo, "dirty")
+    command = "echo $(echo $(git status))"
+    assert verdict(monkeypatch, capsys, repo, command) == ("silent", "")
+    monkeypatch.setattr(wg, "BODY_DEPTH", 1)
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "ask" and "could not run" in reason, reason
+
+
+def test_a_switch_carrying_a_cut_redirection_still_meets_the_ladder(
+    monkeypatch, capsys, repo
+):
+    """`2>&1` cuts a segment at its `&`, and the glued-back view of a switch
+    the frozen reading already read is that switch's, not a hidden one."""
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(monkeypatch, capsys, repo, "git switch feature/x 2>&1")
+    assert decision == "ask" and STOP not in reason, reason
+    assert "They will follow you onto the target branch" in reason, reason
 
 
 def test_the_same_shapes_are_silent_in_a_clean_single_stream_tree(
@@ -1311,6 +1356,12 @@ def test_the_segments_tree_is_the_one_that_matters(monkeypatch, capsys, repo, tm
         assert verdict(monkeypatch, capsys, repo, command) == ("silent", ""), command
     decision, reason = verdict(monkeypatch, capsys, repo, unresolved)
     assert decision == "ask" and STOP in reason, reason
+
+    # A `git -C` naming no repository touches no tree, and git refuses it:
+    # silent even where every tree asked about holds an ACTIVE session.
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": (ACTIVE, [], True))
+    nowhere = f"git -C {tmp_path / 'none'} checkout x"
+    assert verdict(monkeypatch, capsys, repo, nowhere) == ("silent", "")
 
 
 def test_an_unrecognised_shape_stops_before_a_switch_on_the_same_line(
