@@ -425,6 +425,28 @@ def test_a_reframe_naming_another_round_does_not_permit_the_record(repo):
     assert text is None
 
 
+def test_an_orphan_second_is_no_stop_to_the_generator(repo):
+    """Round 1's ⬜ 2, the generator's half: a `second` written by hand with
+    no landing before it in its run cuts nothing, as the gate's `runs_of`
+    cuts nothing there, so the next record needs no reframe."""
+    declared(repo)
+    _code, _out, _text, a = a_round(repo, 1, ROUND_1)
+    fixed(repo, 1, a, MOD_FIXED, [1])
+    a_round(repo, 2, finding("`f.py:1`"))
+    path = repo / ROUNDS / "round-2.md"
+    text = path.read_text(encoding="utf-8").replace(
+        "| Fix of a fix | no |",
+        "| Fix of a fix | second — 🟡 1 at f.py#x, a unit round-1's fixes "
+        "changed; the fix passes stop here and the work item goes back to its "
+        "framer |",
+    )
+    path.write_text(text, encoding="utf-8")
+    commit(repo, "a second nobody counted")
+    code, out, text = generate(repo, n=3, report_text=round_report(finding("`f.py:1`")))
+    assert code != 2, out
+    assert text is not None, out
+
+
 def test_the_depth_restarts_at_a_stop(repo):
     """Round 1's ❓, decided by the orchestrator: a redesign is a new run, so
     a unit the stopped run's fixes added (`w`, round 1) does not make a unit
