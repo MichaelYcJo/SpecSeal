@@ -48,16 +48,16 @@ jobs:
         # because the same suite ran 1.2 times slower from one run to the
         # next and one shard ran 1.7 times slower than its siblings in one
         # run:
-        #   ubuntu  7 m 58 s, run 37458654434 (6 m 40 s in 37457228586,
-        #           5 m 40 s in 37465328899)               -> 15
-        #   macOS  19 m 52 s, run 37457228586 (16 m 27 s in 37458654434,
-        #          17 m 38 s in 37465328899)               -> 30
-        #   Windows, per shard: 10 m 03 s, group 3 of run 37465328899, the
-        #          only sharded run measured (the others 5 m 38 s to
-        #          6 m 22 s)                               -> 20
+        #   ubuntu  9 m 03 s, run 37469595104 (7 m 58 s in 37458654434,
+        #           6 m 40 s in 37457228586, 5 m 40 s in 37465328899) -> 15
+        #   macOS  20 m 52 s, run 37469595104 (19 m 52 s in 37457228586,
+        #          16 m 27 s in 37458654434, 17 m 38 s in 37465328899) -> 35
+        #   Windows, per shard: 10 m 34 s, group 3 of run 37469595104 (the
+        #          other shards there 9 m 27 s to 10 m 15 s; 5 m 38 s to
+        #          10 m 03 s in the sharded run 37465328899)          -> 20
         include:
           - { os: ubuntu-latest, python: "3.12", timeout: 15 }
-          - { os: macos-latest, python: "3.12", timeout: 30 }
+          - { os: macos-latest, python: "3.12", timeout: 35 }
           # Windows in four shards (#841). `pytest-split` divides the suite
           # by each case's duration on the Windows leg, read from the
           # committed `.test_durations`, so every shard collects the whole

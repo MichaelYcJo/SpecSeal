@@ -3,7 +3,7 @@
 📋 implement applied
 · spec:     this item's routing.md, spec.md, plan.md, questions.md; `CONTRIBUTING.md` and `docs/` read only as cited by them
 · evidence: seal/ledger/1791270165-the-windows-test-leg-is-measured-and-cut.md — 13 `Re-read ·` rows and one row per scenario (S1, S2, S4 to S9)
-· verified: executed — four CI runs read (37429940700, 37457228586, 37458654434, 37465328899), the modules each phase touched, every new or rewritten case seen red, the Q4 and ceiling probes, `evidence-check --strict`; read — the Actions expression and dispatch rules, hosted runners' cores and one VM per job; unverified — the whole suite (the sealer) and the confirming run of phase 5's push (the orchestrator)
+· verified: executed — five CI runs read (37429940700, 37457228586, 37458654434, 37465328899, 37469595104), the modules each phase touched, every new or rewritten case seen red, the Q4 and ceiling probes, `evidence-check --strict`; read — the Actions expression and dispatch rules, hosted runners' cores and one VM per job; unverified — the whole suite (the sealer)
 
 ## Why this work exists
 
@@ -19,7 +19,7 @@ minutes in two weeks; this item measures it on Windows and cuts it.
 | 3 | Closed: four Windows shards; run 37465328899 ran the whole suite across them, slowest shard 10 m 03 s (`phases/phase-3.md`) |
 | 4a | Closed (83801eac) |
 | 4b | Built by the second smith from the Windows table: three shared prefixes in two modules, 46 cases; `phases/phase-4.md` says what each keeps and what was left alone |
-| 5 | Built: the 90 s case ceiling and the leg timeouts (a600768e), from the slowest of the three runs after phase 4 (`phases/phase-5.md`); the orchestrator's next push is the confirming run |
+| 5 | Closed: the 90 s case ceiling and the leg timeouts (ubuntu 15, macOS 35, each Windows shard 20), confirmed by run 37469595104, with macOS's timeout re-based on it (`phases/phase-5.md`) |
 
 **What the next phase needs.** Routing is `automation` now, so the
 orchestrator pushes the branch and opens the draft pull request. That pull

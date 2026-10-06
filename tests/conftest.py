@@ -834,11 +834,11 @@ def repo(tmp_path, _repo_template):
 # Set by `questions.md` Q6's rule (a) of work item 1791270165: 1.5 times the
 # slowest call on the Windows leg after its phases 3 and 4, rounded up to 30 s.
 # That call is `tests/test_no_shape_the_base_stops_reads_silent.py::
-# test_no_shape_the_base_stops_reads_silent` at 55.13 s in run 37457228586,
-# the slower of the runs measured (52.49 s in run 37458654434, 29.91 s in the
-# sharded run 37465328899). The same case ran 36.44 s in run 37429940700 on
-# the same code: the runner alone moves a case by 1.5 times between runs, which
-# is why the base is the slower run and not the last one.
+# test_no_shape_the_base_stops_reads_silent` at 55.77 s in run 37469595104,
+# the slowest of the runs measured (55.13 s in run 37457228586, 52.49 s in
+# 37458654434, 29.91 s in 37465328899). The same case ran 36.44 s in run
+# 37429940700 on the same code: the runner alone moves a case by 1.5 times
+# between runs, which is why the base is the slowest run and not the last one.
 CASE_CEILING_S = 90
 
 
