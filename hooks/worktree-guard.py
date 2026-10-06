@@ -2231,8 +2231,17 @@ def _rebase_names_a_branch(args) -> bool:
     anything else, and HEAD stays there (git-rebase(1); executed on git
     2.50.1 in round 1 of work item 1791270162, red 3). Read without an
     option table, so an option's value counts as a word, and the cost lands
-    on the side of a stop: `git rebase --onto main x` stops too."""
-    plain = [w for w in _plain_words(args) if not w.startswith("-")]
+    on the side of a stop: `git rebase --onto main x` stops too.
+
+    A word is dropped only where git reads it as an option. A lone `-` is
+    `@{-1}`, and every word after a `--` is a revision whatever it starts
+    with, so `git rebase - feature/x` and `git rebase -- main -x` each switch
+    and count two words (git 2.50.1; round 2 of work item 1791270162, red
+    1). `@{-1}` starts with no `-` and always counted."""
+    words = _plain_words(args)
+    end = words.index("--") if "--" in words else len(words)
+    plain = [w for w in words[:end] if w == "-" or not w.startswith("-")]
+    plain += words[end + 1 :]
     return len(plain) >= (1 if "--root" in args else 2)
 
 

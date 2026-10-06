@@ -1673,6 +1673,16 @@ def test_the_list_carries_its_counts_and_nothing_unmeasured():
         "git rebase --onto main main feature/x",
         "git rebase --root feature/x",
         "git rebase main feature/x 2>/dev/null",
+        # Round 2, red 1: revision spellings that are not options. git reads
+        # a lone `-` as `@{-1}`, and every word after `--` as a revision, so
+        # each of these switches (git 2.50.1); the first two and the last
+        # were listed at `3c9a1161`.
+        "git rebase - feature/x",
+        "git rebase -i - feature/x",
+        "git rebase --onto main - feature/x",
+        "git rebase @{-1} feature/x",
+        "git rebase main @{-1}",
+        "git rebase -- main -x",
     ],
 )
 def test_a_rebase_naming_a_branch_is_unrecognised(monkeypatch, capsys, repo, command):
@@ -1696,6 +1706,9 @@ def test_a_rebase_naming_a_branch_is_unrecognised(monkeypatch, capsys, repo, com
         "git rebase --continue",
         "git rebase --root",
         "git rebase main 2>/dev/null",
+        "git rebase -",
+        "git rebase -i -",
+        "git rebase @{-1}",
     ],
 )
 def test_a_rebase_of_the_current_branch_stays_listed(command):
@@ -1763,6 +1776,7 @@ SWITCHING = (
     "rebase {start} feature/x",
     "rebase --onto {start} {start} feature/x",
     "rebase --root feature/x",
+    "rebase - feature/x",
     "stash branch y",
     "checkout feature/x",
     "switch feature/x",
