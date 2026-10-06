@@ -1323,11 +1323,12 @@ def test_an_unrecognised_shape_stops_before_a_switch_on_the_same_line(
         monkeypatch, capsys, repo, "git checkout README.md && git switch feature/x"
     )
     assert decision == "ask" and STOP in reason, reason
-    assert "uncommitted tracked changes" not in reason, reason
+    assert "They will follow you onto the target branch" not in reason, reason
     decision, reason = verdict(
         monkeypatch, capsys, repo, "git status && git switch feature/x"
     )
-    assert decision == "ask" and "uncommitted tracked changes" in reason, reason
+    assert decision == "ask", reason
+    assert "They will follow you onto the target branch" in reason, reason
     assert STOP not in reason, reason
 
 
@@ -1353,3 +1354,98 @@ def test_the_tree_is_read_once_for_both_kinds(monkeypatch, capsys, repo):
     )
     assert got == ("silent", "")
     assert seen == {"sessions": 1, "changes": 1}, seen
+
+
+# W1: the stop's one text, both readers' endings, in both languages.
+STOP_EN = (
+    "This command holds a git command this guard does not know to leave the "
+    "branch where it is, and in this tree a branch switch would matter: it has "
+    "1 uncommitted tracked changes, which a switch would carry onto the other "
+    "branch.\n"
+    "\n"
+    "  · `git checkout feature/x` — a `git checkout` with no `-- <path>`, which "
+    "can switch a branch as well as restore a file. For a switch, write `git "
+    "switch <branch>` or `git switch --detach <rev>`; for a restore, `git "
+    "checkout -- <path>` or `git restore <path>`.\n"
+    "\n"
+    "The plain spellings are what this guard reads: a `git switch` then meets "
+    "the branch-switch rules, and a git subcommand on the list passes. Name "
+    "another tree with `git -C <dir>`. The list is `LEAVES_THE_TREE` in "
+    "hooks/worktree-guard.py. "
+)
+STOP_KO = (
+    "이 명령에는 브랜치를 그대로 둔다고 이 guard 가 확인하지 못한 git 명령이 "
+    "있고, 이 트리에서는 브랜치 전환이 문제가 됩니다. 커밋되지 않은 추적 파일 "
+    "변경이 1건 있고, 전환하면 이 변경이 다른 브랜치로 따라갑니다.\n"
+    "\n"
+    "  · `git checkout feature/x` — `-- <path>` 가 없는 `git checkout` 이라, "
+    "파일을 되돌릴 수도 있지만 브랜치를 전환할 수도 있습니다. 전환이라면 `git "
+    "switch <branch>` 나 `git switch --detach <rev>` 로, 파일 되돌리기라면 `git "
+    "checkout -- <path>` 나 `git restore <path>` 로 쓰세요.\n"
+    "\n"
+    "이 guard 는 위의 평범한 표기를 읽습니다. `git switch` 는 브랜치 전환 "
+    "규칙으로 판단하고, 목록에 있는 git 하위 명령은 그대로 통과합니다. 다른 "
+    "트리는 `git -C <dir>` 로 지정하세요. 목록은 hooks/worktree-guard.py 의 "
+    "`LEAVES_THE_TREE` 입니다. "
+)
+ENDINGS = {
+    ("en", "ask"): "Approve to run it as written, or decline and re-issue it in "
+    "a plain spelling.",
+    ("en", "deny"): "Re-issue the command in a plain spelling.",
+    ("ko", "ask"): "그대로 실행하려면 승인하고, 아니면 거부한 뒤 평범한 표기로 "
+    "다시 실행하세요.",
+    ("ko", "deny"): "평범한 표기로 다시 실행하세요.",
+}
+
+
+def test_the_stop_says_one_text_with_two_endings_in_both_languages(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """W1. The person's `ask` and the model's `deny` carry one text, and only
+    the last sentence says which of them is reading it."""
+    pressed = pressed_root(tmp_path, repo)
+    empty = tmp_path / "no-projects"
+    empty.mkdir()
+    monkeypatch.setenv("SPECSEAL_LANG", "ko")
+    wko = load_hook_module("worktree-guard.py", "wg_ko_stop")
+    for lang, module, text in (("en", wg, STOP_EN), ("ko", wko, STOP_KO)):
+        in_state(monkeypatch, repo, "dirty", module=module)
+        for decision, root in (("ask", empty), ("deny", pressed)):
+            monkeypatch.setattr(module.worktree_consent, "PROJECTS_ROOT", str(root))
+            got = verdict(
+                monkeypatch, capsys, repo, "git checkout feature/x", module=module
+            )
+            assert got == (decision, text + ENDINGS[lang, decision]), (lang, got)
+
+
+def test_a_broken_wider_reader_costs_a_stop_never_a_silence(monkeypatch, capsys, repo):
+    """W3. Where `hooks/cmdline.py` does not load, or one of its readers
+    raises, the bare word `git` in a string, a substitution or a hidden
+    position is the finding: a stop where the tree matters, never a silence.
+    A plain git command is read by the frozen reading and is unaffected."""
+    in_state(monkeypatch, repo, "dirty")
+    hidden = (
+        "sh -c 'git switch x'",
+        'eval "git switch x"',
+        "echo $(git switch x)",
+        "git log $(git switch x)",
+        "2>/dev/null git switch x",
+    )
+    monkeypatch.setattr(wg, "wide", None)
+    for command in hidden:
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        assert decision == "ask" and "could not run" in reason, (command, reason)
+    assert verdict(monkeypatch, capsys, repo, "git status") == ("silent", "")
+    monkeypatch.undo()
+
+    in_state(monkeypatch, repo, "dirty")
+    assert wg.wide is not None
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("a shape nobody measured")
+
+    for reader in ("reparsed_texts", "substitution_bodies", "parse_git"):
+        monkeypatch.setattr(wg.wide, reader, boom)
+    for command in hidden:
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        assert decision == "ask" and "could not run" in reason, (command, reason)
