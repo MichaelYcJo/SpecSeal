@@ -18,11 +18,14 @@ The review run stopped at round 3 on a second fix of a fix, and the framer
 reframed the work item (`spec.md`'s foot). Phases 5–7 built the reframe:
 phase 5 the recorder that carries each node's own path on its report, after
 `questions.md` Q-M3 measured that carriage yes on every build; phase 6 the
-gate naming both causes of a missing record and saying how many tests the
-record left out; phase 7 these records.
+gate naming the causes of a missing record it then knew of and saying how
+many tests the record left out; phase 7 these records. Round 4's fixes left
+the session's own failed collection out and counted, gave a crashed xdist
+worker's test the path its earlier report carried, and named a third cause
+of a missing record, a row that started no pytest (`rounds/round-4.md`).
 
-Next is the review chain again, its fix-of-a-fix count starting at `no`
-(`plan.md`), then `broad-gate --preflight` and the sealer. `questions.md`
+Next is the round that reads round 4's fixes, then `broad-gate --preflight`
+and the sealer. `questions.md`
 Q1 and Q2 stay with the owner, (a) built for each.
 
 ## Where spec and implementation diverged
