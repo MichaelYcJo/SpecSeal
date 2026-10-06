@@ -238,6 +238,16 @@ def test_a_finding_inside_a_unit_the_fixes_added_says_added(repo):
 # --- S5, what does not land -------------------------------------------------
 
 
+# S5 replaced, at the reframe after round 3, the cases rounds 1 and 2 planted
+# for the bare-name reading — `test_a_bare_name_two_files_of_the_range_carry_does_not_land`,
+# `test_a_bare_name_a_touched_file_carries_unchanged_does_not_land`,
+# `test_a_name_beside_a_tracked_file_of_any_kind_does_not_land`,
+# `test_a_name_beside_a_tracked_py_file_lands_only_through_it`, with their
+# `TRACKED_FILES` — and `test_every_location_shape_the_depth_walk_reads_lands`
+# became `test_every_location_shape_that_carries_its_path_lands`. Every shape
+# they pinned is a parameter below. The names stay here because the run's
+# records cite them.
+#
 # Files of every kind the three rounds named beside a code name: an
 # extensionless wrapper, a `.cmd`, a `Makefile`, an `.html`, and one basename
 # the tree holds twice. `gone.md` is deliberately NOT here: it is the path the

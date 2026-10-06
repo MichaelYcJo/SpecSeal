@@ -23,15 +23,16 @@
   without the row, a value outside `no`, `first — …` and `second — …`, a
   count that disagrees with its run in either direction, a run that counted
   past the stop or wrote a fix under it, and a record after the stop with no
-  `Reframed` line for it. Notes, confirmations and out-of-scope rows never
-  count, nor does a finding in prose, a code name mentioned beside the path
-  of any non-Python file the repository tracks (a document, a `bin/`
-  wrapper, a `.cmd`, a `Makefile`), a bare name more than one touched file
-  defines, or one the reader cannot place.
+  `Reframed` line for it. A finding counts only through the `.py` path its
+  own location carries (`path:line`, `path#unit`, `path::unit`); a code name
+  given without its file counts for nothing, whatever stands beside it, and
+  so do notes, confirmations, out-of-scope rows and a location the reader
+  cannot place. A reviewer who wants a finding counted writes its path.
 
   Replayed over the committed round records of the four 0.18 releases, with
   the pull request heads fetched (119 of 122 records resolve), the stop
-  would have reached 26 of 64 work items, #814 and #801 among them, both at
-  round 3. A reviewer opened 11 of those stops: 10 were real fixes of fixes,
+  would have reached 26 work items, #814 and #801 among them, both at
+  round 3: the same count the reading before the path-only rule gave, so
+  requiring the path lost none of them. A reviewer opened 11 of those stops: 10 were real fixes of fixes,
   one a defect written by the fix pass before the previous one, and none a
   false stop.
