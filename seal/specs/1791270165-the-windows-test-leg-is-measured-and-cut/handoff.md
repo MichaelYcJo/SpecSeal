@@ -19,6 +19,6 @@ Both were open when this file was written and both were settled on the new machi
 ## Next
 
 1. Read run 37429940700's `pytest` job logs (`gh run view 37429940700 --log`) and record the three tables in `phases/phase-1.md`. That closes phase 1. Done by the second smith.
-2. Phase 4b from the Windows table. Then phase 3, shards with `pytest-split` and K from Q1's default (slowest shard ≤ 12 min). Then phase 5, the budget, with Q6's default.
+2. Phase 4b from the Windows table (built by the second smith; `phases/phase-4.md`). Then phase 3, shards with `pytest-split` and K from Q1's default (slowest shard ≤ 12 min). Then phase 5, the budget, with Q6's default.
 3. #826 phase 3 rebases onto this item's twins sampling (W4 there), so land this first.
 4. The owner answered the `Review` and `Destination` rows on 2026-10-06 by pressing `automation`: the `warden` rounds, the sealer, and a draft pull request into `release/v0.20.0`, with nothing stopping to ask. `routing.md` records both answers.

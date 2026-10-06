@@ -18,7 +18,7 @@ minutes in two weeks; this item measures it on Windows and cuts it.
 | 2 | Dropped by the owner's answer to `questions.md` Q10 (b) |
 | 3 | Not started; it is next, and it needs the next CI run (below) |
 | 4a | Closed (83801eac) |
-| 4b | Being built by the second smith from the Windows table |
+| 4b | Built by the second smith from the Windows table: three shared prefixes in two modules, 46 cases; `phases/phase-4.md` says what each keeps and what was left alone |
 | 5 | Not started |
 
 **What the next phase needs.** Routing is `automation` now, so the
@@ -40,6 +40,9 @@ GitHub's documentation did not hold for this repository.
 | The dispatch input | spec.md Data & interfaces: "`on.workflow_dispatch` with one boolean input … (`windows_defender_off`, default `true`)"; the trigger is bare | bare trigger | the input gated only the refused step · NAME NOT IN TREE |
 | The step's `if:` | plan.md: `inputs.windows_defender_off == 'true'` | the input read bare, if the step is ever written | a boolean input compared with a string is always false (`phases/phase-1.md`) |
 | Phase 1's local check | plan.md names four modules | six | two more modules read `test.yml` |
+| What 4b can buy | plan.md Summary puts 4b before the shards because "`K` is divided from the leg that is left"; the issue reads "a minority of cases carry most of the growth" | 4b built, and its yield stated as bounded | the Windows table's top 50 are 9 to 12% of the leg's worker time, so 4b can take at most about 2.7 of its 30 minutes (`phases/phase-1.md`) |
+| The two guard cases | plan.md 4b: "the two guard cases at 31 s and 38 s locally" are cut targets | left alone | each walks a list of distinct measured rows, and asks each twice by design, so no cut keeps the claim except dropping rows; the guard's premise is #826's (`phases/phase-4.md`) |
+| The location cases | plan.md 4b cuts what the Windows table confirms per case | 35 cases cut, one of them in the table | the module is in the table with 8 cases, and the 35 share one prefix with the case the table names at 8.97 s; the others sit below the table's 8.15 s floor, so their Windows figure is inferred, not read |
 
 ## Not verified
 
@@ -49,11 +52,19 @@ GitHub's documentation did not hold for this repository.
 | ✅ `evidence-check --strict .` exit 0 (plan 4a): it exits 2 on `spec.md` line 14, whose Grounding row quotes D1's released anchor `@3e34189e`, which this build's rewrite drifts | the framer reworded `spec.md` line 14 at a321fbcb; the last two `NOT-IN-TREE` lines (`windows_defender_off` here and in `phases/phase-1.md`) were marked by the second smith, and the command exited 0, read directly, on 2026-10-06 · NAME NOT IN TREE |
 | Which lookup the twins case spawns git through (194 spawns on the sample) | #826, which rewrites or retires the case; the Windows table does not name it (under 8.15 s), so phase 4b does not owe it |
 | The whole suite | the sealer, once, after the rounds — none were routed |
+| What 4b's cuts buy on the Windows leg: every figure in `phases/phase-4.md` for after the cuts is from the second smith's loaded macOS machine | phase 3, from the draft pull request's first CI run, whose Windows table is the leg after 4b |
+| Where one sealer gate run's 10-15 s on Windows goes, and so whether a cheaper `Broad gate` row (`plan.md` Alternatives K) is worth reading the remaining sealer cases for | the repository owner, who decides whether that measurement is wanted once phase 3 shows what the sealer module still costs a shard |
 
 ## Not done
 
-Phase 2, 3, 4b and 5 were not started: 2 waits on Q10, and the others on
-CI figures, as the spawn ordered.
+Phase 2 was dropped by Q10 (b). Phases 3 and 5 were not started, as the
+second smith's spawn ordered.
+
+Phase 4b left alone the cases `phases/phase-4.md` lists under *Left alone*,
+each with its grounds. The largest of them are the twelve sealer cases that
+prepare a state of their own before the gate runs; whether any of them can
+take a cheaper `Broad gate` row is Q5's question, case by case, and was not
+read.
 
 ## Fed back into the spec
 
