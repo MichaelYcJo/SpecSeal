@@ -374,9 +374,10 @@ SCALE_FLOOR = 0.75
 SCALE_CEILING = 1.0
 # The scale both commands draw at unless told otherwise (#400 §*The size, and
 # why it is 0.90*). Six scales were rendered in colour and looked at by the
-# owner before the choice: at 0.90 the disc is 20 lines against the panel's
-# 16, the darkest gold that crowds the lily's foot at 0.95 has cleared, the
-# rope settles to two rows, and the highlight still runs the centre leaf.
+# owner before the choice: at 0.90 the disc was then 20 lines against the
+# panel's 16, the darkest gold that crowded the lily's foot at 0.95 had
+# cleared, the rope settled to two rows, and the highlight still ran the
+# centre leaf.
 # The trade was the lily's legibility against the two blocks lining up, and
 # legibility won. #717 drew the letter at 0.90 again, the owner choosing it
 # from renderings at 0.85 and 0.90 with the disc pressed on the sheet; the
