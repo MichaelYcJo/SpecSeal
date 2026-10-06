@@ -1876,14 +1876,25 @@ class RunRecord:
     spelled with `/`, or its absolute path where it lies outside the
     worktree. `skipped` counts lines that did not parse. `unplaced` sums the
     `end` lines' counts of the tests and collections the recorder wrote as
-    no line, for want of a file of their own (#825's reframe after round 3).
+    no line, for want of a file of their own (#825's reframe after round 3);
+    `unplaced_red` sums only those of sessions whose `end` line shows a
+    non-zero exit, because a session that exited 0 failed nothing, counted
+    or not (#825 round 5).
 
     Named apart from `Record`, which is a round record's home (#666)."""
 
-    __slots__ = ("collected", "failing", "sessions", "skipped", "unplaced")
+    __slots__ = (
+        "collected",
+        "failing",
+        "sessions",
+        "skipped",
+        "unplaced",
+        "unplaced_red",
+    )
 
     def __init__(self):
         self.sessions, self.skipped, self.unplaced = 0, 0, 0
+        self.unplaced_red = 0
         self.failing, self.collected = {}, set()
 
 
@@ -1924,7 +1935,8 @@ def read_record(directory, key, worktree):
     read in the order they were last written, so where a row runs pytest
     twice the first runner's files come first. A directory that cannot be
     listed, or a file that cannot be read, holds no record. An `end` line's
-    `unplaced`, where it is an integer, is added to the record's."""
+    `unplaced`, where it is an integer, is added to the record's, and to its
+    `unplaced_red` too where that line's `exitstatus` is not 0."""
     record = RunRecord()
     try:
         names = os.listdir(directory)
@@ -1961,6 +1973,9 @@ def read_record(directory, key, worktree):
             unplaced = value.get("unplaced")
             if value.get("kind") == "end" and type(unplaced) is int:
                 record.unplaced += unplaced
+                # A session that exited 0 failed nothing, counted or not.
+                if value.get("exitstatus") != 0:
+                    record.unplaced_red += unplaced
             path_of = value.get("path")
             if not isinstance(path_of, str):
                 continue
@@ -2057,14 +2072,18 @@ NOT_REACHED = (
 )
 
 
-# Formatted with the base record's `unplaced` count, where a file would read
-# `new` from a base record that left tests or collections out of every list:
-# one of them may be this file's failure, so `new` is not measured (#825
-# round 4's 🟡 2, the worker that dies in a test's setup before any report of
-# it reaches the xdist controller).
+# Formatted with the base record's `unplaced_red` count, where a file would
+# read `new` from a base record one of whose sessions ended non-zero and left
+# tests or collections out of every list: one of them may be this file's
+# failure, so `new` is not measured (#825 round 4's 🟡 2, the worker that
+# dies in a test's setup before any report of it reaches the xdist
+# controller). A session that exited 0 failed nothing, so what it left out
+# cannot be (#825 round 5). A red session whose left-out reports all passed
+# still turns `new` into this: the limit rule 3 names.
 UNPLACED_AT_BASE = (
-    f"{NOT_MEASURED}: the row ran once at the base, and its record left "
-    "{count} of the tests and collections its pytest reported in no list, "
+    f"{NOT_MEASURED}: the row ran once at the base, and its sessions that "
+    "ended non-zero left {count} of the tests and collections their pytest "
+    "reported in no list, "
     "such as a test whose xdist worker died before any report of it arrived, "
     "so one of them may be this file's failure and whether the base fails it "
     "was not measured (kept as suite-at-base.txt, with records/ beside it)"
@@ -2084,8 +2103,8 @@ def base_word(record, code, path):
     if path in record.failing:
         return ON_BASE
     if path in record.collected or code == 0:
-        if record.unplaced:
-            return UNPLACED_AT_BASE.format(count=record.unplaced)
+        if record.unplaced_red:
+            return UNPLACED_AT_BASE.format(count=record.unplaced_red)
         return NEW
     return NOT_REACHED.format(code=code)
 
@@ -2115,11 +2134,13 @@ def compare_at_base(root, base, command, files, keep):
         interrupt, a crash, or simply a file the branch added on a base whose
         row is already red.
 
-    Either `new` reads `UNPLACED_AT_BASE` with the count instead where the
-    base's record left any test or collection out of every list: one of them
-    may be the file's failure — an xdist worker that died in a test's setup,
-    before any report of it reached the controller, is one — so the record
-    cannot say the file passed. `failing on base too` is not affected.
+    Either `new` reads `UNPLACED_AT_BASE` with the count instead where a
+    session of the base that ended non-zero left any test or collection out
+    of every list: one of them may be the file's failure — an xdist worker
+    that died in a test's setup, before any report of it reached the
+    controller, is one — so the record cannot say the file passed. A session
+    that exited 0 failed nothing, so what it left out cannot be. `failing on
+    base too` is not affected.
 
     The process that collected a test is the process that wrote its line,
     so there is no `whose` to decide: a test that runs pytest itself starts

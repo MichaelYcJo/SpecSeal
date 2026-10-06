@@ -51,9 +51,9 @@ has no file of its own; a failed collection of the session itself -- where
 pytest 7 lays a conftest's import error anywhere below the root, and where a
 plugin's hook can on any build -- names the rootdir, which is no file of the
 tree's; and a report that reaches the recorder without the path -- one a
-plugin built or rebuilt itself -- names none, unless an earlier report of
-the same node in the session carried it, as the `setup` report of a test
-whose xdist worker then crashed did. None of the
+plugin built or rebuilt itself -- names none, unless the same xdist
+worker's last report was of the same node and not its teardown, as the
+`setup` report of a test whose worker then crashed is. None of the
 three is written; each node is counted once on the `end` line, and the gate
 says the count under its list of failing files. A file that is gone is
 still named: a module that removes its own file while it runs keeps its
@@ -164,7 +164,7 @@ class Recorder:
         self.stream = None
         self.file = None
         self.unplaced = set()
-        self.paths = {}
+        self.last_sent = {}
 
     def path_of(self, report, kind):
         """The path the report carries, or None where it carries none, or
@@ -172,16 +172,25 @@ class Recorder:
         node is counted rather than written.
 
         A report built outside the two hooks carries no path -- xdist builds
-        one for a test whose worker crashed (`DSession.handle_crashitem`) --
-        and where an earlier report of the same node in this session carried
-        one, that is the node's own path, so it is used: a lookup of what
-        pytest held for this node, never a path made from its id (#825
-        round 4)."""
+        one on the controller for a test whose worker crashed
+        (`DSession.handle_crashitem`), and sets `report.node` to that worker,
+        as it does on every report it forwards. A worker runs one test at a
+        time, so where the last report the same worker sent was of the same
+        node and was not its teardown, the crash is that node's and that
+        report's path is used (#825 round 4). Never a lookup by node id
+        alone: two nodes can share one -- pytest 7 names a file outside the
+        rootdir from the argument it came from -- and round 4's lookup by id
+        wrote the crash under the other node's file (#825 round 5)."""
         path = getattr(report, PATH_ATTRIBUTE, None)
+        sender = getattr(report, "node", None)
         if isinstance(path, str):
-            self.paths.setdefault((kind, report.nodeid), path)
-        else:
-            path = self.paths.get((kind, report.nodeid))
+            if sender is not None:
+                when = getattr(report, "when", None)
+                self.last_sent[id(sender)] = (report.nodeid, when, path)
+        elif sender is not None:
+            last = self.last_sent.get(id(sender), (None, None, None))
+            if last[0] == report.nodeid and last[1] != "teardown":
+                path = last[2]
         if not isinstance(path, str) or (kind == "test" and os.path.isdir(path)):
             self.unplaced.add((kind, report.nodeid))
             return None

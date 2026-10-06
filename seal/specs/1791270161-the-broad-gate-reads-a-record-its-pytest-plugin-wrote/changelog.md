@@ -26,10 +26,12 @@
     non-zero before any of its pytest sessions collected the file. The last
     is also how a file the branch added reads on a base whose row already
     fails.
-  - `new?` naming a count, too, where the file would read `new` but the
-    base's record left tests or collections out of every list: a test whose
-    xdist worker died in its setup is one, and its failure may be the
-    file's.
+  - `new?` naming a count, too, where the file would read `new` but a
+    session of the base that ended non-zero left tests or collections out
+    of every list: a test whose xdist worker died in its setup is one, and
+    its failure may be the file's. A session that exited 0 failed nothing,
+    so what it left out changes no word. A red session whose left-out
+    reports all passed still gives `new?`: a known over-strictness.
 
   Where no pytest of the row left a record at all, the `FAILED` lines name
   the files, each reads `new?`, and the base is not run. The reason printed
@@ -77,8 +79,9 @@
   pytest 7 reports a conftest's import error, and a report a plugin rebuilt
   without the path are left out of every list and counted on the record's
   `end` line, and the gate says how many under the failing files. A test
-  whose xdist worker crashed keeps the path its earlier reports carried, so
-  its failure counts. The path travels as a report attribute, so a row that
+  whose xdist worker crashed in its body keeps the path its `setup` report
+  carried from that same worker, so its failure counts; a crash is never
+  placed by a node id two tests can share. The path travels as a report attribute, so a row that
   writes `--report-log` finds it in that log while the gate measures it.
 
 ### Fixed

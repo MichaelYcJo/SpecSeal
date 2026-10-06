@@ -4174,14 +4174,16 @@ def test_two_record_files_are_read_in_the_order_they_were_written(tmp_path):
     assert record.sessions == 2
 
 
-def test_a_base_record_with_anything_unplaced_turns_only_new_into_new_question():
-    """#825 round 4's 🟡 2, at `base_word`. A base record that left tests or
-    collections out of every list cannot say a file passed: both rows of the
-    table that give `new` give `new?` naming the record's own count instead,
-    and `failing on base too`, `NOT_REACHED` and `NO_RECORD` are untouched."""
+def test_a_red_base_session_that_left_anything_out_turns_only_new_into_new_question():
+    """#825 round 4's 🟡 2, at `base_word`, as round 5 narrowed it. A base
+    session that ended non-zero and left tests or collections out of every
+    list cannot say a file passed: both rows of the table that give `new`
+    give `new?` naming that count instead, and `failing on base too`,
+    `NOT_REACHED` and `NO_RECORD` are untouched. A session that exited 0
+    failed nothing, so its count alone gives `new` (round 5's 🟡 2)."""
     gate = gate_module()
     record = gate.RunRecord()
-    record.sessions, record.unplaced = 1, 2
+    record.sessions, record.unplaced, record.unplaced_red = 1, 2, 2
     record.collected = {"tests/test_a.py", "tests/test_b.py"}
     record.failing = {"tests/test_b.py": None}
     left_out = gate.UNPLACED_AT_BASE.format(count=2)
@@ -4191,7 +4193,7 @@ def test_a_base_record_with_anything_unplaced_turns_only_new_into_new_question()
     assert gate.base_word(record, 1, "tests/test_c.py") == gate.NOT_REACHED.format(
         code=1
     )
-    record.unplaced = 0
+    record.unplaced_red = 0
     assert gate.base_word(record, 1, "tests/test_a.py") == gate.NEW
     assert gate.base_word(record, 0, "tests/test_c.py") == gate.NEW
     record.sessions = 0
@@ -4204,7 +4206,9 @@ def test_the_unplaced_counts_of_this_runs_records_are_summed(tmp_path):
     the reader sums them over the files carrying this run's key, and only
     from an `end` line whose count is an integer. Another run's file, a
     count spelled as a string, and an `unplaced` on a line of another kind
-    add nothing."""
+    add nothing. `unplaced_red` sums only the sessions whose `end` line
+    shows a non-zero exit (#825 round 5's 🟡 2): a session that exited 0
+    failed nothing, counted or not."""
     gate = gate_module()
     worktree = tmp_path / "wt"
     worktree.mkdir()
@@ -4220,13 +4224,23 @@ def test_the_unplaced_counts_of_this_runs_records_are_summed(tmp_path):
         ],
         "c": [a_session(), {**end, "unplaced": "3"}],
         "d": [a_session("head-ffffffffffffffff"), {**end, "unplaced": 5}],
+        "e": [a_session(), {**end, "exitstatus": 0, "unplaced": 7}],
     }
     for name, lines in files.items():
         (records / f"{name}.jsonl").write_text(
             "".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8"
         )
     record = gate.read_record(str(records), RECORD_KEY, str(worktree))
-    assert (record.sessions, record.unplaced) == (3, 3)
+    assert (record.sessions, record.unplaced, record.unplaced_red) == (4, 10, 3)
+    # The green session alone beside a collected file: `new`, measured.
+    (records / "a.jsonl").unlink()
+    (records / "b.jsonl").unlink()
+    (records / "c.jsonl").unlink()
+    green = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    green.collected.add("tests/test_a.py")
+    assert (green.unplaced, green.unplaced_red) == (7, 0)
+    assert gate.base_word(green, 0, "tests/test_a.py") == gate.NEW
+    assert gate.base_word(green, 1, "tests/test_a.py") == gate.NEW
 
 
 def test_a_records_directory_that_is_not_there_holds_no_record(tmp_path):
@@ -4331,8 +4345,9 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     # #825 round 4's 🟡 2, the part its fix left: `new` from a base record
     # that left anything out is not measured.
     assert gate.UNPLACED_AT_BASE.format(count=2) == (
-        "new? not measured: the row ran once at the base, and its record left "
-        "2 of the tests and collections its pytest reported in no list, such as "
+        "new? not measured: the row ran once at the base, and its sessions that "
+        "ended non-zero left 2 of the tests and collections their pytest "
+        "reported in no list, such as "
         "a test whose xdist worker died before any report of it arrived, so one "
         "of them may be this file's failure and whether the base fails it was "
         "not measured (kept as suite-at-base.txt, with records/ beside it)"
@@ -4392,9 +4407,10 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "the file, which is also how a file the branch added reads where the "
         "base's row already fails",
         "open the kept `suite-at-base.txt` and the `records/` beside it",
-        "or the base's record left tests or collections out of every list, a "
-        "test whose xdist worker died in its setup among them, so it cannot say "
-        "the file passed.",
+        # #825 round 5's 🟡 2: only a session of the base that ended non-zero.
+        "or a session of the base that ended non-zero left tests or collections "
+        "out of every list, a test whose xdist worker died in its setup among "
+        "them, so the record cannot say the file passed.",
         "how a row earns the measured word",
     ):
         assert phrase in bullet, f"the **New?** bullet does not carry: {phrase}"
@@ -4407,6 +4423,8 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "no pytest the row ran at the base loaded the recorder",
         # Two causes named as though they were every one (#825 round 4).
         "for either of those causes",
+        # Every base record's count, a green session's included (round 5).
+        "or the base's record left tests or collections out of every list",
     ):
         assert gone not in bullet, f"the **New?** bullet still carries: {gone}"
     with open(GATE, encoding="utf-8") as handle:
@@ -4742,9 +4760,9 @@ def test_the_failure_form_says_how_many_tests_the_record_left_out(tmp_path):
     the session, so the record at `HEAD` writes no line for it and counts
     it, and one sentence under the listing says one test or collection is in
     no list. Round 2's guard abandoned the whole record here and said
-    nothing. The base's record leaves the same item out, so the file the
-    branch broke reads `new?` naming that count rather than `new` (#825
-    round 4's 🟡 2): the record cannot say what it left out passed."""
+    nothing. The base's record leaves the same item out, but its session
+    exited 0 and so failed nothing, counted or not: the file the branch
+    broke reads `new` (#825 round 5's 🟡 2, which narrowed round 4's)."""
     repo = base_then_feature(
         tmp_path / "repo",
         FILES_ROW,
@@ -4757,9 +4775,7 @@ def test_the_failure_form_says_how_many_tests_the_record_left_out(tmp_path):
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert verdict_of(out.stdout, "tests/test_a.py") == (
-        gate.UNPLACED_AT_BASE.format(count=1)
-    ), out.stdout
+    assert verdict_of(out.stdout, "tests/test_a.py") == gate.NEW, out.stdout
     assert gate.UNPLACED.format(count=1) in out.stdout, out.stdout
 
 
@@ -6744,11 +6760,16 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "come from its `FAILED` lines, each file reads `new?` with the reason, "
         "and the base is not run; where one runner loaded it and another did "
         "not, the other's failures stay in `suite.txt` and out of the list.",
-        # #825 round 4's 🟡 2: `new` from a base record that left anything out.
-        "Either `new` reads `new?` naming the count instead where the base's "
-        "record left any test or collection out of every list, because one of "
-        "them may be the file's failure: a test whose xdist worker died in its "
-        "setup, before any report of it reached the controller, is one.",
+        # #825 round 4's 🟡 2, narrowed by round 5's: `new` from a base
+        # session that ended non-zero and left anything out, and the limit.
+        "Either `new` reads `new?` naming the count instead where a session of "
+        "the base that ended non-zero left any test or collection out of every "
+        "list, because one of them may be the file's failure: a test whose "
+        "xdist worker died in its setup, before any report of it reached the "
+        "controller, is one. A session that exited 0 failed nothing, so what it "
+        "left out cannot be. One over-strictness is named rather than closed: a "
+        "red session whose left-out reports all passed, such as a passing item "
+        "a conftest parents to the session, still turns `new` into `new?`.",
         "**The cost is one more run of the whole row, and only when the suite "
         "fails**, whatever the number of failing files.",
         "so a part after the runner that the branch's own run never reached, "
@@ -6788,8 +6809,10 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "collection of the whole session, which is where pytest 7 lays a "
         "conftest's import error anywhere below the root; and a report "
         "that reached the recorder without its path, one a plugin built or "
-        "rebuilt itself, unless an earlier report of the same test carried it, "
-        "as a test whose xdist worker crashed has.",
+        "rebuilt itself, unless the same xdist worker's last report was of the "
+        "same test and not its teardown, as a test whose worker crashed in its "
+        "body has; a report's node id alone never places it, because two tests "
+        "can share one.",
         "so a plugin that writes reports whole, pytest-reportlog's "
         "`--report-log` among them, writes it into the row's own log while the "
         "gate measures the row.",
@@ -6838,6 +6861,9 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         # #825 round 4: two causes and two kinds named as though every one.
         "for either of those causes",
         "It leaves two kinds of report",
+        # #825 round 5: the lookup by node id, and the count of every session.
+        "unless an earlier report of the same test carried it",
+        "where the base's record left any test or collection out of every list",
     ):
         assert gone not in text, f"rule 3 still carries: {gone}"
 
@@ -6876,7 +6902,9 @@ def test_what_a_line_names_a_file_by_is_told_where_each_reader_meets_it():
         # earlier report of a node carried, reused for a crash report.
         "a failed collection of the session itself -- where pytest 7 lays a "
         "conftest's import error anywhere below the root",
-        "unless an earlier report of the same node in the session carried it",
+        "unless the same xdist worker's last report was of the same node and "
+        "not its teardown",
+        "Never a lookup by node id alone: two nodes can share one",
         "`--report-log` writes what `pytest_report_to_serializable` returns",
         "it looks no module up and imports nothing but pytest",
     ):
@@ -6892,10 +6920,14 @@ def test_what_a_line_names_a_file_by_is_told_where_each_reader_meets_it():
         "names every cause the gate cannot tell apart: the row started no "
         "pytest, none it started loaded the recorder, or the one that did could "
         "not write its record.",
-        "A test whose xdist worker crashed keeps the path its earlier reports "
-        "carried, so its failure counts.",
-        "`new?` naming a count, too, where the file would read `new` but the "
-        "base's record left tests or collections out of every list",
+        "whose xdist worker crashed in its body keeps the path its `setup` report "
+        "carried from that same worker, so its failure counts; a crash is never "
+        "placed by a node id two tests can share.",
+        "`new?` naming a count, too, where the file would read `new` but a "
+        "session of the base that ended non-zero left tests or collections out "
+        "of every list",
+        "A red session whose left-out reports all passed still gives `new?`: a "
+        "known over-strictness.",
         "a row that writes `--report-log` finds it in that log while the gate "
         "measures it.",
     ):
@@ -6912,6 +6944,10 @@ def test_what_a_line_names_a_file_by_is_told_where_each_reader_meets_it():
         ("where no pytest at the base loaded the recorder", changelog),
         ("Where no pytest of the row loaded the recorder at all", changelog),
         ("names both causes", changelog),
+        # #825 round 5: the lookup by node id, and every session's count.
+        ("an earlier report of the same node in the session carried", recorder),
+        ("keeps the path its earlier reports carried", changelog),
+        ("base's record left tests or collections out of every list", changelog),
     ):
         assert gone not in text, f"still carried: {gone}"
 

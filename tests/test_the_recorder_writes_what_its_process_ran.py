@@ -825,3 +825,60 @@ def test_a_test_whose_worker_crashed_is_recorded_failing_under_its_file(tmp_path
         real(root / "tests" / "test_two.py")
     }, lines
     assert lines[-1]["unplaced"] == 0, lines
+
+
+# Two files outside every default pattern that a conftest collects under ONE
+# node id, `check_m.py`, the way pytest 7 names two files outside the rootdir
+# from the arguments they came from (`../a/test_m.py`, `../b/test_m.py`).
+COLLECTS_TWO_FILES_UNDER_ONE_ID = """\
+import pytest
+
+
+def pytest_collect_file(file_path, parent):
+    if file_path.name == "check_m.py":
+        return pytest.Module.from_parent(parent, path=file_path, nodeid="check_m.py")
+"""
+
+PASSES_ITS_TEST = "def test_crash():\n    pass\n"
+CRASHES_IN_ITS_BODY = "import os\n\n\ndef test_crash():\n    os._exit(1)\n"
+CRASHES_IN_ITS_FIXTURE = (
+    "import os\n\nimport pytest\n\n\n@pytest.fixture\ndef dies():\n"
+    "    os._exit(1)\n\n\ndef test_crash(dies):\n    pass\n"
+)
+
+
+@pytest.mark.parametrize(
+    "crash", [CRASHES_IN_ITS_BODY, CRASHES_IN_ITS_FIXTURE], ids=["body", "fixture"]
+)
+def test_a_crash_is_never_placed_by_a_node_id_another_file_shares(tmp_path, crash):
+    """#825 round 5's 🔴 1. `a`'s test passes and then `b`'s test, which
+    shares its node id, crashes its xdist worker. Round 4 placed the crash
+    report by node id, so it took `a`'s path and `a` was written failing:
+    at the base, `failing on base too` for the branch's own breakage. The
+    crash is placed only by the same worker's last report, where that report
+    was of the same node and not its teardown: a crash in the body takes
+    `b`'s path from its `setup` report, and a crash in a fixture, before any
+    report of `b`, is written as no line and counted. The two directories
+    are the arguments; handed as files on pytest 9 the two modules keep ids
+    of their own, so pytest 7's file-argument shape is an executed probe
+    recorded in the ledger's W1 rather than a case here."""
+    if importlib.util.find_spec("xdist") is None:
+        pytest.skip("pytest-xdist is not installed here")
+    root, records = project(tmp_path, {})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (root / "conftest.py").write_text(COLLECTS_TWO_FILES_UNDER_ONE_ID, encoding="utf-8")
+    for name, body in (("a", PASSES_ITS_TEST), ("b", crash)):
+        (root / name).mkdir()
+        # A package each, so the two modules import under two names.
+        (root / name / "__init__.py").write_text("", encoding="utf-8")
+        (root / name / "check_m.py").write_text(body, encoding="utf-8")
+    result = pytest_in(root, recording_env(records), "-n", "1", "a", "b")
+    assert "check_m.py::test_crash" in result.stdout + result.stderr, result.stdout
+    _, lines = the_one_record(records)
+    a, b = real(root / "a" / "check_m.py"), real(root / "b" / "check_m.py")
+    assert failing_paths(lines) == ({b} if crash is CRASHES_IN_ITS_BODY else set()), (
+        lines
+    )
+    assert real(lines[1]["path"]) == a, lines
+    if crash is CRASHES_IN_ITS_FIXTURE:
+        assert lines[-1]["unplaced"] == 1, lines

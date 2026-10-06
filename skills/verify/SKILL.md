@@ -510,10 +510,10 @@ about to run it a second time after the change.
   base left a record, for any of those three causes, a part before the
   runner failing at the base among them; or the row's run at the base
   exited non-zero before any pytest collected the file, which is also how a
-  file the branch added reads where the base's row already fails; or the
-  base's record left tests or collections out of every list, a test whose
-  xdist worker died in its setup among them, so it cannot say the file
-  passed. It is a question about the
+  file the branch added reads where the base's row already fails; or a
+  session of the base that ended non-zero left tests or collections out of
+  every list, a test whose xdist worker died in its setup among them, so
+  the record cannot say the file passed. It is a question about the
   file, not a finding either way; open the kept `suite-at-base.txt` and the
   `records/` beside it, and run the file at the base by hand before calling
   it either of the two above.
