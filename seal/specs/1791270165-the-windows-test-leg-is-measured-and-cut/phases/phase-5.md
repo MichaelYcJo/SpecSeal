@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 5 |
-| Commit | the record's commit, named in `plan.md`'s Status (the budget is a600768e; macOS's timeout re-based in the same commit as this record) |
+| Commit | f1ea5d6c (the budget is a600768e; macOS's timeout re-based in f1ea5d6c) |
 | Ran by | smith on Opus 5.5 (a second smith, on another machine) |
 
 ## What this phase was asked
