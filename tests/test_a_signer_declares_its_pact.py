@@ -1257,12 +1257,16 @@ def test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one():
     for under in (
         "|Signatory|\n|---|\n|https://example.com/org/billing|\n",
         "| Signatory |\n",
+        "  | Signatory |\n",
         "| Signatory |\n\n## X\n\n| Signatory |\n|---|\n| https://example.com/org/b |\n",
     ):
+        # The line is quoted as it is written, its indent aside, so a person
+        # searching the file for it finds it (#831).
         signers, refusals, _ = config.pact_signers(signer + under)
         assert [s[2] for s in signers] == ["orders-web"], signers
         assert sum("Signatory" in r for r in refusals) == 1, refusals
-        assert glued in refusals, refusals
+        quoted = under.split("\n", 1)[0].strip()
+        assert glued.replace("`| Signatory |`", f"`{quoted}`") in refusals, refusals
     # Rows under a glued old header with no delimiter row are rows of the
     # `Signer` table to GFM, and they are read as signers; the refusal says
     # so rather than "nothing under it is read" (post-review check of #830).
@@ -1271,6 +1275,18 @@ def test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one():
     )
     assert [s[2] for s in signers] == ["orders-web", "billing"], signers
     assert refusals == [glued], refusals
+    # A glued old header above a second old table after a blank line: the
+    # walk's stray-row refusal names the second, and the glued line is not
+    # also refused as an entry (post-review check 2 of #830; #831).
+    signers, refusals, _ = config.pact_signers(
+        signer
+        + "| Signatory |\n\n| Signatory |\n|---|\n| https://example.com/org/billing |\n"
+    )
+    assert [s[2] for s in signers] == ["orders-web"], signers
+    assert refusals == [
+        "has a `Signer` table that ends above `| Signatory |`, a row the walk "
+        "never reaches — it and every signer below it would go unread"
+    ], refusals
 
 
 def test_s4_a_broken_signer_table_does_not_fall_back_to_the_old_one():
