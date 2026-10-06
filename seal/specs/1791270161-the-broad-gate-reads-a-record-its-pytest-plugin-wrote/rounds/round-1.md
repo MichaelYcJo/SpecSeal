@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `80e7454478913c6821a4f0355cf876b783439d67..fa1c6044532e8b3e3d43b82641f9cb9dbe28c691`, 3 commits |
 | Contract changes | none |
 | New units | COMPARED_AT_BASE (depth 1); NAMED_BY_FAILED_LINES (depth 1); test_a_record_it_cannot_write_leaves_pytest_its_own_exit_under_w_error (depth 1); test_a_pyargs_module_name_is_not_read_as_a_path_outside_the_rootdir (depth 1); test_a_file_pytest_names_outside_its_rootdir_earns_no_word (depth 1) |
