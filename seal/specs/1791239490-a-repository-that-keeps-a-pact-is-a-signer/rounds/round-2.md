@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #827 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `b1f18af7914dbfc7f9b6c64e9a2dc36f227ba0d5..96832724edc66735dbf643454b4d0c50cca57af8`, 3 commits |
+| Contract changes | none |
+| New units | PACT_HEADER_WORD (depth 1); SWEEP_MODULE (depth 1) |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,12 +28,12 @@ The verifying round for round 1's fix range `d1e0b2c6..b4a5ebb4`: whether 🟡 1
 | 🟢 | round 1's white 2 is closed — the policy span ends at the next `##` heading | `tests/test_one_word_one_meaning.py:733` | confirmed | executed: the old word planted in `## When there is a pact at all` turns both sweep cases red; the class's remainder is ⬜ 6 |
 | 🟢 | round 1's white 3 is closed — every tracked live file is swept | `tests/test_one_word_one_meaning.py:801` | confirmed | executed: plants in `CHANGELOG.md`, `templates/seal-README.md`, `README.md`, `chain_check.py`'s docstring, `read_table`'s docstring and above `RENAMED_IN` each turn the tree-wide case red |
 | 🟢 | round 1's white 4 is closed — the overview's S4 row names every two-table shape and the function is a recorded divergence | `seal/specs/1791239490-a-repository-that-keeps-a-pact-is-a-signer/overview.md:18` | confirmed | read against the reader probe's table |
-| ⬜ 5 | An old header written without spaces directly below the `Signer` table is named twice, against `read_table`'s docstring and the S4 case's | `hooks/config.py:1344` | open | executed: two refusals before the fix, one after; 3447 passed with the fix |
-| ⬜ 6 | The policy span stops at `##` only, so a `###` heading after the statement is exempt | `tests/test_one_word_one_meaning.py:733` | open | executed: a `### Signatory history` plant leaves both cases green; the fix turns both red and keeps the module green |
-| ⬜ 7 | Five compatibility modules are exempt whole, though every use they need is the capitalised header cell; "each exception is asserted to exist" skips the record prefixes | `tests/test_one_word_one_meaning.py:816` | open | executed: a lowercase comment in `tests/test_pact_check.py` stays green; the fix turns it red and keeps the module green |
-| ⬜ 8 | The review case's docstring says the old table holds a row the new one does not, and both hold the same row; the `pact-check` S4 commit message reverses which table is above | `tests/test_a_pact_review_takes_a_pact_change.py:216` | open | read |
-| ⬜ 9 | The policy's `Enforced by:` line omits the review both-headers case and the tree-wide sweep, the cases that hold two of its clauses | `docs/the-pact.md:42` | open | read |
-| ⬜ 10 | R5's evidence counts five `Enforced by:` targets where there are six, and P8's new clause cites no case that holds it | `seal/ledger/1791239490-a-repository-that-keeps-a-pact-is-a-signer.md:33` | open | paperwork correction; not counted in Needs a fix; `evidence-check --ledger` on the fragment 429 ok |
+| ⬜ 5 | An old header written without spaces directly below the `Signer` table is named twice, against `read_table`'s docstring and the S4 case's | `hooks/config.py:1344` | **fixed** `27b33261` | fixed at 27b33261; executed: two refusals before the fix, one after; 3447 passed with the fix |
+| ⬜ 6 | The policy span stops at `##` only, so a `###` heading after the statement is exempt | `tests/test_one_word_one_meaning.py:733` | **fixed** `626a5884` | fixed at 626a5884; executed: a `### Signatory history` plant leaves both cases green; the fix turns both red and keeps the module green |
+| ⬜ 7 | Five compatibility modules are exempt whole, though every use they need is the capitalised header cell; "each exception is asserted to exist" skips the record prefixes | `tests/test_one_word_one_meaning.py:816` | **fixed** `626a5884` | fixed at 626a5884; executed: a lowercase comment in `tests/test_pact_check.py` stays green; the fix turns it red and keeps the module green |
+| ⬜ 8 | The review case's docstring says the old table holds a row the new one does not, and both hold the same row; the `pact-check` S4 commit message reverses which table is above | `tests/test_a_pact_review_takes_a_pact_change.py:216` | **fixed** `96832724` | fixed at 96832724; read |
+| ⬜ 9 | The policy's `Enforced by:` line omits the review both-headers case and the tree-wide sweep, the cases that hold two of its clauses | `docs/the-pact.md:42` | **fixed** `96832724` | fixed at 96832724; read |
+| ⬜ 10 | R5's evidence counts five `Enforced by:` targets where there are six, and P8's new clause cites no case that holds it | `seal/ledger/1791239490-a-repository-that-keeps-a-pact-is-a-signer.md:33` | answered | corrected at 96832724; paperwork correction; not counted in Needs a fix; `evidence-check --ledger` on the fragment 429 ok |
 | ❓ | The full suite, lint and typecheck, and S12's `evidence-check --strict .` and `correction-check --range origin/release/v0.19.0...HEAD` | the tree at ec797405 | ❓ out of verified scope | steps of the broad gate, which is the sealer's; the sealer answers it now that this round leaves nothing needing a fix |
 
 ## Paste-ready fixes
