@@ -191,11 +191,16 @@ Windows entry with `store: "--store-durations"` in place of the four shard
 entries, with a `timeout` for the whole leg rather than a shard's 20 (it
 ran 34 minutes unsharded when the file was first made, so 55 by the rule
 beside the values); `${{ matrix.store }}` on the pytest line; and an
-`actions/upload-artifact@v4` step with `path: .test_durations` and
-`include-hidden-files: true` (the name starts with a dot, which the action
-skips by default). Download the artifact with
-`gh run download <run> -n <artifact>`, make its line ends LF, commit it,
-and restore the shards.
+`actions/upload-artifact@v4` step with `if: always() && matrix.store != ''`,
+`path: .test_durations` and `include-hidden-files: true` (the name starts
+with a dot, which the action skips by default). Both halves of the
+condition are needed. On that branch the shard cases in
+`tests/test_the_windows_leg_runs_in_shards_that_make_the_whole.py` fail,
+because the matrix has no shards, so without `always()` the upload is
+skipped although the file was written. Without `matrix.store != ''`,
+ubuntu and macOS upload the committed file under the same name first.
+Download the artifact with `gh run download <run> -n <artifact>`, make its
+line ends LF, commit it, and restore the shards.
 
 **The suite runs with `gh` logged out, on your machine as on CI.** CI's
 pytest job has no token, so `tests/conftest.py` makes the same true locally
