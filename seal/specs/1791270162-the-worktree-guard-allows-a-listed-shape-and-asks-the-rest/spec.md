@@ -50,7 +50,10 @@ as a possible switch, in the one place a switch would matter.
      listed at `9c03ae85`). `rebase` is listed only where it has fewer than
      two words that are not options, and none beside `--root`: `git rebase
      <upstream> <branch>` switches to `<branch>` before it rebases
-     (*inferred during implementation*, round 1 of the review, red 3);
+     (*inferred during implementation*, round 1 of the review, red 3). A
+     lone `-` and every word after a `--` count as words, since git reads
+     each as a revision: `git rebase - <branch>` switches too (*inferred
+     during implementation*, round 2, red 1);
    - **a switch** — the subcommand is `switch`, whatever its words;
    - **a creation** — `cmdline.adds_a_worktree(tokens)`, judged by §B as
      today and untouched here;
@@ -98,7 +101,10 @@ as a possible switch, in the one place a switch would matter.
    approving an `ask` would run the switch past the ladder, and every tree on
    the line is read before the stop is taken, so a shape in a tree another
    session is ACTIVE in makes it a `deny` too (*inferred during
-   implementation*, round 1 of the review, red 1).
+   implementation*, round 1 of the review, red 1). The stop's reason names
+   each tree on the line that matters and why, or the ACTIVE ones where
+   there are any, since approving runs the line in all of them (*inferred
+   during implementation*, round 2, yellow 4).
 
 3. **The stop for an unrecognised shape, and its two readers.** Where the
    tree matters, the guard stops BEFORE the ladder, with one reason text
@@ -148,7 +154,11 @@ as a possible switch, in the one place a switch would matter.
    once; a git only the wider reading reads is judged in the tree its own
    `-C` names (*inferred during implementation*, phase 3: In 2 speaks of
    each shape, and the first-only reading was silent on a hidden switch in a
-   dirty second tree, which candidate C had asked about).
+   dirty second tree, which candidate C had asked about). A git an `&` cut
+   is one command, judged in the tree its own `-C` names from where its first
+   part runs, and with the reader broken in the tree the part before the cut
+   names (*inferred during implementation*, round 2 of the review, red 2 and
+   yellow 3: both were placed by the last part, which carries no `-C`).
    `hooks/cmdline_base.py`, `hooks/cmdline.py`, `hooks/worktree_consent.py`'s
    writer and `walk_command` are untouched; the §B ladder, `choose`, the
    tokens, `sessions_in_tree`, `tracked_changes` and every reason text of §A
@@ -309,8 +319,12 @@ as a possible switch, in the one place a switch would matter.
   tokens lost is still there); `tree_matters(top,
   session_id, eff_cwd, seen=None) -> tuple` returning what `main` needs for
   the ladder so `sessions_in_tree` and `tracked_changes` run once;
-  `stop_unrecognised(findings, state, pressed, before_ask=None)`, every
-  unrecognised shape on the line listed with its own plain spelling; the
+  `stop_unrecognised(findings, trees, pressed, before_ask=None,
+  switch_on_line=False)`, every unrecognised shape on the line listed with
+  its own plain spelling, and every tree on the line that matters (`trees`,
+  each `(top, state)`) described, or the ACTIVE ones where there are any;
+  `switch_on_line` makes it a `deny` (round 1, red 1; `trees` round 2,
+  yellow 4, *inferred during implementation*); the
   press read `worktree_consent.automation_
   answered(top_of_session, session_id, transcript_path)` wrapped as the
   commit gate wraps it, every failure False. `main` keeps its two silent
