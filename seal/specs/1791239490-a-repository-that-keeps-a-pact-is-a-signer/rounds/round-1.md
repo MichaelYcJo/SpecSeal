@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #827 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `d1e0b2c615df9b003bbc54604ac881a150b50518..b4a5ebb4cfbcb3f60cf91638a4105fc3c4389089`, 3 commits |
 | Contract changes | none |
 | New units | test_s5_a_review_record_holding_both_headers_is_refused (depth 1); BOTH (depth 1); test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one (depth 1); without_the_policy_span (depth 1); RENAMED_RECORDS (depth 1); RENAMED_COMPAT (depth 1); test_no_live_text_says_the_word_0_19_0_renamed (depth 1); test_s4_a_pact_holding_both_tables_is_exit_2_naming_the_old_one (depth 1) |
