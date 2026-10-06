@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #829 |
-| Broad gate | d4cdf7f0 against e6d5a055 |
+| Broad gate | 308fc48f against 4b363e68; earlier run: d4cdf7f0 against e6d5a055 |
 | Fixes checked by | no fixes to check |
 | Fix range | `c4c2578980f900d3a2e0a3876fd7c75d27d6cf88..c4c2578980f900d3a2e0a3876fd7c75d27d6cf88`, 0 commits |
 | Contract changes | none |
