@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | <the phase-closing commit — the hash `plan.md`'s Status cell for phase 3 carries> |
+| Commit | f54635bf |
 | Ran by | smith on Opus 5.5 |
 
 ## What this phase was asked
