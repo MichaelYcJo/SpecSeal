@@ -42,7 +42,7 @@ What it reads, for every routing declaration this pull request adds or changes:
                              work item that skipped its review
   a pact (#647)              PRINTED, never refused, and the exit status is
                              the one the tree has without it: the pact a
-                             `Pact` row names, or the signatories
+                             `Pact` row names, or the signers
                              `seal/pact.md` lists (`pact_notices`). This CI
                              reads one repository; `pact-check` reads them all
   a changelog fragment left  PRINTED, never refused, for a chain item: every
@@ -4289,9 +4289,9 @@ def pact_notices(routing, root, declarations):
     """[(rel, 0, message)] for what this tree says about a pact (#647).
 
     **Notices and nothing else, and no exit status moves on any of them.**
-    That is #647's decision 2: a signatory's CI prints the relationship and
+    That is #647's decision 2: a signer's CI prints the relationship and
     does not verify it. The strict reading of the same rows is `pact-check`'s,
-    run locally at the pact's repository, which can open every signatory;
+    run locally at the pact's repository, which can open every signer;
     this check can open one. So a `Pact` row that will not parse, a notify
     value outside the vocabulary, and an anchor naming a pact no row declares
     are printed here exactly as a well-formed relationship is.
@@ -4299,9 +4299,10 @@ def pact_notices(routing, root, declarations):
     - Where `seal/config.md` names a pact held elsewhere: one notice per pact,
       naming the pact's repository, the notify value, and how many pact
       anchors naming it the declared work item's `spec.md` carries.
-    - Where this repository holds `seal/pact.md`: how many signatories the
-      pact lists.
-    - A refusal `hooks/config.py#pact_declaration` or `#pact_signatories`
+    - Where this repository holds `seal/pact.md`: how many signers the
+      pact lists, and, where its table is headed as 0.18.x wrote it, the
+      sentence naming the rename (`hooks/config.py#renamed_header`, #822).
+    - A refusal `hooks/config.py#pact_declaration` or `#pact_signers`
       writes, and an anchor naming no declared pact: one notice each.
 
     Read from HEAD, as every record here is (`read_record`), so a local-mode
@@ -4366,7 +4367,7 @@ def pact_notices(routing, root, declarations):
                 config_rel,
                 0,
                 f"a `{config.PACT_ROW}` row this CI does not verify: {refusal}. "
-                "Printed rather than refused, because a signatory's CI prints "
+                "Printed rather than refused, because a signer's CI prints "
                 "and does not verify; `pact-check` at the pact's repository "
                 "exits 2 on it",
             )
@@ -4380,18 +4381,20 @@ def pact_notices(routing, root, declarations):
                     0,
                     f"cites `pact:{name}/…`, and no `{config.PACT_ROW}` row in "
                     f"{config_rel} names a pact called `{name}`. Printed rather "
-                    "than refused: a signatory's CI prints and does not verify",
+                    "than refused: a signer's CI prints and does not verify",
                 )
             )
     if pact_text is not None:
-        signatories, refused = config.pact_signatories(pact_text)
+        signers, refused, header = config.pact_signers(pact_text)
+        old, sentence = config.renamed_header(config.SIGNER_HEADER)
         notices.append(
             (
                 pact_rel,
                 0,
                 f"this repository holds the pact, which lists "
-                f"{plural(len(signatories), 'signatory', 'signatories')}. "
-                + PACT_NOT_HERE.replace("verifies it", "compares them with it"),
+                f"{plural(len(signers), 'signer', 'signers')}. "
+                + PACT_NOT_HERE.replace("verifies it", "compares them with it")
+                + (f". The pact {sentence}" if header == old else ""),
             )
         )
         for refusal in refused:

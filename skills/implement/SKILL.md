@@ -125,7 +125,7 @@ seal/
 │                     writes them
 ├── parity.md         migration config, only when declared
 ├── pact.md           the pact, only in the repository that holds one
-├── pact-changes/     a signatory's pact changes, a file per work item. Permanent
+├── pact-changes/     a signer's pact changes, a file per work item. Permanent
 ├── pact-reviews/     the pact's repository's pact reviews, a file per work item. Permanent
 ├── follow-up.md      schedulable items in a repository with no tracker
 └── specs/<work-item-id>/

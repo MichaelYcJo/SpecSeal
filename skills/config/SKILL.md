@@ -45,7 +45,7 @@ exactly those.
 | `Over the ceiling` | `none` | the documents listed over that ceiling, each with its fold markers frozen until the home it names splits it |
 | `Reference specs` | *every directory named `specs` outside the root* | the directories this repository kept its own specifications in, which the plugin reads as history and never takes |
 | `Pact` | *none — no pact is held elsewhere* | the origin remote URL of the repository holding a pact this repository signs, several separated by `;` |
-| `Pact notify` | `when the pact is touched`, where a `Pact` row stands | what this signatory asks to be told about a change to that pact: `always`, `when the pact is touched` or `never` |
+| `Pact notify` | `when the pact is touched`, where a `Pact` row stands | what this signer asks to be told about a change to that pact: `always`, `when the pact is touched` or `never` |
 
 **Every way of not naming a language lands on English** — no file, no such
 row, an empty value, a file that does not parse. Say the default and the

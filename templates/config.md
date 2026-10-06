@@ -379,11 +379,11 @@ them back.
 
 ## Pact
 
-Two rows, written in a signatory of a pact held in another repository
+Two rows, written in a signer of a pact held in another repository
 (`docs/the-pact.md`). A work item that commits in more than one repository,
 where those repositories keep a contract together, keeps the one copy of that
 contract in `seal/pact.md` in one of them. Every repository of the work item
-is a signatory, and every one except the pact's repository names the pact
+is a signer, and every one except the pact's repository names the pact
 here. The pact's repository needs no row: it is identified by holding
 `seal/pact.md`.
 
@@ -391,7 +391,7 @@ Both rows are written in the table at the top of this file, and nowhere
 else in it:
 
 - **`Pact`**: the origin remote URL of the pact's repository, such as
-  `git@example.com:org/orders-api.git`; a signatory of pacts held in more
+  `git@example.com:org/orders-api.git`; a signer of pacts held in more
   than one repository lists them separated by `;`. Absent: no pact is held
   elsewhere.
 - **`Pact notify`**: `always` · `when the pact is touched` · `never`.
@@ -404,10 +404,10 @@ and `https://example.com/org/orders-api` name one repository. Its last path
 segment is the name a pact anchor carries, `pact:orders-api/"## A"@1a2b3c4d`,
 so two pacts whose URLs end in the same segment are refused as ambiguous.
 
-**`Pact notify` decides which of this signatory's changes the pact's
+**`Pact notify` decides which of this signer's changes the pact's
 repository hears about.** `evidence-check --reverify` records a pact change
 in `seal/pact-changes/<work-item-id>.md` where `docs/the-pact.md` §*A
-signatory records a pact change* says, and that section's first sentence is
+signer records a pact change* says, and that section's first sentence is
 the whole trigger. `pact-check` at the pact's repository reads that record
 until a pact review there takes it:
 
@@ -422,7 +422,7 @@ until a pact review there takes it:
 
 **A row that will not parse is refused in a sentence**, never read as absent.
 At this repository's pull request `chain-check` prints the sentence and its
-exit status does not move: a signatory's CI prints and does not verify.
+exit status does not move: a signer's CI prints and does not verify.
 `pact-check`, run at the pact's repository, reads the same rows through the
 same reader, `hooks/config.py#pact_declaration`, and exits 2 on them.
 

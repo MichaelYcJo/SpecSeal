@@ -74,7 +74,7 @@ Usage:
                                           `--into` writes no released file and
                                           names each row it left
 
-In a signatory -- a `Pact` row in seal/config.md -- every form of `--reverify`
+In a signer -- a `Pact` row in seal/config.md -- every form of `--reverify`
 also appends one row per re-read ledger row citing a clause of a declared pact
 to seal/pact-changes/<work-item-id>.md, and prints a `recorded` line
 (`record_pact_changes`, #647). A row `--into` refuses a `Re-read ·` row for a
@@ -145,7 +145,7 @@ ANCHOR_RE = re.compile(
     r"@(?P<hash>[0-9a-f]{6,12})"
 )
 HASH_LEN = 8
-# A clause of a pact held in another repository, cited from a signatory
+# A clause of a pact held in another repository, cited from a signer
 # (#647, `docs/the-pact.md`): `pact:<name>/"<heading path>"@<hash>`. The name
 # is the last path segment of the pact's repository's normalised origin URL
 # (`hooks/config.py#pact_name`), the locator is this module's quoted heading
@@ -3189,7 +3189,7 @@ def reverify(
     end (`owed_moves`, #791): the move that landed, from the hash the ledger
     held before the run to the last hash a walk wrote, and BROKEN at the
     hash the file holds where the last walk that reached it left it. It is
-    what `record_pact_changes` writes a signatory's pact changes from, before
+    what `record_pact_changes` writes a signer's pact changes from, before
     the hash it read is gone.
 
     Re-verifying is recomputing the hash, which is a person saying they have
@@ -4349,7 +4349,7 @@ def reverify_into(
 
 # --- the record of a pact change, written inside the re-read (#647, C) ------
 #
-# A signatory names the pact it signs in a `Pact` row of `seal/config.md` and
+# A signer names the pact it signs in a `Pact` row of `seal/config.md` and
 # cites clauses as pact anchors in its ledger rows. When `--reverify` moves
 # the hash of a row citing a clause of a declared pact -- in place, or into a
 # `Re-read ·` row -- finds the code under one moved where `--into` refuses it
@@ -4386,7 +4386,7 @@ NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
 # `hooks/config.py#PACT_WORD`, copied for a copy with no `hooks/`: the word a
 # line names a pact by, the letters `p`, `a`, `c`, `t` with anything but a
 # letter between them and no letter before the `p`. That comment says why;
-# `tests/test_a_signatory_declares_its_pact.py` holds the two equal (#759).
+# `tests/test_a_signer_declares_its_pact.py` holds the two equal (#759).
 PACT_WORD = re.compile(r"(?<![^\W\d_])p[\W\d_]*a[\W\d_]*c[\W\d_]*t", re.I)
 # `hooks/config.py#HTML_CELL`, copied for a copy with no `hooks/`: an HTML
 # table cell's opening tag, in whose file a line naming a pact needs no `|`
@@ -4396,7 +4396,7 @@ HTML_CELL = re.compile(r"<t[dh][\s/>]", re.I)
 # line GFM may read as the delimiter row under a table's header, block-quote
 # markers, a vertical tab or form feed and a one-column row with no pipe
 # included, a run of dashes alone left out. That comment says why (round 2
-# of PR #793, yellow 1; round 3); `tests/test_a_signatory_declares_its_pact.py`
+# of PR #793, yellow 1; round 3); `tests/test_a_signer_declares_its_pact.py`
 # holds the two equal.
 UNDER_A_HEADER = re.compile(
     r"^(?![ \t>]*-+[ \t]*$)[\s>]*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$"
@@ -4407,7 +4407,7 @@ def names_a_pact(text, piped=True):
     """`hooks/config.py#names_a_pact`, copied for a copy with no `hooks/`:
     `PACT_WORD` in TEXT as written or decoded (`html.unescape`, then NFKC),
     and, where PIPED, a `|` in either. That docstring says why both readings
-    and why the pipe; `tests/test_a_signatory_declares_its_pact.py` holds
+    and why the pipe; `tests/test_a_signer_declares_its_pact.py` holds
     the two answering alike (#759)."""
     decoded = unicodedata.normalize("NFKC", html.unescape(text))
     if piped and "|" not in text and "|" not in decoded:
@@ -4568,7 +4568,7 @@ def record_pact_changes(moves, root, into, checked):
                     f"  LEFT  {where}  cites a pact clause, and this copy of "
                     "evidence_check.py has no hooks/ beside it to read the "
                     f"`Pact` row with — {NOT_RESTAMPED}; run the plugin's "
-                    "`evidence-check --reverify` where the signatory is "
+                    "`evidence-check --reverify` where the signer is "
                     "checked out"
                 )
             elif blind:
@@ -4577,7 +4577,7 @@ def record_pact_changes(moves, root, into, checked):
                     "and this copy of evidence_check.py has no hooks/ beside it "
                     f"to read the `Pact notify` row with — {NOT_RESTAMPED}; run "
                     "the plugin's `evidence-check --reverify` where the "
-                    "signatory is checked out"
+                    "signer is checked out"
                 )
             else:
                 continue

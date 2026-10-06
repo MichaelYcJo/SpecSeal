@@ -284,8 +284,9 @@ What it cannot see, stated rather than left to be found: a landing it cannot
 place counts as none: an identifier the cell gives without its `.py` file, a
 line outside every unit, a cell that resolves to nothing. It reads no prose to
 decide which name in a cell is the place; the `.py` path the `Location`
-carries is the place. And the grain is the top-level unit, so two unrelated findings in one
-long function read as a fix of a fix; the row names the unit, so a reader can
+carries is the place. And the grain is the top-level unit, so two unrelated
+findings in one long function read as a fix of a fix; the row names the unit,
+so a reader can
 see that it happened.
 
 ### A fix pass adds the unit that pins it, and that unit ships unreviewed

@@ -158,6 +158,7 @@ APPLIES_THE_SHARED_GUARD = {
     "tests/test_a_release_is_sized_by_a_criterion.py#tracked": 1,
     "tests/test_a_script_says_which_interpreter_it_needs.py#shipped_python": 1,
     "tests/test_a_finding_id_is_a_bare_integer.py#committed_records": 1,
+    "tests/test_one_word_one_meaning.py#test_no_live_text_says_the_word_0_19_0_renamed": 1,
     # The reader itself. It lists the modules it is about to parse, and a
     # module listed and not on disk would end the enumeration at it --
     # this case reporting no offender because it read almost nothing.
