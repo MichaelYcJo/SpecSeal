@@ -25,7 +25,7 @@ went past the stop or resumed without a redrawn frame.
 | `docs/review-chain-spec.md` §*Two records, and what each of them says*, the 0.8.x moratorium on fields | The moratorium was for 0.8.x and is spent (`Fix range` and `Written late` arrived after it). What it still asks for holds: a new parsed field arrives with its checker arm, its template row, its protocol row, its cutoff, and a measurement saying a field is what is needed — the two chains in the ticket are that measurement |
 | `skills/implement/orchestration.md` §*Orchestrator: which of these acts runs itself* | A new `###` under an `Orchestrator:` heading owes a row in the acts table, held from both sides by `tests/test_every_orchestrator_act_names_its_delivery.py` |
 | `CONTRIBUTING.md` §*What a change to a gate must carry* | A test seen red, a stated failure direction, a prompt budget, platform honesty. All four are answered in this spec and owed again in the pull request body |
-| `templates/config.md` §`Document line ceiling` (1000, `Over the ceiling | none`) | `docs/review-chain-spec.md` stands at 994 lines. It cannot own this rule; it takes a link of at most three lines |
+| `templates/config.md` §`Document line ceiling` (1000, `Over the ceiling | none`) | `docs/review-chain-spec.md` stood at 994 lines when framed and at 999 at the reframe. It cannot own this rule; it takes a link of at most three lines. `docs/round-record-spec.md` is at 994, so the sentence phase 5 rewrites there shrinks or holds its length |
 | `docs/the-evidence-ledger.md` §*A released row is read again in the branch's fragment*; `docs/the-record-layout.md` §*A change writes fragments, never a shared file* | `seal/config.md` declares `Ledger frozen from 1790993141`, and this work item is above it. New rows go to `seal/ledger/1791240747-….md`; a released row whose anchor this work moves is re-read with `evidence-check --reverify --into`, never re-stamped in place |
 | `docs/issues-and-milestones.md`, the `chain: capped` shape | A label puts the subject in the prefix and the verdict in the value. The stop's label is `chain: reframed` |
 
@@ -41,15 +41,18 @@ previous fix pass created or changed** when all of these hold:
 - its verdict is open when `new` writes the record (the same rows `close`
   will demand a fix-table row for);
 - its `Location` resolves to a top-level Python unit at round K's
-  `Target SHA`, through the readings `location_units` already makes
-  (`path:line`, `path#unit`, `path::unit`, a backticked identifier);
+  `Target SHA`, through a reading that carries its own file: `path:line`,
+  `path#unit` or `path::unit`, where `path` is a `.py` file the tree tracks
+  at the target. A backticked or bare identifier with no path lands nowhere,
+  whatever is written beside it — the reframe after round 3 removed that
+  reading, and §*What round 3 moved* says why;
 - that unit is named by round K-1's `New units`, or is present at both ends
   of round K-1's `Fix range` with a different AST between them
   (`ast.dump` of the top-level node, attributes excluded — a comment-only
   edit changes nothing a finding can regress on).
 
-Prose files, module-level lines, a `Location` the reader cannot place and a
-`Fix range` of zero commits land nowhere. A `Fix range` whose ends do not
+Prose files, module-level lines, a name with no path, a `Location` the reader
+cannot place and a `Fix range` of zero commits land nowhere. A `Fix range` whose ends do not
 resolve in the tree `new` runs in is refused at exit 2 naming the range: `new`
 runs where `close` ran, and a tree without those commits is the wrong tree.
 
@@ -149,8 +152,57 @@ link carriers; `docs/issues-and-milestones.md` names `chain: reframed` beside
 `seal/ledger/1791240747-….md`; released rows whose anchors this work moves
 are re-read into the fragment with `evidence-check --reverify --into`.
 
+### What round 3 moved
+
+The run's three rounds found one class three times, one reading apart each
+time, and the reframe removes the reading rather than narrowing it a fourth
+time.
+
+| Round | The finding | The fix pass's answer |
+|---|---|---|
+| 1 (🟡 1) | a prose `Location` naming an identifier in backticks landed in a Python unit of any file the range touched | an extension list, `NAMES_A_FILE_RE`: beside a word that looks like a file, a backticked name is prose |
+| 2 (🟡 1, 🟡 2) | a `bin/` wrapper, a `.cmd` and a `Makefile` were outside the list; a bare name landed although a second touched file carried it unchanged | the tree decides (`names_a_file` over `tracked_at`), and a bare name lands only where exactly one touched Python file defines it (`range_carriers`) |
+| 3 (🟡 1) | a basename the tree holds twice, a path the fixes deleted and a path against a quote or an apostrophe resolve to nothing, so the cell reads as naming no file and its backticked name lands again | none — the record read `second` and the run stopped |
+
+Each answer decided, from the prose of the cell, whether a backticked name is
+the finding's place or a mention beside its place. `docs/round-record-spec.md`
+§*The depth in `New units`* already declines that kind of reading one section
+above the field's own: *parsing code spans to tell any of the three apart is
+the same enumeration over an unbounded domain*. Round 3's paste-ready fix is a
+fourth heuristic of the same kind, and taking it would be the third fix pass
+this rule exists to stop.
+
+So the reading narrows to what carries its own file. A landing needs a `.py`
+path, and a name with no path counts for nothing whatever stands beside it.
+What that loses was measured by reading the committed records (`git grep` over
+every `rounds/round-N.md` and its report at `v0.18.0`, `v0.18.1`, `v0.18.2`,
+`v0.18.3` and this branch, the `Location` cell of every 🔴 and 🟡 row): of the
+179 fix-owing rows at the three later tags and this branch, none carries a
+backticked identifier without a `.py` path; of the 494 at `v0.18.0`, at most
+seven distinct cells do, and the column split that counted them reads a
+Grounds cell as a `Location` wherever a code span holds a pipe, so seven is
+the ceiling and not the count. Both chains the rule exists for (#814, #801)
+land through `path:line`. `questions.md` Q6 is the replay that turns the
+ceiling into a count, and it is a measurement and not a person's.
+
+What stays as it was: `location_units` keeps every reading it makes, because
+the depth walk in `close` reads a bare name there and nothing in the three
+rounds found it wrong; the `second` at round 3 was the generator counting a
+landing `landings` should not have accepted, not the depth walk.
+
 ### Out, and why
 
+- **Reading a bare name through what stands beside it.** Three readings in
+  three rounds, each one false for a shape the one before had not met, each
+  one decided from prose — §*What round 3 moved*. The reframe lands a bare
+  name nowhere rather than deciding when it is prose. A reviewer who wants a
+  finding counted writes the path, which `agents/warden.md` already asks for
+  and now says in those words.
+- **Refusing `new` for an open row whose `Location` has no path.** It would
+  make a reviewer's prose a wall at the keyboard and spend the prompt budget
+  the frame set at zero; the row reads `no`, the warden's instruction names
+  the path, and the permissive direction is the one every unplaceable
+  landing already takes.
 - **A `Changed units` row.** `new` runs on the branch where `close` ran, so
   both ends of the previous `Fix range` resolve and the changed units are
   derived from git at the moment they are needed. A row would be a second
@@ -202,7 +254,8 @@ are re-read into the fragment with `evidence-check --reverify --into`.
 | S2 — the first landing | Given the same, when round K's report has an open 🟡 at `path:line` inside `u`, then the row reads `first — 🟡 N at path#u, a unit round-<K-1>'s fixes changed`, `new` prints nothing about a stop, and exit is the checker's | planted repository; the case seen red against the generator without the derivation |
 | S3 — the second landing stops | Given round K-1 reads `first`, when round K's report lands again, then the row reads `second — …; the fix passes stop here and the work item goes back to its framer`, `new` prints the stop line naming the finding, the unit, round K-1 and the exit | planted repository; stdout read |
 | S4 — a landing in a new unit | Given round K-1's `New units` names `v`, when round K's open finding is inside `v`, then the row reads `… a unit round-<K-1>'s fixes added` | planted repository |
-| S5 — what does not land | A `Location` in a `.md` file, at module level, in a unit the range only re-commented (AST equal), or unresolvable; a `Fix range` of zero commits; a ⬜ row already closed in the report — each leaves the row at `no` | planted repository, one parameter per shape |
+| S5 — what does not land | A `Location` in a `.md` file, at module level, in a unit the range only re-commented (AST equal), or unresolvable; a `Fix range` of zero commits; a ⬜ row already closed in the report — each leaves the row at `no`. **After the reframe**, so does a backticked or bare identifier with no path, whatever stands beside it: alone (`` `u` ``, `` `u()` ``), beside a `.md` file, beside a `.py` file the range did not touch, beside a tracked file of any kind, beside a basename the tree holds twice, beside a path the tree does not hold, beside a quoted path or one followed by an apostrophe | planted repository, one parameter per shape; the alone shape and round 3's three shapes seen red against `round_record.py` at round 3's target `6ceb7d46`, where each reads `first` |
+| S5b — what still lands | `` `mod.py:5` ``, `` `mod.py#u` ``, `` `mod.py::u` `` each land in `u` when the range changed it, with or without a tracked file of another kind named in the same cell | planted repository; the cases phase 1 and round 2's fix pass planted, kept |
 | S6 — the unresolvable range | Given round K-1's `Fix range` names commits this tree does not carry, when `new` runs, then it refuses at exit 2 naming the range, and nothing is written | planted repository with the range typed |
 | S7 — no record after the stop without a reframe | Given round K reads `second`, when `new` is asked for round K+1 and `spec.md`'s foot carries no `Reframed … after round K` line, then exit 2, nothing written, the line named; with the line, the record is written and its row reads `no` even if a finding lands in round K's units (round K wrote no fixes) | planted repository, both arms |
 | S8 — the gate on the row | `chain_check.py`: absent row fails at or after `REFRAME_FROM` and prints before it; empty, bare `first`/`second`, or a fourth word fails at any age | planted repository, exit code read directly (§1) |
@@ -229,7 +282,12 @@ are re-read into the fragment with `evidence-check --reverify --into`.
 - **Generator**: `landings(reader, root, target, report_rows, previous)` in
   `round_record.py` deriving the row; `build` writes it; `new` prints the stop
   and refuses after an unreframed `second`; `floor_and_fixes` and
-  `earlier_records`' callers read the current run.
+  `earlier_records`' callers read the current run. **After the reframe**
+  `landings` keeps, of the pairs `location_units` returns, only those with a
+  path, and the tree loses `names_a_file`, `range_carriers`, `CELL_WORD_RE`
+  and `PATH_TAIL_RE` in `round_record.py` and `TRACKED_FILES` with the four
+  bare-name cases in `tests/test_a_fix_of_a_fix_is_counted.py`, replaced by
+  S5's one parametrized case and S5b's.
 - **The foot of `spec.md`**: `Framed <date> by <who>, before the build.` then
   zero or more `Reframed <date> by <who>, after round <N>.` lines.
 - **Verdict home** `deferred the frame` — no new word; `deferred <home>`
@@ -252,3 +310,4 @@ The judgments the tree answered and the three rows it could not are in
 `questions.md`.
 
 Framed 2026-10-06 by framer, before the build.
+Reframed 2026-10-06 by framer, after round 3.
