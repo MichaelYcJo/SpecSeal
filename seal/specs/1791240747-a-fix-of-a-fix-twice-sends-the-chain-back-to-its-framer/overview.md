@@ -24,7 +24,7 @@ A fix pass whose fix is itself the next round's finding, twice in one run, now s
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the typecheck over the branch | the sealer, once the review rounds settle |
-| ✅ Whether 18 of 57 work items is the stop rate wanted, against the hunk grain's 10 that misses #801 (`questions.md` Q4) | settled by round 1's reviewer, sample of 11 stops opened: 10 real, 1 borderline, 0 false; over all four tags their replay stops 26 of 64; the function grain stays (`questions.md` Q4) |
+| ✅ Whether 18 of 57 work items is the stop rate wanted, against the hunk grain's 10 that misses #801 (`questions.md` Q4) | decided by the orchestrator at round 1, under the `automation` answer by which the repository owner delegated the run's decisions: the function grain stays at two. The evidence is round 1's reviewer's sample — 11 stops opened, 10 real, 1 borderline, 0 false — and their replay, 26 of 64 over all four tags; the sample answered whether the stops are real, and the reviewer left the rate itself the owner's call (`questions.md` Q4; corrected by round 2's ⬜ 4) |
 | ✅ The 23 records at `v0.18.1` and `v0.18.2` whose fix ranges this clone does not carry, so the replay read none of them | resolved by round 1's reviewer with `refs/pull/*/head` fetched in a scratch clone: 119 of 122 records resolve, and five more work items reach `second`, all at round 3 (`questions.md` Q1's correction) |
 | A real stop end to end — the orchestrator closing on `deferred the frame`, labelling `chain: reframed`, re-spawning the framer and resuming — has run only as planted repositories | the orchestrator, at the first `second` a run writes |
 
