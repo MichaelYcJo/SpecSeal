@@ -686,16 +686,14 @@ an unbounded domain the arrow's limit declines.
 
 `round_record.py new` writes this row on every record, between `New units` and
 `Needs a fix`. An open finding of round K **lands** when its `Location`
-resolves, at round K's `Target SHA` and through the readings the depth walk
-makes, to a top-level Python unit that round K-1's `Fix range` added or changed
-— present at both ends with a different `ast.dump`, so a re-commented unit has
-not changed. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and nor do
-a prose file, a module-level line, a `Location` nothing places, a file only the
-diff-line heuristic reads, and a range of no commits. A cell naming a file the
-tree tracks, with or without `:line`, is about that file: a name beside it lands
-only through a `.py` path, and a bare name only where exactly one file the range
-touched defines it at the target. A range whose ends this tree cannot resolve
-refuses `new` at exit 2 while any row owing a fix is open, wherever it points.
+carries a `.py` path — `path:line`, `path#unit`, `path::unit` — that resolves,
+at round K's `Target SHA`, to a top-level unit round K-1's `Fix range` added or
+changed: present at both ends with a different `ast.dump`, so a re-commented
+unit has not changed. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and
+nor do a name with no `.py` path, whatever stands beside it, a module-level
+line, a `Location` nothing places, a file only the diff-line heuristic reads,
+and a range of no commits. A range whose ends this tree cannot resolve refuses
+`new` at exit 2 while any row owing a fix is open, wherever it points.
 
 | The value | When |
 |---|---|

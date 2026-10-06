@@ -281,8 +281,10 @@ following a floor the stopped run had met, and a unit the stopped run added is
 no depth-1 parent of the redesign's units.
 
 What it cannot see, stated rather than left to be found: a landing it cannot
-place counts as none — a prose file, a module-level line, a `Location` nothing
-resolves. And the grain is the top-level unit, so two unrelated findings in one
+place counts as none: an identifier the cell gives without its `.py` file, a
+line outside every unit, a cell that resolves to nothing. It reads no prose to
+decide which name in a cell is the place; the `.py` path the `Location`
+carries is the place. And the grain is the top-level unit, so two unrelated findings in one
 long function read as a fix of a fix; the row names the unit, so a reader can
 see that it happened.
 

@@ -165,13 +165,11 @@ def test_a_finding_inside_a_unit_the_fixes_changed_reads_first(repo):
     assert "the fix passes stop here" not in out, out
 
 
-@pytest.mark.parametrize(
-    "location",
-    ["`mod.py#u`", "`mod.py::u`", "`u`", "`u()`"],
-)
-def test_every_location_shape_the_depth_walk_reads_lands(repo, location):
-    """The readings `location_units` already makes, all four of them: a
-    `Location` the depth walk can place is one this reading places too."""
+@pytest.mark.parametrize("location", ["`mod.py#u`", "`mod.py::u`"])
+def test_every_location_shape_that_carries_its_path_lands(repo, location):
+    """The path-carrying readings `location_units` makes beside `path:line`.
+    The two name-only readings it also makes (`` `u` ``, `` `u()` ``) land
+    nowhere since the reframe after round 3, and are S5's."""
     code, out, text, _ = two_rounds(repo, location)
     assert code != 2, out
     assert row(text).startswith("first — 🟡 1 at mod.py#u"), (row(text), out)
@@ -240,6 +238,26 @@ def test_a_finding_inside_a_unit_the_fixes_added_says_added(repo):
 # --- S5, what does not land -------------------------------------------------
 
 
+# Files of every kind the three rounds named beside a code name: an
+# extensionless wrapper, a `.cmd`, a `Makefile`, an `.html`, and one basename
+# the tree holds twice. `gone.md` is deliberately NOT here: it is the path the
+# tree does not hold.
+NAMED_FILES = (
+    "bin/tool",
+    "bin/tool.cmd",
+    "Makefile",
+    "hooks/x.html",
+    "docs/a/SKILL.md",
+    "docs/b/SKILL.md",
+)
+
+
+def with_named_files(repo):
+    for rel in NAMED_FILES:
+        write(repo, rel, "u\nu\n")
+    commit(repo, "the files the cells name")
+
+
 @pytest.mark.parametrize(
     "location",
     [
@@ -251,89 +269,59 @@ def test_a_finding_inside_a_unit_the_fixes_added_says_added(repo):
         "`mod.py#v`",
         # A path this tree does not carry.
         "`nowhere.py:3`",
-        # Round 1's 🟡 1: a prose file whose sentence names the unit the fixes
-        # changed, and one naming the unit they added.
+        # A name with no path, alone — the reframe after round 3.
+        "`u`",
+        "`u()`",
+        "`w`",
+        # Round 1's 🟡 1: beside a `.md` file, naming a unit the fixes changed
+        # and one they added.
         "`README.md:1`, which describes `u`",
         "`README.md`, the sentence about `w()`",
-        # The same beside a `.py` file the range did not touch.
+        # Beside a `.py` file the range did not touch.
         "`f.py:1`, called from `u`",
+        # Round 2's 🟡 2: beside a tracked file of any kind, with or without a
+        # line, in a code span or outside one.
+        "`bin/tool`, which calls `u`",
+        "`bin/tool.cmd`, which calls `u`",
+        "`Makefile`, the target that runs `u`",
+        "`hooks/x.html`, which names `u`",
+        "`bin/tool:2`, which calls `u`",
+        "bin/tool, which calls `u`",
+        # Round 3's 🟡 1: beside a basename the tree holds twice, a path the
+        # tree does not hold, a quoted path, and a path before an apostrophe.
+        "`SKILL.md` §*X*, which names `u`",
+        "`gone.md`, which names `u`",
+        '"bin/tool" calls `u`',
+        "bin/tool's `u`",
     ],
 )
 def test_a_location_that_lands_in_no_written_unit_reads_no(repo, location):
+    """S5. Since the reframe after round 3 a finding lands only through a
+    `.py` path its own `Location` carries, so every shape the three rounds
+    met with a name and no such path reads `no`, whatever stands beside it."""
+    with_named_files(repo)
     code, out, text, _ = two_rounds(repo, location)
     assert code != 2, out
     assert row(text) == "no", (location, row(text))
-
-
-def test_a_bare_name_two_files_of_the_range_carry_does_not_land(repo):
-    """Round 1's 🟡 1, its other half: a bare name lands only where it
-    resolves to one file of the range. Here round 1's fix changes `u` in
-    `mod.py` and adds another `u` in `other.py`."""
-    declared(repo)
-    _code, _out, _text, a = a_round(repo, 1, ROUND_1)
-    write(repo, "other.py", "def u():\n    return 0\n")
-    fixed(repo, 1, a, MOD_FIXED, [1])
-    code, out, text, _ = a_round(repo, 2, finding("`u`"))
-    assert code != 2, out
-    assert row(text) == "no", row(text)
-
-
-def test_a_bare_name_a_touched_file_carries_unchanged_does_not_land(repo):
-    """Round 2's 🟡 1: `other.py` is touched by round 1's fix and carries a
-    `u` the fix left alone, so a bare `u` names either file. The count is of
-    every touched file defining the name at the target, changed or not."""
-    declared(repo)
-    write(repo, "other.py", "def u():\n    return 0\n\n\ndef z():\n    return 1\n")
-    commit(repo, "other.py")
-    _code, _out, _text, a = a_round(repo, 1, ROUND_1)
-    write(repo, "other.py", "def u():\n    return 0\n\n\ndef z():\n    return 2\n")
-    fixed(repo, 1, a, MOD_FIXED, [1])
-    code, out, text, _ = a_round(repo, 2, finding("`u`"))
-    assert code != 2, out
-    assert row(text) == "no", row(text)
-
-
-TRACKED_FILES = ("bin/tool", "bin/tool.cmd", "Makefile", "hooks/x.html")
 
 
 @pytest.mark.parametrize(
     "location",
     [
-        # An extensionless tracked file, as `bin/` wrappers are.
-        "`bin/tool`, which calls `u`",
-        # A `.cmd` wrapper.
-        "`bin/tool.cmd`, which calls `u`",
-        # A tracked file with no directory and no extension.
-        "`Makefile`, the target that runs `u`",
-        # An extension no list carried.
-        "`hooks/x.html`, which names `u`",
-        # A tracked path with `:line`, and one written outside a code span.
-        "`bin/tool:2`, which calls `u`",
-        "bin/tool, which calls `u`",
+        "`mod.py:5`",
+        "`mod.py#u`",
+        "`mod.py::u`",
+        "`mod.py:5`, called from `bin/tool`",
+        "`mod.py#u`, as `README.md` describes",
     ],
 )
-def test_a_name_beside_a_tracked_file_of_any_kind_does_not_land(repo, location):
-    """Round 2's 🟡 2, and the class: whether a cell names a file is asked of
-    the tree, not guessed from an extension. Every one of these is tracked,
-    so the cell is about that file and its backticked name is prose."""
-    for rel in TRACKED_FILES:
-        write(repo, rel, "u\nu\n")
-    commit(repo, "the files the cells name")
+def test_a_location_carrying_its_py_path_still_lands(repo, location):
+    """S5b. A `.py` path in the `Location` is the reading that stays, with or
+    without a tracked file of another kind named in the same cell."""
+    with_named_files(repo)
     code, out, text, _ = two_rounds(repo, location)
     assert code != 2, out
-    assert row(text) == "no", (location, row(text))
-
-
-def test_a_name_beside_a_tracked_py_file_lands_only_through_it(repo):
-    """The other half of the tracked-path test: a cell naming `mod.py` by a
-    line lands there, and a tracked non-Python file named in the same cell
-    does not move it."""
-    for rel in TRACKED_FILES:
-        write(repo, rel, "u\nu\n")
-    commit(repo, "the files the cells name")
-    code, out, text, _ = two_rounds(repo, "`mod.py:5`, called from `bin/tool`")
-    assert code != 2, out
-    assert row(text).startswith("first — 🟡 1 at mod.py#u"), row(text)
+    assert row(text).startswith("first — 🟡 1 at mod.py#u"), (location, row(text))
 
 
 def test_a_finding_the_report_already_closed_does_not_land(repo):
