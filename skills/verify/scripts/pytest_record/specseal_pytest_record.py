@@ -110,13 +110,20 @@ class Recorder:
     def write(self, line):
         if self.stream is None:
             return
-        if line.get("kind") == "test" and not os.path.isfile(line["path"]):
-            # pytest gives a test the node id of its module's file, unless a
-            # collector it did not reach through an argument or the rootdir
-            # holds it -- one a conftest or a plugin built for a path no
-            # argument contains. Its node id is then the parent's and a `::`
-            # name, and its path no file: not the test's module. The whole
-            # record is abandoned, the strict side (#825 round 2).
+        kind, path = line.get("kind"), line.get("path")
+        empty = os.path.normpath(str(path)) == os.path.normpath(self.rootdir)
+        if (kind == "test" and not os.path.isfile(path)) or (
+            kind == "collect" and empty
+        ):
+            # pytest gives a test the node id of its module's file. Where the
+            # module lies outside the rootdir and is itself the argument that
+            # reached it, that node id's path is empty and names the rootdir;
+            # where a collector a conftest or a plugin built for a path no
+            # argument contains holds it, the node id is the parent's and a
+            # `::` name. Either way the path is no test file, and a failed
+            # collection's carries no test line to show it but the rootdir
+            # itself. The whole record is abandoned, the strict side (#825
+            # round 2).
             stream, self.stream = self.stream, None
             try:
                 stream.close()
@@ -150,40 +157,46 @@ class Recorder:
     def an_argument_lies_outside_the_rootdir(self):
         """Whether pytest was handed a path outside its rootdir, by pytest's
         own rule: lexical, as its `absolutepath` and `relative_to` are, never
-        through a symlink, and with a `--pyargs` module where pytest finds
-        it. pytest names a file there against the argument that reached it,
-        not against the rootdir, so its node id's path joined to the rootdir
-        names no file of its own (#825 rounds 1 and 2). The argument is split
-        as pytest splits it, at `[` and then at `::`. An argument that is no
-        path and no module pytest can find is passed over: pytest stops on
-        it with a usage error."""
+        through a symlink. pytest names a file there against the argument
+        that reached it, not against the rootdir, so its node id's path
+        joined to the rootdir can name another file (#825 rounds 1 and 2).
+
+        A `--pyargs` package is a directory whose modules pytest names
+        against it, so it is located where pytest's `search_pypath` finds
+        it: the package's directory, or under `consider_namespace_packages`
+        its first search location. An argument whose node id's path is
+        EMPTY -- a module or a file handed by itself, `::` selection or not,
+        a plain `--pyargs` module -- names the rootdir itself, which is no
+        test file, and `write` abandons that record, so nothing here reads
+        it. An argument that is no path and no module pytest can find is
+        passed over: pytest stops on it with a usage error."""
         root = os.path.abspath(self.rootdir)
         here = _invocation_dir(self.config)
         option = getattr(self.config, "option", None)
         pyargs = bool(getattr(option, "pyargs", False))
+        namespaces = False
+        if pyargs:
+            try:
+                namespaces = bool(self.config.getini("consider_namespace_packages"))
+            except (KeyError, ValueError):
+                namespaces = False
         for argument in getattr(self.config, "args", None) or ():
-            name = str(argument).partition("[")[0].split("::")[0]
+            name = str(argument)
             located = None
             if pyargs:
-                # Where pytest's `search_pypath` finds the module: a module's
-                # file, a package's directory, or nothing, and then pytest
-                # reads the argument as a path. `find_spec` imports a dotted
-                # name's parent packages, which pytest's own collection does
-                # next.
+                # `find_spec` imports a dotted name's parent packages, which
+                # pytest's own collection does next.
                 import importlib.util
 
                 try:
                     spec = importlib.util.find_spec(name)
                 except Exception:
                     spec = None
-                if spec is not None:
-                    places = list(spec.submodule_search_locations or ())
-                    if not places:
-                        located = spec.origin
-                    elif spec.origin is None or spec.origin == "namespace":
-                        located = places[0]
-                    else:
-                        located = os.path.dirname(spec.origin)
+                places = list(getattr(spec, "submodule_search_locations", None) or ())
+                if places and namespaces:
+                    located = places[0]
+                elif places and spec.origin not in (None, "namespace"):
+                    located = os.path.dirname(spec.origin)
             path = os.path.abspath(os.path.join(here, located or name))
             if not os.path.exists(path):
                 continue

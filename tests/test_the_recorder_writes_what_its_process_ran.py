@@ -372,6 +372,9 @@ def test_a_pyargs_module_outside_the_rootdir_writes_no_record(tmp_path):
     named another file."""
     root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    # The file the misnamed record would name, so only the refusal stands
+    # between this run and a record under another file's name.
+    (root / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
     package = tmp_path / "site" / "extpkg"
     package.mkdir(parents=True)
     (package / "__init__.py").write_text("", encoding="utf-8")
@@ -383,6 +386,45 @@ def test_a_pyargs_module_outside_the_rootdir_writes_no_record(tmp_path):
     assert records_written(records) == [], records_of(records)
 
 
+def test_a_namespace_package_outside_the_rootdir_writes_no_record(tmp_path):
+    """#825 round 2. Under `consider_namespace_packages` pytest's
+    `search_pypath` locates a `--pyargs` namespace package at its first
+    search location, outside the rootdir here, and names its modules against
+    it; `test_mixed.py` is the name a file at the rootdir has."""
+    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
+    (root / "pytest.ini").write_text(
+        "[pytest]\nconsider_namespace_packages = true\n", encoding="utf-8"
+    )
+    (root / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
+    package = tmp_path / "site" / "nspkg"
+    package.mkdir(parents=True)
+    (package / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
+    env = recording_env(records)
+    env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(tmp_path / "site")])
+    result = pytest_in(root, env, "--pyargs", "nspkg")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert records_written(records) == [], records_of(records)
+
+
+def test_a_pyargs_module_outside_that_cannot_be_collected_writes_no_record(
+    tmp_path,
+):
+    """#825 round 2. A plain `--pyargs` module outside the rootdir is its
+    own initial path, so pytest gives it an empty node id, and a failed
+    collection of it carries no test line: its `collect` line names the
+    rootdir itself, and that abandons the record."""
+    root, records = project(tmp_path, {})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "extbroken.py").write_text("import no_such_module\n", encoding="utf-8")
+    env = recording_env(records)
+    env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(site)])
+    result = pytest_in(root, env, "--pyargs", "extbroken")
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert records_written(records) == [], records_of(records)
+
+
 @pytest.mark.skipif(os.name == "nt", reason="a symlink needs privileges on Windows")
 def test_a_rootdir_named_through_a_symlink_writes_no_record(tmp_path):
     """#825 round 2. pytest compares a path with its rootdir lexically, so a
@@ -391,6 +433,9 @@ def test_a_rootdir_named_through_a_symlink_writes_no_record(tmp_path):
     called it inside."""
     root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    # The file the misnamed record would name, so only the refusal stands
+    # between this run and a record under another file's name.
+    (root / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
     link = tmp_path / "link"
     link.symlink_to(root, target_is_directory=True)
     result = pytest_in(root, recording_env(records), "--rootdir", str(link), "tests")
@@ -406,6 +451,9 @@ def test_an_argument_named_through_a_symlink_writes_no_record(tmp_path):
     `tests/test_mixed.py` `test_mixed.py`."""
     root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    # The file the misnamed record would name, so only the refusal stands
+    # between this run and a record under another file's name.
+    (root / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
     link = tmp_path / "link"
     link.symlink_to(root, target_is_directory=True)
     result = pytest_in(
