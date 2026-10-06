@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #828 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-5 |
 | Fix range | `2e211cc65602884f5e2443abc0ceac3fb06273d5..23c230fe9b88653a7dc2ccf2876ed25de7d57949`, 3 commits |
 | Contract changes | location_units → 1791240747-a-fix-of-a-fix-twice-sends-the-chain-back-to-its-framer.md, round-1-report.md, round-1.md, round-2-report.md, round-2.md, round-4-report.md, round-4.md, landings, depth_two |
 | New units | PATH_FORM_RE (depth 1); CODE_SPAN_RE (depth 1); CLAUSE_END (depth 1); path_forms (depth 1) |
