@@ -1204,6 +1204,51 @@ def _policy_text():
         return " ".join(f.read().split())
 
 
+def test_the_guard_policy_says_which_shapes_reach_the_rows_and_who_reads_the_stop():
+    """S12 of work item 1791270162, §14 of the agent contract: §A names the
+    three shapes, the stop's two readers and its failure direction, in the
+    sentences a person reads to learn when the guard stops. Red against the
+    policy as it stood at `9c03ae85`."""
+    text = _policy_text()
+    for sentence in (
+        "The guard does not predict whether a command switches a branch.",
+        "A listed shape is silent in every tree state and spawns no git.",
+        "**a switch** — `git switch`, whatever its words.",
+        "In a clean tree nobody else is in, row 5 says nothing of a switch, "
+        "and nothing is said of a shape that might be one.",
+        "it is a `deny` to the model, which rewrites in the plain spelling "
+        "and meets the rows above on the retry, and no person is asked.",
+        "so the stop is a `deny` whoever is at the keyboard.",
+        "The consent record is never read for the stop",
+        "**The failure direction.** The guard stops more than it did",
+    ):
+        assert sentence in text, sentence
+
+
+def test_the_guard_policy_says_nothing_is_read_past_the_base():
+    """S12 of work item 1791270162: §*Which tree* keeps the frozen reading's
+    paragraphs, says nothing is read past the base's words and why the
+    readings left, and §*Known limits* holds the new limits and none of the
+    removed ones. Red against the policy as it stood at `9c03ae85`."""
+    text = _policy_text()
+    assert "Nothing is read past the base's words since #826" in text
+    assert "left with #826" in text
+    for limit in (
+        "A git subcommand this repository never ran",
+        "A creation only a hidden spelling holds",
+        "A `rebase` is listed, and detaches HEAD while it runs",
+        "every unrecognised shape stops there, in every tree",
+    ):
+        assert limit in text, limit
+    for gone in (
+        "Two rules are read past the base.",
+        "options are read from a static table",
+        "name is looked up as git resolves it (§*Which tree*)",
+        "the guard asks wherever a view's words hold a switch",
+    ):
+        assert gone not in text, gone
+
+
 def test_a_hidden_switch_behind_a_judged_one_adds_no_question(
     monkeypatch, capsys, repo
 ):
