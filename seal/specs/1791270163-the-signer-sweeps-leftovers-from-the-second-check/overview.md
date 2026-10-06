@@ -23,7 +23,7 @@ The second post-review check of #830 left four leftovers open; after this work a
 |---|---|
 | The broad gate: the full suite, the repository-wide lint and the typecheck | the sealer, once after the review rounds settle; `routing.md` was answered again as `automation` (`through the review chain`, `open the pull request`), so no segment before it runs any of the three |
 | ✅ `correction-check` over the range: no correction marker dropped at a merge, and no released ledger file changed under `Ledger frozen from` | executed 2026-10-06 by smith over `a9d7b0e..944ad17`, exit 0 (no merge commit in the range; no released ledger file changed); CI runs it again at the pull request |
-| `survivor-check` over the range | each review round's fix pass, over that pass's fix range (`agents/smith.md` §*Phases*, item 3); round 1's fix pass ran it over its whole fix range from `5bc0a48f`, exit 0, no removed wording still standing, and a later round's fixes take their own run |
+| `survivor-check` over the range | each review round's fix pass, over that pass's fix range (`agents/smith.md` §*Phases*, item 3); round 1's fix pass ran it over its whole fix range from `5bc0a48f`: three places still carry the wording it removed, each excused in `survivors.md` with a quote and grounds, and it exits 0 only with that file as its exemption; a later round's fixes take their own run |
 
 ## Not done
 
