@@ -12,10 +12,11 @@
   moves again, its own line or a row naming it back, is left at the hash it
   recorded and named on a `LEFT` line saying it does not settle, and the run
   exits 1; it used to be re-stamped once, to a hash that drifted at once.
-  The run leaves such a coordinate the round it rewrites its own row a
-  second time, so one self-quoting row beside hundreds of citations costs
-  seconds rather than minutes, and a row that only names the cycle is still
-  re-stamped in the same run.
+  From the second round on, the run leaves such a coordinate the first
+  round that rewrites its own row, so one self-quoting row beside hundreds
+  of citations costs seconds rather than minutes; a row that only names the
+  cycle is still re-stamped in the same run, and a loop through a row
+  `--checked` leaves whole is no cycle.
 
 - `--reverify` reads a coordinate the way `--strict` does (#809, #824). A
   claim on a place the declaration rule is unsure of, which the check calls

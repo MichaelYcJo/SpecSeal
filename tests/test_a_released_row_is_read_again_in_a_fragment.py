@@ -3646,8 +3646,9 @@ def test_a_family_no_remedy_clears_is_named_without_one(repo):
         ),
         (
             "skills/evidence-check/scripts/evidence_check.py",
-            "One whose own row a round rewrites again, on a cycle of coordinates "
-            "each with a hash to write, is left from the second round of a pass;",
+            "From the second round of a pass, one whose own row that round "
+            "rewrote, on a cycle of coordinates each with a hash to write on a row "
+            "a re-stamp rewrites, is left;",
         ),
         (
             "skills/evidence-check/scripts/evidence_check.py",
@@ -4480,3 +4481,59 @@ def test_a_coordinate_whose_statement_is_gone_breaks_a_cycle(repo):
     assert "does not settle" not in fix.stdout, fix.stdout
     lines = (repo / R_FILE).read_text(encoding="utf-8").splitlines()
     assert f"`{a_names}@{line_hash(lines[5])}`" in lines[4], (lines, fix.stdout)
+
+
+# --- round 2 of #824's review ------------------------------------------------
+
+
+def test_a_cycle_through_a_row_left_whole_is_no_cycle(repo):
+    """Round 2, yellow 1. S quotes L's line at a stale hash, K quotes S's,
+    and L -- four cells, no date cell -- quotes K's. Under `--checked` L's
+    row is left whole, so its line never moves and the naming S, K, L is no
+    cycle: S and K are re-stamped, L is named as left whole, and nothing is
+    named `does not settle`. Red at 2d04e341, which left K at its stale hash
+    as a row that does not settle."""
+
+    def names(label):
+        return f'{R_FILE}#"{SECTION}">"\\| {label}"'
+
+    s = f"| S · names L | `{names('L · names')}@0000beef` | read | 2026-01-01 | |"
+    k = f"| K · names S | `{names('S · names')}@{line_hash(s)}` | read | 2026-01-01 | |"
+    whole = (
+        f"| L · names K | `{names('K · names')}@{line_hash(k)}` | read | 2026-01-01 |"
+    )
+    released(repo, [s, k, whole])
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert "does not settle" not in fix.stdout, fix.stdout
+    assert f"  LEFT  {R_FILE}:7  its hash moved and the row has no date cell" in (
+        fix.stdout
+    )
+    lines = (repo / R_FILE).read_text(encoding="utf-8").splitlines()
+    assert f"@{line_hash(lines[4])}`" in lines[5], (lines, fix.stdout)
+
+
+def test_two_citing_rows_sharing_a_citation_are_named_each_in_its_own_verb(repo):
+    """Round 2, yellow 2. A `Re-read ·` and a `Corrected ·` row carry one
+    citation of a file that is no released ledger. `--strict` names each in
+    its own row's verb, and `--reverify` names each `left` in the same words.
+    Red at 2d04e341, whose memo of a citation's reading kept the first row's
+    verb."""
+    (repo / "docs").mkdir()
+    (repo / "docs" / "x.md").write_text("## H\n\nfoo bar\n", encoding="utf-8")
+    h = unit_hash(repo, "src/service.py", "handler")
+    cite = 'docs/x.md#"## H">"foo"@00000000'
+    fragment(
+        repo,
+        [
+            f"| Re-read · one | `{cite}`, `src/service.py#handler@{h}` | read "
+            "| 2026-02-01 | Re-read 2026-02-01 |",
+            f"| Corrected · two | `{cite}`, `src/service.py#handler@{h}` | read "
+            "| 2026-02-01 | Corrected 2026-02-01 |",
+        ],
+    )
+    check = run(["--strict", "."], repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    for verb in ("Re-read", "Corrected"):
+        said = f"a `{verb} ·` row's first coordinate names a row"
+        assert said in check.stdout, (verb, check.stdout)
+        assert said in fix.stdout, (verb, fix.stdout)

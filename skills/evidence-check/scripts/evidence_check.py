@@ -3393,9 +3393,10 @@ def reverify(
 
     **A coordinate that does not settle is left at the hash its row
     recorded**: a row quoting its own line, or rows quoting each other, so
-    that every re-stamp moves the text it names again. One whose own row a
-    round rewrites again, on a cycle of coordinates each with a hash to
-    write, is left from the second round of a pass; any other still
+    that every re-stamp moves the text it names again. From the second round
+    of a pass, one whose own row that round rewrote, on a cycle of
+    coordinates each with a hash to write on a row a re-stamp rewrites, is
+    left; any other still
     moving after as many rounds as there are coordinates naming a ledger
     line, plus two, is left where it is on a cycle. The rest are recomputed,
     and each one left is named on a `LEFT` line saying it does not settle.
@@ -3599,7 +3600,15 @@ def reverify(
             if spot.target in writes:
                 dynamic.append(spot)
                 continue
-            index = (coordinate_of(spot.m), spot.m.group("hash"), spot.citation)
+            # The key is every input of the reading: a citation's sentence
+            # names its row's verb, so two citing rows share one reading only
+            # where they share the verb too (round 2 of #824, yellow 2).
+            verb = (
+                citing_verb(ledger.rows.get(spot.number, (None, []))[1])
+                if spot.citation
+                else None
+            )
+            index = (coordinate_of(spot.m), spot.m.group("hash"), spot.citation, verb)
             if index not in memo:
                 memo[index] = verdict_of(spot, on_disk)
             static[spot.key] = memo[index]
@@ -3638,6 +3647,18 @@ def reverify(
             for ledger in parsed
         }
 
+    def rewrites(key):
+        """Whether a re-stamp of KEY rewrites its row: not where `--checked`
+        leaves the row whole for want of a date cell. Such a row breaks a
+        cycle as a member with no hash to write does: its line never moves by
+        a hash, so a loop through it propagates nothing (round 2 of #824,
+        yellow 1)."""
+        spot = by_key[key]
+        header, cells = parsed[spot.key[0]].rows.get(spot.number, (None, []))
+        return checked is None or (
+            bool(cells) and date_column(header, cells) is not None
+        )
+
     texts = {ledger.home: ledger.text for ledger in parsed}
     pinned, earlier, changed = set(), {}, set(texts)
     while True:
@@ -3665,16 +3686,18 @@ def reverify(
                 break
             if step:
                 # From a pass's second round on, a coordinate whose own row
-                # this round rewrote again, on a cycle of coordinates each with
-                # a hash to write, cannot settle: each move of one moves the
-                # next, back to itself. Waiting for the bound would judge
-                # every coordinate of its file once per coordinate the run
-                # carries (round 1 of #824, yellow 2). A member with no hash
-                # to write, a statement gone, rewrites nothing and breaks the
-                # cycle, so the naming passes only through ones that have
-                # one. A row `--checked` leaves whole never changes by a hash,
-                # so a coordinate naming it never moves twice and is never
-                # here.
+                # that round rewrote, on a cycle of coordinates each with a
+                # hash to write on a row a re-stamp rewrites, cannot settle:
+                # each move of one moves the next, back to itself. Waiting for
+                # the bound would judge every coordinate of its file once per
+                # coordinate the run carries (round 1 of #824, yellow 2).
+                # This predicts a cycle from the naming, so the naming passes
+                # only through members that can carry a move on: a member with
+                # no hash to write, a statement gone, rewrites nothing, and a
+                # row `--checked` leaves whole never changes by a hash, so a
+                # loop through either is no cycle (round 2, yellow 1). The
+                # bound's leaving below predicts nothing: what it leaves is
+                # still moving.
                 old = {home: gfm_lines(before[home]) for home in changed}
                 new = {home: gfm_lines(texts[home]) for home in changed}
                 rewrote = {
@@ -3688,7 +3711,9 @@ def reverify(
                     through = {
                         key
                         for key in by_key
-                        if verdicts[key] is not None and verdicts[key].now is not None
+                        if verdicts[key] is not None
+                        and verdicts[key].now is not None
+                        and rewrites(key)
                     }
                     looping = on_a_cycle(rewrote, by_key, verdicts, through)
                 if looping:

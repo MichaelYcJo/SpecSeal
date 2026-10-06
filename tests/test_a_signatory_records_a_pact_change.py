@@ -2355,7 +2355,10 @@ def _two_moved_fragments(top):
 def test_the_record_is_the_same_bytes_in_any_ledger_order(tmp_path):
     """Round 1, white 5, and S4: the pact-change record is a file the run
     writes, so its bytes do not depend on the order `--ledger` names the
-    ledgers in. Red at ca467185, which wrote its rows in that order."""
+    ledgers in. Green at e6d5a055 and ca467185 alike: `resolve_patterns`
+    returns the ledgers sorted, so no `--ledger` order reaches `reverify`. Red
+    with `return sorted(out)` in `resolve_patterns` replaced by `return out`,
+    the one guard this pins (round 2, white 4)."""
     records = []
     for n, flip in enumerate((False, True)):
         top = tmp_path / f"run{n}"
@@ -2368,3 +2371,16 @@ def test_the_record_is_the_same_bytes_in_any_ledger_order(tmp_path):
         assert code == 0, out
         records.append((top / RECORD).read_bytes())
     assert records[0] == records[1], records
+
+
+def test_a_coordinate_that_does_not_settle_records_no_pact_change(repo):
+    """Round 2, yellow 3. A row citing a clause beside a coordinate quoting
+    its own line: the run names it `does not settle` and records nothing,
+    because one place holds what it names and nothing is known gone. Red with
+    the unsettled arm of `plan_ledger` handing MOVES a BROKEN part, as
+    ca467185 did."""
+    coord = f'{FRAGMENT}#"### sec">"\\| O1 · the field"@0000beef'
+    cite(repo, ["### sec\n\n", row("O1", f"`{CLAUSE}`, ", coord)])
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1 and "does not settle" in out, out
+    assert record_rows(repo) == [], out
