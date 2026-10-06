@@ -2035,6 +2035,10 @@ NOT_REACHED = (
 )
 
 
+# Where the scratch worktree at the base could not be added.
+NOT_CHECKED_OUT = f"{NEW}? the base could not be checked out for comparison"
+
+
 def base_word(record, code, path):
     """The word `path` reads from the base's `RunRecord` and the exit of the
     run that wrote it — the five rows of `compare_at_base`'s table."""
@@ -2094,9 +2098,7 @@ def compare_at_base(root, base, command, files, keep):
         # The worktree that was not added still leaves the directory
         # `mkdtemp` made, and nothing below runs to remove it.
         shutil.rmtree(scratch, ignore_errors=True)
-        return {
-            f: f"{NEW}? the base could not be checked out for comparison" for f in files
-        }
+        return {f: NOT_CHECKED_OUT for f in files}
     try:
         key = record_key("base")
         ran = run(
@@ -2943,10 +2945,16 @@ def failure_lines(check, verdicts=None):
     lines = [f"exit {check.code}", *check.first_lines()]
     if verdicts:
         # Where no pytest at `HEAD` loaded the recorder the base is not run,
-        # and every row says so; the heading does not claim otherwise (#825
-        # round 1).
-        compared = any(word != NO_RECORD_AT_HEAD for word in verdicts.values())
-        lines.append(COMPARED_AT_BASE if compared else NAMED_BY_FAILED_LINES)
+        # and every row says so; nor is it where the base could not be
+        # checked out. The heading does not claim otherwise (#825 rounds 1
+        # and 2).
+        words = set(verdicts.values())
+        if words == {NO_RECORD_AT_HEAD}:
+            lines.append(NAMED_BY_FAILED_LINES)
+        elif words == {NOT_CHECKED_OUT}:
+            lines.append(BASE_NOT_CHECKED_OUT)
+        else:
+            lines.append(COMPARED_AT_BASE)
         lines.extend(f"  {f}  {word}" for f, word in verdicts.items())
     if check.name == SUITE:
         counts = suite_counts(check.text)
@@ -2959,11 +2967,15 @@ def failure_lines(check, verdicts=None):
     return lines
 
 
-# The heading over a failing suite's files: compared at the base, or named by
-# `FAILED` lines alone where no pytest at `HEAD` loaded the recorder.
+# The heading over a failing suite's files: compared at the base, named by
+# `FAILED` lines alone where no pytest at `HEAD` loaded the recorder, or not
+# compared because the base could not be checked out.
 COMPARED_AT_BASE = "failing test files, compared at the base:"
 NAMED_BY_FAILED_LINES = (
     "failing test files, named by FAILED lines; the base was not run:"
+)
+BASE_NOT_CHECKED_OUT = (
+    "failing test files, not compared: the base could not be checked out:"
 )
 
 # The line a failing `suite` gets where its output carries no pytest summary.

@@ -3732,6 +3732,31 @@ def test_a_failure_the_base_shares_is_labelled_failing_on_base_too(tmp_path):
     assert gate.COMPARED_AT_BASE in out.stdout, out.stdout
 
 
+def test_each_failing_files_heading_says_what_was_compared():
+    """#825 rounds 1 and 2 (⬜ 5, ⬜ 3). The failure form heads a failing
+    suite's files `compared at the base` only where the base ran; files
+    named by `FAILED` lines alone, and files whose base could not be checked
+    out, each get the heading their case earns."""
+    gate = gate_module()
+    check = gate.Check(gate.SUITE, 1, "", "suite.txt")
+    cases = {
+        gate.NOT_CHECKED_OUT: gate.BASE_NOT_CHECKED_OUT,
+        gate.NO_RECORD_AT_HEAD: gate.NAMED_BY_FAILED_LINES,
+        gate.ON_BASE: gate.COMPARED_AT_BASE,
+    }
+    for word, heading in cases.items():
+        lines = gate.failure_lines(check, {"tests/test_two.py": word})
+        assert heading in lines, (word, lines)
+        others = set(cases.values()) - {heading}
+        assert not others & set(lines), (word, lines)
+    assert gate.NOT_CHECKED_OUT == (
+        "new? the base could not be checked out for comparison"
+    )
+    assert gate.BASE_NOT_CHECKED_OUT == (
+        "failing test files, not compared: the base could not be checked out:"
+    )
+
+
 def test_the_gate_names_the_row_it_sealed_over(repo, tmp_path):
     """Round 1's 🟡 9. `verify`'s first condition is to name the proving
     command BEFORE running it, and the row is the only part of this run the
