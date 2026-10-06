@@ -848,7 +848,29 @@ def repo(tmp_path, _repo_template):
 # person sets the variable on purpose.
 CASE_CEILING_DEFAULT_S = 90
 CEILING_VARIABLE = "SPECSEAL_CASE_CEILING_S"
-CASE_CEILING_S = int(os.environ.get(CEILING_VARIABLE, str(CASE_CEILING_DEFAULT_S)))
+
+
+def ceiling_from(environ):
+    """The ceiling for this run: Q6's 90 unless `CEILING_VARIABLE` holds a
+    positive number of seconds. An empty value is unset; anything else
+    stops the run with a sentence naming the variable, rather than with
+    `int()`'s traceback."""
+    raw = environ.get(CEILING_VARIABLE, "").strip()
+    if not raw:
+        return CASE_CEILING_DEFAULT_S
+    try:
+        seconds = float(raw)
+    except ValueError:
+        seconds = 0.0
+    if not seconds > 0:
+        raise ValueError(
+            f"{CEILING_VARIABLE}={raw!r} is not a positive number of seconds; "
+            f"unset it for the {CASE_CEILING_DEFAULT_S} s ceiling"
+        )
+    return int(seconds) if seconds.is_integer() else seconds
+
+
+CASE_CEILING_S = ceiling_from(os.environ)
 
 
 def over_the_ceiling(nodeid, seconds):

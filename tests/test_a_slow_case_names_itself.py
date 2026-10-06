@@ -20,6 +20,7 @@ import subprocess
 import sys
 
 import conftest
+import pytest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CONFTEST = os.path.join(ROOT, "tests", "conftest.py")
@@ -76,6 +77,21 @@ def test_the_variable_raises_the_ceiling_for_one_run_and_unset_is_ninety():
     assert conftest.CEILING_VARIABLE == "SPECSEAL_CASE_CEILING_S"
     assert ceiling_read_by_a_fresh_import() == "90"
     assert ceiling_read_by_a_fresh_import(SPECSEAL_CASE_CEILING_S="240") == "240"
+
+
+def test_an_empty_variable_is_unset_and_a_decimal_is_seconds():
+    """Round 2's 🟡 2. An empty value used to stop conftest's import, and a
+    decimal one with it."""
+    assert ceiling_read_by_a_fresh_import(SPECSEAL_CASE_CEILING_S="") == "90"
+    assert ceiling_read_by_a_fresh_import(SPECSEAL_CASE_CEILING_S="120.5") == "120.5"
+
+
+def test_a_ceiling_of_zero_or_less_is_refused_naming_the_variable():
+    """Round 2's 🟡 2. Zero or a negative value used to fail every case,
+    and a word stopped the import with `int()`'s traceback."""
+    for bad in ("0", "-5", "abc"):
+        with pytest.raises(ValueError, match="SPECSEAL_CASE_CEILING_S="):
+            conftest.ceiling_from({"SPECSEAL_CASE_CEILING_S": bad})
 
 
 INNER_CONFTEST = """\

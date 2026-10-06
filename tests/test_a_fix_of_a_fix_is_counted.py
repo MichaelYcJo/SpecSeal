@@ -276,13 +276,16 @@ def with_named_files(repo):
 
 @pytest.fixture(scope="session")
 def _named_and_fixed_once(tmp_path_factory):
-    """The named files, and round 1 with its fix closed, built once.
+    """The named files, and round 1 with its fix closed, built once per
+    session: once in a serial run, and once in each xdist worker that draws
+    one of the cases below.
 
     The 35 location cases below differ only in round 2's `Location`, and
     each used to rebuild everything before it: two generator runs and five
     commits ahead of the one run that is the case. The one case the Windows
-    leg of run 37429940700 put in its top 50 took 9 s (#841). Each claim is about how round 2's record reads
-    its finding, so a copy of the state before round 2 keeps it."""
+    leg of run 37429940700 put in its top 50 took 9 s (#841). Each claim is
+    about how round 2's record reads its finding, so a copy of the state
+    before round 2 keeps it."""
     d = tmp_path_factory.mktemp("fix-of-a-fix-named-and-fixed") / "repo"
     _build(d)
     with_named_files(d)
@@ -498,8 +501,9 @@ def stopped(repo, touched=False):
 
 @pytest.fixture(scope="session")
 def _stopped_untouched(tmp_path_factory):
-    """The stopped run, built once through `new` and `close` exactly as
-    `stopped` drives them, and kept as a template (#841).
+    """The stopped run, built through `new` and `close` exactly as
+    `stopped` drives them and kept as a template (#841): once per session,
+    which under xdist is once in each worker that draws one of its cases.
 
     Five cases start from the same stop and differ only in what comes after
     it. Building the stop is six generator runs and a dozen commits, which
@@ -514,7 +518,8 @@ def _stopped_untouched(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def _stopped_touched(tmp_path_factory):
-    """The same with a code commit inside the stop's range."""
+    """The same with a code commit inside the stop's range, and built the
+    same way: once per session, once in each xdist worker that needs it."""
     d = tmp_path_factory.mktemp("fix-of-a-fix-stopped-touched") / "repo"
     _build(d)
     stopped(d, True)

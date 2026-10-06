@@ -186,14 +186,16 @@ beside the values says which runs they were set from.
 
 `.test_durations` goes stale as cases are added, which unbalances the
 Windows shards and drops no case. To refresh it, push a branch on which
-`test.yml` runs the Windows leg as one job again for a single run: the
+`test.yml` runs the Windows leg as one job again for a single run: one
 Windows entry with `store: "--store-durations"` in place of the four shard
-entries, `${{ matrix.store }}` on the pytest line, and an
+entries, with a `timeout` for the whole leg rather than a shard's 20 (it
+ran 34 minutes unsharded when the file was first made, so 55 by the rule
+beside the values); `${{ matrix.store }}` on the pytest line; and an
 `actions/upload-artifact@v4` step with `path: .test_durations` and
 `include-hidden-files: true` (the name starts with a dot, which the action
-skips by default). Commit 43326715 is that change, and 340dc6fa took it back
-out. Download the artifact with `gh run download <run> -n <artifact>`, make
-its line ends LF, commit it, and restore the shards.
+skips by default). Download the artifact with
+`gh run download <run> -n <artifact>`, make its line ends LF, commit it,
+and restore the shards.
 
 **The suite runs with `gh` logged out, on your machine as on CI.** CI's
 pytest job has no token, so `tests/conftest.py` makes the same true locally
