@@ -2351,8 +2351,17 @@ def shape_of(tokens):
 
 
 def _merged_findings(items):
-    """[(index, finding)] for a git a redirection's `&` cut out of its own
-    segment (`2>&1 git switch x`), read whole by `merged_view`.
+    """[(first, finding, tokens)] for a git a redirection's `&` cut out of its
+    own segment (`2>&1 git switch x`), read whole by `merged_view`.
+
+    FIRST is the index of the group's first part and TOKENS its glued words:
+    the group is one command, run where its first part runs, so its tree is
+    the one its own `-C` names from there, wherever the cut fell. The last
+    part's tokens carry no `-C` (`2>&1 git -C W switch x` ends `1 git -C W
+    switch x`, which neither reading reads as git, and `git -C W worktree
+    &>/dev/null add ../wt b` ends `>/dev/null add ../wt b`), and placing a
+    group by them judged it in the tree it was typed from (round 2 of work
+    item 1791270162, red 2).
 
     A group with a part the frozen reading reads as git is that part's where
     the part is a switch, a creation or unrecognised: `git checkout .
@@ -2380,28 +2389,29 @@ def _merged_findings(items):
                 parsed = wide.parse_git(toks)
                 finding = _git_finding(toks, parsed)[1] if parsed else None
                 if finding is not None:
-                    out.append((parts[-1], finding))
+                    out.append((parts[0], finding, toks))
                 continue
             if _wide_git(toks):
-                out.append((parts[-1], Finding("hidden", _spoken(toks))))
+                out.append((parts[0], Finding("hidden", _spoken(toks)), toks))
     except (Exception, SystemExit):
         return _cut_unread(items)
     return out
 
 
 def _cut_unread(items):
-    """[(index, finding)] where the reader that glues an `&` cut back is
-    missing or raises: each cut with the bare word `git` on either side of it
-    is a finding, so a broken reader costs a stop where the tree matters and
-    never a silence (`docs/worktree-guard-spec.md` §*Which tree*; round 1 of
-    work item 1791270162, yellow 4). A background `&` beside a git command
-    stops too while the reader is broken, which is the cheaper mistake."""
+    """[(index, finding, tokens)], `_merged_findings`' shape, where the reader
+    that glues an `&` cut back is missing or raises: each cut with the bare
+    word `git` on either side of it is a finding, so a broken reader costs a
+    stop where the tree matters and never a silence
+    (`docs/worktree-guard-spec.md` §*Which tree*; round 1 of work item
+    1791270162, yellow 4). A background `&` beside a git command stops too
+    while the reader is broken, which is the cheaper mistake."""
     out = []
     for index, (sep, tokens) in enumerate(items):
         if index and sep == "&":
             text = " ".join([*items[index - 1][1], "&", *tokens])
             if _holds_git(text):
-                out.append((index, Finding("unread", text)))
+                out.append((index, Finding("unread", text), tokens))
     return out
 
 
@@ -2450,7 +2460,7 @@ def _first_finding_in(body, depth):
             return Finding(shape, _spoken(tokens))
         if finding is not None:
             return finding
-    for _index, finding in _merged_findings(items):
+    for _first, finding, _tokens in _merged_findings(items):
         return finding
     for finding in _command_findings(text, clean, depth):
         return finding
@@ -2947,9 +2957,11 @@ def main():
                 creation_at = judgeable(tokens, where, cwd)[1]
         else:
             unrecognised.append((index, finding, tokens, where))
-    for index, finding in _merged_findings(items):
-        tokens, wheres = walked[index]
-        unrecognised.append((index, finding, tokens, wheres[0] if wheres else cwd))
+    # A cut group is placed by its own words, from the directory its first
+    # part runs in (`_merged_findings`).
+    for first, finding, tokens in _merged_findings(items):
+        wheres = walked[first][1]
+        unrecognised.append((first, finding, tokens, wheres[0] if wheres else cwd))
     # A substitution body and an untokenizable command belong to no one
     # segment, so they are judged in the session's own tree: the fallback
     # #686 gives a directory the walk cannot place, and the stand-in the

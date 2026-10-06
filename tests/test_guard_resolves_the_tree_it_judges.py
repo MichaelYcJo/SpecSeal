@@ -1165,7 +1165,7 @@ def _read_by_the_guard(command):
             found.append(shape)
         elif finding is not None:
             found.append(finding)
-    found += [finding for _index, finding in wg._merged_findings(items)]
+    found += [merged[1] for merged in wg._merged_findings(items)]
     return found + wg._command_findings(text, clean)
 
 

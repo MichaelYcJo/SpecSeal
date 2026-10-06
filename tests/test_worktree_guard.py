@@ -1580,6 +1580,50 @@ def test_a_broken_reader_leaves_no_cut_group_silent(
     assert decision == "ask" and "could not run" in reason, (command, reason)
 
 
+# A git an `&` cut, with its `-C` before the cut, after it, or on both sides
+# of a chain of cuts. `{w}` is the second tree.
+CUT_GROUPS = (
+    "2>&1 git -C {w} switch feature/x",
+    "2>&1 git -C {w} checkout feature/x",
+    "git -C {w} worktree &>/dev/null add ../wt b",
+    "git -C {w} worktree 2>&1 add ../wt b",
+    "git -C {w} worktree 2>&1 >&2 add ../wt b",
+    "git -C {w} stash &>/dev/null branch y",
+    "git -C {w} stash 2>&1 branch y",
+    "cd {w} && 2>&1 git switch feature/x",
+    "cd {w} && git worktree 2>&1 add ../wt b",
+)
+
+
+def test_a_cut_group_is_judged_in_the_tree_its_own_c_names(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 2 of work item 1791270162, red 2. A git an `&` cut was placed
+    by the tokens of the group's last part, which carry no `-C`, so it was
+    judged in the tree it was typed from: silent at `3c9a1161` with the
+    session's tree clean and `W` dirty or ACTIVE, where the base asked about
+    the first three. The group is one command, run where its first part
+    runs, so it is judged in the tree its own `-C` names."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    for state, want in (("dirty", "ask"), ("active", "deny")):
+        sessions = (ACTIVE, [], True) if state == "active" else ([], [], True)
+        (w / "f.txt").write_text(
+            "changed\n" if state == "dirty" else "one\ntwo\nthree\n", encoding="utf-8"
+        )
+        monkeypatch.setattr(
+            wg,
+            "sessions_in_tree",
+            lambda top, own="", s=sessions: s if top.endswith("W") else ([], [], True),
+        )
+        for group in CUT_GROUPS:
+            command = group.format(w=w)
+            decision, reason = verdict(monkeypatch, capsys, repo, command)
+            assert decision == want and STOP in reason, (state, command, reason)
+
+
 # Phase 1 of work item 1791270162, `phases/phase-1.md` §M1: every git
 # subcommand the frozen reading yields over the recorded runs, as pairs
 # holding it in cut 1 / cut 2. Phase 3 re-read cut 1 on the same definition
