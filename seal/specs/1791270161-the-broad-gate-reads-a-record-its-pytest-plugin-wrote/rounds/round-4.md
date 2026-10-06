@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `70bce95b41a3601ef81a0f03b94cbeb3071cc512..acb85a7408188328f2e32e3a07ac2c0be9efefde`, 6 commits |
+| Contract changes | pytest_make_collect_report → round-4-report.md, round-4.md |
+| New units | UNPLACED_AT_BASE (depth 1); SESSION_WALK_FAILS (depth 1); test_a_failed_collection_of_the_session_itself_is_left_out_and_counted (depth 1); CRASHES_ITS_WORKER (depth 1); test_a_test_whose_worker_crashed_is_recorded_failing_under_its_file (depth 1); test_a_base_record_with_anything_unplaced_turns_only_new_into_new_question (depth 1); test_a_test_whose_worker_crashed_at_the_base_fails_there (depth 1); CRASHES_ITS_WORKER_IN_SETUP (depth 1); test_a_base_record_that_left_a_test_out_gives_no_new (depth 1); test_a_failed_collection_of_the_session_reads_no_word_of_the_root (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1 (a failed collection laid on the session is written under the rootdir, and on pytest 7.4 a branch's conftest breakage reads `failing on base too`), 🟡 2 (a crashed xdist worker's test is dropped and its file reads `new` at a base that fails it), 🟡 3 (`NO_RECORD` names two causes where the module's own case A5 is a third) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,10 +25,10 @@ Round 4, the redesign's first round after the run stopped at round 3 and the fra
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A failed collection pytest lays on the session itself is written under the rootdir, so on pytest 7.4 two conftest breakages in two directories share `.` and the branch's own reads `failing on base too` | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:135` | open | executed: the gate printed `.  failing on base too` for a branch that broke `tests/b/conftest.py` over a base that broke `tests/a/conftest.py`, row on pytest 7.4.4; the recorder at `0c5b9b2c` wrote no record there; with the fix no line, unplaced 1, 27 recorder and 165 gate cases pass, ruff passes |
-| 🟡 2 | A test whose xdist worker crashed is dropped from the record, so at the base its file reads `new` though the base's own run failed it, and at `HEAD` it is in no list | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:152` | open | executed: `tests/test_two.py  new` under `-n 2` with the base's run printing the crash; the recorder at `0c5b9b2c` wrote the crash report failing; with the fix `failing on base too`, same 27 and 165 pass; read: `handle_crashitem` in xdist 3.8.0 · NAME NOT IN TREE |
-| 🟡 3 | `NO_RECORD` names two causes, and the module's own case A5 plants a third — the row at the base ended before any pytest started — for which the sentence points at the environment | `skills/verify/scripts/broad_gate.py:2023` | open | read: `test_a_part_that_fails_at_the_base_before_the_runner_measures_nothing` asserts `NO_RECORD` for a lint part failing at the base; round 3's 🟡 3 was this sentence shape |
-| ⬜ 4 | The carrier attribute is written into every whole-report log (`--report-log`), the objection `plan.md` Alternative P raised against `user_properties`; the comment and rule 3 are silent · NAME NOT IN TREE | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:84` | open | executed: a `--report-log` file carries `specseal_path` with the recorder and not without it, pytest 9.1.1; no outcome changes |
+| 🔴 1 | A failed collection pytest lays on the session itself is written under the rootdir, so on pytest 7.4 two conftest breakages in two directories share `.` and the branch's own reads `failing on base too` | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:135` | **fixed** `8a3fa923` | fixed at 8a3fa923; executed: the gate printed `.  failing on base too` for a branch that broke `tests/b/conftest.py` over a base that broke `tests/a/conftest.py`, row on pytest 7.4.4; the recorder at `0c5b9b2c` wrote no record there; with the fix no line, unplaced 1, 27 recorder and 165 gate cases pass, ruff passes |
+| 🟡 2 | A test whose xdist worker crashed is dropped from the record, so at the base its file reads `new` though the base's own run failed it, and at `HEAD` it is in no list | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:152` | **fixed** `8a3fa923` | fixed at 8a3fa923 — 4e328ce1, 92139fc6; executed: `tests/test_two.py  new` under `-n 2` with the base's run printing the crash; the recorder at `0c5b9b2c` wrote the crash report failing; with the fix `failing on base too`, same 27 and 165 pass; read: `handle_crashitem` in xdist 3.8.0 · NAME NOT IN TREE |
+| 🟡 3 | `NO_RECORD` names two causes, and the module's own case A5 plants a third — the row at the base ended before any pytest started — for which the sentence points at the environment | `skills/verify/scripts/broad_gate.py:2023` | **fixed** `8a3fa923` | fixed at 8a3fa923; read: `test_a_part_that_fails_at_the_base_before_the_runner_measures_nothing` asserts `NO_RECORD` for a lint part failing at the base; round 3's 🟡 3 was this sentence shape |
+| ⬜ 4 | The carrier attribute is written into every whole-report log (`--report-log`), the objection `plan.md` Alternative P raised against `user_properties`; the comment and rule 3 are silent · NAME NOT IN TREE | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:84` | answered | code unchanged; `--report-log` writing `specseal_path` is stated as a limit over `PATH_ATTRIBUTE`, in rule 3 and in the changelog fragment, each pinned (8a3fa923); the report log is a machine-read file; executed: a `--report-log` file carries `specseal_path` with the recorder and not without it, pytest 9.1.1; no outcome changes |
 | 🟢 | round 3's blocking finding 1 is closed — the recorder looks nothing up and imports none of the row's code | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:140` | confirmed | executed: `test_the_recorder_runs_none_of_the_rows_code` among 27 passed at the target; read: no module lookup left in the module |
 | 🟢 | round 3's blocking finding 2 is closed — a collector built below the root names its files by their own paths | `tests/test_the_seal_is_taken_once_by_the_sealer.py:4643` | confirmed | read: the gate case asserts each file's own word; executed: the recorder-level collector case among the 27; finding 1 above is the same class on the session |
 | 🟢 | round 3's finding 3 is closed for the cause it named — both reasons name a recorder that loaded and could not write | `skills/verify/scripts/broad_gate.py:2023` | confirmed | read; finding 3 above is the cause it did not name |
