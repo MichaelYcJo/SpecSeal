@@ -113,55 +113,151 @@ if _refusal:
     raise SystemExit(2)
 
 
-# --- the chart -----------------------------------------------------------
+# --- the emblem ----------------------------------------------------------
 #
-# 29 columns by 32 rows. Traced outside the tree by hand against a
-# counted-stitch pattern; this is the only copy. Every letter but `.` is the
-# lily since #717, which presses it into the wax in one colour; the letters
-# were the golds of #30's drawing (`D` the lily, `R` its highlight, `y` and
-# `Y` the band) and are kept, because `shrink` takes the majority letter of
-# the stitches a cell covers and the owner's rendering came from this chart.
-ART = """
-..............D..............
-.............DDD.............
-.............DRD.............
-............DDDRD............
-...........DDDDRRD...........
-...........DDDDRRD...........
-..........DDDDDRRDD..........
-.........DDDDDDDRRDD.........
-.........DDDDDDDRRDD.........
-.........DDDDDDDRRDD.........
-.........DDDDDDDRRDD.........
-..........DDDDDRRDD..........
-..DDDDD....DDDDRRD....DDDDD..
-.DDDDDDDDD.DDDDRRD.DDDDDRRDD.
-DDDDDDDDDDD.DDDRD.DDDDDDDDRRD
-DDDDD...DDD.DDRDD.DDD...DDDRD
-DDDD.....DDD.DDD.DDD.....DDRD
-DDDD......DD.DDD.DD......DRDD
-.DDDD..D...D.DDD.D...D..DDDD.
-..DDDDD....yyyyYYY....DDDDD..
-..........yyyyyyyyy..........
-........D.yDyDDDyDy.D........
-.......DD..DyDDDyD..DD.......
-......DDD.DD.DDD.DD.DDD......
-......DDDDDD.DDD.DDDDDD......
-.......DDD..DDDDD..DDD.......
-...........DDDDRDD...........
-...........DDDDRRD...........
-...........DDDDRDD...........
-............DDRDD............
-.............DDD.............
-..............D..............
-""".strip("\n").splitlines()
+# One vector source (#832): closed paths in SVG `d` syntax, absolute `M L C Q
+# Z` only, in a 1000 x 1000 viewBox centred on (500, 500) with the field's
+# edge at radius 500, filled even-odd. The terminal samples it at cell
+# centres (`build`) and the release PNG fills the same flattened polygons
+# with Pillow, so the two forms cannot drift. It replaces #717's 29x32
+# counted-stitch chart, whose majority vote mangled the lily below 1.0.
+#
+# INTERIM. This is a plain geometric ring, not the project's mark: which
+# mark the seal carries is open with the owner (questions.md Q1 of work item
+# 1791270164). The answer replaces this string and nothing else. An answer
+# keeps within radius 475 and draws no stroke thinner than about 50 units,
+# or a cell centre at 0.75 misses it.
+EMBLEM_D = (
+    "M 900 500 C 900 720.9 720.9 900 500 900 C 279.1 900 100 720.9 100 500 "
+    "C 100 279.1 279.1 100 500 100 C 720.9 100 900 279.1 900 500 Z "
+    "M 740 500 C 740 632.55 632.55 740 500 740 C 367.45 740 260 632.55 260 500 "
+    "C 260 367.45 367.45 260 500 260 C 632.55 260 740 367.45 740 500 Z"
+)
+
+SVG_REFUSED = (
+    "seal-stamp: the emblem's path uses `{command}`, and only absolute "
+    "M L C Q Z are read; convert it to those before it is written in."
+)
+SVG_TOKEN = re.compile(r"[A-Za-z]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+SVG_ARITY = {"M": 2, "L": 2, "C": 6, "Q": 4, "Z": 0}
+
+
+def svg_path(d):
+    """The paths an SVG `d` string draws, in the emblem's frame: a tuple of
+    paths, each a tuple of segments — `("M", x, y)` first, then `("L", x, y)`
+    or `("C", x1, y1, x2, y2, x, y)` from the previous point — closed to its
+    first point. The frame's origin is the disc's centre and its unit circle
+    the field's edge; `y` grows downward, as cells do. A `Q` is raised to a
+    `C`; any command but absolute `M L C Q Z` is refused with its name."""
+    tokens = SVG_TOKEN.findall(d)
+    stray = re.sub(SVG_TOKEN, " ", d).replace(",", " ").split()
+    if stray:
+        raise ValueError(SVG_REFUSED.format(command=stray[0]))
+
+    def unit(x, y):
+        return ((float(x) - 500) / 500, (float(y) - 500) / 500)
+
+    paths, path, i, here = [], [], 0, (0.0, 0.0)
+    while i < len(tokens):
+        command = tokens[i]
+        if command not in SVG_ARITY:
+            raise ValueError(SVG_REFUSED.format(command=command))
+        n = SVG_ARITY[command]
+        args = tokens[i + 1 : i + 1 + n]
+        if len(args) < n or any(a.isalpha() for a in args):
+            raise ValueError(SVG_REFUSED.format(command=command + " (arguments)"))
+        i += 1 + n
+        points = [unit(args[k], args[k + 1]) for k in range(0, n, 2)]
+        if command == "M":
+            if path:
+                paths.append(tuple(path))
+            path = [("M", *points[0])]
+        elif command == "L":
+            path.append(("L", *points[0]))
+        elif command == "C":
+            path.append(("C", *points[0], *points[1], *points[2]))
+        elif command == "Q":
+            (qx, qy), (ex, ey) = points
+            c1 = (here[0] + 2 / 3 * (qx - here[0]), here[1] + 2 / 3 * (qy - here[1]))
+            c2 = (ex + 2 / 3 * (qx - ex), ey + 2 / 3 * (qy - ey))
+            path.append(("C", *c1, *c2, ex, ey))
+        else:  # Z
+            if path:
+                paths.append(tuple(path))
+            path = []
+            continue
+        here = points[-1]
+    if path:
+        paths.append(tuple(path))
+    return tuple(paths)
+
+
+def flatten(paths, n=16):
+    """Each path as a polygon, each cubic as `n` chords."""
+    polygons = []
+    for path in paths:
+        points = [path[0][1:3]]
+        for segment in path[1:]:
+            if segment[0] == "L":
+                points.append(segment[1:3])
+                continue
+            (x0, y0), (x1, y1, x2, y2, x3, y3) = points[-1], segment[1:]
+            for k in range(1, n + 1):
+                t = k / n
+                a, b, c, e = (
+                    (1 - t) ** 3,
+                    3 * (1 - t) ** 2 * t,
+                    3 * (1 - t) * t * t,
+                    t**3,
+                )
+                points.append(
+                    (
+                        a * x0 + b * x1 + c * x2 + e * x3,
+                        a * y0 + b * y1 + c * y2 + e * y3,
+                    )
+                )
+        polygons.append(points)
+    return polygons
+
+
+def inside(polygons, x, y):
+    """Whether `(x, y)` is filled, even-odd: a ray to the right crosses an odd
+    number of the polygons' edges."""
+    odd = False
+    for poly in polygons:
+        x0, y0 = poly[-1]
+        for x1, y1 in poly:
+            if (y1 > y) != (y0 > y) and x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+                odd = not odd
+            x0, y0 = x1, y1
+    return odd
+
+
+def shade(filled, x, y, delta):
+    """The emblem's colour at `(x, y)`, lit from the upper left, or None where
+    `filled` says the point is not the emblem's: the highlight where the point
+    `delta` up-left is outside it, the shadow where the point `delta`
+    down-right is (and up-left is not), the face everywhere else."""
+    if not filled(x, y):
+        return None
+    if not filled(x - delta, y - delta):
+        return LILY_LIGHT
+    if not filled(x + delta, y + delta):
+        return LILY_SHADOW
+    return LILY_FACE
+
+
+EMBLEM = svg_path(EMBLEM_D)
+EMBLEM_POLYGONS = flatten(EMBLEM)
 
 # The disc's colours, chosen by the owner from renderings (#717). The rope
 # ring and the outer light-red band are gone, so `WAX_M` is the wax's edge;
-# the lily is pressed into the field in one colour, lit from the upper left:
-# its highlight where the chart cell up-left of a lily cell is field, its
-# shadow where the cell down-right is, and its face everywhere else. They are
-# truecolour, the one part of the letter drawn that way.
+# the emblem is pressed into the field in one colour, lit from the upper
+# left (`shade`): its highlight where the point one cell up-left is field,
+# its shadow where the point one cell down-right is, and its face everywhere
+# else. The `LILY_` names are #717's and are kept, because the release
+# script and the cases read them. They are truecolour, the one part of the
+# letter drawn that way.
 WAX_M = (168, 26, 30)
 FIELD = (120, 16, 20)
 LILY_LIGHT = (226, 82, 74)
@@ -253,8 +349,8 @@ SCALE_LADDER = (0.90, 0.80, 0.75)
 
 SCALE_REFUSED = (
     "seal-stamp: scale {scale} is under the floor of {floor}; below it the "
-    "lily is not legible (#30 measured 0.6 closing the band and 0.5 reading as "
-    "a cross). Nothing was drawn."
+    "disc has too few cells for its emblem to be read (#30 measured the floor). "
+    "Nothing was drawn."
 )
 # NaN is not under the floor and not above the ceiling; it is not on the line
 # at all, and telling a reader it is "under the floor of 0.75" sends them to
@@ -264,8 +360,8 @@ SCALE_NOT_A_NUMBER = (
     "band {floor}-{ceiling} nor outside it. Nothing was drawn."
 )
 SCALE_TOO_LARGE = (
-    "seal-stamp: scale {scale} is above {ceiling}; the chart is one cell per "
-    "stitch and does not enlarge. Nothing was drawn."
+    "seal-stamp: scale {scale} is above {ceiling}; the hook's message budget "
+    "was measured up to it, so a larger disc is not drawn. Nothing was drawn."
 )
 
 
@@ -287,75 +383,34 @@ def check_scale(scale):
     return None
 
 
-def shrink(art, f):
-    """The chart at a fraction of its size: each output cell takes the
-    majority colour of the stitches it covers, and stays blank only when all
-    of them are blank."""
-    if f >= 1.0:
-        return art
-    h, w = len(art), len(art[0])
-    nh, nw = max(1, round(h * f)), max(1, round(w * f))
-    out = []
-    for y in range(nh):
-        row = []
-        for x in range(nw):
-            x0, x1 = int(x * w / nw), max(int(x * w / nw) + 1, int((x + 1) * w / nw))
-            y0, y1 = int(y * h / nh), max(int(y * h / nh) + 1, int((y + 1) * h / nh))
-            ink = [
-                art[b][a]
-                for b in range(y0, y1)
-                for a in range(x0, x1)
-                if b < h and a < w and art[b][a] != "."
-            ]
-            # `max(set(ink), …)` iterated a set of strings, whose order moves
-            # with PYTHONHASHSEED, so a tie between two chart colours drew
-            # differently from one process to the next (round 1's 🟡 6). This
-            # module's argument is that a circle that is CALCULATED cannot be
-            # off centre, and a calculated circle that is not reproducible
-            # gives it back at every scale but 1.0. Highest count, then
-            # earliest in the chart — both stable.
-            row.append(
-                max(dict.fromkeys(ink), key=lambda c: (ink.count(c), -ink.index(c)))
-                if ink
-                else "."
-            )
-        out.append("".join(row))
-    return out
+# The disc's radius in cells at scale 1.0. #717's chart gave the disc a
+# radius of its reach over 0.74, 15.5 / 0.74 at 1.0; this constant keeps that
+# radius, so the four rungs keep the heights they had (44, 40, 36, 34) and
+# the hook's budget cases keep their meaning. It is a parameter of `build`
+# rather than a number buried in it, because the disc's size is the owner's
+# to choose from renderings (#832).
+R0_CELLS = 15.5 / 0.74
 
 
-def build(scale=1.0, margin=0.74):
+def build(scale=1.0, r0_cells=R0_CELLS):
     """`(w, h, px)` — the disc's width and height in cells, and a function
     from a cell to its colour, `None` outside the disc.
 
-    The radius is the chart's reach from its centre over `margin`, so the lily
-    fills the field and the wax is drawn around it: nothing past `WAX_EDGE`,
-    the wax's edge from `FIELD_EDGE`, the field and the lily inside, the lily
-    in the three colours its neighbours decide (#717). The grid keeps the size
-    #30's rope gave it, so a scale is the same footprint it was; the cells
-    past the wax's edge are outside the disc. `h` is even, because the block
-    form prints two cells per line."""
+    The radius is `r0_cells · scale`: nothing past `WAX_EDGE`, the wax's edge
+    from `FIELD_EDGE`, the field inside, and the emblem sampled at the cell's
+    centre in the three colours `shade` decides (#832). `h` is even, because
+    the block form prints two cells per line."""
     refusal = check_scale(scale)
     if refusal:
         raise ValueError(refusal)
-    art = shrink(ART, scale)
-    fh, fw = len(art), len(art[0])
-    cx, cy = (fw - 1) / 2, (fh - 1) / 2
-    reach = max(
-        math.hypot(x - cx, y - cy)
-        for y in range(fh)
-        for x in range(fw)
-        if art[y][x] != "."
-    )
-    r0 = reach / margin
+    r0 = r0_cells * scale
     w = int(r0 * 2) + 2
     h = w + (w % 2)
     ox, oy = w / 2, h / 2
+    field = FIELD_EDGE * r0
 
-    def chart(dx, dy):
-        # `floor`, not `int`: `int` truncates toward zero, so the cell just
-        # outside the chart's top-left would read stitch 0 a second time.
-        fx, fy = math.floor(dx + fw / 2), math.floor(dy + fh / 2)
-        return art[fy][fx] if 0 <= fy < fh and 0 <= fx < fw else "."
+    def filled(u, v):
+        return inside(EMBLEM_POLYGONS, u, v)
 
     def px(x, y):
         # Sampled at the cell's centre. Sampled at its corner, the disc sat
@@ -368,13 +423,7 @@ def build(scale=1.0, margin=0.74):
             return None
         if r > FIELD_EDGE:
             return WAX_M
-        if chart(dx, dy) == ".":
-            return FIELD
-        if chart(dx - 1, dy - 1) == ".":
-            return LILY_LIGHT
-        if chart(dx + 1, dy + 1) == ".":
-            return LILY_SHADOW
-        return LILY_FACE
+        return shade(filled, dx / field, dy / field, 1 / field) or FIELD
 
     return w, h, px
 

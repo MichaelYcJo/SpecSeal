@@ -431,19 +431,28 @@ def test_the_title_is_the_sheets_first_line_whatever_a_value_says():
 
 @pytest.mark.parametrize("scale", [0.9, 0.8, 0.75])
 def test_the_lily_is_lit_from_the_upper_left(scale):
-    """#717's lily, one colour pressed into the wax: a lily cell whose
-    up-left neighbour is not lily is its highlight, one whose down-right
-    neighbour is not lily is its shadow (where the up-left one is), and
-    every other lily cell is its face. Read off `build` cell by cell, at
-    every rung, so a light swapped for a shadow or a neighbour taken from
-    the wrong side is red."""
+    """#717's lighting, kept for #832's emblem, one colour pressed into the
+    wax: an emblem cell whose up-left neighbour is not emblem is its
+    highlight, one whose down-right neighbour is not emblem is its shadow
+    (where the up-left one is), and every other emblem cell is its face.
+    Read off `build` cell by cell, at every rung, so a light swapped for a
+    shadow or a neighbour taken from the wrong side is red; and every cell
+    inside the field is what `shade` says at its centre over `inside`, so
+    the terminal draws the one source and nothing beside it."""
     mod = module()
     w, h, px = mod.build(scale)
     lily = {mod.LILY_FACE, mod.LILY_LIGHT, mod.LILY_SHADOW}
+    field = mod.FIELD_EDGE * mod.R0_CELLS * scale
     seen = set()
     for y in range(h):
         for x in range(w):
             here = px(x, y)
+            if here in (mod.FIELD, *lily):
+                u, v = (x + 0.5 - w / 2) / field, (y + 0.5 - h / 2) / field
+                said = mod.shade(
+                    lambda a, b: mod.inside(mod.EMBLEM_POLYGONS, a, b), u, v, 1 / field
+                )
+                assert here == (said or mod.FIELD), (x, y, here, said)
             if here not in lily:
                 continue
             seen.add(here)
@@ -454,6 +463,120 @@ def test_the_lily_is_lit_from_the_upper_left(scale):
                 assert up_left in lily, (x, y, here)
                 assert (down_right not in lily) == (here == mod.LILY_SHADOW), (x, y)
     assert seen == lily, seen
+
+
+# --- the emblem: one vector source, sampled at cell centres (#832) ----------
+
+FIXTURE_D = (
+    "M 100 100 L 900 100 L 900 900 L 100 900 Z "
+    "M 300 300 L 700 300 L 700 700 L 300 700 Z"
+)
+
+
+@pytest.mark.parametrize(
+    "scale, footprint",
+    [(1.0, (43, 44)), (0.9, (39, 40)), (0.8, (35, 36)), (0.75, (33, 34))],
+)
+def test_each_rung_keeps_the_disc_height_the_chart_gave_it(scale, footprint):
+    """#832 S2. The radius is `R0_CELLS · scale`, the chart's 15.5 / 0.74 at
+    1.0, so each rung draws the lines it drew before the chart went and the
+    hook's budget cases keep their meaning. The chart's 0.90 was 40 wide; no
+    one constant reproduces all four widths, and this one is a cell
+    narrower there (overview.md)."""
+    w, h, _ = module().build(scale)
+    assert (w, h) == footprint
+
+
+def test_the_emblem_fills_even_odd_from_an_svg_path():
+    """#832 S1. A square with a square hole is filled at its ring and empty in
+    its hole and past it; `svg_path` maps the 1000-unit viewBox onto the
+    frame whose unit circle is the field's edge; a `Q` is raised to the cubic
+    with the same curve; and a command it does not read is refused with its
+    name, so an answer written in arcs or relative moves fails here."""
+    mod = module()
+    paths = mod.svg_path(FIXTURE_D)
+    assert paths[0][0] == ("M", -0.8, -0.8) and paths[1][2] == ("L", 0.4, 0.4), paths
+    polygons = mod.flatten(paths)
+    assert mod.inside(polygons, -0.6, 0.0) and mod.inside(polygons, 0.0, 0.7)
+    assert not mod.inside(polygons, 0.0, 0.0), "the hole is filled"
+    assert not mod.inside(polygons, 0.9, 0.0), "past the outer edge is filled"
+    (quad,) = mod.svg_path("M 0 500 Q 500 0 1000 500 Z")
+    assert quad[1][0] == "C", quad
+    assert quad[1][1:] == pytest.approx((-1 / 3, -2 / 3, 1 / 3, -2 / 3, 1.0, 0.0))
+    refused = (
+        ("m 0 0 L 1 1 Z", "m"),
+        ("M 0 0 A 1 1 0 0 1 9 9 Z", "A"),
+        ("M 0 0 H 9 Z", "H"),
+    )
+    for d, command in refused:
+        with pytest.raises(ValueError, match=f"`{command}`"):
+            mod.svg_path(d)
+
+
+def test_shade_lights_the_upper_left_edge_and_shadows_the_lower_right():
+    """#832 S2's rule on the fixture: just inside the square's upper-left
+    corner the point up-left is outside, so it is the highlight; just inside
+    its lower-right corner, the shadow; in the ring's middle, the face; in
+    the hole, nothing."""
+    mod = module()
+    polygons = mod.flatten(mod.svg_path(FIXTURE_D))
+
+    def filled(x, y):
+        return mod.inside(polygons, x, y)
+
+    assert mod.shade(filled, -0.75, -0.75, 0.1) == mod.LILY_LIGHT
+    assert mod.shade(filled, 0.75, 0.75, 0.1) == mod.LILY_SHADOW
+    assert mod.shade(filled, -0.6, 0.0, 0.1) == mod.LILY_FACE
+    assert mod.shade(filled, 0.0, 0.0, 0.1) is None
+
+
+def enclosed_area(polygons, mod):
+    """The even-odd area the polygons enclose: a contour inside an odd number
+    of the others is a hole."""
+    total = 0.0
+    for k, poly in enumerate(polygons):
+        edges = zip(poly, poly[1:] + poly[:1])
+        area = abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in edges)) / 2
+        depth = sum(
+            mod.inside([other], *poly[0]) for j, other in enumerate(polygons) if j != k
+        )
+        total += -area if depth % 2 else area
+    return total
+
+
+@pytest.mark.parametrize("scale", [1.0, 0.9, 0.8, 0.75])
+def test_the_terminal_draws_the_area_the_emblem_encloses(scale):
+    """#832 S2, Q1's authoring constraint. The cells `build` gives the
+    emblem's three letters cover between 85 % and 115 % of the area its
+    polygons enclose, at every rung, so a stroke thinner than a cell that
+    the centres miss is red here rather than on the owner's screen."""
+    mod = module()
+    w, h, px = mod.build(scale)
+    drawn = sum(
+        px(x, y) in (mod.LILY_FACE, mod.LILY_LIGHT, mod.LILY_SHADOW)
+        for y in range(h)
+        for x in range(w)
+    )
+    field = mod.FIELD_EDGE * mod.R0_CELLS * scale
+    expected = enclosed_area(mod.EMBLEM_POLYGONS, mod) * field * field
+    assert 0.85 <= drawn / expected <= 1.15, (scale, drawn, expected)
+
+
+def test_the_stamp_module_imports_with_pillow_blocked():
+    """#832 S1: the vector source and its sampler are stdlib-only, because the
+    gate, the hook and the command load this file where Pillow is absent."""
+    script = (
+        "import sys, importlib.util\n"
+        "sys.modules['PIL'] = None\n"
+        f"spec = importlib.util.spec_from_file_location('s', {SCRIPT!r})\n"
+        "mod = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(mod)\n"
+        "mod.build(0.75)\n"
+    )
+    r = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, timeout=120
+    )
+    assert r.returncode == 0, r.stderr
 
 
 def test_the_twin_writes_the_discs_five_letters_over_the_sheets_frame():
@@ -529,9 +652,12 @@ def test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence():
     with pytest.raises(ValueError, match=r"1\.0") as too_large:
         mod.stamp(ROWS, scale=1.5)
     assert "1.5" in str(too_large.value), (
-        "the chart is one cell per stitch and does not enlarge; a scale above "
-        "1.0 is refused with a sentence naming the scale asked for"
+        "a scale above 1.0 is refused with a sentence naming the scale asked for"
     )
+    # #832: the chart is gone, so neither sentence may give it as the reason.
+    assert "too few cells for its emblem" in sentence, sentence
+    assert "message budget was measured up to it" in str(too_large.value)
+    assert "stitch" not in sentence + str(too_large.value)
     out = run_wrapper("--shape", "--scale", "0.5")
     assert out.returncode == 2, f"exit {out.returncode}; stderr {out.stderr!r}"
     assert "0.75" in out.stderr, f"the command's refusal names no floor: {out.stderr!r}"
