@@ -323,8 +323,16 @@ def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
     first, each stamp whole under its own label and each with its disc; a
     file that is not a run's values is skipped and left where it is rather
     than taking the others down. The older takes the highest rung the newer
-    leaves room for, and the newer the highest left — 0.80 and 0.75 here,
-    where one rung for both was 0.75 for both."""
+    leaves room for at 0.75, and the newer the highest left, where one rung
+    for both was 0.75 for both.
+
+    The two rungs are read off the blocks' sizes under the real budget, not
+    written in. They are what fits, and the emblem and the disc's radius set
+    those sizes: #717's lily drew this pair at 0.80 and 0.75, and the interim
+    ring of work item 1791270164 drew both at 0.90 (its `phases/phase-1.md`),
+    so a written-in pair moves with every emblem. The rule itself, at
+    budgets that force each rung, is
+    `test_the_ladder_steps_down_in_order_and_ends_with_no_disc`."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     small = values(rows=SMALL_ROWS)
@@ -337,11 +345,29 @@ def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
         handle.write("not json")
     text = json.loads(stop(repo))["systemMessage"]
     other = LABEL.replace("aaa1111", "ccc3333")
-    assert text == (
-        drawn(mod, LABEL, SMALL_ROWS, 0.8)
-        + "\n\n"
-        + drawn(mod, other, SMALL_ROWS, 0.75)
-    ), [b.split("\n", 1)[0] for b in text.split("\n\n")]
+    at = {
+        (who, s): drawn(mod, who, SMALL_ROWS, s)
+        for who in (LABEL, other)
+        for s in mod.SCALE_LADDER
+    }
+    budget, floor = mod.MESSAGE_BUDGET, mod.SCALE_LADDER[-1]
+    assert len(at[LABEL, floor]) + 2 + len(at[other, floor]) <= budget, (
+        "two SMALL_ROWS stamps no longer share one message at 0.75"
+    )
+    older = next(
+        s
+        for s in mod.SCALE_LADDER
+        if len(at[LABEL, s]) + 2 + len(at[other, floor]) <= budget
+    )
+    newer = next(
+        s
+        for s in mod.SCALE_LADDER
+        if len(at[LABEL, older]) + 2 + len(at[other, s]) <= budget
+    )
+    assert text == at[LABEL, older] + "\n\n" + at[other, newer], (
+        (older, newer),
+        [b.split("\n", 1)[0] for b in text.split("\n\n")],
+    )
     assert len(text) <= mod.MESSAGE_BUDGET, len(text)
     assert mod.pending(os.path.dirname(first)) == [broken]
     assert not os.path.exists(first) and not os.path.exists(second)
@@ -535,19 +561,38 @@ def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
     now: the first is drawn whole at its own 0.90, the second stays pending
     under its own name, and the next `Stop` draws it whole — two turns,
     each message under the budget. The name is the case's from phase 1,
-    kept because round 1's record cites it."""
+    kept because round 1's record cites it.
+
+    Whether two real runs share a message is a fact about the drawing, and
+    the emblem sets it (#832): under #717's lily two did not fit at 0.75, and
+    under the interim ring of work item 1791270164 they did
+    (`phases/phase-1.md` there has the sizes). The second run therefore
+    carries deferral homes, one at a time, until the pair does not fit at
+    0.75 — none under the lily, where this is the case as it stood — and the
+    premise is asserted rather than assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
+    label = mod.label(full_values())
+    budget, floor = mod.MESSAGE_BUDGET, mod.SCALE_LADDER[-1]
+    alone = len(drawn(mod, label, FULL_ROWS, floor))
+    homes = []
+    while alone + 2 + len(drawn(mod, label, FULL_ROWS + homes, floor)) <= budget:
+        homes.append(("", f"home-{len(homes)}"))
+    rows = FULL_ROWS + homes
+    late = {**full_values("ccc3333c"), "rows": rows}
+    assert len(drawn(mod, mod.label(late), rows, 0.9)) <= budget, (
+        "the second no longer fits at 0.90 alone",
+        len(homes),
+    )
     first = mod.write_values(str(repo / ".git"), "s-1", full_values(), now=1)
-    second = mod.write_values(str(repo / ".git"), "s-1", full_values("ccc3333c"), now=2)
+    second = mod.write_values(str(repo / ".git"), "s-1", late, now=2)
     text = json.loads(stop(repo))["systemMessage"]
     assert len(text) <= mod.MESSAGE_BUDGET, len(text)
-    label = mod.label(full_values())
     assert text == drawn(mod, label, FULL_ROWS, 0.9), "not the first, whole"
     assert os.path.exists(mod.drawn_path(first)) and not os.path.exists(first)
     assert os.path.exists(second), "the second was claimed with the first"
     later = json.loads(stop(repo))["systemMessage"]
-    assert later == drawn(mod, mod.label(full_values("ccc3333c")), FULL_ROWS, 0.9)
+    assert later == drawn(mod, mod.label(late), rows, 0.9)
     assert os.path.exists(mod.drawn_path(second)) and not os.path.exists(second)
     assert stop(repo) == "", "a drawn file was drawn a second time"
 
