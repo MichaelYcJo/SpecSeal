@@ -7,7 +7,7 @@ Written 2026-10-06 by the orchestrating session (Opus 5.5) when the 0.20.0 run m
 - Framed by `framer` on Fable 5.1 (93e764e1). Built by `smith` on Opus 5.5: b9435eda, 597cc5f7, ca6bf8a1, 83801eac, be8a4115.
 - **Phase 4a is closed.** The twins case walks a covering sample of 870 of its 20,832 shapes and went from 165 s to 2.85 s locally. Its module reported 426 passed, and the smith saw each new helper fail under `bin/mutation-check`.
 - **Phase 1 is open.** `test.yml` has a `workflow_dispatch` trigger and `--durations=50`. The branch was pushed and the workflow dispatched once from the old machine: run https://github.com/MichaelYcJo/SpecSeal/actions/runs/37429940700. GitHub accepted the dispatch, though `main`'s `test.yml` has no `workflow_dispatch`. Its three `--durations` tables close phase 1 and answer Q2. The second smith, on the new machine, recorded them in `phases/phase-1.md`, which closes the phase.
-- No pull request is open yet. Routing is `automation` since the owner's second answer on 2026-10-06 (`routing.md`), so the orchestrator opens a draft pull request into `release/v0.20.0` at the end of the build, and its CI runs the three legs on every push.
+- Draft pull request #845 into `release/v0.20.0` is open: the owner's second answer on 2026-10-06 was `automation` (`routing.md`), and the orchestrator opened it after phase 4b. Its CI runs the three legs on every push, and the build has closed (`overview.md`).
 
 ## Two things a person decided
 
