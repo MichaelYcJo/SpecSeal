@@ -822,3 +822,80 @@ def repo(tmp_path, _repo_template):
     d = tmp_path / "repo"
     shutil.copytree(_repo_template, d)
     return d
+
+
+# --- a slow case names itself (#841) -----------------------------------------
+#
+# The Windows leg grew from 7 to 40 minutes in two weeks and no run said which
+# case had grown: a wall-clock total hides the case that pushed it. A case
+# whose call runs longer than this fails, on every platform and under
+# `bin/test` as in CI, with a sentence naming it and its seconds.
+#
+# Set by `questions.md` Q6's rule (a) of work item 1791270165: 1.5 times the
+# slowest call on the Windows leg after its phases 3 and 4, rounded up to 30 s.
+# That call is `tests/test_no_shape_the_base_stops_reads_silent.py::
+# test_no_shape_the_base_stops_reads_silent` at 55.77 s in run 37469595104,
+# the slowest of the runs measured (55.13 s in run 37457228586, 52.49 s in
+# 37458654434, 29.91 s in 37465328899). The same case ran 36.44 s in run
+# 37429940700 on the same code: the runner alone moves a case by 1.5 times
+# between runs, which is why the base is the slowest run and not the last one.
+#
+# A run on a machine busier than the runners it was set from may raise it for
+# that run alone, through `CEILING_VARIABLE`. Phase 4 of work item 1791270165
+# measured a case at up to four times its figure on a laptop running other
+# sessions' suites, which is past this constant's margin over the slowest
+# local case (38.30 s). CI sets nothing, so CI and the gate read 90 unless a
+# person sets the variable on purpose.
+CASE_CEILING_DEFAULT_S = 90
+CEILING_VARIABLE = "SPECSEAL_CASE_CEILING_S"
+
+
+def ceiling_from(environ):
+    """The ceiling for this run: Q6's 90 unless `CEILING_VARIABLE` holds a
+    positive number of seconds. An empty value is unset; anything else
+    stops the run with a sentence naming the variable, rather than with
+    `int()`'s traceback."""
+    raw = environ.get(CEILING_VARIABLE, "").strip()
+    if not raw:
+        return CASE_CEILING_DEFAULT_S
+    try:
+        seconds = float(raw)
+    except ValueError:
+        seconds = 0.0
+    if not seconds > 0:
+        raise ValueError(
+            f"{CEILING_VARIABLE}={raw!r} is not a positive number of seconds; "
+            f"unset it for the {CASE_CEILING_DEFAULT_S} s ceiling"
+        )
+    return int(seconds) if seconds.is_integer() else seconds
+
+
+CASE_CEILING_S = ceiling_from(os.environ)
+
+
+def over_the_ceiling(nodeid, seconds):
+    """The sentence a call of `seconds` fails with, or None at or under
+    `CASE_CEILING_S`, read when the call ends. It names the variable, for
+    the person whose machine was busy rather than whose case grew."""
+    if seconds <= CASE_CEILING_S:
+        return None
+    return (
+        f"{nodeid} ran {seconds:.1f} s, over the {CASE_CEILING_S} s ceiling "
+        f"(#841). On a machine running other suites, {CEILING_VARIABLE}="
+        "<seconds> raises it for one run; CI never sets it"
+    )
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """A passing call over the ceiling is reported failed, with
+    `over_the_ceiling`'s sentence as the whole of its report. A call that
+    failed already keeps its own report: its failure is the news."""
+    outcome = yield
+    report = outcome.get_result()
+    if report.when != "call" or not report.passed:
+        return
+    sentence = over_the_ceiling(item.nodeid, call.duration)
+    if sentence is not None:
+        report.outcome = "failed"
+        report.longrepr = sentence
