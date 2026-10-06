@@ -26,6 +26,10 @@
     non-zero before any of its pytest sessions collected the file. The last
     is also how a file the branch added reads on a base whose row already
     fails.
+  - `new?` naming a count, too, where the file would read `new` but the
+    base's record left tests or collections out of every list: a test whose
+    xdist worker died in its setup is one, and its failure may be the
+    file's.
 
   Where no pytest of the row left a record at all, the `FAILED` lines name
   the files, each reads `new?`, and the base is not run. The reason printed

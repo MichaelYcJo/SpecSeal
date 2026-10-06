@@ -4304,6 +4304,15 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "session, or a report a plugin built without its path (counted as "
         "unplaced on the end line of each record under records/)"
     )
+    # #825 round 4's 🟡 2, the part its fix left: `new` from a base record
+    # that left anything out is not measured.
+    assert gate.UNPLACED_AT_BASE.format(count=2) == (
+        "new? not measured: the row ran once at the base, and its record left "
+        "2 of the tests and collections its pytest reported in no list, such as "
+        "a test whose xdist worker died before any report of it arrived, so one "
+        "of them may be this file's failure and whether the base fails it was "
+        "not measured (kept as suite-at-base.txt, with records/ beside it)"
+    )
     with open(RECORDER_SOURCE, encoding="utf-8") as handle:
         assert "specseal_pytest_record: no record written" in handle.read()
     assert gate.NOT_REACHED.format(code=2) == (
@@ -4359,6 +4368,9 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "the file, which is also how a file the branch added reads where the "
         "base's row already fails",
         "open the kept `suite-at-base.txt` and the `records/` beside it",
+        "or the base's record left tests or collections out of every list, a "
+        "test whose xdist worker died in its setup among them, so it cannot say "
+        "the file passed.",
         "how a row earns the measured word",
     ):
         assert phrase in bullet, f"the **New?** bullet does not carry: {phrase}"
@@ -4704,10 +4716,11 @@ def pytest_collection_modifyitems(session, config, items):
 def test_the_failure_form_says_how_many_tests_the_record_left_out(tmp_path):
     """S27 through the gate, round 3's ⬜ 4. A conftest parents an item to
     the session, so the record at `HEAD` writes no line for it and counts
-    it; the branch breaks `tests/test_a.py`, which reads `new` as before,
-    and one sentence under the listing says one test or collection is in no
-    list. Round 2's guard abandoned the whole record here and said
-    nothing."""
+    it, and one sentence under the listing says one test or collection is in
+    no list. Round 2's guard abandoned the whole record here and said
+    nothing. The base's record leaves the same item out, so the file the
+    branch broke reads `new?` naming that count rather than `new` (#825
+    round 4's 🟡 2): the record cannot say what it left out passed."""
     repo = base_then_feature(
         tmp_path / "repo",
         FILES_ROW,
@@ -4720,7 +4733,9 @@ def test_the_failure_form_says_how_many_tests_the_record_left_out(tmp_path):
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert verdict_of(out.stdout, "tests/test_a.py") == gate.NEW, out.stdout
+    assert verdict_of(out.stdout, "tests/test_a.py") == (
+        gate.UNPLACED_AT_BASE.format(count=1)
+    ), out.stdout
     assert gate.UNPLACED.format(count=1) in out.stdout, out.stdout
 
 
@@ -4920,6 +4935,55 @@ def test_a_test_whose_worker_crashed_at_the_base_fails_there(tmp_path):
     gate = gate_module()
     assert verdict_of(out.stdout, "tests/test_two.py") == gate.ON_BASE, out.stdout
     assert failing_in_base_record(keep, "tests/test_two.py")
+
+
+CRASHES_ITS_WORKER_IN_SETUP = """\
+import os
+
+import pytest
+
+
+@pytest.fixture
+def dies():
+    os._exit(1)
+
+
+def test_ok():
+    pass
+
+
+def test_crash(dies):
+    pass
+"""
+
+
+@pytest.mark.skipif(not XDIST, reason=NO_XDIST)
+def test_a_base_record_that_left_a_test_out_gives_no_new(tmp_path):
+    """#825 round 4's 🟡 2, the part its fix left. At the base `test_crash`'s
+    worker dies inside the test's setup, before any report of the node
+    reached the controller, so xdist's crash report carries no path the
+    recorder could reuse, and the base's record counts it unplaced while it
+    holds `test_ok` passing. That record cannot say the file passed: the
+    failure it left out may be this file's. So the file the branch broke
+    reads `new?` naming the count, never `new` (the strict direction)."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        files_row(True) + " tests",
+        {"tests/test_two.py": CRASHES_ITS_WORKER_IN_SETUP},
+        {
+            "tests/test_two.py": CRASHES_ITS_WORKER_IN_SETUP.replace(
+                "def test_crash(dies):\n    pass", "def test_crash():\n    assert False"
+            )
+        },
+    )
+    keep = tmp_path / "keep"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    word = verdict_of(out.stdout, "tests/test_two.py")
+    assert word != gate.NEW, out.stdout
+    assert word == gate.UNPLACED_AT_BASE.format(count=1), out.stdout
+    assert not failing_in_base_record(keep, "tests/test_two.py")
 
 
 # A plugin whose directory hook fails while the session itself walks its
@@ -6656,6 +6720,11 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "come from its `FAILED` lines, each file reads `new?` with the reason, "
         "and the base is not run; where one runner loaded it and another did "
         "not, the other's failures stay in `suite.txt` and out of the list.",
+        # #825 round 4's 🟡 2: `new` from a base record that left anything out.
+        "Either `new` reads `new?` naming the count instead where the base's "
+        "record left any test or collection out of every list, because one of "
+        "them may be the file's failure: a test whose xdist worker died in its "
+        "setup, before any report of it reached the controller, is one.",
         "**The cost is one more run of the whole row, and only when the suite "
         "fails**, whatever the number of failing files.",
         "so a part after the runner that the branch's own run never reached, "
@@ -6801,6 +6870,8 @@ def test_what_a_line_names_a_file_by_is_told_where_each_reader_meets_it():
         "not write its record.",
         "A test whose xdist worker crashed keeps the path its earlier reports "
         "carried, so its failure counts.",
+        "`new?` naming a count, too, where the file would read `new` but the "
+        "base's record left tests or collections out of every list",
         "a row that writes `--report-log` finds it in that log while the gate "
         "measures it.",
     ):

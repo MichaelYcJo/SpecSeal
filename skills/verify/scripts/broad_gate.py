@@ -2057,18 +2057,35 @@ NOT_REACHED = (
 )
 
 
+# Formatted with the base record's `unplaced` count, where a file would read
+# `new` from a base record that left tests or collections out of every list:
+# one of them may be this file's failure, so `new` is not measured (#825
+# round 4's 🟡 2, the worker that dies in a test's setup before any report of
+# it reaches the xdist controller).
+UNPLACED_AT_BASE = (
+    f"{NOT_MEASURED}: the row ran once at the base, and its record left "
+    "{count} of the tests and collections its pytest reported in no list, "
+    "such as a test whose xdist worker died before any report of it arrived, "
+    "so one of them may be this file's failure and whether the base fails it "
+    "was not measured (kept as suite-at-base.txt, with records/ beside it)"
+)
+
+
 # Where the scratch worktree at the base could not be added.
 NOT_CHECKED_OUT = f"{NEW}? the base could not be checked out for comparison"
 
 
 def base_word(record, code, path):
     """The word `path` reads from the base's `RunRecord` and the exit of the
-    run that wrote it — the five rows of `compare_at_base`'s table."""
+    run that wrote it — the five rows of `compare_at_base`'s table, and
+    `new` given only where the record left nothing out."""
     if not record.sessions:
         return NO_RECORD
     if path in record.failing:
         return ON_BASE
     if path in record.collected or code == 0:
+        if record.unplaced:
+            return UNPLACED_AT_BASE.format(count=record.unplaced)
         return NEW
     return NOT_REACHED.format(code=code)
 
@@ -2097,6 +2114,12 @@ def compare_at_base(root, base, command, files, keep):
         with the exit — a part that failed before a later runner, `-x`, an
         interrupt, a crash, or simply a file the branch added on a base whose
         row is already red.
+
+    Either `new` reads `UNPLACED_AT_BASE` with the count instead where the
+    base's record left any test or collection out of every list: one of them
+    may be the file's failure — an xdist worker that died in a test's setup,
+    before any report of it reached the controller, is one — so the record
+    cannot say the file passed. `failing on base too` is not affected.
 
     The process that collected a test is the process that wrote its line,
     so there is no `whose` to decide: a test that runs pytest itself starts
