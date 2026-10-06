@@ -313,26 +313,26 @@ def test_another_sessions_stop_leaves_its_file_alone(tmp_path):
     assert mod.pending(os.path.dirname(path)) == [path]
 
 
-# A panel small enough that two of its stamps share one message with their
-# discs, which two of a real run's size do not (`questions.md` Q6).
+# The smallest panel a run could carry. Under #717's lily two of its stamps
+# shared one message with their discs; under the § of #832 no two stamps do
+# (`phases/phase-2.md` of work item 1791270164 has the sizes).
 SMALL_ROWS = [("SEALED", ""), ("tree", "aaa1111"), ("", "feat/x"), ("rounds", "2")]
 
 
-def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
-    """Two seals that fit one message together are one message, oldest
-    first, each stamp whole under its own label and each with its disc; a
-    file that is not a run's values is skipped and left where it is rather
-    than taking the others down. The older takes the highest rung the newer
-    leaves room for at 0.75, and the newer the highest left, where one rung
-    for both was 0.75 for both.
+def test_several_files_come_out_one_stop_each_oldest_first(tmp_path):
+    """Several pending seals come out oldest first, each stamp whole under
+    its own label and with its disc, and a file that is not a run's values
+    is skipped and left where it is rather than taking the others down.
 
-    The two rungs are read off the blocks' sizes under the real budget, not
-    written in. They are what fits, and the emblem and the disc's radius set
-    those sizes: #717's lily drew this pair at 0.80 and 0.75, and the interim
-    ring of work item 1791270164 drew both at 0.90 (its `phases/phase-1.md`),
-    so a written-in pair moves with every emblem. The rule itself, at
-    budgets that force each rung, is
-    `test_the_ladder_steps_down_in_order_and_ends_with_no_disc`."""
+    Under #717's lily two small seals shared one message, the older at the
+    highest rung the newer left room for; this case was
+    `test_several_files_come_out_as_one_message_oldest_first` then. Since
+    #832 the ladder is one rung and a disc at 0.90 adds about 5,600 units
+    to its sheet, so no two stamps share a message at the real budget: the
+    smallest panel's pair is asserted over it, the first `Stop` draws the
+    older alone and the newer waits, and the next draws the newer. Several
+    blocks in one message is `admitted`'s still, at a budget a case picks
+    (`test_the_ladder_steps_down_in_order_and_ends_with_no_disc`)."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     small = values(rows=SMALL_ROWS)
@@ -343,34 +343,21 @@ def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
     broken = os.path.join(os.path.dirname(first), "3-ddd4444.json")
     with open(broken, "w", encoding="utf-8") as handle:
         handle.write("not json")
-    text = json.loads(stop(repo))["systemMessage"]
     other = LABEL.replace("aaa1111", "ccc3333")
-    at = {
-        (who, s): drawn(mod, who, SMALL_ROWS, s)
-        for who in (LABEL, other)
-        for s in mod.SCALE_LADDER
-    }
-    budget, floor = mod.MESSAGE_BUDGET, mod.SCALE_LADDER[-1]
-    assert len(at[LABEL, floor]) + 2 + len(at[other, floor]) <= budget, (
-        "two SMALL_ROWS stamps no longer share one message at 0.75"
+    rung = mod.SCALE_LADDER[-1]
+    older, newer = (drawn(mod, who, SMALL_ROWS, rung) for who in (LABEL, other))
+    assert len(older) + 2 + len(newer) > mod.MESSAGE_BUDGET, (
+        "two stamps share one message again; this case's premise moved"
     )
-    older = next(
-        s
-        for s in mod.SCALE_LADDER
-        if len(at[LABEL, s]) + 2 + len(at[other, floor]) <= budget
-    )
-    newer = next(
-        s
-        for s in mod.SCALE_LADDER
-        if len(at[LABEL, older]) + 2 + len(at[other, s]) <= budget
-    )
-    assert text == at[LABEL, older] + "\n\n" + at[other, newer], (
-        (older, newer),
-        [b.split("\n", 1)[0] for b in text.split("\n\n")],
-    )
-    assert len(text) <= mod.MESSAGE_BUDGET, len(text)
+    text = json.loads(stop(repo))["systemMessage"]
+    assert text == older, [b.split("\n", 1)[0] for b in text.split("\n\n")]
+    assert "\x1b[38;2;" in text, "the stamp lost its disc"
+    assert not os.path.exists(first) and os.path.exists(second)
+    assert mod.pending(os.path.dirname(first)) == [second, broken]
+    later = json.loads(stop(repo))["systemMessage"]
+    assert later == newer, later.split("\n", 1)[0]
     assert mod.pending(os.path.dirname(first)) == [broken]
-    assert not os.path.exists(first) and not os.path.exists(second)
+    assert not os.path.exists(second)
 
 
 def test_a_malformed_later_file_does_not_take_the_earlier_ones(tmp_path):
@@ -538,7 +525,7 @@ def test_the_budget_is_named_and_derived_from_the_measured_limit():
     assert mod.MESSAGE_LIMIT <= 10090, "above a size the harness has persisted"
     assert mod.MESSAGE_LIMIT == 10000, "not the number the probe measured"
     assert mod.MESSAGE_BUDGET <= mod.MESSAGE_LIMIT - 1000, mod.MESSAGE_BUDGET
-    assert mod.SCALE_LADDER == (0.90, 0.80, 0.75)
+    assert mod.SCALE_LADDER == (0.90,), "#832: one rung, then the sheet alone"
     assert all(mod.check_scale(rung) is None for rung in mod.SCALE_LADDER)
 
 
@@ -557,7 +544,7 @@ def test_the_hooks_message_is_under_the_budget_for_one_file(tmp_path):
 def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
     """A3, two files, under the owner's rule of 2026-10-02 (`questions.md`
     Q6). Two stamps of a real run's size do not fit one message together
-    even at 0.75, so the old rule drew both with no disc. The disc is kept
+    even at the last rung, so the old rule drew both with no disc. The disc is kept
     now: the first is drawn whole at its own 0.90, the second stays pending
     under its own name, and the next `Stop` draws it whole — two turns,
     each message under the budget. The name is the case's from phase 1,
@@ -568,8 +555,9 @@ def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
     under the interim ring of work item 1791270164 they did
     (`phases/phase-1.md` there has the sizes). The second run therefore
     carries deferral homes, one at a time, until the pair does not fit at
-    0.75 — none under the lily, where this is the case as it stood — and the
-    premise is asserted rather than assumed."""
+    the ladder's last rung — none under the lily or under the § at 0.90,
+    where this is the case as it stood — and the premise is asserted rather
+    than assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     label = mod.label(full_values())
@@ -637,11 +625,12 @@ def test_seals_past_what_one_message_carries_wait_for_the_next_turn(tmp_path):
 
 
 def test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it(tmp_path):
-    """A4's last rung, under the owner's rule. A record whose sheet does not
-    fit the budget at 0.75 by itself — a long list of deferral homes — is the
-    one case the sheet is drawn with no disc, and it is drawn alone: the
-    first pending file is always drawn, so the queue cannot stall, and the
-    seal after it waits for the next `Stop` rather than losing its disc."""
+    """A4's last rung, under the owner's rule. A record whose stamp does not
+    fit the budget with its disc at the ladder's last rung by itself — a
+    long list of deferral homes — is the one case the sheet is drawn with no
+    disc, and it is drawn alone: the first pending file is always drawn, so
+    the queue cannot stall, and the seal after it waits for the next `Stop`
+    rather than losing its disc."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     homes = [("", f"home-{k}") for k in range(60)]
@@ -649,7 +638,8 @@ def test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it(tmp_path):
     oversized = mod.write_values(str(repo / ".git"), "s-1", big, now=1)
     after = mod.write_values(str(repo / ".git"), "s-1", full_values("ccc3333c"), now=2)
     label = mod.label(big)
-    assert len(drawn(mod, label, big["rows"], 0.75)) > mod.MESSAGE_BUDGET
+    rung = mod.SCALE_LADDER[-1]
+    assert len(drawn(mod, label, big["rows"], rung)) > mod.MESSAGE_BUDGET
     text = json.loads(stop(repo))["systemMessage"]
     assert text == drawn(mod, label, big["rows"], None), "not the sheet alone"
     assert "\x1b[38;2;" not in text, "the oversized seal drew a disc"
@@ -663,12 +653,13 @@ def test_a_character_outside_the_bmp_is_counted_as_two():
     `systemMessage` in UTF-16 units, so 5,001 U+1D54F (10,002 units) were
     persisted where 4,999 were shown. Python's `len` counts each as one, so
     a label of them fitted a rung the harness would not. A budget between
-    the two counts steps the block down."""
+    the two counts steps the block down — since #832 to the sheet alone,
+    the one step after 0.90."""
     mod = stamp_module()
     label = LABEL + " " + "\U0001d54f" * 50
-    at = {s: drawn(mod, label, ROWS, s) for s in (0.9, 0.8)}
+    at = {s: drawn(mod, label, ROWS, s) for s in (0.9, None)}
     assert len(at[0.9].encode("utf-16-le")) // 2 == len(at[0.9]) + 50
-    assert mod.fitted([(label, ROWS, 0.9)], len(at[0.9]) + 10) == at[0.8]
+    assert mod.fitted([(label, ROWS, 0.9)], len(at[0.9]) + 10) == at[None]
     assert mod.fitted([(label, ROWS, 0.9)], len(at[0.9]) + 50) == at[0.9]
     # A values file is JSON, which can carry a lone surrogate; counting it
     # must not raise, or every pending file would wait forever.
@@ -703,49 +694,56 @@ def test_a_values_file_from_an_older_gate_draws_every_row_and_skips_its_blanks(
 
 def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     """A4. Driven at small budgets: the file's own scale where it fits, then
-    0.80, then 0.75, then the panel with no disc — which is returned whatever
-    the budget, because nothing comes after it. Each block takes the highest
-    rung the others leave room for, oldest first (`questions.md` Q6), and
-    never a rung above the file's own scale."""
+    the ladder's one rung, 0.90 since #832, then the panel with no disc —
+    which is returned whatever the budget, because nothing comes after it.
+    Each block takes the highest rung the others leave room for, oldest
+    first (`questions.md` Q6 of #717), and never a rung above the file's
+    own scale; a newer block that does not fit beside the older waits rather
+    than shrinking, because no smaller disc is drawn."""
     mod = stamp_module()
-    at = {s: drawn(mod, LABEL, ROWS, s) for s in (*mod.SCALE_LADDER, None)}
-    sizes = [len(at[s]) for s in (*mod.SCALE_LADDER, None)]
-    assert sizes == sorted(sizes, reverse=True) and len(set(sizes)) == 4, sizes
+    at = {s: drawn(mod, LABEL, ROWS, s) for s in (1.0, *mod.SCALE_LADDER, None)}
+    sizes = [len(at[s]) for s in (1.0, *mod.SCALE_LADDER, None)]
+    assert sizes == sorted(sizes, reverse=True) and len(set(sizes)) == 3, sizes
     one = [(LABEL, ROWS, 0.9)]
     assert mod.fitted(one, len(at[0.9])) == at[0.9]
-    assert mod.fitted(one, len(at[0.9]) - 1) == at[0.8]
-    assert mod.fitted(one, len(at[0.8]) - 1) == at[0.75]
-    assert mod.fitted(one, len(at[0.75]) - 1) == at[None]
+    assert mod.fitted(one, len(at[0.9]) - 1) == at[None]
     assert mod.fitted(one, 0) == at[None], "the last rung is the last"
     bare = mod.strip_ansi(at[None])
     assert "▀" not in bare and "▄" not in bare, "the last rung drew a disc"
     for row in ROWS:
         if row is not None:
             assert f"{row[0]:<8} {row[1]}".strip() in bare, row
-    # Two blocks: each fits at 0.90 alone, and together the older keeps
-    # 0.90 and the newer takes the rung left over — not one rung for both.
+    # A file at 1.0 steps to 0.90 where 1.0 does not fit, and keeps 1.0
+    # where it does.
+    big = [(LABEL, ROWS, 1.0)]
+    assert mod.fitted(big, len(at[1.0])) == at[1.0]
+    assert mod.fitted(big, len(at[1.0]) - 1) == at[0.9]
+    # Two blocks that fit together at 0.90 are one message; where the newer
+    # does not fit beside the older, it is left out rather than both losing
+    # the disc or the newer shrinking.
     two = [(LABEL, ROWS, 0.9), (LABEL, ROWS, 0.9)]
-    room = len(at[0.9]) + 2 + len(at[0.8])
-    assert mod.fitted(two, room) == at[0.9] + "\n\n" + at[0.8]
-    # Where the newer does not fit even at 0.75 beside the older at 0.75, it
-    # is left out rather than both losing the disc.
-    alone = len(at[0.75]) * 2 + 1
-    assert len(at[0.9]) <= alone, (len(at[0.9]), alone)
-    assert mod.admitted(two, alone) == [at[0.9]], "both drawn, or not at 0.90"
+    room = len(at[0.9]) * 2 + 2
+    assert mod.fitted(two, room) == at[0.9] + "\n\n" + at[0.9]
+    assert mod.admitted(two, room - 1) == [at[0.9]], "both drawn, or not at 0.90"
+    # The older at 1.0 takes the rung the newer leaves room for.
+    pair = [(LABEL, ROWS, 1.0), (LABEL, ROWS, 0.9)]
+    assert mod.admitted(pair, room) == [at[0.9], at[0.9]]
+    assert mod.admitted(pair, len(at[1.0]) + 2 + len(at[0.9])) == [at[1.0], at[0.9]]
     # Oldest first: a newer seal that would fit is not drawn ahead of an
     # older one that does not, which the hook would claim and not print.
-    big = (LABEL, ROWS + [("", f"home-{k}") for k in range(60)], 0.9)
-    one = (LABEL, ROWS, 0.9)
-    past = len(at[0.9]) + 2 + len(at[0.75])
-    assert mod.admitted([one, big, one], past) == [at[0.9]], (
+    huge = (LABEL, ROWS + [("", f"home-{k}") for k in range(60)], 0.9)
+    plain = (LABEL, ROWS, 0.9)
+    assert mod.admitted([plain, huge, plain], room) == [at[0.9]], (
         "drawn past a seal that waits"
     )
     # A single seal exactly at the budget keeps its disc.
-    assert mod.admitted([(LABEL, ROWS, 0.75)], len(at[0.75])) == [at[0.75]]
+    assert mod.admitted([(LABEL, ROWS, 0.9)], len(at[0.9])) == [at[0.9]]
     # A file that asked for less is never drawn larger, and one that asked
     # for more than the first rung gets it where it fits.
-    assert mod.fitted([(LABEL, ROWS, 0.75)], 10**6) == at[0.75]
-    assert mod.fitted([(LABEL, ROWS, 1.0)], 10**6) == drawn(mod, LABEL, ROWS, 1.0)
+    low = drawn(mod, LABEL, ROWS, 0.75)
+    assert mod.fitted([(LABEL, ROWS, 0.75)], 10**6) == low
+    assert mod.fitted([(LABEL, ROWS, 0.75)], len(low) - 1) == at[None]
+    assert mod.fitted([(LABEL, ROWS, 1.0)], 10**6) == at[1.0]
 
 
 def test_admitteds_docstring_fits_the_line_length():
@@ -765,7 +763,9 @@ def test_the_policy_states_the_budget_and_names_its_case():
     budget rule under #717's marker, and its `Enforced by:` line names A3's
     case; the marker stands a second time over the paragraph nothing
     enforces, which now says the sheet's background is the owner's reading,
-    with the contrast figures beside it."""
+    with the contrast figures beside it. #832: the rule names the one rung
+    with a disc and the sheet alone after it, and no longer the two rungs
+    the owner refused."""
     text = flat("docs", "the-broad-gate.md")
     marker = "<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->"
     assert text.count(marker) == 2, "the rule and the unchecked half, one marker each"
@@ -782,6 +782,10 @@ def test_the_policy_states_the_budget_and_names_its_case():
     assert "A seal past what one message can carry stays pending" in rule
     assert "::test_seals_past_what_one_message_carries_wait_for_the_next_turn" in rule
     assert "a character outside the BMP is two" in rule
+    # #832: one rung with a disc, then the sheet alone.
+    assert "then 0.90, the one rung with a disc since #832" in rule
+    assert "does not fit with its disc by itself is the only one drawn" in rule
+    assert "0.80 and 0.75" not in rule and "at 0.75 by itself" not in rule
     section = text.split("## Where the stamp is drawn", 1)[1]
     assert marker in section.split("## What the runner owes", 1)[0]
 

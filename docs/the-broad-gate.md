@@ -143,11 +143,13 @@ report `hooks/dispatch.py` prepends to the same message. The harness counts
 UTF-16 units, so a character outside the BMP is two, and so does the hook.
 One message carries as many of the oldest pending stamps as fit together
 with their disc, each at the highest rung the others leave room for: its
-file's own scale, then 0.90, 0.80 and 0.75. A seal past what one message can
-carry stays pending and is drawn at the next turn's end, and a single stamp
-that does not fit at 0.75 by itself is the only one drawn as the sheet with
-no disc. A stamp can come out smaller or a turn later, and a session that
-ends first leaves it for `seal-stamp --from`. The gate's own terminal
+file's own scale, then 0.90, the one rung with a disc since #832 — the owner
+saw the § fragment on a disc smaller than 0.90's 24 cells, so the ladder
+never draws one. A seal past what one message can carry stays pending and is
+drawn at the next turn's end, and a single stamp that does not fit with its
+disc by itself is the only one drawn as the sheet with no disc. A stamp can
+come out without its disc or a turn later, and a session that ends first
+leaves it for `seal-stamp --from`. The gate's own terminal
 drawing and `seal-stamp` are not budgeted, because neither is a hook's
 message.
 Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_hooks_message_is_under_the_budget_for_one_file, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_two_files_in_one_turn_are_under_the_budget_together, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_seals_past_what_one_message_carries_wait_for_the_next_turn, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_ladder_steps_down_in_order_and_ends_with_no_disc

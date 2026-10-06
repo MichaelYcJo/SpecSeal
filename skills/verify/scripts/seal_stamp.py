@@ -8,23 +8,25 @@ suite's counts, the ledger's, the steps CI also runs, the rounds
 disc pressed over the sheet's lower right corner and an emblem pressed into
 the wax. The disc is COMPUTED — `hypot` for its edge — and only the emblem is
 authored, as one vector source held below as data (`EMBLEM_D`, closed paths
-in SVG `d` syntax): the disc samples it at each cell's centre, and the
-release PNG fills the same polygons, so the two forms cannot drift. Four
+in SVG `d` syntax): the disc renders it by area, each cell the mean of a
+6 x 6 grid of samples in linear light, and the release PNG fills the same
+polygons, so the two forms cannot drift. Four
 hand-typed discs came before #30's and every one was lopsided; a circle that
 is calculated cannot be off centre, and resizing it is one number. #717 took
 off the rope ring and the outer red band and pressed the mark in one red lit
 from the upper left, and the owner chose that drawing, its colours and its
 scale from renderings. #832 replaced #717's chart of a lily, whose majority
-vote mangled it below 1.0, with the vector source; which mark it carries is
-the owner's to choose (`EMBLEM_D`'s comment).
+vote mangled it below 1.0, with the vector source, and the owner chose its
+mark from renderings: the section sign, §, on a disc 24 cells across.
 
 Two forms, one drawing (`compose`). The block form is half-block characters,
 the disc in truecolour and the sheet in 256-colour codes, emitted only where
 the colour changes (a code per cell was 282 KB for one seal). The letter twin
 is the same footprint as letters — the sheet's edge `|`, its top `.---.` and
-its bottom `'---'`, the text as itself, `m` the wax's edge, `.` the field and
-`G Y y` the emblem's face, highlight and shadow — for a console that cannot
-render half-blocks, and for `seal-stamp` on a pipe. The twin is chosen when
+its bottom `'---'`, the text as itself, `m` the wax's edge, `M n` the rim's
+light and dark ends, `.` the field and `Y y` the emblem and its shadow, a
+blended cell taking the letter of the colour nearest it — for a console that
+cannot render half-blocks, and for `seal-stamp` on a pipe. The twin is chosen when
 stdout is not a UTF-8 terminal, or on `--shape`. An agent's report carries
 neither: since #400 the gate draws nothing on a pipe.
 
@@ -32,8 +34,9 @@ neither: since #400 the gate draws nothing on a pipe.
 persists a `systemMessage` longer than `MESSAGE_LIMIT` and shows a preview
 instead, so `admitted` carries as many of the oldest stamps as fit with
 their disc, each at the highest rung of `SCALE_LADDER` the others leave room
-for, and leaves the rest for the next `Stop`. Only one stamp that does not
-fit at 0.75 alone is drawn as the sheet with no disc.
+for — one rung since #832, 0.90 — and leaves the rest for the next `Stop`.
+Only one stamp that does not fit with its disc alone is drawn as the sheet
+with no disc.
 
 The stamp prints on success only. The failure form, `not_sealed`, is the words
 `NOT SEALED`, the branch and the tree, the base's ref and its commit
@@ -74,7 +77,9 @@ nothing was written on 2.
 """
 
 import argparse
+import bisect
 import collections
+import functools
 import json
 import math
 import os
@@ -122,21 +127,43 @@ if _refusal:
 #
 # One vector source (#832): closed paths in SVG `d` syntax, absolute `M L C Q
 # Z` only, in a 1000 x 1000 viewBox centred on (500, 500) with the field's
-# edge at radius 500, filled even-odd. The terminal samples it at cell
-# centres (`build`) and the release PNG fills the same flattened polygons
-# with Pillow, so the two forms cannot drift. It replaces #717's chart of a
+# edge at radius 500, filled even-odd. The terminal renders it by area
+# (`build`) and the release PNG fills the same flattened polygons with
+# Pillow, so the two forms cannot drift. It replaces #717's chart of a
 # lily, one cell a mark, whose majority vote mangled the lily below 1.0.
 #
-# INTERIM. This is a plain geometric ring, not the project's mark: which
-# mark the disc carries is open with the owner (questions.md Q1 of work item
-# 1791270164). The answer replaces this string and nothing else. An answer
-# keeps within radius 475 and draws no stroke thinner than about 50 units,
-# or a cell centre at 0.75 misses it.
+# The mark is the section sign, §, chosen by the owner on 2026-10-06 from
+# renderings looked at in their own terminal (#832, `spec.md` decision 3 of
+# work item 1791270164): Georgia Bold's outline scaled to 820 units, centred
+# on (500, 500), two subpaths — the outline and its counter. The string is
+# the one handed over, copied character for character; it is data, not a
+# drawing anybody re-derives.
 EMBLEM_D = (
-    "M 900 500 C 900 720.9 720.9 900 500 900 C 279.1 900 100 720.9 100 500 "
-    "C 100 279.1 279.1 100 500 100 C 720.9 100 900 279.1 900 500 Z "
-    "M 740 500 C 740 632.55 632.55 740 500 740 C 367.45 740 260 632.55 260 500 "
-    "C 260 367.45 367.45 260 500 260 C 632.55 260 740 367.45 740 500 Z"
+    "M 721.8 484.0 Q 721.8 535.5 687.5 572.0 Q 653.2 608.5 595.8 627.4 Q "
+    "645.4 647.9 670.7 681.9 Q 696.0 715.9 696.0 756.8 Q 696.0 822.5 635.0 "
+    "866.2 Q 573.9 910.0 467.9 910.0 Q 417.3 910.0 383.8 900.5 Q 350.2 "
+    "891.0 329.8 876.4 Q 309.3 861.9 300.8 844.6 Q 292.3 827.3 292.3 812.2 "
+    "Q 292.3 785.5 308.1 768.2 Q 323.9 751.0 354.1 751.0 Q 375.5 751.0 "
+    "391.1 762.1 Q 406.6 773.3 417.3 791.3 Q 427.5 808.4 434.6 827.6 Q "
+    "441.6 846.8 449.4 868.7 Q 451.9 869.1 456.2 869.6 Q 460.6 870.1 463.0 "
+    "870.1 Q 508.8 870.1 538.7 852.6 Q 568.6 835.1 568.6 796.2 Q 568.6 "
+    "772.8 558.8 756.8 Q 549.1 740.7 530.2 728.1 Q 511.7 715.0 481.0 702.1 "
+    "Q 450.4 689.2 420.2 677.0 Q 346.8 647.4 312.5 609.7 Q 278.2 572.0 "
+    "278.2 516.0 Q 278.2 468.4 305.9 433.4 Q 333.7 398.4 404.2 372.6 Q "
+    "349.7 350.2 324.9 315.9 Q 300.1 281.6 300.1 238.3 Q 300.1 174.6 363.3 "
+    "132.3 Q 426.6 90.0 527.2 90.0 Q 575.4 90.0 609.9 99.2 Q 644.4 108.5 "
+    "665.4 123.6 Q 685.3 137.7 694.1 154.9 Q 702.8 172.2 702.8 187.8 Q "
+    "702.8 213.5 688.0 231.3 Q 673.1 249.0 641.0 249.0 Q 618.7 249.0 603.8 "
+    "237.9 Q 589.0 226.7 577.8 208.7 Q 568.6 194.1 560.1 170.5 Q 551.6 "
+    "146.9 545.7 131.3 Q 542.3 130.4 538.4 130.1 Q 534.5 129.9 532.1 129.9 "
+    "Q 486.4 129.9 457.0 148.1 Q 427.5 166.4 427.5 203.8 Q 427.5 228.1 "
+    "437.5 243.7 Q 447.5 259.3 467.9 272.4 Q 488.3 285.5 518.0 297.7 Q "
+    "547.7 309.8 579.8 323.0 Q 652.7 352.1 687.2 389.1 Q 721.8 426.1 721.8 "
+    "484.0 Z M 597.8 516.5 Q 597.8 491.2 586.6 473.5 Q 575.4 455.7 554.5 "
+    "441.6 Q 535.5 428.5 501.7 413.9 Q 467.9 399.3 443.6 388.6 Q 425.6 "
+    "404.2 413.9 431.7 Q 402.2 459.1 402.2 483.5 Q 402.2 509.2 414.4 527.5 "
+    "Q 426.6 545.7 447.0 559.3 Q 469.4 573.9 498.3 586.3 Q 527.2 598.7 "
+    "556.4 611.4 Q 580.2 590.5 589.0 566.6 Q 597.8 542.8 597.8 516.5 Z"
 )
 
 SVG_REFUSED = (
@@ -239,36 +266,36 @@ def inside(polygons, x, y):
 
 
 def shade(filled, x, y, delta):
-    """The emblem's colour at `(x, y)`, lit from the upper left, or None where
-    `filled` says the point is not the emblem's: the highlight where the point
-    `delta` up-left is outside it, the shadow where the point `delta`
-    down-right is (and up-left is not), the face everywhere else."""
-    if not filled(x, y):
-        return None
-    if not filled(x - delta, y - delta):
+    """The mark's colour at `(x, y)` in the field, lit from the upper left
+    (#832): `LILY_LIGHT` where `filled` says the point is the mark's, the
+    shadow `LILY_SHADOW` where it is not and the point `delta` up-left of it
+    is — so the shadow falls down-right of the mark — and None, the field,
+    everywhere else."""
+    if filled(x, y):
         return LILY_LIGHT
-    if not filled(x + delta, y + delta):
+    if filled(x - delta, y - delta):
         return LILY_SHADOW
-    return LILY_FACE
+    return None
 
 
 EMBLEM = svg_path(EMBLEM_D)
 EMBLEM_POLYGONS = flatten(EMBLEM)
 
-# The disc's colours, chosen by the owner from renderings (#717). The rope
-# ring and the outer light-red band are gone, so `WAX_M` is the wax's edge;
-# the emblem is pressed into the field in one colour, lit from the upper
-# left (`shade`): its highlight where the point one cell up-left is field,
-# its shadow where the point one cell down-right is, and its face everywhere
-# else. The `LILY_` names are #717's and are kept, because the release
-# script and the cases read them. They are truecolour, the one part of the
-# letter drawn that way.
+# The disc's colours. The first four are #717's, chosen by the owner from
+# renderings: `WAX_M` the wax's edge, `FIELD` the field, `LILY_LIGHT` the
+# mark and `LILY_SHADOW` its shadow (the `LILY_` names are #717's, kept
+# because the release script and the cases read them). The rim's two ends
+# are the owner's of 2026-10-06 (#832): the field's inner rim is lit by angle
+# from `RIM_DARK` at the lower right to `RIM_LIGHT` at the upper left. They
+# are truecolour, the one part of the letter drawn that way, and a cell of
+# the disc is a blend of them (`build`).
 WAX_M = (168, 26, 30)
 FIELD = (120, 16, 20)
 LILY_LIGHT = (226, 82, 74)
 LILY_SHADOW = (96, 10, 14)
-LILY_FACE = (186, 34, 38)
-DISC_COLOURS = (WAX_M, FIELD, LILY_LIGHT, LILY_SHADOW, LILY_FACE)
+RIM_LIGHT = (214, 70, 66)
+RIM_DARK = (104, 12, 16)
+DISC_COLOURS = (WAX_M, FIELD, LILY_LIGHT, LILY_SHADOW, RIM_LIGHT, RIM_DARK)
 # Where the disc ends, as a fraction of its radius, and where its edge begins.
 WAX_EDGE, FIELD_EDGE = 0.84, 0.78
 
@@ -280,25 +307,69 @@ SHEET_EDGE = 187  # (215, 215, 175)
 INK = 94  # (135, 95, 0)
 TITLE = 124  # (175, 0, 0)
 
-# The letter for each disc colour in the twin. `m` is the wax's edge and `.`
-# the field, as it was before #717; `G Y y` are the emblem's face, highlight
-# and shadow, whichever mark `EMBLEM_D` holds (#832). A cell of the sheet is
-# its own character (`compose`).
+# The letter for each disc colour in the twin (#832): `m` the wax's edge and
+# `.` the field, as before #717; `Y` the mark and `y` its shadow; `M` and `n`
+# the rim's light and dark ends. A blended cell takes the letter of the
+# palette colour nearest it (`nearest`), and a cell nearer the parchment than
+# any of them is the sheet's own character (`compose`).
 KEY = {
     WAX_M: "m",
     FIELD: ".",
-    LILY_FACE: "G",
     LILY_LIGHT: "Y",
     LILY_SHADOW: "y",
+    RIM_LIGHT: "M",
+    RIM_DARK: "n",
 }
+
+# The six levels of xterm's 6 x 6 x 6 colour cube, which a 256-colour code
+# from 16 to 231 indexes.
+CUBE_LEVELS = (0, 95, 135, 175, 215, 255)
+
+
+def cube(code):
+    """The triple a 256-colour code in the cube draws (16-231)."""
+    k = code - 16
+    return (CUBE_LEVELS[k // 36], CUBE_LEVELS[k // 6 % 6], CUBE_LEVELS[k % 6])
+
+
+# Linear light is (c / 255) ** GAMMA per channel: a mean of colours is taken
+# there, because the mean of two sRGB values sits below the mean of their
+# intensities and a thin light stroke would read darker than its colour.
+GAMMA = 2.2
+
+
+def linear(colour):
+    """`colour`, an sRGB triple, in linear light."""
+    return tuple((c / 255) ** GAMMA for c in colour)
+
+
+def srgb(light):
+    """A linear-light triple back in sRGB, each channel rounded."""
+    return tuple(round(255 * max(0.0, min(1.0, c)) ** (1 / GAMMA)) for c in light)
+
+
+@functools.cache
+def nearest(colour):
+    """The palette colour nearest `colour` in linear light, or None where the
+    parchment is nearer than every one of them: the twin's letter for a
+    blended cell (`letter_row`)."""
+    here = linear(colour)
+
+    def distance(other):
+        return sum((a - b) ** 2 for a, b in zip(here, linear(other), strict=True))
+
+    best = min(DISC_COLOURS, key=distance)
+    return None if distance(cube(PARCHMENT)) < distance(best) else best
+
 
 # #30 §*Size* measured the floor on the lily's chart: at 75 % the lily was
 # still legible, at 60 % its band closed up and its foot became a blob, and at
-# 50 % it read as a cross. #832 samples a vector emblem instead and keeps the
-# floor where #30 put it; what holds an emblem's strokes to it is
-# `test_the_terminal_draws_the_area_the_emblem_encloses`, which is red at any
-# rung where cell centres miss a stroke. Above 1.0 nothing is drawn, because
-# the hook's message budget was measured up to 1.0 (`SCALE_TOO_LARGE`).
+# 50 % it read as a cross. #832 renders the § by area and keeps the band's
+# floor where #30 put it, for `--scale` by hand: the owner saw the § at 20
+# cells, the floor's size, fragment, and accepted nothing below 24, so the
+# hook never draws a disc below `DEFAULT_SCALE` (`SCALE_LADDER`). Above 1.0
+# nothing is drawn, because the hook's message budget was measured up to 1.0
+# (`SCALE_TOO_LARGE`).
 SCALE_FLOOR = 0.75
 SCALE_CEILING = 1.0
 # The scale both commands draw at unless told otherwise (#400 §*The size, and
@@ -310,13 +381,14 @@ SCALE_CEILING = 1.0
 # legibility won. #717 drew the letter at 0.90 again, the owner choosing it
 # from renderings at 0.85 and 0.90 with the disc pressed on the sheet; the
 # rope this paragraph names is gone. Those readings were of the lily, which
-# #832 withdrew: 0.90 stays the rung the hook tries first, and the emblem the
-# owner chooses is looked at there.
+# #832 withdrew. #832 kept 0.90 as the scale and made it the one the owner's
+# disc is sized at: 24 cells across (`DISC_CELLS`), 13 lines.
 #
-# 0.75 was the other candidate, passed over rather than missed: it is the only
-# legal scale where the disc (17 lines) and the panel end within one line of
-# each other, and it is the least detail of the band. Disc height moves in
-# whole cells, so a scale is not a continuous dial.
+# 0.75 was the other candidate, passed over rather than missed: under #400's
+# disc it was the only legal scale where the disc (then 17 lines) and the
+# panel ended within one line of each other, and it was the least detail of
+# the band. Disc size moves in whole cells, so a scale is not a continuous
+# dial.
 DEFAULT_SCALE = 0.90
 
 # --- what one hook message may hold (#717) ---------------------------------
@@ -356,9 +428,12 @@ MESSAGE_LIMIT = 10000
 MESSAGE_RESERVE = 1000
 MESSAGE_BUDGET = MESSAGE_LIMIT - MESSAGE_RESERVE
 # The rungs a block steps down, after the file's own scale; past the last, a
-# block that does not fit alone is drawn with no disc (`admitted`). Each rung
-# is inside `check_scale`'s band, so a step down cannot be refused.
-SCALE_LADDER = (0.90, 0.80, 0.75)
+# block that does not fit alone is drawn with no disc (`admitted`). One rung
+# since #832: the owner saw the § fragment on a disc smaller than 24 cells, so
+# a block that does not fit with its disc at 0.90 is the sheet alone rather
+# than a smaller disc. Each rung is inside `check_scale`'s band, so a step
+# down cannot be refused.
+SCALE_LADDER = (0.90,)
 
 SCALE_REFUSED = (
     "seal-stamp: scale {scale} is under the floor of {floor}; below it the "
@@ -396,49 +471,157 @@ def check_scale(scale):
     return None
 
 
-# The disc's radius in cells at scale 1.0. #717's chart gave the disc a
-# radius of its reach over 0.74, 15.5 / 0.74 at 1.0; this constant keeps that
-# radius, so the four rungs keep the heights they had (44, 40, 36, 34) and
-# the hook's budget cases keep their meaning. It is a parameter of `build`
-# rather than a number buried in it, because the disc's size is the owner's
-# to choose from renderings (#832). A smaller disc is a smaller value here and
-# nothing else; the cases it moves are named in `phases/phase-1.md` of work
-# item 1791270164.
-R0_CELLS = 15.5 / 0.74
+# The disc's numbers (#832), all in cells of the terminal's grid, where a
+# cell is one column by one half-row and so square. `DISC_CELLS` is the
+# owner's: the disc is 24 cells across at its wax edge at `DEFAULT_SCALE`,
+# because they saw 20 fragment the § and accepted nothing smaller. The rim is
+# `RIM_WIDTH` cells inside the field's edge; the shadow falls `SHADOW_OFFSET`
+# cells down-right of the mark; `FIT_OFFSET` and `FIT_SCALE` place the mark
+# on the grid, the fit searched at 24 cells over offsets in eighths of a cell
+# and scales 0.96, 1.0 and 1.04 for the most field cells that read clearly
+# mark or clearly field. Each cell is the mean of `SAMPLES` x `SAMPLES`
+# points, the owner's rendering at 6.
+DISC_CELLS = 24
+RIM_WIDTH = 1.15
+SHADOW_OFFSET = 0.7
+FIT_OFFSET = (0.0, 0.375)
+FIT_SCALE = 1.04
+SAMPLES = 6
+# A field cell's mark and shadow shares are tightened past these: a share
+# under `TIGHT_LOW` is field and one over `TIGHT_LOW + TIGHT_SPAN` is all
+# mark, so a stroke a cell straddles reads as a stroke rather than as a smear.
+TIGHT_LOW, TIGHT_SPAN = 0.15, 0.7
+# Where the rim is lightest, in radians from the positive x axis with `y`
+# down: the upper left.
+RIM_LIT_AT = math.radians(225)
 
 
-def build(scale=1.0, r0_cells=R0_CELLS):
-    """`(w, h, px)` — the disc's width and height in cells, and a function
-    from a cell to its colour, `None` outside the disc.
+def smoothstep(t):
+    """`3t² - 2t³` on `t` clamped to [0, 1]."""
+    t = max(0.0, min(1.0, t))
+    return t * t * (3 - 2 * t)
 
-    The radius is `r0_cells · scale`: nothing past `WAX_EDGE`, the wax's edge
-    from `FIELD_EDGE`, the field inside, and the emblem sampled at the cell's
-    centre in the three colours `shade` decides (#832). `h` is even, because
-    the block form prints two cells per line."""
+
+def crossings(polygons, y):
+    """Where the row at `y` crosses the polygons' edges, sorted — the same
+    edges and the same arithmetic `inside` uses, so a point's parity read off
+    them is `inside`'s answer."""
+    xs = []
+    for poly in polygons:
+        x0, y0 = poly[-1]
+        for x1, y1 in poly:
+            if (y1 > y) != (y0 > y):
+                xs.append(x0 + (y - y0) * (x1 - x0) / (y1 - y0))
+            x0, y0 = x1, y1
+    xs.sort()
+    return xs
+
+
+def build(scale=1.0, disc_cells=DISC_CELLS):
+    """`(w, h, px)` — the disc's width and height in cells, and
+    `px(x, y, under=None)`, a cell's colour.
+
+    The diameter at the wax edge is `round(disc_cells · scale /
+    DEFAULT_SCALE)` cells, 24 at 0.90; `w` is two more and `h` is even,
+    because the block form prints two cells per line; the radius is the
+    diameter over `2 · WAX_EDGE`. A cell is the mean, in linear light, of
+    its `SAMPLES` x `SAMPLES` points at `(x + (i + 0.5) / SAMPLES, y + (j +
+    0.5) / SAMPLES)`, each coloured by where it falls (#832): past
+    `WAX_EDGE` it is `under`, the colour beneath, or dropped where `under` is
+    None; then `WAX_M`; then the rim, `RIM_DARK` mixed toward `RIM_LIGHT` by
+    the angle from `RIM_LIT_AT`; then the field, where `shade` decides
+    between the mark, its shadow and `FIELD` over `EMBLEM_POLYGONS` placed
+    by `FIT_OFFSET` and `FIT_SCALE`. A cell with half or fewer of its points
+    on the disc is None where `under` is None. A cell whose every point is
+    in the field is tightened: its mark and shadow shares go through
+    `smoothstep`, and it is `FIELD` mixed toward the shadow and then toward
+    the mark by them.
+
+    Each row of points is read from one sorted list of `crossings` per row,
+    which is `inside`'s answer at a fraction of its cost: the hook draws a
+    disc for each stamp it prints."""
     refusal = check_scale(scale)
     if refusal:
         raise ValueError(refusal)
-    r0 = r0_cells * scale
-    w = int(r0 * 2) + 2
+    diameter = round(disc_cells * scale / DEFAULT_SCALE)
+    w = diameter + 2
     h = w + (w % 2)
+    r0 = diameter / 2 / WAX_EDGE
     ox, oy = w / 2, h / 2
     field = FIELD_EDGE * r0
+    k = field * FIT_SCALE
+    delta = SHADOW_OFFSET / k
+    rim = FIELD_EDGE - RIM_WIDTH / r0
+    fx, fy = FIT_OFFSET
+    n = SAMPLES
+    rows = {}
 
     def filled(u, v):
-        return inside(EMBLEM_POLYGONS, u, v)
+        xs = rows.get(v)
+        if xs is None:
+            xs = rows[v] = crossings(EMBLEM_POLYGONS, v)
+        return (len(xs) - bisect.bisect_right(xs, u)) % 2 == 1
 
-    def px(x, y):
-        # Sampled at the cell's centre. Sampled at its corner, the disc sat
-        # half a cell right and half a cell down of the grid's centre — the
-        # top rope row came out six cells wider than the bottom one — which is
-        # the lopsidedness a computed circle is supposed to make impossible.
-        dx, dy = x + 0.5 - ox, y + 0.5 - oy
+    def point(dx, dy):
+        """A point's colour as an sRGB triple, or None past the wax, and
+        whether it is in the field."""
         r = math.hypot(dx, dy) / r0
         if r > WAX_EDGE:
-            return None
+            return None, False
         if r > FIELD_EDGE:
-            return WAX_M
-        return shade(filled, dx / field, dy / field, 1 / field) or FIELD
+            return WAX_M, False
+        if r > rim:
+            t = smoothstep((1 + math.cos(math.atan2(dy, dx) - RIM_LIT_AT)) / 2)
+            return tuple(
+                a + (b - a) * t for a, b in zip(RIM_DARK, RIM_LIGHT, strict=True)
+            ), False
+        said = shade(filled, (dx - fx) / k, (dy - fy) / k, delta)
+        return said or FIELD, True
+
+    cells = []
+    for y in range(h):
+        line = []
+        for x in range(w):
+            on, total, every, marks, shadows = 0, [0.0, 0.0, 0.0], True, 0, 0
+            for j in range(n):
+                dy = y + (j + 0.5) / n - oy
+                for i in range(n):
+                    colour, in_field = point(x + (i + 0.5) / n - ox, dy)
+                    every = every and in_field
+                    if colour is None:
+                        continue
+                    on += 1
+                    marks += colour == LILY_LIGHT
+                    shadows += colour == LILY_SHADOW
+                    for c, part in enumerate(linear(colour)):
+                        total[c] += part
+            line.append((on, total, every, marks, shadows))
+        cells.append(line)
+    whole = n * n
+    lit, dark, plain = linear(LILY_LIGHT), linear(LILY_SHADOW), linear(FIELD)
+
+    def tighten(share):
+        return smoothstep((share - TIGHT_LOW) / TIGHT_SPAN)
+
+    def px(x, y, under=None):
+        if not (0 <= x < w and 0 <= y < h):
+            return None
+        on, total, every, marks, shadows = cells[y][x]
+        if every:
+            t_mark, t_shadow = tighten(marks / whole), tighten(shadows / whole)
+            colour = [
+                a + (b - a) * t_shadow * (1 - t_mark)
+                for a, b in zip(plain, dark, strict=True)
+            ]
+            return srgb(a + (b - a) * t_mark for a, b in zip(colour, lit, strict=True))
+        if under is None:
+            return srgb(c / on for c in total) if 2 * on > whole else None
+        if on == 0:
+            return under
+        beneath = linear(under)
+        return srgb(
+            (c + (whole - on) * b) / whole for c, b in zip(total, beneath, strict=True)
+        )
 
     return w, h, px
 
@@ -521,19 +704,23 @@ def colour_row(cells):
 
 def letter_row(cells):
     """One line of the letter twin over the same cells: the character
-    written there; else the disc's letter for whichever half is the disc's,
-    the top first, so a disc cell overrides the sheet's frame as it covers it
-    in colour; else the sheet's own character; else a space."""
+    written there; else the letter of the palette colour nearest whichever
+    half is the disc's (`nearest`), the top first, so a disc cell overrides
+    the sheet's frame as it covers it in colour; else — a half nearer the
+    parchment than the disc, or no disc — the sheet's own character; else a
+    space."""
     out = []
     for top, bottom, text, frame in cells:
         if text:
             out.append(text[0])
-        elif top in KEY:
-            out.append(KEY[top])
-        elif bottom in KEY:
-            out.append(KEY[bottom])
-        else:
-            out.append(frame or " ")
+            continue
+        near = None
+        for half in (top, bottom):
+            if isinstance(half, tuple):
+                near = nearest(half)
+                if near is not None:
+                    break
+        out.append(KEY[near] if near is not None else frame or " ")
     return "".join(out)
 
 
@@ -588,7 +775,11 @@ TEXT_LEFT = 3
 # row; two on every line is the prototype's intent (`spec.md` S3).
 GAP = 2
 
-Letter = collections.namedtuple("Letter", "cells width height")
+# `disc` is where the disc's grid stands, `(left, top, w, h)`: `left` and
+# `w` in cells, `top` and `h` in half-rows from the letter's first line, or
+# None with no disc — so the release PNG draws its circle where the terminal
+# drew the disc (#832).
+Letter = collections.namedtuple("Letter", "cells width height disc")
 
 
 def sheet_text(rows):
@@ -601,15 +792,19 @@ def sheet_text(rows):
 
 def compose(rows, scale):
     """The letter of `rows` as cells (see the writers above), with the
-    sheet's own width and height: `Letter(cells, width, height)`.
+    sheet's own width and height and where the disc stands: `Letter(cells,
+    width, height, disc)`.
 
     The disc at `scale` — None leaves it off, which is the last rung
     `fitted` steps down to — stands with its centre line on the sheet's last
-    line and as far left as it can without covering a text cell or leaving
-    fewer than `GAP` clear cells after any line's last character. The
-    sheet's right edge is at the disc's centre column, or two cells past the
-    longest line where the text is wider, and its first and last lines are
-    blank. Lines end at their last cell something covers."""
+    line and as far left as it can without touching a text cell or leaving
+    fewer than `GAP` clear cells after any line's last character; a cell the
+    disc touches at all counts, blended or not. The sheet's right edge is at
+    the disc's centre column, or two cells past the longest line where the
+    text is wider, and its first and last lines are blank. A disc cell over
+    the sheet is blended with the sheet's colour beneath it, as a triple
+    (`cube`); one off the sheet is the disc's alone (#832). Lines end at
+    their last cell something covers."""
     text = sheet_text(rows)
     lines, longest = len(text), max((len(t) for t in text), default=0)
     if scale is None:
@@ -621,14 +816,19 @@ def compose(rows, scale):
     disc_lines = dh // 2
     disc_top = max(1, height - disc_lines // 2 - 1)
 
-    def disc(left, x, y):
+    def disc(left, x, y, under=None):
         dx, dy = x - left, y - 2 * disc_top
-        return px(dx, dy) if px and 0 <= dx < dw and 0 <= dy < dh else None
+        return px(dx, dy, under) if px and 0 <= dx < dw and 0 <= dy < dh else None
+
+    parchment = cube(PARCHMENT)
+
+    def touched(left, x, y):
+        return disc(left, x, y, parchment) not in (None, parchment)
 
     def covered(left):
         for k, said in enumerate(text, 1):
             for x in range(TEXT_LEFT, TEXT_LEFT + len(said) + GAP):
-                if disc(left, x, 2 * k) or disc(left, x, 2 * k + 1):
+                if touched(left, x, 2 * k) or touched(left, x, 2 * k + 1):
                     return True
         return False
 
@@ -638,12 +838,12 @@ def compose(rows, scale):
     width = max(TEXT_LEFT + longest + 2, left + dw // 2)
 
     def colour(x, y):
-        on_disc = disc(left, x, y)
-        if on_disc:
-            return on_disc
-        if y >= 2 * height or x >= width:
-            return None
-        return SHEET_EDGE if x in (0, width - 1) else PARCHMENT
+        sheet = None
+        if y < 2 * height and x < width:
+            sheet = SHEET_EDGE if x in (0, width - 1) else PARCHMENT
+        under = None if sheet is None else cube(sheet)
+        on_disc = disc(left, x, y, under)
+        return on_disc if on_disc not in (None, under) else sheet
 
     def frame(x, ln):
         if ln >= height or x >= width:
@@ -676,7 +876,8 @@ def compose(rows, scale):
     # they are empty; a line that carries nothing is not part of the letter.
     while cells and not cells[-1]:
         cells.pop()
-    return Letter(cells, width, height)
+    where = (left, 2 * disc_top, dw, dh) if px else None
+    return Letter(cells, width, height, where)
 
 
 # --- what the gate calls -------------------------------------------------
@@ -700,15 +901,17 @@ def admitted(blocks, budget=MESSAGE_BUDGET):
     The owner's rule of 2026-10-02 (`questions.md` Q6), which replaced one
     rung for the whole message: a seal keeps its disc rather than share a
     message without it. So the message carries as many of the oldest blocks
-    as fit together WITH the disc, each at 0.75 — a scale below it is
-    refused before a block reaches here — and then each, oldest first, at
+    as fit together WITH the disc, each at the last rung of `SCALE_LADDER`
+    or at its own scale where that is lower, and then each, oldest first, at
     the highest rung the others leave room for: its own scale first, then
-    each of `SCALE_LADDER`, never above its own scale. The blocks past
+    each of `SCALE_LADDER`, never above its own scale. Since #832 the ladder
+    is one rung, 0.90: the owner saw the § fragment on a smaller disc, so a
+    block steps from its disc straight to the sheet alone. The blocks past
     those are not drawn here; the hook leaves their files pending, and the
     next `Stop` draws them whole.
 
     The rung with no disc is for one block alone, the oldest, when it does
-    not fit at 0.75 by itself; it is returned whatever its size, because
+    not fit with its disc by itself; it is returned whatever its size, because
     nothing comes after it. So the first block is always drawn and the queue
     cannot stall. A sheet with no disc is about 70 characters a row with its
     colour codes (2,071 for the widest panel this tree can produce, measured

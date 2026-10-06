@@ -26,6 +26,7 @@ import ast
 import importlib.util
 import io
 import json
+import math
 import ntpath
 import os
 import re
@@ -268,18 +269,26 @@ def test_the_disc_is_symmetric_because_it_is_computed():
 
 def test_a_coloured_row_carries_fewer_colour_sequences_than_cells():
     """#30 §*Output size*: a code per cell was 282 KB for one seal. Emitting at
-    transitions is what makes the colour form printable, and every row is
-    held to it — the disc's rows, where the emblem's edges change colour most,
-    and every line of the letter (#717)."""
+    transitions is what makes the colour form printable. Since #832 a disc
+    cell is a blend, so a row of the disc carries nearly a colour per cell
+    and up to two sequences for it: a disc row is held under two per cell,
+    every line of the letter the disc does not reach under one per cell, and
+    the whole block form under two per cell (S3b)."""
     mod = module()
     w, h, px = mod.build(1.0)
     for y in range(0, h, 2):
         line = mod.colour_row(mod.disc_cells(px, w, y))
         sequences = len(SGR.findall(line))
-        assert sequences < w, f"row {y}: {sequences} colour sequences for {w} cells"
-    for line in mod.stamp(ROWS, 0.9, shape=False):
+        assert sequences < 2 * w, f"row {y}: {sequences} colour sequences, {w} cells"
+    sheet = mod.compose(ROWS, 0.9)
+    lines = mod.stamp(ROWS, 0.9, shape=False)
+    every, cells = 0, 0
+    for row, line in zip(sheet.cells, lines, strict=True):
         sequences = len(SGR.findall(line))
-        assert sequences < visible(line), f"{sequences} sequences: {line!r}"
+        every, cells = every + sequences, cells + visible(line)
+        if not any(map(disc_at, row)):
+            assert sequences < visible(line), f"{sequences} sequences: {line!r}"
+    assert every < 2 * cells, (every, cells)
 
 
 # --- the letter: a sheet with the disc pressed on its corner (#717) ----------
@@ -375,14 +384,57 @@ def test_the_disc_hangs_over_the_corner_two_clear_cells_from_the_text(scale):
     assert abs((rows_on[0] + rows_on[-1]) / 2 - (height - 1)) <= 1, (rows_on, height)
     assert abs((min(cols_on) + max(cols_on)) / 2 - (width - 1)) <= 1, (cols_on, width)
     assert rows_on[-1] == len(cells) - 1, "an empty line ends the letter"
+    # #832 S3: the disc's edge is blended into the sheet where the sheet is
+    # under it and hard where the disc hangs off. A half on the disc's rim of
+    # halves over the sheet lies strictly between the wax and the parchment
+    # in every channel; one off the sheet holds nothing of the parchment.
+    halves = {
+        (x, 2 * ln + k): cell[k]
+        for ln, line in enumerate(cells)
+        for x, cell in enumerate(line)
+        for k in (0, 1)
+    }
+    disc = {at for at, colour in halves.items() if isinstance(colour, tuple)}
+    near = ((1, 0), (-1, 0), (0, 1), (0, -1))
+    edge = {(x, y) for x, y in disc if any((x + a, y + b) not in disc for a, b in near)}
+    parchment = mod.cube(mod.PARCHMENT)
+    low = [min(c[k] for c in mod.DISC_COLOURS) for k in range(3)]
+    high = [max(c[k] for c in mod.DISC_COLOURS) for k in range(3)]
+    on, off = 0, 0
+    for x, y in edge:
+        colour = halves[x, y]
+        if x < width and y < 2 * height:
+            on += 1
+            for k in range(3):
+                bounds = sorted((mod.WAX_M[k], parchment[k]))
+                assert bounds[0] < colour[k] < bounds[1], (scale, x, y, colour)
+        else:
+            off += 1
+            assert all(low[k] <= colour[k] <= high[k] for k in range(3)), (x, y, colour)
+    assert on and off, (on, off)
+    # `Letter.disc` is where the disc's grid stands: every half carrying a
+    # triple is inside it, and the touched cells reach its inner border.
+    left, top, w, h = sheet.disc
+    assert all(left <= x < left + w and top <= y < top + h for x, y in disc)
+    assert (
+        min(x for x, _ in disc) == left + 1 and max(x for x, _ in disc) == left + w - 2
+    )
+    assert min(y for _, y in disc) == top + 1, (sheet.disc, min(y for _, y in disc))
+    assert mod.compose(mod.SAMPLE_ROWS, None).disc is None
 
 
 def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
     """A9's colours, read off the encoded lines. The title is 124, the ink
-    94, the sheet 230 and its edge 187, as 256-colour codes; every truecolour
-    code is one of the disc's five; nothing of the rope, the outer red band
-    or the gold is left. A sheet line whose last cell is painted ends with
-    that cell and a reset — its trailing spaces are the sheet, not padding."""
+    94, the sheet 230 and its edge 187, as 256-colour codes; nothing of the
+    rope, the outer red band or the gold is left. A sheet line whose last
+    cell is painted ends with that cell and a reset — its trailing spaces are
+    the sheet, not padding.
+
+    #832 S3b: the disc's palette is six triples — #717's four and the rim's
+    two ends, `LILY_FACE` gone — and a disc cell is a blend of them and of
+    the parchment beneath, so every truecolour code lies within their range
+    per channel, and `FIELD` and the mark's `LILY_LIGHT` each appear exactly.
+    The name still says five, because a released ledger row cites it."""
     mod = module()
     lines = mod.stamp(mod.SAMPLE_ROWS, 0.9, shape=False)
     text = "\n".join(lines)
@@ -396,15 +448,22 @@ def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
         tuple(int(v) for v in m.groups())
         for m in re.finditer(r"\x1b\[[34]8;2;(\d+);(\d+);(\d+)m", text)
     }
-    assert triples and triples <= set(mod.DISC_COLOURS), triples
     assert set(mod.DISC_COLOURS) == {
         (168, 26, 30),
         (120, 16, 20),
         (226, 82, 74),
         (96, 10, 14),
-        (186, 34, 38),
+        (214, 70, 66),
+        (104, 12, 16),
     }
-    for gone in ("ROPE_L", "ROPE_D", "WAX_L", "GOLD"):
+    assert (mod.RIM_LIGHT, mod.RIM_DARK) == ((214, 70, 66), (104, 12, 16))
+    assert mod.FIELD in triples and mod.LILY_LIGHT in triples, "no pure field or mark"
+    span = [*mod.DISC_COLOURS, mod.cube(mod.PARCHMENT)]
+    low = [min(c[k] for c in span) for k in range(3)]
+    high = [max(c[k] for c in span) for k in range(3)]
+    for triple in triples:
+        assert all(low[k] <= triple[k] <= high[k] for k in range(3)), triple
+    for gone in ("ROPE_L", "ROPE_D", "WAX_L", "GOLD", "LILY_FACE"):
         assert not hasattr(mod, gone), gone
     for old in ((232, 226, 196), (168, 158, 122), (206, 46, 48), (200, 150, 30)):
         assert ";".join(map(str, old)) not in text, old
@@ -429,43 +488,77 @@ def test_the_title_is_the_sheets_first_line_whatever_a_value_says():
     assert all(ink <= {mod.INK} for k, ink in enumerate(inks) if k != 1), inks
 
 
+def lightness(colour):
+    """A colour's light: the sum of its channels in linear light."""
+    return sum((c / 255) ** 2.2 for c in colour)
+
+
+def toward(mod, colour, start, end):
+    """How far `colour` lies from `start` toward `end` in linear light, 0 to
+    1: its projection on the line between them."""
+    here, a, b = mod.linear(colour), mod.linear(start), mod.linear(end)
+    run = [q - p for p, q in zip(a, b, strict=True)]
+    along = sum((h - p) * r for h, p, r in zip(here, a, run, strict=True))
+    return max(0.0, min(1.0, along / sum(r * r for r in run)))
+
+
+def disc_geometry(mod, scale):
+    """The disc's radius in cells and its grid's centre, by the footprint
+    rule (`spec.md` S2), written here rather than read from `build`."""
+    diameter = round(mod.DISC_CELLS * scale / mod.DEFAULT_SCALE)
+    w = diameter + 2
+    h = w + w % 2
+    return diameter / 2 / mod.WAX_EDGE, w / 2, h / 2
+
+
 @pytest.mark.parametrize("scale", [0.9, 0.8, 0.75])
 def test_the_emblem_is_lit_from_the_upper_left(scale):
-    """#717's lighting, kept for #832's emblem, one colour pressed into the
-    wax: an emblem cell whose up-left neighbour is not emblem is its
-    highlight, one whose down-right neighbour is not emblem is its shadow
-    (where the up-left one is), and every other emblem cell is its face.
-    Read off `build` cell by cell, at every rung, so a light swapped for a
-    shadow or a neighbour taken from the wrong side is red; and every cell
-    inside the field is what `shade` says at its centre over `inside`, so
-    the terminal draws the one source and nothing beside it."""
+    """#832 S2a, the owner's rendering: the mark in one light colour, its
+    shadow cast down-right of it, and the field's rim lit from the upper
+    left. Over the cells wholly in the field, each cell's shadow weight (how
+    far it lies from `FIELD` toward `LILY_SHADOW` in linear light) is paired
+    with the mark weight of the cell one up-left of it and, apart, of the
+    cell one down-right: the first sum is the larger by far, and both
+    weights are non-zero. The rim's lightest cell is in the upper-left
+    quadrant and its darkest in the lower-right. Read off `build` at every
+    rung the band tests, so a shadow taken from the wrong side or a rim lit
+    from the wrong corner is red.
+
+    `spec.md` S2a asked for the shadow's centroid below and right of the
+    mark's. On the § it is right of it and above it — the shadow falls
+    mostly into the upper counter — so the pairing, which is the rule
+    itself cell by cell, is what is pinned (`phases/phase-2.md`)."""
     mod = module()
     w, h, px = mod.build(scale)
-    emblem = {mod.LILY_FACE, mod.LILY_LIGHT, mod.LILY_SHADOW}
-    field = mod.FIELD_EDGE * mod.R0_CELLS * scale
-    seen = set()
+    r0, ox, oy = disc_geometry(mod, scale)
+    inner = mod.FIELD_EDGE * r0 - mod.RIM_WIDTH
+    mark, shadow, rim = {}, {}, []
     for y in range(h):
         for x in range(w):
-            here = px(x, y)
-            if here in (mod.FIELD, *emblem):
-                u, v = (x + 0.5 - w / 2) / field, (y + 0.5 - h / 2) / field
-                said = mod.shade(
-                    lambda a, b: mod.inside(mod.EMBLEM_POLYGONS, a, b), u, v, 1 / field
-                )
-                assert here == (said or mod.FIELD), (x, y, here, said)
-            if here not in emblem:
-                continue
-            seen.add(here)
-            up_left, down_right = px(x - 1, y - 1), px(x + 1, y + 1)
-            if here == mod.LILY_LIGHT:
-                assert up_left not in emblem, (x, y)
-            else:
-                assert up_left in emblem, (x, y, here)
-                assert (down_right not in emblem) == (here == mod.LILY_SHADOW), (x, y)
-    assert seen == emblem, seen
+            corners = [
+                math.hypot(x + a - ox, y + b - oy) for a in (0, 1) for b in (0, 1)
+            ]
+            colour = px(x, y)
+            if max(corners) <= inner:
+                mark[x, y] = toward(mod, colour, mod.FIELD, mod.LILY_LIGHT)
+                shadow[x, y] = toward(mod, colour, mod.FIELD, mod.LILY_SHADOW)
+            elif (
+                inner + 0.25
+                <= math.hypot(x + 0.5 - ox, y + 0.5 - oy)
+                <= (mod.FIELD_EDGE * r0 - 0.25)
+            ):
+                rim.append((lightness(colour), x + 0.5 - ox, y + 0.5 - oy))
+    assert sum(mark.values()) > 0 and sum(shadow.values()) > 0, "no mark or no shadow"
+    behind = sum(t * mark.get((x - 1, y - 1), 0) for (x, y), t in shadow.items())
+    ahead = sum(t * mark.get((x + 1, y + 1), 0) for (x, y), t in shadow.items())
+    assert behind > 4 * ahead and behind > 1, (scale, behind, ahead)
+    _, lx, ly = max(rim)
+    _, dx, dy = min(rim)
+    assert lx < 0 and ly < 0, ("the rim's lightest cell", lx, ly)
+    assert dx > 0 and dy > 0, ("the rim's darkest cell", dx, dy)
 
 
-# --- the emblem: one vector source, sampled at cell centres (#832) ----------
+# --- the emblem: one vector source, rendered by area (#832) -----------------
 
 FIXTURE_D = (
     "M 100 100 L 900 100 L 900 900 L 100 900 Z "
@@ -474,17 +567,42 @@ FIXTURE_D = (
 
 
 @pytest.mark.parametrize(
-    "scale, footprint",
-    [(1.0, (43, 44)), (0.9, (39, 40)), (0.8, (35, 36)), (0.75, (33, 34))],
+    "scale, footprint, across",
+    [
+        (1.0, (29, 30), 27),
+        (0.9, (26, 26), 24),
+        (0.8, (23, 24), 21),
+        (0.75, (22, 22), 20),
+    ],
 )
-def test_each_rung_keeps_the_disc_height_the_chart_gave_it(scale, footprint):
-    """#832 S2. The radius is `R0_CELLS · scale`, the chart's 15.5 / 0.74 at
-    1.0, so each rung draws the lines it drew before the chart went and the
-    hook's budget cases keep their meaning. The chart's 0.90 was 40 wide; no
-    one constant reproduces all four widths, and this one is a cell
-    narrower there (overview.md)."""
-    w, h, _ = module().build(scale)
+def test_the_disc_is_twenty_four_cells_across_at_the_default_rung(
+    scale, footprint, across
+):
+    """#832 S2, the owner's size. The disc is `DISC_CELLS`, 24, across at its
+    wax edge at `DEFAULT_SCALE`, and `round(24 · scale / 0.90)` at another
+    scale; the grid is two cells wider and an even number of half-rows tall.
+    Its widest row carries exactly that many cells with more than half their
+    points on the disc, which is the radius 12 / 0.84 at 0.90 read back."""
+    mod = module()
+    assert mod.DISC_CELLS == 24 and mod.DEFAULT_SCALE == 0.90
+    w, h, px = mod.build(scale)
     assert (w, h) == footprint
+    widest = max(sum(px(x, y) is not None for x in range(w)) for y in range(h))
+    assert widest == across, (scale, widest)
+
+
+def test_the_emblem_is_the_owners_section_sign_inside_the_field():
+    """#832 S1. `EMBLEM_D` is the owner's §: two paths, the outline and its
+    counter, and its farthest point between 0.80 and 0.95 of the field's
+    radius — 0.834 read from the string — so a frame scaled by accident is
+    red either way."""
+    mod = module()
+    assert mod.EMBLEM_D.startswith("M 721.8 484.0 Q 721.8 535.5 687.5 572.0 ")
+    assert mod.EMBLEM_D.endswith("Q 597.8 542.8 597.8 516.5 Z")
+    paths = mod.svg_path(mod.EMBLEM_D)
+    assert len(paths) == 2, len(paths)
+    reach = max(math.hypot(x, y) for poly in mod.flatten(paths) for x, y in poly)
+    assert 0.80 < reach < 0.95, reach
 
 
 def test_the_emblem_fills_even_odd_from_an_svg_path():
@@ -513,20 +631,23 @@ def test_the_emblem_fills_even_odd_from_an_svg_path():
             mod.svg_path(d)
 
 
-def test_shade_lights_the_upper_left_edge_and_shadows_the_lower_right():
-    """#832 S2's rule on the fixture: just inside the square's upper-left
-    corner the point up-left is outside, so it is the highlight; just inside
-    its lower-right corner, the shadow; in the ring's middle, the face; in
-    the hole, nothing."""
+def test_shade_lights_the_mark_and_casts_its_shadow_down_right():
+    """#832 S2a's rule on the fixture, two answers: every point inside the
+    square's ring is the mark's light; a point outside it whose point `delta`
+    up-left is inside is the shadow — just past the lower-right corner, and
+    just inside the hole's upper-left corner — and a point whose up-left
+    point is outside too is None, the field."""
     mod = module()
     polygons = mod.flatten(mod.svg_path(FIXTURE_D))
 
     def filled(x, y):
         return mod.inside(polygons, x, y)
 
-    assert mod.shade(filled, -0.75, -0.75, 0.1) == mod.LILY_LIGHT
-    assert mod.shade(filled, 0.75, 0.75, 0.1) == mod.LILY_SHADOW
-    assert mod.shade(filled, -0.6, 0.0, 0.1) == mod.LILY_FACE
+    for x, y in ((-0.75, -0.75), (0.75, 0.75), (-0.6, 0.0), (0.0, 0.7)):
+        assert mod.shade(filled, x, y, 0.1) == mod.LILY_LIGHT, (x, y)
+    assert mod.shade(filled, 0.85, 0.85, 0.1) == mod.LILY_SHADOW
+    assert mod.shade(filled, -0.35, -0.35, 0.1) == mod.LILY_SHADOW
+    assert mod.shade(filled, -0.85, -0.85, 0.1) is None
     assert mod.shade(filled, 0.0, 0.0, 0.1) is None
 
 
@@ -546,20 +667,140 @@ def enclosed_area(polygons, mod):
 
 @pytest.mark.parametrize("scale", [1.0, 0.9, 0.8, 0.75])
 def test_the_terminal_draws_the_area_the_emblem_encloses(scale):
-    """#832 S2, Q1's authoring constraint. The cells `build` gives the
-    emblem's three letters cover between 85 % and 115 % of the area its
-    polygons enclose, at every rung, so a stroke thinner than a cell that
-    the centres miss is red here rather than on the owner's screen."""
+    """#832 S2b. The field's cells `build` draws nearer the mark's
+    `LILY_LIGHT` than `FIELD` in linear light cover between 85 % and 115 % of
+    the area the polygons enclose, scaled by the fitted field's radius
+    squared, at every rung — so a frame scaled or placed by accident is red
+    here rather than on the owner's screen. The field's cells are those whose
+    centre is inside the rim: the rim's light end is nearer the mark than the
+    field too, and counted with it the upper-left rim reads as mark."""
     mod = module()
     w, h, px = mod.build(scale)
-    drawn = sum(
-        px(x, y) in (mod.LILY_FACE, mod.LILY_LIGHT, mod.LILY_SHADOW)
-        for y in range(h)
-        for x in range(w)
-    )
-    field = mod.FIELD_EDGE * mod.R0_CELLS * scale
-    expected = enclosed_area(mod.EMBLEM_POLYGONS, mod) * field * field
+    r0, ox, oy = disc_geometry(mod, scale)
+    inner = mod.FIELD_EDGE * r0 - mod.RIM_WIDTH
+
+    def distance(a, b):
+        return sum(
+            (p - q) ** 2 for p, q in zip(mod.linear(a), mod.linear(b), strict=True)
+        )
+
+    drawn = 0
+    for y in range(h):
+        for x in range(w):
+            if math.hypot(x + 0.5 - ox, y + 0.5 - oy) > inner:
+                continue
+            colour = px(x, y)
+            drawn += distance(colour, mod.LILY_LIGHT) < distance(colour, mod.FIELD)
+    fitted = mod.FIELD_EDGE * r0 * mod.FIT_SCALE
+    expected = enclosed_area(mod.EMBLEM_POLYGONS, mod) * fitted * fitted
     assert 0.85 <= drawn / expected <= 1.15, (scale, drawn, expected)
+
+
+def mix(start, end, t):
+    """`start` moved toward `end` by `t`, channel by channel."""
+    return [a + (b - a) * t for a, b in zip(start, end, strict=True)]
+
+
+def ease(t):
+    """`spec.md`'s smoothstep, on `t` clamped to [0, 1]."""
+    t = max(0.0, min(1.0, t))
+    return t * t * (3 - 2 * t)
+
+
+@pytest.mark.parametrize("scale", [0.9, 0.75])
+def test_a_cell_is_the_mean_of_its_samples_in_linear_light(scale):
+    """#832 S2. Every cell of `build`, with nothing beneath and with the
+    parchment beneath, is what the point rule in `spec.md` §*Data &
+    interfaces* gives when it is written out here: 6 x 6 points at the
+    centres of the cell's sub-squares, each the colour beneath past the wax,
+    the wax, the rim's mix by angle, or in the field the mark through
+    `inside`, its shadow through `inside` 0.7 cell up-left, or `FIELD`; the
+    mean in linear light, a cell with half or fewer points on the disc
+    dropped where nothing is beneath, and a cell wholly in the field
+    tightened. `build` reads each row's crossings once instead of asking
+    `inside` per point, and this is what holds it to the point test."""
+    mod = module()
+    w, h, px = mod.build(scale)
+    r0, ox, oy = disc_geometry(mod, scale)
+    field = mod.FIELD_EDGE * r0
+    k = field * mod.FIT_SCALE
+    delta = mod.SHADOW_OFFSET / k
+    rim = mod.FIELD_EDGE - mod.RIM_WIDTH / r0
+    fx, fy = mod.FIT_OFFSET
+    n, polygons = mod.SAMPLES, mod.EMBLEM_POLYGONS
+    lit = math.radians(225)
+
+    def point(dx, dy):
+        r = math.hypot(dx, dy) / r0
+        if r > mod.WAX_EDGE:
+            return None, False
+        if r > mod.FIELD_EDGE:
+            return mod.WAX_M, False
+        if r > rim:
+            t = ease((1 + math.cos(math.atan2(dy, dx) - lit)) / 2)
+            return tuple(mix(mod.RIM_DARK, mod.RIM_LIGHT, t)), False
+        u, v = (dx - fx) / k, (dy - fy) / k
+        if mod.inside(polygons, u, v):
+            return mod.LILY_LIGHT, True
+        if mod.inside(polygons, u - delta, v - delta):
+            return mod.LILY_SHADOW, True
+        return mod.FIELD, True
+
+    def back(light):
+        return tuple(round(255 * max(0.0, min(1.0, c)) ** (1 / 2.2)) for c in light)
+
+    parchment = mod.cube(mod.PARCHMENT)
+    for y in range(h):
+        for x in range(w):
+            points = [
+                point(x + (i + 0.5) / n - ox, y + (j + 0.5) / n - oy)
+                for j in range(n)
+                for i in range(n)
+            ]
+            on = [colour for colour, _ in points if colour is not None]
+            total = [0.0, 0.0, 0.0]
+            for colour in on:
+                for c, part in enumerate(mod.linear(colour)):
+                    total[c] += part
+            if all(in_field for _, in_field in points):
+                t_mark = ease((on.count(mod.LILY_LIGHT) / n / n - 0.15) / 0.7)
+                t_shadow = ease((on.count(mod.LILY_SHADOW) / n / n - 0.15) / 0.7)
+                colour = mix(
+                    mod.linear(mod.FIELD),
+                    mod.linear(mod.LILY_SHADOW),
+                    t_shadow * (1 - t_mark),
+                )
+                bare = beneath = back(mix(colour, mod.linear(mod.LILY_LIGHT), t_mark))
+            else:
+                bare = back(c / len(on) for c in total) if 2 * len(on) > n * n else None
+                if not on:
+                    beneath = parchment
+                else:
+                    under = [(n * n - len(on)) * c for c in mod.linear(parchment)]
+                    beneath = back(
+                        (t + b) / n / n for t, b in zip(total, under, strict=True)
+                    )
+            assert px(x, y) == bare, (scale, x, y, px(x, y), bare)
+            assert px(x, y, parchment) == beneath, (scale, x, y)
+
+
+@pytest.mark.parametrize("scale", [0.9, 0.75])
+def test_the_mark_reads_at_the_default_rung_and_fragments_below_it(scale):
+    """#832, the owner's reading in numbers. At 0.90 the § stands on at least
+    60 cells exactly the mark's colour and 100 exactly `FIELD` — 77 and 139
+    on the owner's reference — and at 0.75, the 20-cell disc the owner saw
+    fragment, strictly fewer cells are exactly the mark's than at 0.90."""
+    mod = module()
+
+    def counted(at):
+        w, h, px = mod.build(at)
+        cells = [px(x, y) for y in range(h) for x in range(w)]
+        return cells.count(mod.LILY_LIGHT), cells.count(mod.FIELD)
+
+    light, plain = counted(0.9)
+    assert light >= 60 and plain >= 100, (light, plain)
+    if scale != 0.9:
+        assert counted(scale)[0] < light, (counted(scale), light)
 
 
 def test_the_stamp_module_imports_with_pillow_blocked():
@@ -579,23 +820,45 @@ def test_the_stamp_module_imports_with_pillow_blocked():
     assert r.returncode == 0, r.stderr
 
 
-def test_the_twin_writes_the_discs_five_letters_over_the_sheets_frame():
-    """#717's A10 for the characters. `KEY` gives the disc's five colours
-    five letters, the field keeping `.`; a cell whose top half is the disc's
-    is that colour's letter whatever the sheet is beneath it, so the disc
-    overrides the frame where it covers it; the sheet's last line is its
-    bottom, `'---`, and every other line of it is edged with `|`."""
+def test_the_twin_writes_the_discs_six_letters_over_the_sheets_frame():
+    """#717's A10 for the characters, with #832's six colours (S3a). `KEY`
+    gives the six palette colours six letters, the field keeping `.`; a
+    blended cell is the letter of the palette colour nearest it in linear
+    light, or the sheet's own character where the parchment is nearer — so
+    the disc overrides the frame where it covers it in colour; the sheet's
+    last line is its bottom, `'---`, and every other line of it is edged
+    with `|`."""
     mod = module()
     assert set(mod.KEY) == set(mod.DISC_COLOURS)
-    assert len(set(mod.KEY.values())) == 5 and mod.KEY[mod.FIELD] == ".", mod.KEY
+    assert sorted(mod.KEY.values()) == sorted("m.YyMn"), mod.KEY
+    assert mod.KEY[mod.FIELD] == "." and mod.KEY[mod.LILY_LIGHT] == "Y"
+    span = [*mod.DISC_COLOURS, mod.cube(mod.PARCHMENT)]
+
+    def nearest(colour):
+        def distance(other):
+            return sum(
+                (a - b) ** 2
+                for a, b in zip(mod.linear(colour), mod.linear(other), strict=True)
+            )
+
+        best = min(span, key=distance)
+        return None if best == mod.cube(mod.PARCHMENT) else best
+
     sheet = mod.compose(mod.SAMPLE_ROWS, 0.9)
     twin = mod.stamp(mod.SAMPLE_ROWS, 0.9, shape=True)
+    blended = 0
     for line, said in zip(sheet.cells, twin, strict=True):
         for cell, char in zip(line, said, strict=True):
-            if isinstance(cell[0], tuple):
-                assert char == mod.KEY[cell[0]], (cell, char)
-            elif isinstance(cell[1], tuple):
-                assert char == mod.KEY[cell[1]], (cell, char)
+            if cell[2]:
+                continue
+            halves = [nearest(c) for c in cell[:2] if isinstance(c, tuple)]
+            near = next((c for c in halves if c is not None), None)
+            if near is not None:
+                assert char == mod.KEY[near], (cell, char)
+                blended += cell[0] not in mod.KEY
+            elif halves:
+                assert char == (cell[3] or " "), (cell, char)
+    assert blended, "no blended cell was written"
     bottom = twin[sheet.height - 1]
     assert bottom.startswith("'---"), bottom
     for said in twin[1 : sheet.height - 1]:
@@ -3575,9 +3838,10 @@ def test_the_docstrings_describe_the_letter_and_the_rows_it_carries():
     module's docstring describes the letter and the twin's characters rather
     than a rope and golds; the gate's module docstring and `panel`'s row
     diagram list the rows the panel carries now; the comment above
-    `SAMPLE_ROWS` says which rows left. #832: the twin's `G Y y` are the
-    emblem's letters, and the docstring names no fleur-de-lis and no chart
-    of stitches, which the vector source replaced."""
+    `SAMPLE_ROWS` says which rows left. #832: the twin's letters are the
+    six palette colours', the disc renders the § by area rather than at
+    each cell's centre, and nothing names a fleur-de-lis, a chart of
+    stitches or the interim ring the § replaced."""
     stamp = " ".join(
         read_document(
             os.path.join("skills", "verify", "scripts", "seal_stamp.py")
@@ -3587,9 +3851,12 @@ def test_the_docstrings_describe_the_letter_and_the_rows_it_carries():
         "written on a parchment sheet, with a wax disc pressed over the sheet's "
         "lower right corner"
     ) in stamp
-    assert "`m` the wax's edge, `.` the field and `G Y y` the emblem's face" in stamp
+    assert "`.` the field and `Y y` the emblem and its shadow" in stamp
+    assert "`M n` the rim's light and dark ends" in stamp
     assert "one vector source held below as data (`EMBLEM_D`" in stamp
+    assert "the disc renders it by area" in stamp
     assert "fleur-de-lis" not in stamp and "stitch" not in stamp
+    assert "cell's centre" not in stamp and "INTERIM" not in stamp
     assert "`o O` rope" not in stamp and "the lily's golds" not in stamp
     assert "Since #717 there is no blank row in it, no `chain`" in stamp
     gate = " ".join(
