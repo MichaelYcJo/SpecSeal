@@ -117,7 +117,7 @@ now reads every failing file `new?` with the count, on every run. Before
 round 4 it read `new`, and that was measured. The module's own case
 `test_the_failure_form_says_how_many_tests_the_record_left_out` was changed
 in 4e328ce1 to assert exactly this on a green base: `test_a` passes there and
-the session item passes. `test_a_base_record_with_anything_unplaced_turns_only_new_into_new_question`
+the session item passes. `test_a_base_record_with_anything_unplaced_turns_only_new_into_new_question` · NAME NOT IN TREE
 pins `base_word(record, 0, ...)` as `new?`, which is the same claim on the
 exit-0 row of the table. **Executed**: with the fix below applied in the
 clone, those two cases are the only failures (2 failed, 44 passed), and the

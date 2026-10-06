@@ -12,7 +12,9 @@ nothing (S2, S3); with no key or no directory nothing is written (S5).
 
 Since the reframe after round 3 a line's path is the node's own, read where
 pytest holds the node and carried on the report to the process that writes,
-never a path made from a node id and a rootdir (S23). So every layout rounds
+never a path made from a node id and a rootdir (S23); a report xdist builds
+for a crashed worker takes the path of that worker's last report of the same
+node, never a node id's (round 5). So every layout rounds
 1-3 refused is recorded under its own path (S24), the recorder runs none of
 the row's code (S25), and what it cannot place it leaves out and counts on
 the `end` line (S27).
