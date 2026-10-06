@@ -53,10 +53,14 @@ Three clauses, each marked *inferred during implementation* so a planner may ove
   function (phase 4, found by the corpus); `plan.md`'s six-months-on
   scenario and Alternative M follow.
 - `spec.md` §*The class* and Scope 1, `plan.md`'s six-months-on scenario: a
-  pytest session handed a path outside its rootdir writes no record, because
-  pytest names those files against the argument that reached them and two
-  can share one name; a forged record is no longer called the only way to a
-  wrong `failing on base too` (round 1, 🔴 1).
+  pytest session that names a file outside its rootdir writes no record,
+  because pytest names those files against the argument that reached them
+  and two can share one name; a forged record is no longer called the only
+  way to a wrong `failing on base too` (round 1, 🔴 1). Round 2 took the
+  class from pytest's own naming rule rather than from examples: the
+  comparison is lexical, a `--pyargs` package is located as pytest locates
+  it, and a record whose `test` line names no file, or whose `collect` line
+  names the rootdir, is abandoned (`phases/phase-2.md` §*Round 2*).
 - Rule 3: a row that keeps `PYTEST_ADDOPTS` and loses `PYTHONPATH` — a
   replaced `PYTHONPATH`, `python -I` or `-E`, a wrapper passing `PYTEST_*`
   alone — fails at the gate; `questions.md` Q2 lets the owner overturn it

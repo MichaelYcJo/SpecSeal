@@ -165,6 +165,47 @@ of JSON Lines under the kept output, and a failing one twice that. Nobody
 priced this before the probe; it is a fact for the review, not a decision
 made here.
 
+## Round 2: every branch of pytest's naming rule, and what refuses it
+
+Round 2 found the round-1 refusal misnaming files through `--pyargs` and
+symlinks, the run's first fix of a fix. This is the class derived from
+pytest 9.1.1's own source, read in the worktree's virtualenv, rather than
+from the report's examples. A file's node id path, which the recorder
+joins to the rootdir, is set in `_pytest/nodes.py`, `FSCollector.__init__`:
+the collector's path relative to `config.rootpath` where it lies under it
+by `Path.relative_to`, a lexical comparison; otherwise
+`_check_initialpaths_for_relpath` makes it relative to the nearest initial (NAME NOT IN TREE)
+path that holds it, `""` for the initial path itself; otherwise `None`,
+and `Node.__init__` gives it the parent's node id plus `::` and its name.
+`rootpath` is `determine_setup`'s (`_pytest/config/findpaths.py`), and the (NAME NOT IN TREE)
+initial paths are `resolve_collection_argument`'s (`_pytest/main.py`), (NAME NOT IN TREE)
+each through `absolutepath`, which never resolves a symlink.
+
+| Branch | Can it misname a file under the refusal? | Case, or why not |
+|---|---|---|
+| Path lexically under `rootpath`, a symlinked directory below it included (the `Dir` walk keeps the lexical path) | no: named correctly. The `realpath` refusal refused it when it was spelled as an argument, the strict side | `test_a_symlinked_directory_under_the_rootdir_is_recorded_by_its_own_name` |
+| Under an initial path outside `rootpath`: `rootpath` from an ini in another argument's directory | no since round 1 | `test_a_file_pytest_names_outside_its_rootdir_earns_no_word` (round 1) |
+| The same, `rootpath` from `-c` or `--rootdir` elsewhere | no since round 1, compared lexically now | covered by the same refusal; round 1's probes |
+| The same, `rootpath` and the argument spelled through different symlinks | yes at 2a6762a1: `realpath` called it inside | `test_a_rootdir_named_through_a_symlink_writes_no_record`, `test_an_argument_named_through_a_symlink_writes_no_record` |
+| The same, the initial path a `--pyargs` package located outside | yes at 2a6762a1: the argument is no path | `test_a_pyargs_module_outside_the_rootdir_writes_no_record`, and at the gate `test_pyargs_modules_outside_the_rootdir_earn_no_word` |
+| The same, a `--pyargs` namespace package under `consider_namespace_packages` | yes at 2a6762a1 | `test_a_namespace_package_outside_the_rootdir_writes_no_record`; without the option pytest reads the argument as a path, and so does the refusal |
+| The initial path IS the file, outside `rootpath` (a file argument, `::` selection or not, a plain `--pyargs` module): node id path `""` | its record names the rootdir itself, which is no test file | the write guard abandons it: `test_a_pyargs_module_outside_that_cannot_be_collected_writes_no_record` for a failed collection, whose only line is a `collect` line |
+| Outside `rootpath` and every initial path: a collector a conftest or a plugin builds for a path no argument contains, node id the parent's plus `::` and a name | yes at 2a6762a1: `.::outside::test_far.py::test_out` named the rootdir | `test_a_collector_built_for_a_path_no_argument_holds_writes_no_record`: a `test` line whose path is no file abandons the record |
+| `testpaths` | no: they become the arguments, joined to the invocation directory, which equals `rootpath` whenever pytest reads them | the argument branches above |
+| `confcutdir` | no: it bounds conftest loading and touches no node id | — |
+| An xdist worker | no: workers are handed the controller's rootdir and arguments, so node ids agree, and only the controller records | phase 1's S4 |
+
+Each case was seen red at 2a6762a1's recorder and passes at 6c14f4c0. Ten
+mutants of the refusal and the guard were each red through
+`bin/mutation-check`, and the symlink and package cases plant the file a
+misnamed record would name. Without that file the write guard catches the
+misnaming too, and the refusal's own branches would go unpinned. Two
+branches of the round's paste-ready fix had no observable effect under the
+guard and were removed, with the reason in the refusal's docstring:
+- the argument's split at `[` and `::`, since a file argument's node id
+  path is empty;
+- the location of a plain `--pyargs` module, for the same reason.
+
 ## What this phase removes
 
 | Removed item | Where it must land |
