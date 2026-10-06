@@ -128,7 +128,7 @@ if _refusal:
 # lily, one cell a mark, whose majority vote mangled the lily below 1.0.
 #
 # INTERIM. This is a plain geometric ring, not the project's mark: which
-# mark the seal carries is open with the owner (questions.md Q1 of work item
+# mark the disc carries is open with the owner (questions.md Q1 of work item
 # 1791270164). The answer replaces this string and nothing else. An answer
 # keeps within radius 475 and draws no stroke thinner than about 50 units,
 # or a cell centre at 0.75 misses it.
