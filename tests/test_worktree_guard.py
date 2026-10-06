@@ -1281,6 +1281,7 @@ def test_the_stop_names_the_shape_it_read(monkeypatch, capsys, repo):
         ("git status && git checkout feature/x", "`git checkout feature/x`"),
         ("git update-ref refs/heads/y HEAD", "`git update-ref refs/heads/y HEAD`"),
         ("echo $(git switch x)", "`git switch x`"),
+        ('sh -c "git switch x"', "`sh -c 'git switch x'`"),
     ):
         decision, reason = verdict(monkeypatch, capsys, repo, command)
         assert decision == "ask" and quoted in reason, (command, reason)
