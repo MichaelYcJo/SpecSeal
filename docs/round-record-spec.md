@@ -689,9 +689,10 @@ an unbounded domain the arrow's limit declines.
 resolves, at round K's `Target SHA` and through the readings the depth walk
 makes, to a top-level Python unit that round K-1's `Fix range` added or changed
 — present at both ends with a different `ast.dump`, so a re-commented unit has
-not changed. A prose file, a module-level line, a `Location` nothing places, a
-file only the diff-line heuristic reads, and a range of no commits land
-nowhere. A range whose ends this tree cannot resolve refuses `new` at exit 2.
+not changed. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and nor do
+a prose file, a module-level line, a `Location` nothing places, a file only the
+diff-line heuristic reads, and a range of no commits. A range whose ends this
+tree cannot resolve refuses `new` at exit 2.
 
 | The value | When |
 |---|---|

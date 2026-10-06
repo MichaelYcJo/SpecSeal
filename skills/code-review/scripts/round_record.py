@@ -2219,6 +2219,16 @@ def bound_line(reader, routing, rounds, n):
 # count mechanical, and `chain_check.fix_of_a_fix` counts what it writes.
 
 STOPS_HERE = "the fix passes stop here"
+# The severities that commission no fix, so a row carrying one never lands:
+# `OWED_MARKERS`' comment below says 🟢, ❓ and ⬜ commission nothing by
+# definition, and a ⬜ is "fixed in passing or not at all". Measured over the
+# committed corpus (`phases/phase-4.md` of #823), counting them took the work
+# items the stop would have reached from 18 to 24 of 57, on notes alone.
+COMMISSIONS_NOTHING = (
+    "\N{WHITE LARGE SQUARE}",
+    "\N{LARGE GREEN CIRCLE}",
+    "\N{BLACK QUESTION MARK ORNAMENT}",
+)
 
 
 def fof_count_of(reader, path):
@@ -2340,9 +2350,10 @@ def landings(reader, root, target, keyed, previous):
     `Location` is resolved at THIS round's target through `location_units`,
     the reading the depth walk already makes.
 
-    Lands nowhere: a prose file, a module-level line, a `Location` the reader
-    cannot place, a previous record with no `Fix range` or one of zero
-    commits. A `Fix range` whose ends do not resolve here is refused: `new`
+    Lands nowhere: a row whose severity commissions no fix
+    (`COMMISSIONS_NOTHING`), a prose file, a module-level line, a `Location`
+    the reader cannot place, a previous record with no `Fix range` or one of
+    zero commits. A `Fix range` whose ends do not resolve here is refused: `new`
     runs where `close` ran, and a tree without those commits is the wrong
     tree to count in. The direction for everything the reading cannot place
     is the permissive one, because a miss costs what today costs and a stop
@@ -2380,6 +2391,8 @@ def landings(reader, root, target, keyed, previous):
             continue
         location = cells[LOCATION_COL] if len(cells) > LOCATION_COL else ""
         label = seen[NUMBER_COL].strip()
+        if label.startswith(COMMISSIONS_NOTHING):
+            continue
         for rel, unit in location_units(reader, root, target, location, tracked):
             hits = (
                 [(rel, unit)]

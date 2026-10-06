@@ -275,6 +275,19 @@ def test_a_finding_the_report_already_closed_does_not_land(repo):
     assert row(text) == "no"
 
 
+@pytest.mark.parametrize("mark", ["⬜", "🟢", "❓"])
+def test_a_finding_whose_severity_commissions_nothing_does_not_land(repo, mark):
+    """A ⬜ is fixed in passing or not at all, and 🟢 and ❓ commission
+    nothing: a row carrying one is open in the table and still owes no fix,
+    so it is no fix of a fix however it sits inside `u`."""
+    declared(repo)
+    _code, _out, _text, a = a_round(repo, 1, ROUND_1)
+    fixed(repo, 1, a, MOD_FIXED, [1])
+    code, out, text, _ = a_round(repo, 2, finding("`mod.py:5`", mark=mark))
+    assert code != 2, out
+    assert row(text) == "no", (mark, row(text))
+
+
 def test_a_previous_record_that_commissioned_nothing_lands_nowhere(repo):
     """Round 1 opened nothing, so `close` never ran and its `Fix range` still
     reads `none`: there is no range for anything to land in."""
