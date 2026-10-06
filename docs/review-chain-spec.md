@@ -391,7 +391,8 @@ every finding still open takes the ladder in §*Where a leftover goes — the
 ladder, and why a new issue is not the default*, its verdict reads `deferred
 <home>` wherever a home was found — `deferred #N` where that home is an
 issue — the record's `Fixes checked by` reads `no fixes to check`, and the
-pull request says `chain: capped`.
+pull request says `chain: capped`. A `Fix of a fix` reading `second` ends a run
+too, and no bound here reaches the records after it (#823).
 
 **This is the reopening bound, and it is not the round cap.** Both exits end a
 run `capped`, and the one word is why the two get read as one rule. What
