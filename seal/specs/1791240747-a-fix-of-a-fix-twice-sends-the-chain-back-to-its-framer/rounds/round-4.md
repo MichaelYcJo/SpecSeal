@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #828 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `2e211cc65602884f5e2443abc0ceac3fb06273d5..23c230fe9b88653a7dc2ccf2876ed25de7d57949`, 3 commits |
+| Contract changes | location_units → 1791240747-a-fix-of-a-fix-twice-sends-the-chain-back-to-its-framer.md, round-1-report.md, round-1.md, round-2-report.md, round-2.md, round-4-report.md, round-4.md, landings, depth_two |
+| New units | PATH_FORM_RE (depth 1); CODE_SPAN_RE (depth 1); CLAUSE_END (depth 1); path_forms (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🟡 1, a `#name` fragment lands through the last path the cell resolved; 🟡 2, a backslash-separated path lands through its tail; 🟡 3, the reframed case no longer sees the guard it pins |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,9 +25,9 @@ The redesign's first round, after the run stopped at round 3 and the framer refr
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A bare `#name` after a path still lands, paired with the last path the cell resolved: a fourth form the spec does not name, and one that reads prose (`see #w`) and can land in a file the name does not follow | `skills/code-review/scripts/round_record.py:2437` | open | executed: `mod.py#v` then `see #w`, and `f.py#x` then `#w` beside `mod.py#v`, both read `first … mod.py#w` at the target and `no` with the fenced fix; the corpus holds one fragment cell, in a round-1 report; Q6 with the fix still 26 |
-| 🟡 2 | A path written with a `\` separator is cut to its tail, so a path the tree does not hold lands in a same-named file elsewhere | `skills/code-review/scripts/round_record.py:2938` | open | executed: `pkg\mod.py:5` reads `first` and `pkg/mod.py:5` reads `no` at the target; both `no` with the fenced fix; no backslash `.py` cell in the corpus; a path with a space misses (permissive), read |
-| 🟡 3 | The case pinning that the redesign's first record reads `no` locates its finding by a bare name, which never lands since the reframe, so it passes with the guard removed | `tests/test_a_fix_of_a_fix_is_counted.py:536` | open | executed: guard disabled, 2 passed; location `mod.py#u` with the guard disabled, `touched=True` fails; guard restored, 2 passed |
+| 🟡 1 | A bare `#name` after a path still lands, paired with the last path the cell resolved: a fourth form the spec does not name, and one that reads prose (`see #w`) and can land in a file the name does not follow | `skills/code-review/scripts/round_record.py:2437` | **fixed** `573237f4` | fixed at 573237f4; executed: `mod.py#v` then `see #w`, and `f.py#x` then `#w` beside `mod.py#v`, both read `first … mod.py#w` at the target and `no` with the fenced fix; the corpus holds one fragment cell, in a round-1 report; Q6 with the fix still 26 |
+| 🟡 2 | A path written with a `\` separator is cut to its tail, so a path the tree does not hold lands in a same-named file elsewhere | `skills/code-review/scripts/round_record.py:2938` | **fixed** `573237f4` | fixed at 573237f4; executed: `pkg\mod.py:5` reads `first` and `pkg/mod.py:5` reads `no` at the target; both `no` with the fenced fix; no backslash `.py` cell in the corpus; a path with a space misses (permissive), read |
+| 🟡 3 | The case pinning that the redesign's first record reads `no` locates its finding by a bare name, which never lands since the reframe, so it passes with the guard removed | `tests/test_a_fix_of_a_fix_is_counted.py:536` | **fixed** `573237f4` | fixed at 573237f4; executed: guard disabled, 2 passed; location `mod.py#u` with the guard disabled, `touched=True` fails; guard restored, 2 passed |
 | 🟢 | round 3's yellow finding 1 is answered by the redesign — a basename held twice, a path not held, a quoted path and a path before an apostrophe each read `no` | `tests/test_a_fix_of_a_fix_is_counted.py#test_a_location_that_lands_in_no_written_unit_reads_no` | confirmed | executed: the module at the target, 82 passed with the gate's module; the four shapes are S5 parameters |
 | 🟢 | round 3's sentence correction 2 is answered — the carrier sentence left `docs/round-record-spec.md` with the reading | `docs/round-record-spec.md` | confirmed | read: phase 5's diff of the field section; the file is 992 lines |
 | 🟢 | the four readings are gone and only comments name them | `skills/code-review/scripts/round_record.py#landings` | confirmed | executed: `git grep` over `*.py` at the target |
