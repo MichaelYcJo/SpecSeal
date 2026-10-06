@@ -1906,16 +1906,21 @@ def record_path(path, worktree):
 
 
 def read_record(directory, key, worktree):
-    """The `RunRecord` of every `<key>-<pid>.jsonl` under `directory` whose
-    `session` line carries `key`, with paths named against `worktree`.
+    """The `RunRecord` of every `*.jsonl` under `directory` whose first line
+    — the recorder's `session` line — carries `key`, with paths named against
+    `worktree`.
 
-    Pure, apart from reading the files. A file whose first line is not a
-    `session` line of this key is another run's and is passed over whole; a
-    line that does not parse is counted in `skipped` and passed over. A
-    file's lines are read as a set — xdist's controller is handed one failed
-    collection once per worker (`phases/phase-1.md` of 1791270161) — and
-    nothing is counted. Files are read in the order they were last written,
-    so where a row runs pytest twice the first runner's files come first."""
+    Pure, apart from reading the files. A file whose first line does not
+    carry this key is another run's and is passed over whole, whatever its
+    name says; a line that does not parse as an object is counted in
+    `skipped` and passed over, and a blank line is passed over uncounted.
+    Every line naming a path is a test or a failed collection, and its
+    `outcome` says whether it failed. A file's lines are read as a set —
+    xdist's controller is handed one failed collection once per worker
+    (`phases/phase-1.md` of 1791270161) — and nothing is counted. Files are
+    read in the order they were last written, so where a row runs pytest
+    twice the first runner's files come first. A directory that cannot be
+    listed, or a file that cannot be read, holds no record."""
     record = RunRecord()
     try:
         names = os.listdir(directory)
@@ -1923,21 +1928,17 @@ def read_record(directory, key, worktree):
         return record
     found = []
     for name in names:
-        if not (name.startswith(f"{key}-") and name.endswith(".jsonl")):
+        if not name.endswith(".jsonl"):
             continue
         path = os.path.join(directory, name)
         try:
-            found.append((os.stat(path).st_mtime_ns, name, path))
-        except OSError:
-            continue
-    for _, _, path in sorted(found):
-        try:
             with open(path, encoding="utf-8", errors="replace") as handle:
-                lines = handle.read().splitlines()
+                found.append((os.stat(path).st_mtime_ns, name, handle.read()))
         except OSError:
             continue
+    for _, _, text in sorted(found):
         parsed = []
-        for line in lines:
+        for line in text.splitlines():
             if not line.strip():
                 continue
             try:
@@ -1949,18 +1950,16 @@ def read_record(directory, key, worktree):
                 parsed.append(value)
             else:
                 record.skipped += 1
-        if not parsed or parsed[0].get("kind") != "session":
-            continue
-        if parsed[0].get("key") != key:
+        if not parsed or parsed[0].get("key") != key:
             continue
         record.sessions += 1
         for value in parsed[1:]:
-            kind, path_of = value.get("kind"), value.get("path")
-            if kind not in ("test", "collect") or not isinstance(path_of, str):
+            path_of = value.get("path")
+            if not isinstance(path_of, str):
                 continue
             named = record_path(path_of, worktree)
             record.collected.add(named)
-            if kind == "collect" or value.get("outcome") == "failed":
+            if value.get("outcome") == "failed":
                 record.failing.setdefault(named, None)
     return record
 

@@ -4059,11 +4059,11 @@ RECORD_LINES = [
         id="no-session-line",
     ),
     pytest.param(
-        [a_session(), "{not json", a_test("tests/test_a.py", "failed")],
+        [a_session(), "{not json", "", "[1]", a_test("tests/test_a.py", "failed")],
         ["tests/test_a.py"],
         {"tests/test_a.py"},
-        1,
-        id="a-line-that-does-not-parse",
+        2,
+        id="lines-that-do-not-parse-as-an-object-and-a-blank-one",
     ),
     pytest.param(
         [a_session(), a_test("../elsewhere/test_x.py", "failed")],
@@ -4084,9 +4084,10 @@ def test_a_record_is_read_for_the_files_it_names_failing(
     not be collected, in the order first named, and for every file named;
     a skip and an xfail are not failures, a failed collection repeated per
     xdist worker is one file, a file whose first line is not a session of
-    this key is another run's, and a line that does not parse is counted
-    and passed over. Paths are named from the worktree with `/`, and one
-    outside it keeps its absolute spelling."""
+    this key is another run's whatever its name, and a line that does not
+    parse as an object is counted and passed over, a blank one uncounted.
+    Paths are named from the worktree with `/`, and one outside it keeps
+    its absolute spelling."""
     gate = gate_module()
     worktree = tmp_path / "wt"
     worktree.mkdir()
@@ -4104,7 +4105,8 @@ def test_a_record_is_read_for_the_files_it_names_failing(
         for line in lines
     )
     (records / f"{RECORD_KEY}-7.jsonl").write_text(body, encoding="utf-8")
-    # A file named for another key is not opened at all.
+    # Another run's record in the same directory, passed over by its first
+    # line.
     (records / "base-ffffffffffffffff-8.jsonl").write_text(
         json.dumps(a_session("base-ffffffffffffffff")) + "\n", encoding="utf-8"
     )
@@ -4117,6 +4119,38 @@ def test_a_record_is_read_for_the_files_it_names_failing(
     assert record.skipped == skipped
     has_session = bool(lines) and lines[0] == a_session()
     assert record.sessions == (1 if has_session else 0)
+
+
+def test_two_record_files_are_read_in_the_order_they_were_written(tmp_path):
+    """#825. Where a row runs pytest twice, the first runner's failing files
+    are listed first: files are read in the order they were last written,
+    whatever their names, which carry a pid."""
+    gate = gate_module()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    records = tmp_path / "records"
+    records.mkdir()
+    for pid, rel, when in (
+        (9, "tests/test_first.py", 1),
+        (2, "tests/test_second.py", 2),
+    ):
+        lines = [a_session(), a_test(str(worktree / rel), "failed")]
+        record = records / f"{RECORD_KEY}-{pid}.jsonl"
+        record.write_text(
+            "".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8"
+        )
+        os.utime(record, ns=(when * 10**9, when * 10**9))
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert list(record.failing) == ["tests/test_first.py", "tests/test_second.py"]
+    assert record.sessions == 2
+
+
+def test_a_records_directory_that_is_not_there_holds_no_record(tmp_path):
+    """#825. A directory that cannot be listed is no record, never a crash:
+    the gate reads that as no pytest having loaded the recorder."""
+    gate = gate_module()
+    record = gate.read_record(str(tmp_path / "absent"), RECORD_KEY, str(tmp_path))
+    assert (record.sessions, list(record.failing), record.collected) == (0, [], set())
 
 
 def test_a_record_under_a_symlinked_root_is_named_from_the_worktree(tmp_path):
