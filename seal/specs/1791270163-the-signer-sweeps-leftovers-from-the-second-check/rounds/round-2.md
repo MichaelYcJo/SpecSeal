@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #843 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `f649a21baf5158f82a2b9bd9896f2a864a53be7e..e3c9bc9d215b57c9474c7fff6e09a552d881515e`, 4 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | first — 🟡 1 at tests/test_one_word_one_meaning.py#without_the_policy_span, a unit round-1's fixes changed |
 | Needs a fix | yes — 🟡 1, an ordered list item written `01.` or `001)` directly under the statement still stays exempt from the sweep. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,8 +25,8 @@ Round 2, the verifying round for round 1's fixes at `5bc0a48f..149ef480`. The re
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | An ordered list item with leading zeros (`01.`, `001)`) directly under the statement starts at 1, so cmark-gfm ends the statement's paragraph there, but the span's list alternative accepts only a bare `1`, so the old word in it stays exempt | `tests/test_one_word_one_meaning.py:749` | open | executed: cmark-gfm renders `<p>` then `<ol>` for three leading-zero plants; all three green through the span function at 5bc0a48f and at HEAD; the fence turns them red, agrees with cmark-gfm on thirteen plants, keeps the baseline green, and the module passes (21) |
-| ⬜ 2 | The overview says the fix pass's `survivor-check` run left no removed wording standing; three places stand, excused in `survivors.md` | `seal/specs/1791270163-the-signer-sweeps-leftovers-from-the-second-check/overview.md:26` | open | executed: `survivor-check` over `5bc0a48f..149ef480` exits 1 with three standing places, and exits 0 with `--exempt`; a correction to the run's paperwork, not counted in `Needs a fix` |
+| 🟡 1 | An ordered list item with leading zeros (`01.`, `001)`) directly under the statement starts at 1, so cmark-gfm ends the statement's paragraph there, but the span's list alternative accepts only a bare `1`, so the old word in it stays exempt | `tests/test_one_word_one_meaning.py:749` | **fixed** `1ffe9e75` | fixed at 1ffe9e75; executed: cmark-gfm renders `<p>` then `<ol>` for three leading-zero plants; all three green through the span function at 5bc0a48f and at HEAD; the fence turns them red, agrees with cmark-gfm on thirteen plants, keeps the baseline green, and the module passes (21) |
+| ⬜ 2 | The overview says the fix pass's `survivor-check` run left no removed wording standing; three places stand, excused in `survivors.md` | `seal/specs/1791270163-the-signer-sweeps-leftovers-from-the-second-check/overview.md:26` | **fixed** `cdee5dfe` | fixed at cdee5dfe; executed: `survivor-check` over `5bc0a48f..149ef480` exits 1 with three standing places, and exits 0 with `--exempt`; a correction to the run's paperwork, not counted in `Needs a fix` |
 | 🟢 | round 1's yellow 1 is closed for the table and the footnote definition | `tests/test_one_word_one_meaning.py:753` | confirmed | executed: two table shapes, a delimiter row under the statement's last line and a footnote definition, each rendered outside the paragraph by cmark-gfm, green at 5bc0a48f and red at HEAD; continuation and baseline green; the leading-zero list item is this round's yellow 1 |
 | 🟢 | round 1's white 2 is closed — R6's re-read row and the changelog name the table and the footnote definition | `seal/ledger/1791270163-the-signer-sweeps-leftovers-from-the-second-check.md:3` | confirmed | read: the row's grounds and the changelog's list name both blocks; executed: the plants the row describes behave as it says; the fragment checks `--strict`, exit 0, 21 ok |
 | 🟢 | round 1's white 3 is closed — the overview names the sealer and each fix pass | `seal/specs/1791270163-the-signer-sweeps-leftovers-from-the-second-check/overview.md:24` | confirmed | read against `routing.md` and `agents/smith.md` §*Phases* item 3; the survivor sentence beside it is this round's white 2 |
