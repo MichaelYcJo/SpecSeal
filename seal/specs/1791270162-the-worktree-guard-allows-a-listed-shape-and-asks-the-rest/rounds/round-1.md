@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #850 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `4de95fa7e66a36d8cef947b3a663b3e9b996490a..5ba5e51ae208bc701761d31884377cc397d27382`, 4 commits |
 | Contract changes | stop_unrecognised → main, round-1-report.md, round-1.md, spec.md |
 | New units | _OPERATORS (depth 1); _rebase_names_a_branch (depth 1); _cut_unread (depth 1); test_no_approval_runs_a_line_past_an_active_tree (depth 1); test_a_broken_reader_leaves_no_cut_group_silent (depth 1); test_a_rebase_naming_a_branch_is_unrecognised (depth 1); test_a_rebase_of_the_current_branch_stays_listed (depth 1); FORMS (depth 1); SWITCHING (depth 1); test_no_listed_form_moves_head_under_git (depth 1) |
