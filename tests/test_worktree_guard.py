@@ -1943,17 +1943,25 @@ def test_no_listed_form_moves_head_under_git(repo, tmp_path):
     leave HEAD naming the branch it named. Every row has a form, so a row
     added without one goes red, and each switching form must move HEAD
     under git, so the comparison cannot pass by measuring nothing. Red at
-    `4de95fa7`, where `git rebase <start> feature/x` was listed."""
+    `4de95fa7`, where `git rebase <start> feature/x` was listed.
+
+    Every git the case runs must have run: a form git refused leaves HEAD
+    where it was and would pass as listed unmeasured, on a runner whose git
+    lacks an option (round 2 of work item 1791270162, white 5). `git
+    check-ignore` exits 1 for a path it does not ignore, which is its form's
+    answer."""
     import shutil
     import subprocess
 
-    def git(d, *args):
-        return subprocess.run(
+    def git(d, *args, ok=0):
+        done = subprocess.run(
             ["git", "-C", str(d), *args],
             capture_output=True,
             stdin=subprocess.DEVNULL,
             env={**os.environ, "GIT_EDITOR": "true", "GIT_PAGER": "cat"},
         )
+        assert done.returncode == ok, (args, done.returncode, done.stderr)
+        return done
 
     def head(d):
         return (d / ".git" / "HEAD").read_text(encoding="utf-8").strip()
@@ -1981,7 +1989,7 @@ def test_no_listed_form_moves_head_under_git(repo, tmp_path):
             listed.append(form)
         copy = tmp_path / f"r{n}"
         shutil.copytree(template, copy)
-        git(copy, *words)
+        git(copy, *words, ok=1 if words[0] == "check-ignore" else 0)
         if head(copy) != head(template):
             moved.append(form)
     # A listed form that moved HEAD is a wrong row.
