@@ -724,13 +724,18 @@ FOLD_MARKER = re.compile(r"<!-- specs/[^ ]+ -->")
 
 def without_the_policy_span(where, text):
     """TEXT, flattened, with the policy's statement about the old header
-    taken out: from its fold marker to the next heading or the next fold
-    marker, whichever comes first, so the exemption ends where the statement
-    does (round 1 of #822, white 2)."""
+    taken out: from its fold marker to the next heading of any level or the
+    next fold marker, whichever comes first, so the exemption ends where the
+    statement does (round 1 of #822, white 2; round 2, white 6)."""
     span = PACT_RENAMED_SPANS["docs/the-pact.md"]
     head, marker, rest = text.partition(span)
     assert marker, f"{where}: the excluded span `{span}` is gone"
-    stops = [i for i in (rest.find("<" + "!--"), rest.find(" ## ")) if i != -1]
+    heading = re.search(r" #{1,6} ", rest)
+    stops = [
+        i
+        for i in (rest.find("<" + "!--"), heading.start() if heading else -1)
+        if i != -1
+    ]
     assert stops, (
         f"{where}: the excluded span is the last statement in the file, "
         "so this exclusion now removes everything after it"
@@ -793,27 +798,37 @@ RENAMED_COMPAT = (
     "tests/test_a_signer_declares_its_pact.py",
     "tests/test_a_signers_ci_prints_its_pact.py",
     "tests/test_one_table_walker_reads_what_gfm_renders.py",
-    "tests/test_one_word_one_meaning.py",
     "tests/test_pact_check.py",
 )
+# The compatibility cases need the old word only as the header cell, which is
+# capitalised and singular; their prose is still swept for every other
+# spelling (round 2 of #822, white 7). The sweep's own module stays exempt
+# whole: its pattern, a retired identifier and a work item's id name the word.
+PACT_HEADER_WORD = re.compile(r"signator(?:y|ies)|Signatories")
+SWEEP_MODULE = "tests/test_one_word_one_meaning.py"
 
 
 def test_no_live_text_says_the_word_0_19_0_renamed():
-    """No tracked file outside the records and the compatibility cases says
-    the old word, the two spans that keep a 0.18.x header reading taken out
-    first. Each exception is asserted to exist, so one that moves is named
-    rather than left exempting nothing."""
+    """No tracked file outside the records says the old word, the two spans
+    that keep a 0.18.x header reading taken out first; the compatibility
+    cases may say it only as the capitalised header cell. Each exception is
+    asserted to exist, the record prefixes included, so one that moves is
+    named rather than left exempting nothing."""
     done = subprocess.run(
         ["git", "-C", ROOT, "ls-files", "-z"],
         capture_output=True,
         check=True,
     )
     tracked = [p for p in done.stdout.decode("utf-8").split("\0") if p]
-    for rel in (*RENAMED_COMPAT, "docs/the-pact.md", "hooks/config.py"):
+    for rel in (*RENAMED_COMPAT, SWEEP_MODULE, "docs/the-pact.md", "hooks/config.py"):
         assert rel in tracked, f"{rel} is excepted below and no longer tracked"
+    for prefix in RENAMED_RECORDS:
+        assert any(p.startswith(prefix) for p in tracked), (
+            f"{prefix} is excepted below and holds no tracked file"
+        )
     said = []
     for rel in tracked:
-        if rel.startswith(RENAMED_RECORDS) or rel in RENAMED_COMPAT:
+        if rel.startswith(RENAMED_RECORDS) or rel == SWEEP_MODULE:
             continue
         path = os.path.join(ROOT, rel)
         if not os.path.isfile(path):
@@ -831,7 +846,8 @@ def test_no_live_text_says_the_word_0_19_0_renamed():
             lines = text.splitlines()
             text = "\n".join(lines[: unit.lineno - 1] + lines[unit.end_lineno :])
         text = FOLD_MARKER.sub("", text)
-        said.extend(f"{rel}: {m.group(0)}" for m in PACT_RENAMED.finditer(text))
+        pattern = PACT_HEADER_WORD if rel in RENAMED_COMPAT else PACT_RENAMED
+        said.extend(f"{rel}: {m.group(0)}" for m in pattern.finditer(text))
     assert not said, (
         "the word 0.19.0 renamed is live text again — it is `signer` since "
         f"0.19.0 (#822): {said}"
