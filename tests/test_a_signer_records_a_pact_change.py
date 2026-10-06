@@ -1333,10 +1333,14 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
         (
             "docs/the-pact.md",
             "A re-stamp in place records each row's move from that row's own "
-            "hash, one move per coordinate however many walks re-stamp it, and "
-            "BROKEN after it at the hash it holds where a later walk leaves it "
-            "(#791). A move whose two hashes agree is no move and is not "
-            "recorded (#774).",
+            "hash to the hash the run writes, one move per coordinate, and "
+            "BROKEN at the row's own hash where the run leaves it because no one "
+            "place holds it: nothing is written for a coordinate it leaves, so no "
+            "hash between the two is recorded (#791, #824). A coordinate in a "
+            "checkout the run was not given, one whose path escapes the "
+            "repository, and one whose text never settles are left with nothing "
+            "recorded, because nothing is known gone. A move whose two hashes "
+            "agree is no move and is not recorded (#774).",
         ),
         (
             "docs/the-pact.md",
@@ -2220,3 +2224,165 @@ def test_a_reading_its_family_holds_records_no_pact_change(repo):
     assert code == 0, out
     assert (repo / a_file).read_bytes() == before, out
     assert not [r for r in record_rows(repo) if a_file in r], out
+
+
+# --- #809: a claim on a place the declaration rule is unsure of (#824) ------
+
+UNSURE_CS = "public new void Render(int x) {\n    var a = x + 2;\n}\n"
+
+
+def _unsure_claim(repo):
+    """A `.cs` unit whose only place the declaration rule is unsure of --
+    `new` is a statement word elsewhere -- and a claim quoting a statement
+    inside it. Returns the coordinate, without its hash, and the hash the
+    statement holds now."""
+    (repo / "src" / "a.cs").write_text(UNSURE_CS, encoding="utf-8")
+    places, unsure = ec.resolve_unit("src/a.cs", "Render", UNSURE_CS)
+    assert unsure and len(places) == 1, places
+    (inside,) = ec.minor_region("src/a.cs", UNSURE_CS, places[0], '"var a"')
+    now = ec.content_hash(ec.gfm_lines(UNSURE_CS)[inside[0] - 1 : inside[1]])
+    return 'src/a.cs#Render>"var a"', now
+
+
+def test_under_the_freeze_a_claim_on_an_unsure_place_is_recorded_as_a_move(repo):
+    """#809, cell C8, under the freeze. `--strict` calls a claim on a place
+    the declaration rule is unsure of DRIFTED, and `--into` re-reads it at
+    its statement's hash: the `Re-read ·` row carries that hash, and the
+    record holds the move, never BROKEN. Red at e6d5a055, which said *no one
+    place to hash* and recorded BROKEN."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"), ("Pact", PACT_URL), ("Ledger frozen from", "0")
+        ),
+        encoding="utf-8",
+    )
+    coord, now = _unsure_claim(repo)
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("O1", f"`{CLAUSE}`, ", f"{coord}@0000beef"),
+        encoding="utf-8",
+    )
+    cite(repo, [])
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert f"`{coord}@{now}`" in (repo / FRAGMENT).read_text(encoding="utf-8"), out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | `{coord}@0000beef` "
+        f"→ `@{now}` | 2026-09-04 |"
+    ], out
+
+
+def test_a_claim_on_an_unsure_place_restamped_in_place_is_recorded_as_a_move(repo):
+    """#809, cell C8, in place. The fragment row is re-stamped at the
+    statement's hash and the record holds the move. Red at e6d5a055, which
+    left the row and recorded BROKEN."""
+    coord, now = _unsure_claim(repo)
+    ledger = cite(repo, [row("O1", f"`{CLAUSE}`, ", f"{coord}@0000beef")])
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert f"`{coord}@{now}`" in ledger.read_text(encoding="utf-8"), out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | `{coord}@0000beef` "
+        f"→ `@{now}` | 2026-09-04 |"
+    ], out
+
+
+def test_a_claim_whose_statement_is_gone_from_an_unsure_place_is_recorded_broken(
+    repo,
+):
+    """S3c. The statement the claim quotes is gone from the place the
+    declaration rule is unsure of: the run leaves the row with the check's
+    *anchored statement is gone*, and the record says BROKEN, the pact's word
+    for *left by the re-read*. Green at e6d5a055 for the record, red for the
+    words."""
+    coord, _now = _unsure_claim(repo)
+    (repo / "src" / "a.cs").write_text(
+        UNSURE_CS.replace("var a = x + 2;", "return;"), encoding="utf-8"
+    )
+    cite(repo, [row("O1", f"`{CLAUSE}`, ", f"{coord}@0000beef")])
+    _code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert f"  {coord}  the anchored statement is gone from Render (1-2)" in out, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | `{coord}@0000beef` BROKEN "
+        "| 2026-09-04 |"
+    ], out
+
+
+# --- round 1 of #824's review ------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "coord", ["legacy/src/x.py#f@0000beef", "../outside.py#f@0000beef"]
+)
+def test_a_coordinate_no_checkout_places_records_no_pact_change(repo, coord):
+    """Round 1, yellow 4. A row citing a clause beside a coordinate in another
+    checkout the run was not given, or one escaping the repository: the run
+    names it `left` and records nothing, because no unit, file or quoted
+    statement is known gone, which is all the pact's BROKEN says. Red at
+    ca467185, which recorded it BROKEN; e6d5a055 recorded nothing."""
+    (repo / "seal" / "parity.md").write_text(
+        "| Item | Value |\n|---|---|\n", encoding="utf-8"
+    )
+    cite(repo, [row("O1", f"`{CLAUSE}`, ", coord)])
+    _code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert f"  {coord.rsplit('@', 1)[0]}  " in out, out
+    assert record_rows(repo) == [], out
+
+
+def _two_moved_fragments(top):
+    """A signer at TOP with two fragments, each a row citing the clause
+    over `serialize`, which then moves. Returns the two fragments."""
+    (top / "src").mkdir(parents=True)
+    (top / "src" / "orders.py").write_text(SOURCE, encoding="utf-8")
+    (top / "seal").mkdir()
+    (top / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), ("Pact", PACT_URL)), encoding="utf-8"
+    )
+    old = unit_hash(top, "src/orders.py", "serialize")
+    paths = []
+    for name, label in (("2000000001-a", "A1"), ("2000000002-b", "B1")):
+        where = f"seal/ledger/{name}.md"
+        cite(
+            top,
+            [row(label, f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")],
+            where,
+        )
+        paths.append(where)
+    move_serialize(top)
+    return paths
+
+
+def test_the_record_is_the_same_bytes_in_any_ledger_order(tmp_path):
+    """Round 1, white 5, and S4: the pact-change record is a file the run
+    writes, so its bytes do not depend on the order `--ledger` names the
+    ledgers in. Green at e6d5a055 and ca467185 alike: `resolve_patterns`
+    returns the ledgers sorted, so no `--ledger` order reaches `reverify`. Red
+    with `return sorted(out)` in `resolve_patterns` replaced by `return out`,
+    the one guard this pins (round 2, white 4)."""
+    records = []
+    for n, flip in enumerate((False, True)):
+        top = tmp_path / f"run{n}"
+        a, b = _two_moved_fragments(top)
+        order = [b, a] if flip else [a, b]
+        args = ["--into", FRAGMENT, "--checked", "2026-09-04"]
+        for path in order:
+            args += ["--ledger", path]
+        code, out = run(top, *args)
+        assert code == 0, out
+        records.append((top / RECORD).read_bytes())
+    assert records[0] == records[1], records
+
+
+def test_a_coordinate_that_does_not_settle_records_no_pact_change(repo):
+    """Round 2, yellow 3. A row citing a clause beside a coordinate quoting
+    its own line: the run names it `does not settle` and records nothing,
+    because one place holds what it names and nothing is known gone. Red with
+    the unsettled arm of `plan_ledger` handing MOVES a BROKEN part, as
+    ca467185 did."""
+    coord = f'{FRAGMENT}#"### sec">"\\| O1 · the field"@0000beef'
+    cite(repo, ["### sec\n\n", row("O1", f"`{CLAUSE}`, ", coord)])
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1 and "does not settle" in out, out
+    assert record_rows(repo) == [], out
