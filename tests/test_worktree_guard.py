@@ -1260,12 +1260,16 @@ def test_an_unrecognised_shape_stops_where_the_tree_matters(monkeypatch, capsys,
     guard stops before the ladder and names the shape it read and the plain
     spelling it reads. An `ask` for the person, except in a tree another
     session is ACTIVE in, where `docs/worktree-guard-spec.md` §A row 1 denies
-    a branch-form `checkout` outright and nobody is asked to approve it."""
+    a branch-form `checkout` outright and nobody is asked to approve it, and
+    on a line holding a `git switch` the frozen reading reads, where
+    approving would run the switch past the ladder (round 1 of work item
+    1791270162, red 1)."""
     for state in ("active", "idle", "unusable", "dirty"):
         in_state(monkeypatch, repo, state)
         for command, rewrite in UNRECOGNISED.items():
             decision, reason = verdict(monkeypatch, capsys, repo, command)
-            want = "deny" if state == "active" else "ask"
+            switch_on_line = command.startswith("git switch")
+            want = "deny" if state == "active" or switch_on_line else "ask"
             assert decision == want, (state, command, decision, reason)
             assert STOP in reason, (state, command, reason)
             assert rewrite in reason, (state, command, reason)
@@ -1368,12 +1372,19 @@ def test_an_unrecognised_shape_stops_before_a_switch_on_the_same_line(
     monkeypatch, capsys, repo
 ):
     """S9. The stop stops the whole line, so it comes first; a listed shape
-    beside a switch leaves the switch to today's dirty-tree row alone."""
+    beside a switch leaves the switch to today's dirty-tree row alone. The
+    stop is a `deny` there: approving an `ask` would run the switch past the
+    ladder (round 1 of work item 1791270162, red 1; an `ask` at
+    `4de95fa7`)."""
     in_state(monkeypatch, repo, "dirty")
     decision, reason = verdict(
         monkeypatch, capsys, repo, "git checkout README.md && git switch feature/x"
     )
-    assert decision == "ask" and STOP in reason, reason
+    assert decision == "deny" and STOP in reason, reason
+    assert reason.endswith(
+        "Re-issue the command in a plain spelling. Run the `git switch` as a "
+        "command of its own, so the branch-switch rules judge its tree."
+    ), reason
     assert "They will follow you onto the target branch" not in reason, reason
     decision, reason = verdict(
         monkeypatch, capsys, repo, "git status && git switch feature/x"
@@ -1381,6 +1392,49 @@ def test_an_unrecognised_shape_stops_before_a_switch_on_the_same_line(
     assert decision == "ask", reason
     assert "They will follow you onto the target branch" in reason, reason
     assert STOP not in reason, reason
+
+
+def test_no_approval_runs_a_line_past_an_active_tree(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 1 of work item 1791270162, red 1. Approving the stop's `ask`
+    runs every segment of the line. So a `git switch` on it, or an
+    unrecognised shape in a second tree another session is ACTIVE in, put
+    §A row 1's deny one approval away: each of these was an `ask` about the
+    session tree's changes at `4de95fa7`, and the base denied the switches.
+    The other direction holds too: with the second tree IDLE and no switch
+    on the line, the stop is still the person's `ask`."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    in_state(monkeypatch, repo, "dirty")
+    for held in (ACTIVE, IDLE):
+        sessions = (held, [], True) if held is ACTIVE else ([], held, True)
+        monkeypatch.setattr(
+            wg,
+            "sessions_in_tree",
+            lambda top, own="", s=sessions: s if top.endswith("W") else ([], [], True),
+        )
+        for command in (
+            f"git checkout f.txt && git -C {w} switch feature/x",
+            f"git checkout f.txt && cd {w} && git switch feature/x",
+            f"git update-ref refs/x HEAD && git -C {w} switch feature/x",
+        ):
+            decision, reason = verdict(monkeypatch, capsys, repo, command)
+            assert decision == "deny", (held, command, decision, reason)
+            assert "Run the `git switch` as a command of its own" in reason, reason
+        for command in (
+            f"git checkout f.txt && git -C {w} checkout feature/x",
+            f"git checkout f.txt && cd {w} && git checkout feature/x",
+        ):
+            decision, reason = verdict(monkeypatch, capsys, repo, command)
+            if held is ACTIVE:
+                assert decision == "deny", (command, decision, reason)
+                assert "another Claude session is actively working here" in reason
+            else:
+                assert decision == "ask", (command, decision, reason)
+                assert "uncommitted tracked changes" in reason, reason
 
 
 def test_the_tree_is_read_once_for_both_kinds(monkeypatch, capsys, repo):
@@ -1502,6 +1556,30 @@ def test_a_broken_wider_reader_costs_a_stop_never_a_silence(monkeypatch, capsys,
         assert decision == "ask" and "could not run" in reason, (command, reason)
 
 
+@pytest.mark.parametrize(
+    "command", ["git worktree &>/dev/null add ../wt b", "2>&1 git switch feature/x"]
+)
+@pytest.mark.parametrize("broken", ["missing", "raising"])
+def test_a_broken_reader_leaves_no_cut_group_silent(
+    monkeypatch, capsys, repo, command, broken
+):
+    """Round 1 of work item 1791270162, yellow 4. The reader that glues an
+    `&` cut back is `hooks/cmdline.py#merged_view`; where it did not load or
+    raises, the cut is the finding. Silent at `4de95fa7` for three of the
+    four, where `_merged_findings` returned nothing."""
+    in_state(monkeypatch, repo, "dirty")
+    if broken == "missing":
+        monkeypatch.setattr(wg, "wide", None)
+    else:
+
+        def boom(*_a, **_k):
+            raise RuntimeError("broken reader")
+
+        monkeypatch.setattr(wg.wide, "merged_view", boom)
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "ask" and "could not run" in reason, (command, reason)
+
+
 # Phase 1 of work item 1791270162, `phases/phase-1.md` §M1: every git
 # subcommand the frozen reading yields over the recorded runs, as pairs
 # holding it in cut 1 / cut 2. Phase 3 re-read cut 1 on the same definition
@@ -1586,6 +1664,165 @@ def test_the_list_carries_its_counts_and_nothing_unmeasured():
     )
     assert counts == {s: n for s, n in RECORDED.items() if s not in MOVERS}
     assert not (MOVERS & wg.LEAVES_THE_TREE)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git rebase main feature/x",
+        "git rebase --onto main main feature/x",
+        "git rebase --root feature/x",
+        "git rebase main feature/x 2>/dev/null",
+    ],
+)
+def test_a_rebase_naming_a_branch_is_unrecognised(monkeypatch, capsys, repo, command):
+    """Round 1 of work item 1791270162, red 3. git switches to the named
+    branch before it rebases, and HEAD stays there; listed and silent at
+    `4de95fa7`. The stop names the plain spelling."""
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "ask" and STOP in reason, reason
+    assert (
+        "a `git rebase` naming a branch, which git switches to before it rebases. "
+        "Write `git switch <branch>` first, then `git rebase <upstream>`." in reason
+    ), reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git rebase main",
+        "git rebase -i HEAD~3",
+        "git rebase --continue",
+        "git rebase --root",
+        "git rebase main 2>/dev/null",
+    ],
+)
+def test_a_rebase_of_the_current_branch_stays_listed(command):
+    """The other direction: a `rebase` with one word that is not an option,
+    or `--root` alone, rebases the branch HEAD is on and stays listed."""
+    assert wg.shape_of(command.split()) == "listed"
+
+
+# One form of each `LEAVES_THE_TREE` row, run against git by the case below:
+# where the subcommand takes a branch, the form names one. `{start}` is the
+# branch HEAD is on; `..` is the directory beside the repository.
+FORMS = {
+    "log": "log feature/x",
+    "status": "status",
+    "commit": "commit --allow-empty -qm x",
+    "diff": "diff feature/x",
+    "add": "add -A",
+    "rev-parse": "rev-parse feature/x",
+    "show": "show feature/x",
+    "push": "push -q . feature/x:refs/heads/pushed",
+    "grep": "grep one feature/x",
+    "fetch": "fetch -q . feature/x:fetched",
+    "clone": "clone -q . ../cloned{n}",
+    "branch": "branch y feature/x",
+    "merge-base": "merge-base {start} feature/x",
+    "config": "config user.name x",
+    "stash": "stash",
+    "ls-tree": "ls-tree feature/x",
+    "tag": "tag t feature/x",
+    "ls-files": "ls-files",
+    "merge": "merge -q --no-edit feature/x",
+    "ls-remote": "ls-remote .",
+    "archive": "archive -o ../a{n}.tar feature/x",
+    "pull": "pull -q --no-rebase --no-edit . feature/x",
+    "cat-file": "cat-file -t feature/x",
+    "for-each-ref": "for-each-ref",
+    "describe": "describe --always feature/x",
+    "rev-list": "rev-list feature/x",
+    "reset": "reset -q --hard feature/x",
+    "remote": "remote add o .",
+    "init": "init -q",
+    "merge-tree": "merge-tree --write-tree {start} feature/x",
+    "apply": "apply ../p.diff",
+    "check-ignore": "check-ignore f.txt",
+    "restore": "restore --source feature/x g.txt",
+    "clean": "clean -fdq",
+    "reflog": "reflog",
+    "revert": "revert --no-edit HEAD",
+    "blame": "blame f.txt",
+    "rm": "rm -q --cached f.txt",
+    "cherry-pick": "cherry-pick feature/x",
+    "mv": "mv f.txt h.txt",
+    "show-ref": "show-ref",
+    "rebase": "rebase -q feature/x",
+    "diff-tree": "diff-tree feature/x",
+    "gc": "gc --auto",
+    "format-patch": "format-patch -q -o ../p{n} {start}..feature/x",
+    "count-objects": "count-objects",
+    "update-index": "update-index --refresh",
+    "help": "help -a",
+    "shortlog": "shortlog -s feature/x",
+}
+# Forms git runs as a switch, each of which the guard must not list.
+SWITCHING = (
+    "rebase {start} feature/x",
+    "rebase --onto {start} {start} feature/x",
+    "rebase --root feature/x",
+    "stash branch y",
+    "checkout feature/x",
+    "switch feature/x",
+)
+
+
+def test_no_listed_form_moves_head_under_git(repo, tmp_path):
+    """Binds `LEAVES_THE_TREE` to git (round 1 of work item 1791270162, red
+    3): each row's form runs in a copy of a repository with a second commit
+    on `feature/x` and a stash, and a form the guard reads as listed must
+    leave HEAD naming the branch it named. Every row has a form, so a row
+    added without one goes red, and each switching form must move HEAD
+    under git, so the comparison cannot pass by measuring nothing. Red at
+    `4de95fa7`, where `git rebase <start> feature/x` was listed."""
+    import shutil
+    import subprocess
+
+    def git(d, *args):
+        return subprocess.run(
+            ["git", "-C", str(d), *args],
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            env={**os.environ, "GIT_EDITOR": "true", "GIT_PAGER": "cat"},
+        )
+
+    def head(d):
+        return (d / ".git" / "HEAD").read_text(encoding="utf-8").strip()
+
+    template = tmp_path / "template"
+    shutil.copytree(repo, template)
+    start = head(template).rsplit("/", 1)[-1]
+    git(template, "switch", "-q", "feature/x")
+    (template / "g.txt").write_text("g\n", encoding="utf-8")
+    git(template, "add", "g.txt")
+    git(template, "commit", "-qm", "g")
+    git(template, "switch", "-q", start)
+    (template / "f.txt").write_text("changed\n", encoding="utf-8")
+    (tmp_path / "p.diff").write_bytes(git(template, "diff").stdout)
+    git(template, "stash", "-q")
+    assert head(template) == f"ref: refs/heads/{start}"
+
+    assert set(FORMS) == set(wg.LEAVES_THE_TREE), sorted(
+        set(FORMS) ^ set(wg.LEAVES_THE_TREE)
+    )
+    listed, moved = [], []
+    for n, form in enumerate([*FORMS.values(), *SWITCHING]):
+        words = form.format(start=start, n=n).split()
+        if wg.shape_of(["git", *words]) == "listed":
+            listed.append(form)
+        copy = tmp_path / f"r{n}"
+        shutil.copytree(template, copy)
+        git(copy, *words)
+        if head(copy) != head(template):
+            moved.append(form)
+    # A listed form that moved HEAD is a wrong row.
+    assert not set(listed) & set(moved), sorted(set(listed) & set(moved))
+    assert sorted(listed) == sorted(FORMS.values()), sorted(
+        set(FORMS.values()) ^ set(listed)
+    )
+    assert sorted(moved) == sorted(SWITCHING), moved
 
 
 def test_the_readings_are_gone():

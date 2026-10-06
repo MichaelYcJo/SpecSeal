@@ -1070,25 +1070,41 @@ def _redirections():
     """Every redirection `hooks/cmdline.py`'s `_REDIRECTION` names, as (operator,
     target) pairs, each operator once bare and, where it is not `&`-led, with
     a number and with bash 4.1's `{fd}` in front. Derived from the pattern, so
-    an operator the reader learns is a new case the day it is added."""
+    an operator the reader learns is a new case the day it is added.
+
+    Each operator takes every kind of target it has: a duplicating one a
+    descriptor, `-` to close it and `1-` to move it, and every other one but
+    a here-document's a word and the word `-`. A target ending in `-` is
+    what `<<-` looks like, and round 1 of work item 1791270162 found
+    `git worktree 2>&- add …` and `git worktree >- add …` listed where bash
+    creates the worktree, because the generator gave `>&` and `<&` the
+    target `1` alone."""
     pattern = wg.wide._REDIRECTION.pattern
     assert pattern.endswith(")"), pattern
     operators = pattern[pattern.rindex("(?:") + 3 : -1]
     pairs = []
     for op in (o.replace("\\", "") for o in re.split(r"(?<!\\)\|", operators)):
-        target = {"<<<": "word", "<<": "EOF", "<<-": "EOF"}.get(op, "/dev/null")
-        if op.endswith("&"):
-            target = "1"
+        if op in ("<<", "<<-"):
+            targets = ["EOF"]
+        elif op.endswith("&"):
+            targets = ["1", "-", "1-"]
+        else:
+            targets = ["word" if op == "<<<" else "/dev/null", "-"]
         fds = [""] if op.startswith("&") else ["", "2", "{fd}"]
-        pairs += [(fd + op, target) for fd in fds]
+        pairs += [(fd + op, target) for fd in fds for target in targets]
     return pairs
 
 
 def test_the_redirections_are_read_from_the_reader():
-    """The generator below is only as wide as this list."""
-    ops = {op for op, _target in _redirections()}
+    """The generator below is only as wide as this list, and as its targets:
+    a closed and a moved descriptor, and a word ending in `-`, among them."""
+    pairs = _redirections()
+    ops = {op for op, _target in pairs}
     assert {"&>", "&>>", ">&", "<&", "2>", "{fd}>", "<<<", ">|", ">!"} <= ops, ops
     assert len(ops) == 2 + 12 * 3, sorted(ops)
+    assert {("2>&", "-"), (">&", "1-"), ("<&", "-"), (">", "-"), ("&>", "-")} <= set(
+        pairs
+    ), pairs
 
 
 # Since #826: a verb that can move a branch or add a worktree, and a listed
@@ -1161,7 +1177,11 @@ def test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands():
     names. Red at `9c03ae85` on 208 of the 2,356 shapes, 104 each of `worktree
     add` and `stash branch`, whose deciding word a redirection stood in front
     of, was glued to, or cut away with an `&`: `worktree` and `stash` were
-    listed by their subcommand alone (a deleted probe, phase 3)."""
+    listed by their subcommand alone (a deleted probe, phase 3). With the
+    targets widened to a closed and a moved descriptor and a word ending in
+    `-` (round 1, red 2), red at `4de95fa7` on 110 of 4,712 shapes, every one
+    a target ending in `-` that `_plain_words` read as taking the next word
+    (`git worktree 2>&- add`, `>-`, `<<<-`, `<>-`)."""
     silent = [
         command
         for verb in MOVING
@@ -1221,6 +1241,13 @@ def test_the_guard_policy_says_which_shapes_reach_the_rows_and_who_reads_the_sto
         "so the stop is a `deny` whoever is at the keyboard.",
         "The consent record is never read for the stop",
         "**The failure direction.** The guard stops more than it did",
+        # Round 1 of work item 1791270162: red 1 and red 3, absent at
+        # `4de95fa7`.
+        "A `git switch` on the same line makes the stop a `deny` whoever is "
+        "at the keyboard",
+        "Every tree on the line is read before the stop is taken",
+        "A `rebase` is listed unless it has two words that are not options, "
+        "or `--root` and one",
     ):
         assert sentence in text, sentence
 
@@ -1238,6 +1265,11 @@ def test_the_guard_policy_says_nothing_is_read_past_the_base():
         "A creation only a hidden spelling holds",
         "A `rebase` is listed, and detaches HEAD while it runs",
         "every unrecognised shape stops there, in every tree",
+        # Round 1 of work item 1791270162, yellow 5 and yellow 4, absent at
+        # `4de95fa7`.
+        "A string handed to a shell (`sh -c`, `bash -c`, `eval`) is judged in "
+        "the tree its segment names",
+        "or either side of an `&` the splitter cut is the finding",
     ):
         assert limit in text, limit
     for gone in (

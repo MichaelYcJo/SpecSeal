@@ -43,6 +43,9 @@ reading yields (§*Which tree*) as one of three shapes, from its words alone:
   shape is silent in every tree state and spawns no git. `worktree` and
   `stash` are listed unless the first word bash hands git after them is
   `add` or `branch`, so a redirection in front of that word hides nothing.
+  A `rebase` is listed unless it has two words that are not options, or
+  `--root` and one: those name the branch git switches to before it
+  rebases (`git rebase main feature/x`), and the shape is unrecognised.
 - **a switch** — `git switch`, whatever its words. It takes the rows above,
   in the tree its segment names.
 - **unrecognised** — every other git: a `checkout` with no path after a
@@ -77,13 +80,21 @@ asked. Otherwise it is an `ask` with the same text, except in a tree another
 session is ACTIVE in: row 1 denies a branch-form `checkout` there with
 nobody asked, so the stop is a `deny` whoever is at the keyboard. On the
 `ask` path a creation on the same line is judged first, because approving
-runs every segment. The consent record is never read for the stop: a
-creation having run says nothing about whether anybody is at the keyboard.
+runs every segment. A `git switch` on the same line makes the stop a `deny`
+whoever is at the keyboard, for the same reason: approving would run the
+switch past the rows above, in a tree the stop's reason does not describe,
+so the reason says to run the switch on its own. The consent record is
+never read for the stop: a creation having run says nothing about whether
+anybody is at the keyboard.
 
 Each unrecognised shape is judged in the tree its own segment names, first
 one first, and each tree is looked up once, so a shape in a clean tree takes
-no stop away from one behind it in a dirty tree. A git only the commit
-gate's wider reading reads is judged in the tree its own `-C` names. A body
+no stop away from one behind it in a dirty tree. Every tree on the line is
+read before the stop is taken, so a shape in a tree another session is
+ACTIVE in makes it a `deny` even where an earlier tree only matters for its
+changes. A git the commit gate's wider reading reads as a segment of its
+own (behind a redirection or a zsh precommand word) is judged in the tree
+its own `-C` names; a string handed to a shell is not read for one. A body
 and a command that would not split belong to no one segment and are judged
 in the session's own tree.
 
@@ -96,7 +107,7 @@ stops ask no person anything; without it each is one `ask`. Over the
 before 2026-10-03, the shapes stop 315 tree-blind, 55 of them pairs the
 guard before #826 did not stop at its most cautious, and they let through
 none it stopped (work item 1791270162, `phases/phase-3.md`).
-Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree
+Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git
 
 ### B. Worktree creation (`git worktree add`, or Agent/Task `isolation: "worktree"`)
 
@@ -711,10 +722,11 @@ as git resolves it (#790) — left with #826. Each grew on the question *does
 this command switch a branch?*, and the findings against them did not
 converge; the question §A asks instead is *is this command known to leave the
 branch where it is?*. Where `hooks/cmdline.py` fails to load, or a reader in
-it raises, the bare word `git` in a string, a body, a hidden position or a
-command that would not split is the finding, so a broken reader costs a stop
-where the tree matters and never a silence.
-Enforced by: tests/test_worktree_guard.py::test_a_broken_wider_reader_costs_a_stop_never_a_silence, tests/test_guard_resolves_the_tree_it_judges.py::test_a_git_only_the_wider_reading_finds_stops_where_its_tree_matters, tests/test_guard_resolves_the_tree_it_judges.py::test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer
+it raises, the bare word `git` in a string, a body, a hidden position, a
+command that would not split or either side of an `&` the splitter cut is
+the finding, so a broken reader costs a stop where the tree matters and
+never a silence.
+Enforced by: tests/test_worktree_guard.py::test_a_broken_wider_reader_costs_a_stop_never_a_silence, tests/test_worktree_guard.py::test_a_broken_reader_leaves_no_cut_group_silent, tests/test_guard_resolves_the_tree_it_judges.py::test_a_git_only_the_wider_reading_finds_stops_where_its_tree_matters, tests/test_guard_resolves_the_tree_it_judges.py::test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer
 
 #692, the redesign of how the gates learn where a command acts, decided this
 reading on the owner's answers of 2026-10-01, and it stays. No git refuses a
@@ -789,7 +801,10 @@ at one prompt against a wrong allow breaking another session's tree.
   adds its row; under the press the model cannot rewrite it, because it is
   its own plain spelling. The stop's reason names the list, so the row to add
   is one search away. Which subcommands leave the branch was read off what
-  each does, not run against git.
+  each does, and one form of each row is run against git: a listed form
+  that moves HEAD fails `test_no_listed_form_moves_head_under_git`, which is
+  how `rebase`'s branch-naming form was found. A form no row's case runs is
+  still a reading.
 - A creation only a hidden spelling holds (`git 2>&1 worktree add …`, `git
   worktree 2>/dev/null add …`) is an unrecognised shape, so in a clean tree
   nobody else is in it says nothing and §B never reads it, as at 0.16.0
@@ -797,10 +812,18 @@ at one prompt against a wrong allow breaking another session's tree.
 - A `rebase` is listed, and detaches HEAD while it runs: a session switching
   in the same tree during that window meets a detached HEAD rather than the
   branch. The guard judges the command before it runs and reads no window.
+  A `rebase` naming a branch is unrecognised (§A), and its words are read
+  without an option table, so an option's value counts as a word: `git
+  rebase --onto main x` stops too.
 - A body (`$( … )`, a backtick pair, `<( … )`) and a command that would not
   split belong to no one segment, so each is judged in the session's own
   tree: `cd W && F=$(git checkout x)` with `W` dirty and the session's tree
   clean says nothing.
+- A string handed to a shell (`sh -c`, `bash -c`, `eval`) is judged in the
+  tree its segment names, the one it was typed from: its own `-C` and `cd`
+  are not read. `sh -c 'git -C W switch x'` with `W` dirty and the
+  session's tree clean says nothing, as it did before #826. Only a git the
+  wider reading reads as a segment of its own has its `-C` composed.
 - The frozen splitter has taken the quotes off before a word is read, so a
   quoted `<` or `>` reads as a redirection: a path written `"> f"` after a
   `checkout`'s `--` is no path, and the command is unrecognised. The same

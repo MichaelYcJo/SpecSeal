@@ -154,8 +154,11 @@ import console
 # keeps meaning the frozen one. Since #826 it reads what the frozen reading
 # does not: the string a shell is handed, an `eval`'s argument, a substitution
 # body, and a git behind a redirection or a zsh precommand word (`shape_of`,
-# `_command_findings`). It never takes the first slot and never picks the tree
-# (#689). The import is guarded because this guard's own rows do not need it:
+# `_command_findings`). It never takes the first slot (#689), and it names a
+# tree in one place: the `-C` of a git only it reads, composed onto the
+# directory the frozen walk placed that segment in (`_finding_tree`). A
+# string handed to a shell is not read for one. The import is guarded because
+# this guard's own rows do not need it:
 # a broken `hooks/cmdline.py` must not take the ACTIVE deny down with the
 # commit gate, so where it fails to load the bare word `git` in such a place
 # is the finding (`_BARE_GIT`) -- a broken reader costs a stop where the tree
@@ -2031,7 +2034,9 @@ def judge_creation(
 # `PLAIN_GIT` carries its counts. A subcommand the corpus never recorded is
 # not here, on the owner's answer P1 (a): the list grows by a measured row,
 # never by a reading. Which ones leave the branch was read off what each
-# does, not run against git (`spec.md` In 5).
+# does (`spec.md` In 5), and one form of each row is run against git by
+# `test_no_listed_form_moves_head_under_git`, which found `rebase`'s
+# branch-naming form in round 1 of work item 1791270162.
 #
 # Not here, on purpose: `switch` (the ladder's), `checkout` (listed only with
 # a path after `--`, `_restores`), `worktree` (listed unless it adds one,
@@ -2053,7 +2058,7 @@ LEAVES_THE_TREE = frozenset(
         "grep",  # 385/454
         "fetch",  # 252/276
         "clone",  # 223/243
-        "branch",  # 223/236
+        "branch",  # 223/236, `-m` renames HEAD's branch, same line of history
         "merge-base",  # 98/104
         "config",  # 84/100
         "stash",  # 95/99, `stash branch` excepted
@@ -2083,7 +2088,7 @@ LEAVES_THE_TREE = frozenset(
         "cherry-pick",  # 4/4
         "mv",  # 1/2
         "show-ref",  # 2/2
-        "rebase",  # 2/2, HEAD detached while it runs: a named limit
+        "rebase",  # 2/2, naming no branch: `_rebase_names_a_branch`
         "diff-tree",  # 1/2
         "gc",  # 1/1
         "format-patch",  # 0/1
@@ -2140,25 +2145,39 @@ def _spoken(tokens) -> str:
     )
 
 
+# The redirection operators `hooks/cmdline.py`'s `_REDIRECTION` names, from
+# their first `<` or `>` on (`&>` and `&>>` lose the `&` that `_plain_words`
+# reads as a head). A word ending in one of these takes the next word as its
+# target; any other text after the first `<` or `>` is a target glued on.
+_OPERATORS = frozenset(
+    {"<<<", "<<-", "<<", "<>", "<&", ">&", ">>!", ">>", ">|", ">!", ">", "<"}
+)
+
+
 def _plain_words(words):
     """WORDS as bash hands them to git once its redirections are off: a word
-    holding `<` or `>` goes, with the word after it where the operator ends
-    the word (a target written apart), and text glued in front of the
-    operator stays as a word of its own (`add>/dev/null` hands git `add`). A
-    number or a `{name}` there is the operator's descriptor and an `&` is
-    `&>`'s, so neither stays. The frozen splitter has taken the quotes off,
-    so a quoted `>` reads as an operator too, and the cost is a stop: a
-    path quoted as `"> f"` after `--` is no path here."""
+    holding `<` or `>` goes, with the word after it where the word ends in
+    the operator itself (a target written apart), and text glued in front of
+    the operator stays as a word of its own (`add>/dev/null` hands git
+    `add`). A number or a `{name}` there is the operator's descriptor and an
+    `&` is `&>`'s, so neither stays. Whatever follows the operator in the
+    same word is its target, so `2>&-`, `>&1-`, `>-` and `>out-` take no
+    next word: `<<-`'s `-` is part of the operator, a closed or moved
+    descriptor's is not (round 1 of work item 1791270162, red 2). The frozen
+    splitter has taken the quotes off, so a quoted `>` reads as an operator
+    too, and the cost is a stop: a path quoted as `"> f"` after `--` is no
+    path here."""
     out, skip = [], False
     for word in words:
         if skip:
             skip = False
         elif "<" in word or ">" in word:
-            head = word[: min(word.find(c) for c in "<>" if c in word)]
+            at = min(word.find(c) for c in "<>" if c in word)
+            head = word[:at]
             head = head[:-1] if head.endswith("&") else head
             if head and not head.isdigit() and not head.startswith("{"):
                 out.append(head)
-            skip = word[-1] in "<>&|!-"
+            skip = word[at:] in _OPERATORS
         else:
             out.append(word)
     return out
@@ -2203,6 +2222,19 @@ def _hidden_mover(sub, args) -> str:
     return next((w for w in args if "<" in w or ">" in w), moving)
 
 
+def _rebase_names_a_branch(args) -> bool:
+    """Whether a `rebase`'s words can name the branch it switches to first.
+
+    `git rebase <upstream> <branch>`, `git rebase --onto <a> <b> <branch>`
+    and `git rebase --root <branch>` run `git switch <branch>` before
+    anything else, and HEAD stays there (git-rebase(1); executed on git
+    2.50.1 in round 1 of work item 1791270162, red 3). Read without an
+    option table, so an option's value counts as a word, and the cost lands
+    on the side of a stop: `git rebase --onto main x` stops too."""
+    plain = [w for w in _plain_words(args) if not w.startswith("-")]
+    return len(plain) >= (1 if "--root" in args else 2)
+
+
 def _git_finding(tokens, parsed):
     """(shape, finding) for a segment the frozen reading reads as git."""
     sub, args, _chdirs = parsed
@@ -2222,6 +2254,8 @@ def _git_finding(tokens, parsed):
         return "unrecognised", Finding("checkout", words)
     if sub == "stash" and [a for a in args if not a.startswith("-")][:1] == ["branch"]:
         return "unrecognised", Finding("unlisted", words, "stash branch")
+    if sub == "rebase" and _rebase_names_a_branch(args):
+        return "unrecognised", Finding("rebase", words)
     if sub in LEAVES_THE_TREE:
         return "listed", None
     # W3 of the work item: the frozen reading takes a redirection written
@@ -2316,9 +2350,12 @@ def _merged_findings(items):
     listed, the group is read again whole through the same shapes, because
     the cut can take the word the listing rests on: `git worktree &>/dev/null
     add ../wt b` is `git worktree` to the frozen reading and a creation to
-    bash. `git status &>/dev/null` is listed either way."""
+    bash. `git status &>/dev/null` is listed either way.
+
+    Where `hooks/cmdline.py` did not load, or a reader in it raises, the cut
+    is the finding (`_cut_unread`)."""
     if wide is None:
-        return []
+        return _cut_unread(items)
     out = []
     try:
         for parts, toks in wide.merged_view(items):
@@ -2338,7 +2375,23 @@ def _merged_findings(items):
             if _wide_git(toks):
                 out.append((parts[-1], Finding("hidden", _spoken(toks))))
     except (Exception, SystemExit):
-        return []
+        return _cut_unread(items)
+    return out
+
+
+def _cut_unread(items):
+    """[(index, finding)] where the reader that glues an `&` cut back is
+    missing or raises: each cut with the bare word `git` on either side of it
+    is a finding, so a broken reader costs a stop where the tree matters and
+    never a silence (`docs/worktree-guard-spec.md` §*Which tree*; round 1 of
+    work item 1791270162, yellow 4). A background `&` beside a git command
+    stops too while the reader is broken, which is the cheaper mistake."""
+    out = []
+    for index, (sep, tokens) in enumerate(items):
+        if index and sep == "&":
+            text = " ".join([*items[index - 1][1], "&", *tokens])
+            if _holds_git(text):
+                out.append((index, Finding("unread", text)))
     return out
 
 
@@ -2402,7 +2455,11 @@ def _finding_tree(tokens, where, cwd):
     W switch x`) carries a `-C` the frozen reading cannot see, so the wider
     reading's is composed the same way: the shape is judged in `W`, where it
     runs, not in the tree it was typed from. A body or an untokenizable
-    command (TOKENS None) is judged in the session's own tree."""
+    command (TOKENS None) is judged in the session's own tree. A string
+    handed to a shell (`sh -c 'git -C W switch x'`) is no git to either
+    reading, so its own `-C` and `cd` are not read and it is judged in the
+    tree it was typed from: a named limit (`docs/worktree-guard-spec.md`
+    §*Known limits*; round 1 of work item 1791270162, yellow 5)."""
     if tokens is None:
         return cwd
     here, target = judgeable(tokens, where, cwd)
@@ -2489,6 +2546,20 @@ def _described(finding):
                 "전환이라면 `git switch <branch>` 나 `git switch --detach <rev>` 로, "
                 "파일 되돌리기라면 `git checkout -- <path>` 나 `git restore <path>` "
                 "로 쓰세요.",
+            ),
+        )
+    if kind == "rebase":
+        return (
+            tr(
+                "a `git rebase` naming a branch, which git switches to before it "
+                "rebases",
+                "브랜치를 지정한 `git rebase` 이며, git 은 리베이스하기 전에 그 "
+                "브랜치로 전환합니다",
+            ),
+            tr(
+                "Write `git switch <branch>` first, then `git rebase <upstream>`.",
+                "먼저 `git switch <branch>` 를 실행한 뒤 `git rebase <upstream>` 을 "
+                "쓰세요.",
             ),
         )
     if kind == "unlisted":
@@ -2633,7 +2704,7 @@ def _item(finding):
 STOP_ITEMS = 5
 
 
-def stop_unrecognised(findings, state, pressed, before_ask=None):
+def stop_unrecognised(findings, state, pressed, before_ask=None, switch_on_line=False):
     """Stop on FINDINGS -- the unrecognised shapes, first one first -- in a
     tree whose STATE, `(active, idle, reliable, entries)`, matters.
 
@@ -2649,7 +2720,11 @@ def stop_unrecognised(findings, state, pressed, before_ask=None):
     BEFORE_ASK runs on the `ask` path only, for the reason `choose` gives
     its own: the deny stops the whole line, while approving an ask runs every
     segment of it, so a creation on the same line is judged first
-    (`test_the_guard_is_never_silent_where_the_writer_records`)."""
+    (`test_the_guard_is_never_silent_where_the_writer_records`). A
+    `git switch` on the line (SWITCH_ON_LINE) makes the stop a `deny` for
+    the same reason: approving would run the switch past §A's rows, in a
+    tree this reason does not describe (round 1 of work item 1791270162,
+    red 1), and the reason says to run the switch on its own."""
     active, idle, reliable, entries = state
     if active:
         why = (
@@ -2696,13 +2771,23 @@ def stop_unrecognised(findings, state, pressed, before_ask=None):
     if len(lines) > len(shown):
         more = len(lines) - len(shown)
         shown.append(tr(f"  · and {more} more", f"  · 그 밖에 {more}개"))
-    decision = "deny" if pressed or active else "ask"
+    decision = "deny" if pressed or active or switch_on_line else "ask"
     if decision == "ask" and before_ask is not None:
         before_ask()
     ending = (
         tr(
             "Re-issue the command in a plain spelling.",
             "평범한 표기로 다시 실행하세요.",
+        )
+        + (
+            tr(
+                " Run the `git switch` as a command of its own, so the "
+                "branch-switch rules judge its tree.",
+                " `git switch` 는 따로 실행해 브랜치 전환 규칙이 그 트리를 "
+                "판단하게 하세요.",
+            )
+            if switch_on_line
+            else ""
         )
         if decision == "deny"
         else tr(
@@ -2873,8 +2958,15 @@ def main():
     # one in a clean tree takes no stop away from one behind it in a dirty
     # tree (`git checkout README.md && 2>/dev/null git -C W switch x`); each
     # tree is read once, and the stop lists every shape on the line.
+    #
+    # Every tree is read before the stop is taken, not only the first that
+    # matters: approving an `ask` runs every shape on the line, so a shape in
+    # a tree another session is ACTIVE in makes the stop a `deny`, as it
+    # would be alone (round 1 of work item 1791270162, red 1). The ACTIVE
+    # tree is the one the reason describes.
     seen = {}
     placed = set()
+    state = None
     for _index, _found, tokens, where in unrecognised:
         at = _finding_tree(tokens, where, cwd)
         if at in placed:
@@ -2885,25 +2977,30 @@ def main():
             matters, active, idle, reliable, entries = tree_matters(
                 at_top, session_id, at, seen
             )
-            if matters:
-                stop_unrecognised(
-                    [found[1] for found in unrecognised],
-                    (active, idle, reliable, entries),
-                    automation_pressed(repo_paths(cwd)[0], session_id, transcript_path),
-                    before_ask=(
-                        (
-                            lambda: judge_creation(
-                                command,
-                                cwd,
-                                repo_paths(creation_at)[0],
-                                session_id,
-                                transcript_path,
-                            )
-                        )
-                        if creation_at
-                        else None
-                    ),
+            if matters and (state is None or (active and not state[0])):
+                state = (active, idle, reliable, entries)
+            if state is not None and state[0]:
+                break
+    if state is not None:
+        stop_unrecognised(
+            [found[1] for found in unrecognised],
+            state,
+            automation_pressed(repo_paths(cwd)[0], session_id, transcript_path),
+            before_ask=(
+                (
+                    lambda: judge_creation(
+                        command,
+                        cwd,
+                        repo_paths(creation_at)[0],
+                        session_id,
+                        transcript_path,
+                    )
                 )
+                if creation_at
+                else None
+            ),
+            switch_on_line=switch_at is not None,
+        )
 
     # Candidate C's question used to be asked at each silent exit below
     # (#678). The stop above is what replaced it: a git behind a redirection
