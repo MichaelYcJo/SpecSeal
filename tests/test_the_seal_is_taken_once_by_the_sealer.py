@@ -962,6 +962,34 @@ def sealed_values(repo, tmp_path, session="s-1"):
     return out, module().read_values(files[0])
 
 
+@pytest.fixture(scope="module")
+def a_sealed_run(tmp_path_factory, _template):
+    """One settled item sealed through `--record` on a pipe, with a session,
+    shared by the cases that only read what that run printed and left.
+
+    Six cases each ran this same gate, end to end, to read a different line
+    or row of its output: 10-12 s a case on the Windows leg of run
+    37429940700 (#841). Every claim among them is about one sealed run, so
+    one run keeps them all. Serially that leaves one run where there were
+    six; under xdist the fixture is built once per worker that draws one of
+    the six, so up to one run per worker. A case that
+    changes the tree, the record or the values directory before the run
+    keeps its own `repo`, and no case given this one writes to it.
+
+    Under a directory whose name holds a space, for the reason
+    `test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing` gives. A
+    module-scoped fixture is set up before `_no_ambient_pull_request` runs,
+    which costs nothing here: every script this run starts (`round_record.py`
+    and the gate) is given `env_without_a_pull_request()`.
+
+    Returns (the repository, the completed process, the values)."""
+    scratch = tmp_path_factory.mktemp("sealed-once")
+    repo = scratch / "a checkout" / "repo"
+    shutil.copytree(_template, repo)
+    out, values = sealed_values(repo, scratch, session="s-1")
+    return repo, out, values
+
+
 def row_of(values, label):
     """The value the panel carries beside `label`, or None."""
     return next((row[1] for row in values["rows"] if row and row[0] == label), None)
@@ -1059,7 +1087,7 @@ def test_a_shipped_copy_that_is_this_file_by_realpath_is_not_a_redirect(repo):
     assert gate_module().shipped_gate(str(repo)) is None
 
 
-def test_a_repository_shipping_no_gate_runs_the_invoked_copy(repo, tmp_path):
+def test_a_repository_shipping_no_gate_runs_the_invoked_copy(a_sealed_run):
     """A9 and A10 together, on a sealed run. The fixture ships no gate, so the
     invoked copy runs as before, and stderr carries one line naming the
     running copy's absolute path and `plugin <version>`. Red at `9f846733`:
@@ -1069,7 +1097,7 @@ def test_a_repository_shipping_no_gate_runs_the_invoked_copy(repo, tmp_path):
     is the copy that was invoked, so the row would say nothing, which is the
     owner's complaint about the row on every stamp. The panel is read from
     the run's values file, because a sealed run on a pipe does not draw it."""
-    out, values = sealed_values(repo, tmp_path)
+    _repo, out, values = a_sealed_run
     assert row_of(values, "gate") is None, values["rows"]
     assert f"broad-gate: gate {os.path.realpath(GATE)} (plugin " in out.stderr, (
         f"no stderr line names the running copy's path:\n{out.stderr}"
@@ -2690,7 +2718,7 @@ def test_a_green_tree_is_sealed_with_every_check_run_in_order(repo, tmp_path):
 # --- 1790562543: a sealer's run signals, and the panel waits in a file -------
 
 
-def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
+def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(a_sealed_run):
     """S1 of 1790562543 (#400). A sealer's stdout is a pipe into a report
     that arrives folded, so the gate draws nothing there — not the block
     form, not the letter twin, even under the `--shape` `run_gate` passes.
@@ -2701,15 +2729,10 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
 
     Run under a directory whose name holds a space (round 2's ⬜ 3): with no
     space the quoted and unquoted path are the same bytes, so the quoting
-    assertion below could not tell a quoted command from a bare one."""
-    spaced = tmp_path / "a checkout" / "repo"
-    # The parent first, so the move is a rename on every platform. Without
-    # it `shutil.move` falls back to a copy and an `rmtree`, which Windows
-    # refuses over git's read-only object files.
-    spaced.parent.mkdir(parents=True)
-    shutil.move(str(repo), str(spaced))
-    repo = spaced
-    out, _values = sealed_values(repo, tmp_path, session="s-1")
+    assertion below could not tell a quoted command from a bare one.
+    `a_sealed_run` is built under such a directory."""
+    repo, out, _values = a_sealed_run
+    assert " " in str(repo), repo
     said = signal_lines(out.stdout)
     assert len(said) == 1, f"one `SEALED` line expected:\n{out.stdout}"
     (path,) = values_files(repo)
@@ -2728,7 +2751,7 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
     assert not any(c in out.stdout for c in HALF_BLOCKS), "a piped run drew blocks"
 
 
-def test_the_values_file_holds_this_runs_panel(repo, tmp_path):
+def test_the_values_file_holds_this_runs_panel(a_sealed_run):
     """S2 and S13 of 1790562543. The file holds the rows `panel` returned for
     this run — in `panel`'s order — and the scale the run was given, which
     with no `--scale` is `seal_stamp.DEFAULT_SCALE`. Nothing downstream
@@ -2746,7 +2769,7 @@ def test_the_values_file_holds_this_runs_panel(repo, tmp_path):
     a drawn panel is green by construction and `SEALED` already says each;
     and so is every blank, because the sheet draws none and the values file
     should not claim a row nothing draws."""
-    _out, values = sealed_values(repo, tmp_path)
+    repo, _out, values = a_sealed_run
     assert values["rows"] == [
         ("SEALED", ""),
         ("tree", short(repo, "HEAD")),
@@ -2920,12 +2943,12 @@ def set_field(path, label, value):
     )
 
 
-def test_a_recorded_seal_says_the_cell_is_written_and_not_committed(repo, tmp_path):
+def test_a_recorded_seal_says_the_cell_is_written_and_not_committed(a_sealed_run):
     """A1 and S2. The line after the `SEALED` line names the file the cell
     went into, says it is not committed, and says CI reads HEAD — on the same
     stream, so the sealer passes both on together. The file IS uncommitted,
     which is what makes the line true: `git status` names it."""
-    out, values = sealed_values(repo, tmp_path)
+    repo, out, values = a_sealed_run
     lines = out.stdout.splitlines()
     (at,) = [i for i, line in enumerate(lines) if line.startswith("SEALED")]
     rel = os.path.join(ITEM, "rounds", "round-2.md").replace("/", os.sep)
@@ -8446,11 +8469,11 @@ def test_a_detached_head_is_not_asked_and_the_preflight_says_why(repo, tmp_path)
     assert gate_module().PREFLIGHT_DETACHED in out.stderr.splitlines(), out.stderr
 
 
-def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_path):
+def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(a_sealed_run):
     """S1 with `--record`: the checks pass, `seal` writes the last record's
     cell with the tree and the base, and the panel carries `rounds 2` — read
     from the values file since #400, which is where a piped run's panel is."""
-    _out, values = sealed_values(repo, tmp_path)
+    repo, _out, values = a_sealed_run
     two = repo / ROUNDS / "round-2.md"
     assert row_of(values, "rounds") == "2", values["rows"]
     cell = fields(two.read_text(encoding="utf-8"))[ROW]
@@ -8464,7 +8487,7 @@ def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_pat
     assert cell == f"{short(repo, 'HEAD')} against {short(repo, 'base')}", cell
 
 
-def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(repo, tmp_path):
+def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(a_sealed_run):
     """Round 1's 🟡 3. The panel carried `lint  clean` as a literal, beside
     four rows read from what the checks printed.
 
@@ -8481,7 +8504,7 @@ def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(repo, tmp_pa
     `row` of its own, and since #717 it is not on the panel at all: a drawn
     panel's row came back 0 by construction, which `SEALED` says, so the row
     after the counts is the ledger's."""
-    _out, values = sealed_values(repo, tmp_path)
+    _repo, _out, values = a_sealed_run
     rows = values["rows"]
     at = rows.index(("suite", "1 passed"))
     assert rows[at + 1] == ("ledger", "0 ok"), rows
