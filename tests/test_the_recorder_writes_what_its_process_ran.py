@@ -882,3 +882,38 @@ def test_a_crash_is_never_placed_by_a_node_id_another_file_shares(tmp_path, cras
     assert real(lines[1]["path"]) == a, lines
     if crash is CRASHES_IN_ITS_FIXTURE:
         assert lines[-1]["unplaced"] == 1, lines
+
+
+def test_a_crash_report_takes_a_path_only_from_its_own_workers_report_of_it():
+    """#825 round 5's 🔴 1, at `Recorder.path_of`, for the orders a pytest
+    run does not produce on demand. A report with no path takes the path of
+    the last report the SAME worker sent, and only where that report was of
+    the same node and not its teardown: another worker's report of the same
+    node, the same worker's report of another node, and the node's own
+    teardown each leave it unplaced."""
+    spec = importlib.util.spec_from_file_location(
+        "specseal_pytest_record_under_test",
+        os.path.join(RECORDER_DIR, "specseal_pytest_record.py"),
+    )
+    recorder_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recorder_module)
+
+    class Config:
+        rootpath = "/r"
+
+    class Report:
+        def __init__(self, nodeid, when, node, path=None):
+            self.nodeid, self.when, self.node = nodeid, when, node
+            if path is not None:
+                setattr(self, recorder_module.PATH_ATTRIBUTE, path)
+
+    one, two = object(), object()
+    recorder = recorder_module.Recorder("k", "/d", Config())
+    sent = Report("t::x", "call", one, "/r/a.py")
+    assert recorder.path_of(sent, "test") == "/r/a.py"
+    assert recorder.path_of(Report("t::x", "???", one), "test") == "/r/a.py"
+    assert recorder.path_of(Report("t::x", "???", two), "test") is None
+    assert recorder.path_of(Report("t::y", "???", one), "test") is None
+    recorder.path_of(Report("t::x", "teardown", one, "/r/a.py"), "test")
+    assert recorder.path_of(Report("t::x", "???", one), "test") is None
+    assert recorder.unplaced == {("test", "t::x"), ("test", "t::y")}
