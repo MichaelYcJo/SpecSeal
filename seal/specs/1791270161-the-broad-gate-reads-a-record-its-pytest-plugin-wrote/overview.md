@@ -45,6 +45,19 @@ and Q2 stay with the owner, (a) built for each.
 
 ## What was fed back into the spec
 
-none — phase 2 added no clause to `spec.md`. Rule 3's new sentence about a
-row that replaces `PYTHONPATH` is *inferred during implementation* from a
-measurement, and `questions.md` Q2 lets the owner overturn it.
+Three clauses, each marked *inferred during implementation* so a planner may overturn it:
+
+- `spec.md` R4, §*The class* and Scope 1: the recorder writes a test under
+  the module that COLLECTED it, `rootdir / report.fspath`, never
+  `report.location[0]`, which names the module that defines the test
+  function (phase 4, found by the corpus); `plan.md`'s six-months-on
+  scenario and Alternative M follow.
+- `spec.md` §*The class* and Scope 1, `plan.md`'s six-months-on scenario: a
+  pytest session handed a path outside its rootdir writes no record, because
+  pytest names those files against the argument that reached them and two
+  can share one name; a forged record is no longer called the only way to a
+  wrong `failing on base too` (round 1, 🔴 1).
+- Rule 3: a row that keeps `PYTEST_ADDOPTS` and loses `PYTHONPATH` — a
+  replaced `PYTHONPATH`, `python -I` or `-E`, a wrapper passing `PYTEST_*`
+  alone — fails at the gate; `questions.md` Q2 lets the owner overturn it
+  (phase 2, widened in round 1).

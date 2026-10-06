@@ -86,12 +86,14 @@ this frame* holds the pytest and xdist readings R1–R8.
   `import_plugin` (R2). `tests/conftest.py` pops no `PYTEST_*` variable (NAME NOT IN TREE)
   (read, line 473 pops named `GH_*`/`GIT_*` only). S22 is the measurement.
 - **The failure scenario of this design, six months on.** pytest renames
-  `report.location` or stops forwarding collect reports to the xdist
+  `report.fspath` or stops forwarding collect reports to the xdist
   controller. The recorder then records fewer lines, never more: a file
   with no line is `new` on an exit-0 base and `new?` otherwise, and the
-  recorder's own unit cases (S1–S5) go red first. The one way to a wrong
-  `failing on base too` is a forged or appended record (`spec.md` §*The
-  class*), which needs a test written against this gate's key.
+  recorder's own unit cases (S1–S5) go red first. The one way left to a
+  wrong `failing on base too` is a forged or appended record (`spec.md`
+  §*The class*), which needs a test written against this gate's key. A
+  second, a pytest naming files outside its rootdir, was found in round 1
+  and is refused: such a session writes no record (*inferred during implementation*).
 
 ## Alternatives considered
 
@@ -112,7 +114,7 @@ not re-argued here. These are the choices inside it.
 | J. Keep the `FAILED` fallback beside a head record, for runners that did not load the recorder | Matching a cwd-relative `FAILED` path to a recorded absolute path is the inference this work removes; a mismatch would print a second row for one file | rejected; the fallback runs only where no head record exists |
 | K. Run the base where `HEAD` left no record | A base record could be matched to `FAILED` names only by inference | rejected |
 | L. Fix #813 and #818 on their own | Both disappear on the measured path with the regexes; the fallback's `FAILED_RE` is widened one character so a spaced path is at least named | the frame's call, as #825 asked |
-| M. Record with `item.path` in `pytest_collection_modifyitems` | Not available on the xdist controller; `report.location` is on every report (R4) | rejected |
+| M. Record with `item.path` in `pytest_collection_modifyitems` | Not available on the xdist controller; `report.fspath` is on every report (R4, corrected *inferred during implementation* in phase 4 from `report.location`, which names the defining module) | rejected |
 
 ## Phases
 

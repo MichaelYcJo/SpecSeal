@@ -76,7 +76,7 @@ the smith's phase 1 and are rows of `questions.md`.
 | R1 | `_pytest/config/__init__.py#_preparse`: `PYTEST_ADDOPTS` is split and prepended to the arguments, then `consider_preparse(args, exclude_only=False)` reads every `-p`, then `consider_env()` reads `PYTEST_PLUGINS`; `PYTEST_DISABLE_PLUGIN_AUTOLOAD` gates only setuptools entry points | A `-p <module>` carried in `PYTEST_ADDOPTS` loads the recorder before any conftest, and a row that disables autoload does not stop it. Confirmed on 9.1.1 by reading; 7.4, 8.0 and 8.1 are a *measurement* (Q-M1) (NAME NOT IN TREE) |
 | R2 | `#import_plugin`: `importlib.import_module(importspec)`, and a module already registered under that name is skipped (`get_plugin(modname) is not None`) | The recorder is reached through `sys.path`, so `PYTHONPATH` is the carrier, and a `-p` repeated by an outer gate run (this repository's own suite spawning the gate) is harmless |
 | R3 | `_pytest/pytester.py:707`: `mp.delenv("PYTEST_ADDOPTS", raising=False)` | A `pytester`-driven inner run never loads the recorder at all; the key rule below covers the subprocess kind |
-| R4 | `_pytest/nodes.py#Item.location`: `(relfspath, lineno, name)` with `relfspath` relative to `config.rootpath` through `bestrelpath`; `_pytest/reports.py#BaseReport.fspath`: the nodeid up to `::` | A report carries a path relative to the rootdir, so `rootdir / location[0]` is the test's absolute path on the controller as well as in a plain run; a `CollectReport` names its file through `fspath`. Neither needs `item.path`, so the recorder reads reports only |
+| R4 | `_pytest/nodes.py#Item.location`: `(relfspath, lineno, name)` with `relfspath` relative to `config.rootpath` through `bestrelpath`; `_pytest/reports.py#BaseReport.fspath`: the nodeid up to `::` | A report carries its node id's path, `fspath`, relative to the rootdir for a file under it, on the controller as well as in a plain run, so `rootdir / fspath` is the absolute path of the module that collected the test, for a test report and a `CollectReport` alike. Neither needs `item.path`, so the recorder reads reports only. Corrected, *inferred during implementation*: `location[0]` comes from `reportinfo()` and names the module that DEFINES the test function, which gave a file the base passes `failing on base too` in the corpus (phase 4); and a file outside the rootdir is named against the argument that reached it, so a session handed such a path writes no record (round 1) |
 | R5 | `xdist/remote.py` `__channelexec__`: a worker is a child process that inherits `os.environ` and prepends its import path to `PYTHONPATH`; `xdist` forwards every worker's test and collect reports to the controller's `pytest_runtest_logreport` and `pytest_collectreport` | The controller alone records a whole `-n auto` run; workers find no key (the controller took it) and record nothing. That the controller sees every collect report under `-n 2` is a *measurement* (Q-M2) (NAME NOT IN TREE) |
 | R6 | `_pytest/main.py#Session.shouldstop`, `shouldfail` | Available to the recorder, and not needed: the base run's exit code decides the not-reached rule below |
 | R7 | `.github/scripts/run_tests.py#main`: `subprocess.run(command, cwd=str(root))` with no `env` | `bin/test` hands the gate's environment through to pytest unchanged, so this repository's own row records |
@@ -116,7 +116,11 @@ keyed record, and each is named:
   name unnecessary here.
 - **Two files at one relative path.** Two runners in two directories report
   different absolute paths, and relative to the worktree they stay
-  different. They coincide only for one file, which is one file.
+  different. They coincide only for one file, which is one file. Corrected,
+  *inferred during implementation* (round 1): a pytest handed a path outside its rootdir
+  names those files against the argument rather than the rootdir, so two
+  files under two arguments can share one name; such a session writes no
+  record, and its files read `new?`.
 
 Everything else the mechanism can get wrong is strict: no recorder loaded
 (`tox`, `nox`, `env -i`, a container, a row that sets `PYTHONPATH` or
@@ -151,7 +155,10 @@ record, and the word is `new?`.
      as absolute strings, and `pytest`'s version.
    - **At `pytest_runtest_logreport`** it appends a `test` line per report:
      `nodeid`, `when`, `outcome`, `wasxfail` where set, and `path`, the
-     absolute path `os.path.normpath(os.path.join(rootdir, report.location[0]))`.
+     absolute path `os.path.normpath(os.path.join(rootdir, report.fspath))`,
+     the module that collected the test (`report.location[0]` before phase 4,
+     corrected *inferred during implementation*); a session handed a path outside its
+     rootdir writes no line at all (round 1).
      **At `pytest_collectreport`**, where the report failed, a `collect` line
      with `nodeid`, `outcome: "failed"` and `path` from `report.fspath` the
      same way. Each line is flushed as written, so a crash leaves what ran.
