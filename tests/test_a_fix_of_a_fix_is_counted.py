@@ -278,6 +278,64 @@ def test_a_bare_name_two_files_of_the_range_carry_does_not_land(repo):
     assert row(text) == "no", row(text)
 
 
+def test_a_bare_name_a_touched_file_carries_unchanged_does_not_land(repo):
+    """Round 2's 🟡 1: `other.py` is touched by round 1's fix and carries a
+    `u` the fix left alone, so a bare `u` names either file. The count is of
+    every touched file defining the name at the target, changed or not."""
+    declared(repo)
+    write(repo, "other.py", "def u():\n    return 0\n\n\ndef z():\n    return 1\n")
+    commit(repo, "other.py")
+    _code, _out, _text, a = a_round(repo, 1, ROUND_1)
+    write(repo, "other.py", "def u():\n    return 0\n\n\ndef z():\n    return 2\n")
+    fixed(repo, 1, a, MOD_FIXED, [1])
+    code, out, text, _ = a_round(repo, 2, finding("`u`"))
+    assert code != 2, out
+    assert row(text) == "no", row(text)
+
+
+TRACKED_FILES = ("bin/tool", "bin/tool.cmd", "Makefile", "hooks/x.html")
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        # An extensionless tracked file, as `bin/` wrappers are.
+        "`bin/tool`, which calls `u`",
+        # A `.cmd` wrapper.
+        "`bin/tool.cmd`, which calls `u`",
+        # A tracked file with no directory and no extension.
+        "`Makefile`, the target that runs `u`",
+        # An extension no list carried.
+        "`hooks/x.html`, which names `u`",
+        # A tracked path with `:line`, and one written outside a code span.
+        "`bin/tool:2`, which calls `u`",
+        "bin/tool, which calls `u`",
+    ],
+)
+def test_a_name_beside_a_tracked_file_of_any_kind_does_not_land(repo, location):
+    """Round 2's 🟡 2, and the class: whether a cell names a file is asked of
+    the tree, not guessed from an extension. Every one of these is tracked,
+    so the cell is about that file and its backticked name is prose."""
+    for rel in TRACKED_FILES:
+        write(repo, rel, "u\nu\n")
+    commit(repo, "the files the cells name")
+    code, out, text, _ = two_rounds(repo, location)
+    assert code != 2, out
+    assert row(text) == "no", (location, row(text))
+
+
+def test_a_name_beside_a_tracked_py_file_lands_only_through_it(repo):
+    """The other half of the tracked-path test: a cell naming `mod.py` by a
+    line lands there, and a tracked non-Python file named in the same cell
+    does not move it."""
+    for rel in TRACKED_FILES:
+        write(repo, rel, "u\nu\n")
+    commit(repo, "the files the cells name")
+    code, out, text, _ = two_rounds(repo, "`mod.py:5`, called from `bin/tool`")
+    assert code != 2, out
+    assert row(text).startswith("first — 🟡 1 at mod.py#u"), row(text)
+
+
 def test_a_finding_the_report_already_closed_does_not_land(repo):
     """Only the rows `close` will demand a fix-table row for: a verdict the
     reviewer closed in the report is no fix pass's to answer."""

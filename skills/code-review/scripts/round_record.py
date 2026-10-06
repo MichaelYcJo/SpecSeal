@@ -2229,12 +2229,50 @@ COMMISSIONS_NOTHING = (
     "\N{LARGE GREEN CIRCLE}",
     "\N{BLACK QUESTION MARK ORNAMENT}",
 )
-# A file a `Location` cell names, of any kind a record's findings point at.
-# Beside one, a backticked name is prose about that file, never a unit in
-# another (round 1's 🟡 1 of #823).
-NAMES_A_FILE_RE = re.compile(
-    r"[\w./-]+\.(?:py|md|markdown|txt|rst|json|toml|ya?ml|cfg|ini|sh|js|ts)\b"
-)
+# The words of a `Location` cell, code spans opened: whatever stands between
+# whitespace, backticks and the punctuation that joins prose to a path. Each is
+# asked of the TREE whether it is a file (`names_a_file`), never of a list of
+# extensions — round 2's 🟡 2 of #823 was a `bin/` wrapper, a `.cmd` and a
+# `Makefile` that a fourteen-extension list did not reach.
+CELL_WORD_RE = re.compile(r"[^\s`,;()\[\]]+")
+# What follows a path inside one word: a line, a unit, a hash.
+PATH_TAIL_RE = re.compile(r"::|[:#@]")
+
+
+def names_a_file(reader, location, tracked):
+    """True when a word of the `Location` cell is a path the tree tracks at
+    the target, with or without `:line`, `#unit` or `::unit` after it.
+
+    A word carrying a `/` or a `.` is resolved as `resolve_path` resolves a
+    `Location`'s path (exact, `./`-stripped, or the one tracked path ending
+    in it); a word carrying neither is a file only where the tree tracks it
+    exactly, as a top-level `Makefile`, so a bare identifier never matches a
+    wrapper that happens to share its name deeper in the tree.
+    """
+    for word in CELL_WORD_RE.findall(reader.visible(location)):
+        path = PATH_TAIL_RE.split(word, maxsplit=1)[0].rstrip(".:")
+        if not path:
+            continue
+        if "/" in path or "." in path:
+            if resolve_path(path, tracked) is not None:
+                return True
+        elif path in tracked:
+            return True
+    return False
+
+
+def range_carriers(reader, root, target, paths):
+    """{name: {path}} for every top-level unit each Python file in `paths`
+    defines at `target`, whether or not the fixes changed it — the files a
+    bare name could mean (round 2's 🟡 1 of #823)."""
+    carriers = {}
+    for rel in paths:
+        if not rel.endswith(".py"):
+            continue
+        module = parse_module(reader.show(root, target, rel))
+        for name in unit_dumps(module) if module is not None else {}:
+            carriers.setdefault(name, set()).add(rel)
+    return carriers
 
 
 def fof_count_of(reader, path):
@@ -2365,16 +2403,22 @@ def landings(reader, root, target, keyed, previous):
     the reading the depth walk already makes.
 
     Lands nowhere: a row whose severity commissions no fix
-    (`COMMISSIONS_NOTHING`), a prose file — a backticked name beside it
-    included — a name beside a `.py` path other than through that path, a
-    bare name two files of the range carry, a module-level line, a `Location`
-    the reader cannot place, a previous record with no `Fix range` or one of
-    zero commits. A `Fix range` whose ends do not resolve here is refused when
-    an open row could land in it: `new` runs where `close` ran, and a tree
-    without those commits is the wrong tree to count in. With no open row the
-    range decides nothing and is not read. The direction for everything the reading cannot place
-    is the permissive one, because a miss costs what today costs and a stop
-    costs a framer segment.
+    (`COMMISSIONS_NOTHING`); a cell naming a file the tree tracks that is not
+    Python — a backticked name beside it included (`names_a_file`); a name
+    beside a `.py` path other than through that path; a bare name that more
+    than one file the range touched defines at the target, changed or not
+    (`range_carriers`); a module-level line; a `Location` the reader cannot
+    place; a previous record with no `Fix range` or one of zero commits.
+
+    A `Fix range` whose ends do not resolve here is refused while any row of
+    the report that owes a fix is open, wherever its `Location` points: `new`
+    runs where `close` ran, and a tree without those commits is the wrong tree
+    to count in, which is true of the tree and not of one row. With no such
+    row the range decides nothing and is not read (round 2's ⬜ 3 chose to
+    say what the code does rather than to narrow it: whether a row could land
+    is the question the range is needed to answer). The direction for
+    everything the reading cannot place is the permissive one, because a
+    miss costs what today costs and a stop costs a framer segment.
     """
     if previous is None:
         return []
@@ -2416,24 +2460,29 @@ def landings(reader, root, target, keyed, previous):
     if not units:
         return []
     tracked = tracked_at(root, target)
+    carriers = None
     found = []
     for label, location in open_rows:
         pairs = location_units(reader, root, target, location, tracked)
-        # Round 1's 🟡 1. A cell that names a file is about that file, so a
-        # backticked name beside it is prose about the file and never a unit
-        # in another one: a document `Location` lands nowhere (S5, §Out), and
-        # a name beside a `.py` path lands only through that path.
-        if NAMES_A_FILE_RE.search(reader.visible(location)):
+        # Round 1's 🟡 1, and round 2's 🟡 2 for the class: a cell that names
+        # a file the tree tracks is about that file, so a backticked name
+        # beside it is prose about the file and never a unit in another one.
+        # A cell naming a non-Python file lands nowhere (S5, §Out), and a name
+        # beside a `.py` path lands only through that path.
+        if names_a_file(reader, location, tracked):
             pairs = [(rel, unit) for rel, unit in pairs if rel is not None]
         for rel, unit in pairs:
             if rel is not None:
                 hits = [(rel, unit)]
             else:
-                # A bare name lands only where it resolves to one file of the
-                # range; a name two touched files carry places nothing.
-                hits = [key for key in units if key[1] == unit]
-                if len(hits) != 1:
+                # Round 2's 🟡 1: a bare name lands only where exactly ONE
+                # file the range touched defines it at the target — changed,
+                # added, or left as it was.
+                if carriers is None:
+                    carriers = range_carriers(reader, root, target, touched(root, a, b))
+                if len(carriers.get(unit, ())) != 1:
                     continue
+                hits = [key for key in units if key[1] == unit]
             for key in hits:
                 landing = (label, key[0], key[1], units.get(key))
                 if landing[3] is not None and landing not in found:
