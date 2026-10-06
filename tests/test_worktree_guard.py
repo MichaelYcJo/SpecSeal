@@ -1500,3 +1500,133 @@ def test_a_broken_wider_reader_costs_a_stop_never_a_silence(monkeypatch, capsys,
     for command in hidden:
         decision, reason = verdict(monkeypatch, capsys, repo, command)
         assert decision == "ask" and "could not run" in reason, (command, reason)
+
+
+# Phase 1 of work item 1791270162, `phases/phase-1.md` §M1: every git
+# subcommand the frozen reading yields over the recorded runs, as pairs
+# holding it in cut 1 / cut 2. Phase 3 re-read cut 1 on the same definition
+# and found the same table.
+RECORDED = {
+    "log": (2858, 3064),
+    "status": (2609, 2848),
+    "commit": (2014, 2149),
+    "diff": (2028, 2127),
+    "add": (1842, 1947),
+    "rev-parse": (893, 961),
+    "show": (651, 756),
+    "push": (573, 607),
+    "checkout": (532, 576),
+    "grep": (385, 454),
+    "fetch": (252, 276),
+    "clone": (223, 243),
+    "branch": (223, 236),
+    "worktree": (152, 164),
+    "switch": (120, 126),
+    "merge-base": (98, 104),
+    "config": (84, 100),
+    "stash": (95, 99),
+    "ls-tree": (55, 73),
+    "tag": (46, 60),
+    "ls-files": (56, 58),
+    "merge": (52, 55),
+    "ls-remote": (44, 47),
+    "archive": (43, 47),
+    "pull": (43, 44),
+    "cat-file": (38, 41),
+    "for-each-ref": (26, 40),
+    "describe": (26, 27),
+    "rev-list": (23, 24),
+    "reset": (23, 23),
+    "remote": (17, 19),
+    "init": (17, 17),
+    "update-ref": (13, 13),
+    "merge-tree": (7, 11),
+    "apply": (8, 11),
+    "check-ignore": (10, 10),
+    "restore": (6, 7),
+    "clean": (5, 6),
+    "reflog": (6, 6),
+    "revert": (6, 6),
+    "blame": (3, 5),
+    "rm": (5, 5),
+    "cherry-pick": (4, 4),
+    "mv": (1, 2),
+    "show-ref": (2, 2),
+    "rebase": (2, 2),
+    "diff-tree": (1, 2),
+    "gc": (1, 1),
+    "format-patch": (0, 1),
+    "count-objects": (0, 1),
+    "update-index": (1, 1),
+    "help": (1, 1),
+    "symbolic-ref": (1, 1),
+    "shortlog": (1, 1),
+}
+# What the frame judges does not leave the branch (`spec.md` In 5), and the
+# words that are a shape of their own rather than a list entry.
+MOVERS = {"switch", "checkout", "worktree", "update-ref", "symbolic-ref", "bisect"}
+
+
+def test_the_list_carries_its_counts_and_nothing_unmeasured():
+    """S10 of work item 1791270162. `LEAVES_THE_TREE` is exactly the recorded
+    subcommands that leave the branch, each beside the count phase 1
+    measured, and holds none of the movers. Red with one count changed in
+    the module's comment, and with `rebase` taken off the list."""
+    import inspect
+    import re
+
+    listed = re.findall(
+        r'^\s+"([\w-]+)",\s+#\s+(\d+)/(\d+)',
+        inspect.getsource(wg).split("LEAVES_THE_TREE = frozenset(")[1].split(")")[0],
+        re.M,
+    )
+    counts = {sub: (int(a), int(b)) for sub, a, b in listed}
+    assert set(counts) == set(wg.LEAVES_THE_TREE), sorted(
+        set(counts) ^ set(wg.LEAVES_THE_TREE)
+    )
+    assert counts == {s: n for s, n in RECORDED.items() if s not in MOVERS}
+    assert not (MOVERS & wg.LEAVES_THE_TREE)
+
+
+def test_the_readings_are_gone():
+    """S11 of work item 1791270162. None of the symbols `spec.md` In 4
+    removes is defined, and the switch arm runs no `rev-parse`: nothing
+    looks a name up. Red at `9c03ae85`, where every one was still defined."""
+    import inspect
+
+    gone = (
+        "wider_only_kinds",
+        "_bare_words",
+        "ask_what_only_the_wider_reading_finds",
+        "switch_kind",
+        "SWITCH_OPTIONS",
+        "_Options",
+        "_long_option",
+        "read_switch_words",
+        "handed_words",
+        "_redirection_width",
+        "_REDIRECTION",
+        "is_ref",
+        "_verified",
+        "_commit_named",
+        "_object_named",
+        "_one_merge_base",
+        "_OBJECT_NAME",
+        "tracked_in_any_remote",
+        "_refs",
+        "_fetched_as",
+        "_the_bases_lookup",
+        "_no_guess",
+        "classify",
+    )
+    assert [name for name in gone if hasattr(wg, name)] == []
+    arm = (
+        wg.main,
+        wg.shape_of,
+        wg._segment_finding,
+        wg._git_finding,
+        wg._merged_findings,
+        wg._command_findings,
+        wg._finding_tree,
+    )
+    assert [f.__name__ for f in arm if "rev-parse" in inspect.getsource(f)] == []

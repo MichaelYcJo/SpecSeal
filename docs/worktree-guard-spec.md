@@ -349,9 +349,11 @@ worktree add …`, `git 2>/dev/null worktree add …`, `git 2>&1 worktree add
 (…)` in front of it, or a spaced `--config-env` before `worktree`, are not git to this
 guard either: #674 taught the commit gate to read past them,
 and this guard reads a command through `hooks/cmdline_base.py`, the reader
-frozen at `86256492`, which does not (#689, §*Which tree*). Since #678
-they leave the second group: the guard puts such a creation to the person, and
-under consent it says nothing, as at the base. `parse_git` expands nothing and compares that
+frozen at `86256492`, which does not (#689, §*Which tree*). Since #826
+they leave the second group as an unrecognised shape (§A): such a creation
+stops where the tree its segment names matters, under consent too, because
+the stop reads no consent record, and in a clean tree nobody else is in it
+says nothing, as at the base. `parse_git` expands nothing and compares that
 last component, so `~/git`, `*/git` and `$HOME/git` belong to the first group.
 What the class costs is the
 allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`
