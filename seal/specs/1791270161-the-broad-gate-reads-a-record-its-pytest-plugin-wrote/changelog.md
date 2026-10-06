@@ -44,13 +44,22 @@
   prefix and per file. For this repository's own suite each run's record is
   about 14 MB under the kept output.
 
-- **A row that replaces `PYTHONPATH` now fails at the gate.** Such a row,
-  `PYTHONPATH=src pytest` for example, keeps the gate's `-p` but drops the
-  directory it names, and pytest exits 1 on the import before any test runs.
-  Add to the variable instead: `PYTHONPATH=src:$PYTHONPATH`. A row that
-  replaces `PYTEST_ADDOPTS`, or starts pytest through `tox`, `nox`,
-  `env -i`, a container or a wrapper that rebuilds the environment, loses
-  only the recorder, and its files read `new?`.
+- **A row that keeps `PYTEST_ADDOPTS` and loses `PYTHONPATH` now fails at
+  the gate.** Such a row keeps the gate's `-p` but drops the directory it
+  names, and pytest exits 1 on the import before any test runs. That is a
+  row that replaces the variable (`PYTHONPATH=src pytest`), an interpreter
+  run with `-I` or `-E`, or a wrapper that passes `PYTEST_ADDOPTS` or
+  `PYTEST_*` on and not `PYTHONPATH`. Add to the variable instead,
+  `PYTHONPATH=src:$PYTHONPATH`, and pass it on wherever `PYTEST_ADDOPTS`
+  goes. A row that replaces `PYTEST_ADDOPTS`, or starts pytest through
+  `tox`, `nox`, `env -i`, a container or a wrapper that rebuilds the
+  environment without either variable, loses only the recorder, and its
+  files read `new?`.
+
+- **A pytest handed a path outside its rootdir writes no record.** `-c` or
+  `--rootdir` elsewhere, or a config file in one argument's directory, makes
+  pytest name those files against the argument rather than the rootdir, and
+  two of them can share one name. Such a row's files read `new?`.
 
 ### Fixed
 

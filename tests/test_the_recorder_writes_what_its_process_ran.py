@@ -280,3 +280,37 @@ def test_without_a_key_or_a_directory_nothing_is_written(tmp_path, missing):
         if f.endswith(".jsonl")
     ]
     assert written == []
+
+
+def test_a_record_it_cannot_write_leaves_pytest_its_own_exit_under_w_error(tmp_path):
+    """#825 round 1, 🟡 3. The records directory is not there, so the
+    recorder warns once and writes nothing. Under `python -W error` that
+    warning used to be raised out of `pytest_sessionstart`, and pytest ended
+    in INTERNALERROR, exit 3, its own result lost. It is shown under the
+    recorder's own filter now, so the exit is the suite's own, 1."""
+    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
+    env = recording_env(records)
+    env["SPECSEAL_RECORD_DIR"] = str(tmp_path / "absent")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-W",
+            "error",
+            "-m",
+            "pytest",
+            "-p",
+            "no:cacheprovider",
+            "-q",
+            "tests",
+        ],
+        cwd=str(root),
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=240,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 1, output
+    assert "INTERNALERROR" not in output, output
+    assert "no record written" in output, output

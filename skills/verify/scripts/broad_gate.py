@@ -2075,9 +2075,13 @@ def compare_at_base(root, base, command, files, keep):
     The process that collected a test is the process that wrote its line,
     so there is no `whose` to decide: a test that runs pytest itself starts
     a pytest with no key, which records nothing, and a second runner in the
-    row writes its own session with its own paths. The one way to a wrong
-    `failing on base too` is a test written against this gate's key or its
-    file, which `templates/config.md` rule 3 names.
+    row writes its own session with its own paths. A pytest handed a path
+    outside its rootdir names those files against the argument rather than
+    the rootdir, so it writes no record at all and its files read `new?`:
+    that was a second way to a wrong `failing on base too`, and the
+    recorder's refusal closes it (#825 round 1). What `templates/config.md`
+    rule 3 names as left open is a test written against this gate's key or
+    its file.
 
     The `run` call stays in this function's own body, one call for the one
     run: the shell sites are `gate` and this function, and a case holds
@@ -2937,7 +2941,11 @@ def failure_lines(check, verdicts=None):
     """
     lines = [f"exit {check.code}", *check.first_lines()]
     if verdicts:
-        lines.append("failing test files, compared at the base:")
+        # Where no pytest at `HEAD` loaded the recorder the base is not run,
+        # and every row says so; the heading does not claim otherwise (#825
+        # round 1).
+        compared = any(word != NO_RECORD_AT_HEAD for word in verdicts.values())
+        lines.append(COMPARED_AT_BASE if compared else NAMED_BY_FAILED_LINES)
         lines.extend(f"  {f}  {word}" for f, word in verdicts.items())
     if check.name == SUITE:
         counts = suite_counts(check.text)
@@ -2949,6 +2957,13 @@ def failure_lines(check, verdicts=None):
     lines.append(f"full output: {check.path}")
     return lines
 
+
+# The heading over a failing suite's files: compared at the base, or named by
+# `FAILED` lines alone where no pytest at `HEAD` loaded the recorder.
+COMPARED_AT_BASE = "failing test files, compared at the base:"
+NAMED_BY_FAILED_LINES = (
+    "failing test files, named by FAILED lines; the base was not run:"
+)
 
 # The line a failing `suite` gets where its output carries no pytest summary.
 NO_SUMMARY = (

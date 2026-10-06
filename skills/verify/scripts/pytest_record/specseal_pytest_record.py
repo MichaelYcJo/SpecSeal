@@ -37,9 +37,18 @@ file the base passes `failing on base too` (#825 phase 4, the regression
 corpus's N1). Each line is flushed as it is written, so a crash leaves what
 ran.
 
-It never prints, never changes an outcome and never raises out of a hook: a
-directory it cannot write is one warning and no record, which the gate reads
-as no record -- the strict side.
+That holds only where pytest names a file against the rootdir, which it does
+for every file under it. A file outside the rootdir is named against the
+argument that reached it, so the node id's path joined to the rootdir names
+a file that is not the test's, and two files under two arguments can share
+one name. A session handed a path outside its rootdir -- `-c` or `--rootdir`
+elsewhere, or a config file in one argument's directory -- therefore writes
+no record at all, and its files read `new?`: the strict side (#825 round 1).
+
+It never changes an outcome and never raises out of a hook: a directory it
+cannot write is one warning, shown under the recorder's own filter so that a
+run with warnings as errors does not raise it (#825 round 1), and no record,
+which the gate reads as no record -- the strict side.
 
 It runs in the ROW's interpreter, whose version the gate does not know, so it
 is written for Python 3.8 syntax and reads only names pytest has had since
@@ -101,9 +110,15 @@ class Recorder:
             self.give_up(error)
 
     def give_up(self, error):
-        warnings.warn(
-            f"specseal_pytest_record: no record written: {error}", stacklevel=2
-        )
+        # Shown, never raised: a row run with warnings as errors (`python -W
+        # error`, `filterwarnings = error`) would otherwise turn this one
+        # warning into an exception out of a hook, and pytest would end in
+        # INTERNALERROR with the suite's own result lost (#825 round 1).
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            warnings.warn(
+                f"specseal_pytest_record: no record written: {error}", stacklevel=2
+            )
         stream, self.stream = self.stream, None
         if stream is not None:
             try:
@@ -111,7 +126,29 @@ class Recorder:
             except (OSError, ValueError):
                 pass
 
+    def an_argument_lies_outside_the_rootdir(self):
+        """Whether pytest was handed a path outside its rootdir. pytest
+        names a file there against the argument that reached it, not against
+        the rootdir, so its node id's path joined to the rootdir names no
+        file of its own. An argument that is no path here -- a `--pyargs`
+        module, a path that does not exist -- is passed over."""
+        root = os.path.realpath(self.rootdir)
+        here = _invocation_dir(self.config)
+        for argument in getattr(self.config, "args", None) or ():
+            path = os.path.realpath(os.path.join(here, str(argument).split("::")[0]))
+            if not os.path.exists(path):
+                continue
+            try:
+                inside = os.path.commonpath([root, path]) == root
+            except ValueError:
+                inside = False
+            if not inside:
+                return True
+        return False
+
     def pytest_sessionstart(self, session):
+        if self.an_argument_lies_outside_the_rootdir():
+            return
         name = f"{self.key}-{os.getpid()}.jsonl"
         try:
             # Held open across hooks and closed at `pytest_sessionfinish`, so

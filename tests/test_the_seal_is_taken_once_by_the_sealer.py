@@ -3729,6 +3729,7 @@ def test_a_failure_the_base_shares_is_labelled_failing_on_base_too(tmp_path):
         f"the failing file is not labelled `{gate.ON_BASE}`:\n{out.stdout}"
     )
     assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
+    assert gate.COMPARED_AT_BASE in out.stdout, out.stdout
 
 
 def test_the_gate_names_the_row_it_sealed_over(repo, tmp_path):
@@ -4428,6 +4429,9 @@ def test_a_row_that_runs_no_pytest_gives_no_measured_word(tmp_path):
         out.stdout
     )
     assert kept_at_base(keep) == [], "the base ran where nothing at HEAD recorded"
+    # #825 round 1's ⬜ 5: the heading does not say the base was compared.
+    assert gate.NAMED_BY_FAILED_LINES in out.stdout, out.stdout
+    assert gate.COMPARED_AT_BASE not in out.stdout, out.stdout
 
 
 def test_a_row_that_sets_pytest_addopts_itself_records_nothing(tmp_path):
@@ -4468,6 +4472,36 @@ def test_a_row_that_replaces_pythonpath_cannot_load_the_recorder(tmp_path):
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     suite = (tmp_path / "out" / "suite.txt").read_text(encoding="utf-8")
     assert "specseal_pytest_record" in suite, suite
+
+
+def test_a_file_pytest_names_outside_its_rootdir_earns_no_word(tmp_path):
+    """#825 round 1, 🔴 1. `pytest tests sub` with `sub/pytest.ini` makes
+    `sub` pytest's rootdir, and pytest names `tests/test_x.py` against the
+    argument that reached it, `test_x.py` — the name `sub/test_x.py` has.
+    Joined to the rootdir, the base's failure in `tests/` was recorded as
+    `sub/test_x.py`'s, and the file the branch broke read `failing on base
+    too`. A session handed a path outside its rootdir writes no record, so
+    the file reads `NO_RECORD_AT_HEAD` and the base is not run."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{FILES_ROW} tests sub",
+        {
+            "sub/pytest.ini": "[pytest]\n",
+            "tests/__init__.py": "",
+            "sub/__init__.py": "",
+            "tests/test_x.py": "def test_root():\n    assert False\n",
+            "sub/test_x.py": "def test_sub():\n    assert True\n",
+        },
+        {
+            "sub/test_x.py": "def test_sub():\n"
+            "    assert False, 'planted on the feature'\n"
+        },
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert gate.ON_BASE not in out.stdout, out.stdout
+    assert verdict_of(out.stdout, "sub/test_x.py") == gate.NO_RECORD_AT_HEAD, out.stdout
 
 
 def test_a_part_that_fails_at_the_base_before_the_runner_measures_nothing(tmp_path):
@@ -6122,7 +6156,9 @@ REGRESSED_WORDS = {
     # collects no test at all there: exit 5.
     ("Q3", "own"): {"a/tests/test_two.py": NOT_REACHED_1},
     ("Q3", "files"): {"a/tests/test_two.py": "not-reached:5"},
-    ("Q3b", "own"): {"a/b/tests/test_two.py": NOT_REACHED_1},
+    # `tests` lies outside the rootdir `a/` that `a/pytest.ini` makes, so the
+    # row's pytest writes no record and the base is not run (#825 round 1).
+    ("Q3b", "own"): {"a/b/tests/test_two.py": "no-record-at-head"},
     ("Q3b", "files"): {"a/b/tests/test_two.py": NOT_REACHED_1},
     # The base's failure is `TestThree`'s, collected from `test_three.py`,
     # though the method it inherits is defined in `test_two.py`.
@@ -6182,6 +6218,8 @@ def word_for(gate, spec):
     kind, _, code = spec.partition(":")
     if kind == "not-reached":
         return gate.NOT_REACHED.format(code=int(code))
+    if kind == "no-record-at-head":
+        return gate.NO_RECORD_AT_HEAD
     if kind == "no-record":
         return gate.NO_RECORD
     return {"new": gate.NEW, "on": gate.ON_BASE}[kind]
@@ -6276,15 +6314,27 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "gate hands it rather than replacing them, and runs pytest in that "
         "environment rather than in one it builds.",
         "A runner started by `tox`, `nox`, `env -i`, a container or a wrapper "
-        "that rebuilds the environment writes no record, and so does a row that "
-        "sets `PYTEST_ADDOPTS` to a value of its own; its files read `new?`.",
-        "A row that replaces `PYTHONPATH` and keeps `PYTEST_ADDOPTS` fares "
-        "worse: pytest cannot import the module the `-p` names and exits 1 "
-        "before any test runs, so the row fails at the gate.",
+        "that rebuilds the environment without either variable writes no "
+        "record, and so does a row that sets `PYTEST_ADDOPTS` to a value of its "
+        "own; its files read `new?`.",
+        # #825 round 1's 🟡 2: Q2's class, not its first instance.
+        "A row that keeps `PYTEST_ADDOPTS` and loses `PYTHONPATH` fares worse — "
+        "one that replaces `PYTHONPATH`, an interpreter run with `-I` or `-E`, "
+        "a wrapper that passes `PYTEST_ADDOPTS` or `PYTEST_*` on and not "
+        "`PYTHONPATH`: pytest cannot import the module the `-p` names and exits "
+        "1 before any test runs, so the row fails at the gate.",
+        "and pass `PYTHONPATH` on wherever `PYTEST_ADDOPTS` goes.",
+        # #825 round 1's 🔴 1.
+        "A pytest handed a path outside its rootdir — `-c` or `--rootdir` "
+        "elsewhere, or a config file in one of its arguments' directories — "
+        "names those files against the argument rather than the rootdir, so it "
+        "writes no record and its files read `new?`.",
         "One limit is named rather than closed: a test written to append to the "
         "record file the recorder is writing, or to write a record of its own "
-        "with the gate's key, can put a line into a keyed record, and that is "
-        "the one way to a wrong `failing on base too`",
+        "with the gate's key, can put a line into a keyed record. Round 1 of "
+        "#825 found a second way to a wrong `failing on base too`, a pytest "
+        "naming files outside its rootdir, and the refusal above closes it; no "
+        "third is known",
     ):
         assert sentence in text, f"rule 3 does not carry: {sentence}"
     for gone in (
@@ -6304,6 +6354,10 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "Two dependencies in one group whose counts cancel",
         "fewer tests than they fail one by one",
         "(`pytest -q tests`, `pytest -q tests/unit`)",
+        # #825 round 1: one row of Q2's class named as though it were all of
+        # it, and a forged record called the only way to the wrong word.
+        "A row that replaces `PYTHONPATH` and keeps `PYTEST_ADDOPTS` fares",
+        "and that is the one way to a wrong `failing on base too`",
     ):
         assert gone not in text, f"rule 3 still carries: {gone}"
 
