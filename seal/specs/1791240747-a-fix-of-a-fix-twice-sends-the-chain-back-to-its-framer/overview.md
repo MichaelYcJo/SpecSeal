@@ -24,8 +24,8 @@ A fix pass whose fix is itself the next round's finding, twice in one run, now s
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the typecheck over the branch | the sealer, once the review rounds settle |
-| Whether 18 of 57 work items is the stop rate wanted, against the hunk grain's 10 that misses #801 (`questions.md` Q4) | the repository owner |
-| The 23 records at `v0.18.1` and `v0.18.2` whose fix ranges this clone does not carry, so the replay read none of them | whoever fetches those pull request heads; the count above excludes them |
+| ✅ Whether 18 of 57 work items is the stop rate wanted, against the hunk grain's 10 that misses #801 (`questions.md` Q4) | settled by round 1's reviewer, sample of 11 stops opened: 10 real, 1 borderline, 0 false; over all four tags their replay stops 26 of 64; the function grain stays (`questions.md` Q4) |
+| ✅ The 23 records at `v0.18.1` and `v0.18.2` whose fix ranges this clone does not carry, so the replay read none of them | resolved by round 1's reviewer with `refs/pull/*/head` fetched in a scratch clone: 119 of 122 records resolve, and five more work items reach `second`, all at round 3 (`questions.md` Q1's correction) |
 | A real stop end to end — the orchestrator closing on `deferred the frame`, labelling `chain: reframed`, re-spawning the framer and resuming — has run only as planted repositories | the orchestrator, at the first `second` a run writes |
 
 ## Not done
@@ -34,4 +34,4 @@ A fix pass whose fix is itself the next round's finding, twice in one run, now s
 
 ## Fed back into the spec
 
-None of `spec.md`'s clauses was rewritten. Two readings were added and are recorded above as inferred during implementation: added units come from the range's ends rather than the `New units` row, and a 🟢, ❓ or ⬜ row never lands. `docs/review-chain-spec.md`'s reopening section gained one sentence saying a `second` ends a run too.
+None of `spec.md`'s clauses was rewritten. Two readings were added and are recorded above as inferred during implementation: added units come from the range's ends rather than the `New units` row, and a 🟢, ❓ or ⬜ row never lands. Round 1 added three more: a cell naming a file is about that file, so a backticked name beside it lands only through that path and a bare name only where one file of the range carries it; the gate holds a run's count in both directions and only a counted `second` cuts a run; and the depth walk reads the current run (`questions.md` Q5, the orchestrator's decision). `docs/review-chain-spec.md`'s reopening section gained one sentence saying a `second` ends a run too.
