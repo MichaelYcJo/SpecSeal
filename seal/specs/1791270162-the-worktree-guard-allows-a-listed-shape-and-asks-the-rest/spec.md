@@ -42,7 +42,12 @@ as a possible switch, in the one place a switch would matter.
      In 5), or it is `checkout` or `restore` carrying a `--` with at least one
      word after it (a restore by construction: `git checkout -- README.md`,
      `git checkout feature/x -- README.md`, `git restore -- .`); `restore`
-     without a `--` is listed too, since `git restore` never moves HEAD;
+     without a `--` is listed too, since `git restore` never moves HEAD.
+     `worktree` and `stash` are listed only where the first word bash hands
+     git after them is not `add` or `branch`, so a redirection in front of,
+     glued to or cut away from that word hides nothing (*inferred during
+     implementation*, phase 3: `git worktree 2>/dev/null add ../wt b` was
+     listed at `9c03ae85`);
    - **a switch** — the subcommand is `switch`, whatever its words;
    - **a creation** — `cmdline.adds_a_worktree(tokens)`, judged by §B as
      today and untouched here;
@@ -131,7 +136,12 @@ as a possible switch, in the one place a switch would matter.
    `_the_bases_lookup`, `_no_guess`, `base_only`), with `classify` itself
    reduced to the three shapes of In 1 or replaced by a function that names
    them. `main`'s walk keeps the first switch and the first creation in
-   either order (#620) and gains the first unrecognised shape and its tree.
+   either order (#620) and gains every unrecognised shape, each judged in
+   the tree its own segment names, first one first, each tree looked up
+   once; a git only the wider reading reads is judged in the tree its own
+   `-C` names (*inferred during implementation*, phase 3: In 2 speaks of
+   each shape, and the first-only reading was silent on a hidden switch in a
+   dirty second tree, which candidate C had asked about).
    `hooks/cmdline_base.py`, `hooks/cmdline.py`, `hooks/worktree_consent.py`'s
    writer and `walk_command` are untouched; the §B ladder, `choose`, the
    tokens, `sessions_in_tree`, `tracked_changes` and every reason text of §A
@@ -166,7 +176,7 @@ as a possible switch, in the one place a switch would matter.
      `WIDER_ONLY`, `CREATIONS`/`SWITCHES`/`TWINS`/`DASHED` generators and
      every case over them, the `MOVES`/`GUESSED`/`REFUSED` tables and their
      `a_history` fixture, `test_the_option_table_binds_the_installed_git`,
-     `test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers`,
+     `test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers`, · NAME NOT IN TREE
      and the policy pins on #745's rule sentence. Cases about the ladder,
      the tree the walk names, the tokens, the creation arm and consent stay
      and stay green (`test_the_guard_is_never_silent_where_the_writer_records`
