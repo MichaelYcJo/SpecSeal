@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `daecd5059dadac536ea4bf93500c37c7eaaa99d8..e8d4b77c7c41ec49f1da63223e17d042e30ad8f4`, 5 commits |
 | Contract changes | none |
 | New units | NOT_CHECKED_OUT (depth 1); BASE_NOT_CHECKED_OUT (depth 1); pytest_in (depth 1); records_written (depth 1); test_a_pyargs_module_outside_the_rootdir_writes_no_record (depth 1); test_a_namespace_package_outside_the_rootdir_writes_no_record (depth 1); test_a_pyargs_module_outside_that_cannot_be_collected_writes_no_record (depth 1); test_a_rootdir_named_through_a_symlink_writes_no_record (depth 1); test_an_argument_named_through_a_symlink_writes_no_record (depth 1); test_a_symlinked_directory_under_the_rootdir_is_recorded_by_its_own_name (depth 1); BUILDS_A_COLLECTOR_ELSEWHERE (depth 1); test_a_collector_built_for_a_path_no_argument_holds_writes_no_record (depth 1); test_each_failing_files_heading_says_what_was_compared (depth 1); test_pyargs_modules_outside_the_rootdir_earn_no_word (depth 1) |
