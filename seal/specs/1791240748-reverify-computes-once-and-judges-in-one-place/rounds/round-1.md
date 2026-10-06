@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #829 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `935b39180d0a8e3323b1ad3ddcb2a03a398f206e..bd9f9eb88a277f4443ec2af532fca38480e6c346`, 3 commits |
+| Contract changes | cited_row → round-1-report.md, round-1.md, family_view, moved_and_left_out, pytest; on_a_cycle → round-1-report.md, round-1.md, reverify |
+| New units | read_citation (depth 1); known_gone (depth 1); test_a_row_downstream_of_a_cycle_one_stale_row_starts_is_restamped (depth 1); test_a_row_that_never_settles_costs_no_round_per_coordinate (depth 1); test_reverify_names_a_citation_in_the_family_readers_words (depth 1); test_a_coordinate_whose_statement_is_gone_breaks_a_cycle (depth 1); test_a_coordinate_no_checkout_places_records_no_pact_change (depth 1); _two_moved_fragments (depth 1); test_the_record_is_the_same_bytes_in_any_ledger_order (depth 1) |
 | Needs a fix | yes — 🟡 1 (downstream row left on an alternating cycle), 🟡 2 (a pass at its bound costs rounds × coordinates), 🟡 3 (a citation read by two readers), 🟡 4 (EXTERNAL and escaping coordinates recorded as BROKEN pact changes) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,12 +24,12 @@ Spec compliance first against `spec.md` (one `judge` used by `--strict`, `--reve
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A row downstream of a cycle whose members move on alternate rounds is left and named does not settle; the result flips with an unrelated coordinate | `skills/evidence-check/scripts/evidence_check.py:3293` | open | Executed: the four-coordinate tree left D drifted with exit 1; spec D1, the docstring of on_a_cycle and the E3 Corrected row say a downstream row settles |
-| 🟡 2 | A pass that reaches its bound re-judges every coordinate of the cycling file once per dynamic coordinate | `skills/evidence-check/scripts/evidence_check.py:3554` | open | Executed: 300 rows took 93.6 s with one self-quoting row and 2.4 s without; 3.3 s with the fix; 1,846 judge calls fell to 165 |
-| 🟡 3 | A citation is read by the family reader in --strict and by judge in --reverify; they disagree on a duplicated literal and a duplicated section | `skills/evidence-check/scripts/evidence_check.py:3509` | open | Executed: BROKEN in --strict against a DRIFTED sentence or silence in --reverify; spec §12 claims the class closed; the 0.4.0 Corrected row at the fragment's line 41 is false |
-| 🟡 4 | An EXTERNAL coordinate, or one escaping the repository, is recorded as a BROKEN pact change | `skills/evidence-check/scripts/evidence_check.py:3182` | open | Executed: the base recorded nothing and the branch records BROKEN; docs/the-pact.md defines BROKEN as unit, file or quoted statement gone |
-| ⬜ 5 | The pact-change record's row order follows the --ledger order, which S4's sentence about every file does not allow | `skills/evidence-check/scripts/evidence_check.py:3599` | open | Executed in one tree (rows swapped against the base); read for the permutation; no row's meaning changes |
-| ⬜ 6 | Two Re-read rows vouch for released sentences written in terms of walks (E1, A4) | `seal/ledger/1791240748-reverify-computes-once-and-judges-in-one-place.md:21` | open | Records correction; the claims hold, the vocabulary names a removed mechanism |
+| 🟡 1 | A row downstream of a cycle whose members move on alternate rounds is left and named does not settle; the result flips with an unrelated coordinate | `skills/evidence-check/scripts/evidence_check.py:3293` | **fixed** `63ca12a5` | fixed at 63ca12a5; Executed: the four-coordinate tree left D drifted with exit 1; spec D1, the docstring of on_a_cycle and the E3 Corrected row say a downstream row settles |
+| 🟡 2 | A pass that reaches its bound re-judges every coordinate of the cycling file once per dynamic coordinate | `skills/evidence-check/scripts/evidence_check.py:3554` | **fixed** `8c73b19c` | fixed at 8c73b19c; Executed: 300 rows took 93.6 s with one self-quoting row and 2.4 s without; 3.3 s with the fix; 1,846 judge calls fell to 165 |
+| 🟡 3 | A citation is read by the family reader in --strict and by judge in --reverify; they disagree on a duplicated literal and a duplicated section | `skills/evidence-check/scripts/evidence_check.py:3509` | **fixed** `63ca12a5` | fixed at 63ca12a5; Executed: BROKEN in --strict against a DRIFTED sentence or silence in --reverify; spec §12 claims the class closed; the 0.4.0 Corrected row at the fragment's line 41 is false |
+| 🟡 4 | An EXTERNAL coordinate, or one escaping the repository, is recorded as a BROKEN pact change | `skills/evidence-check/scripts/evidence_check.py:3182` | **fixed** `63ca12a5` | fixed at 63ca12a5; Executed: the base recorded nothing and the branch records BROKEN; docs/the-pact.md defines BROKEN as unit, file or quoted statement gone |
+| ⬜ 5 | The pact-change record's row order follows the --ledger order, which S4's sentence about every file does not allow | `skills/evidence-check/scripts/evidence_check.py:3599` | answered | resolve_patterns returns sorted(out), so the command line order of --ledger never orders the record; the order differences the reviewer saw were between base and branch; pinned by test_the_record_is_the_same_bytes_in_any_ledger_order, red when the sort is removed; Executed in one tree (rows swapped against the base); read for the permutation; no row's meaning changes |
+| ⬜ 6 | Two Re-read rows vouch for released sentences written in terms of walks (E1, A4) | `seal/ledger/1791240748-reverify-computes-once-and-judges-in-one-place.md:21` | answered | corrected at bd9f9eb8 — E1 and A4 are Corrected rows now, with the walk wording removed; Records correction; the claims hold, the vocabulary names a removed mechanism |
 | 🟢 | One judge reads every code coordinate for --strict, --reverify and --into | `skills/evidence-check/scripts/evidence_check.py:1669` | confirmed | Read: every caller found; executed: --strict . exits 0 at the target |
 | 🟢 | #806 is closed: one run re-stamps a coordinate naming a line it moves, in any ledger order | `skills/evidence-check/scripts/evidence_check.py:3549` | confirmed | Executed: S2 and six S4 orderings, base exit 1, branch exit 0 |
 | 🟢 | #809's cell C8 is closed for code coordinates, in place and under --into | `skills/evidence-check/scripts/evidence_check.py:1827` | confirmed | Executed: three trees, the move recorded where the base recorded BROKEN |
