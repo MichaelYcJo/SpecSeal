@@ -1089,3 +1089,267 @@ def test_a_git_command_inside_a_heredoc_body_is_not_judged(monkeypatch, capsys, 
             json.loads(out)["hookSpecificOutput"]["permissionDecision"] if out else None
         )
         assert got == want, (command, out)
+
+
+# --- #826: a listed shape is silent, and the rest stop where the tree matters --
+#
+# `spec.md` S1, S3, S4, S8 and S9 of work item 1791270162. The guard no longer
+# predicts a switch from a command's words: it lets through a git command it
+# knows leaves the branch where it is, sends a `git switch` to the ladder, and
+# stops every other git shape, but only in a tree where a switch would matter.
+
+STOP = "does not know to leave the branch where it is"
+
+# The five tree states of `docs/worktree-guard-spec.md` §A, as the stub of
+# `sessions_in_tree` and whether `f.txt` carries an uncommitted change.
+STATES = {
+    "active": ((ACTIVE, [], True), False),
+    "idle": (([], IDLE, True), False),
+    "unusable": (([], [], False), False),
+    "dirty": (([], [], True), True),
+    "clean": (([], [], True), False),
+}
+
+
+def in_state(monkeypatch, repo, state, module=None):
+    """Put `repo` and the session stub into STATE, and return the stub."""
+    sessions, dirty = STATES[state]
+    (repo / "f.txt").write_text(
+        "changed\n" if dirty else "one\ntwo\nthree\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module or wg, "sessions_in_tree", lambda top, own="": sessions)
+    return sessions
+
+
+def verdict(monkeypatch, capsys, cwd, command, session_id="me", module=None):
+    """`main()`'s decision and reason for COMMAND run from CWD."""
+    module = module or wg
+    monkeypatch.setattr(
+        module,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": session_id,
+            "tool_input": {"command": command},
+            "cwd": str(cwd),
+        },
+    )
+    try:
+        module.main()
+    except SystemExit:
+        pass
+    out = capsys.readouterr().out.strip()
+    if not out:
+        return "silent", ""
+    d = json.loads(out)["hookSpecificOutput"]
+    return d["permissionDecision"], d["permissionDecisionReason"]
+
+
+def pressed_root(tmp_path, repo):
+    """A projects root holding session `me`'s `automation` answer for REPO,
+    in the shape the harness writes it."""
+    from test_the_guard_asks_once_per_session import ask_entries, write_transcript
+
+    root = tmp_path / "pressed-projects"
+    write_transcript(root, "me", ask_entries(repo))
+    return root
+
+
+# S1's shapes. Each is a git command that leaves HEAD's branch where it was,
+# or a substitution whose body holds only such commands (P2 (a)).
+LISTED = (
+    "git status",
+    "git diff",
+    "git add -A",
+    "git commit -m x",
+    "git log",
+    "git rev-parse HEAD",
+    "git fetch",
+    "git checkout -- README.md",
+    "git checkout feature/x -- README.md",
+    "git restore README.md",
+    "git -C W status",
+    "F=$(git diff --name-only)",
+    "echo `git rev-parse HEAD`",
+    "diff <(git show HEAD:f.txt) f.txt",
+    "git log $(git rev-parse HEAD)",
+)
+
+# Where a redirection goes, glued or spaced, sampled rather than crossed.
+REDIRECTED = (
+    lambda c: c,
+    lambda c: c + " 2>/dev/null",
+    lambda c: c + " 2> /dev/null",
+    lambda c: c + " >/dev/null 2>&1",
+)
+
+
+def test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """S1. A listed shape says nothing in all five tree states, with and
+    without the person's `automation` press, and runs no program at all: the
+    tree is never read for it. A sampled product: every shape meets every
+    state and both readers, with one redirection spelling each, rotated."""
+    import subprocess
+
+    calls = []
+    real_run = subprocess.run
+
+    def counting(*args, **kwargs):
+        calls.append(args[0] if args else kwargs.get("args"))
+        return real_run(*args, **kwargs)
+
+    empty = tmp_path / "no-projects"
+    empty.mkdir()
+    pressed = pressed_root(tmp_path, repo)
+    n = 0
+    for press in (False, True):
+        monkeypatch.setattr(
+            wg.worktree_consent, "PROJECTS_ROOT", str(pressed if press else empty)
+        )
+        for state in STATES:
+            in_state(monkeypatch, repo, state)
+            for shape in LISTED:
+                command = REDIRECTED[n % len(REDIRECTED)](shape)
+                n += 1
+                monkeypatch.setattr(subprocess, "run", counting)
+                got = verdict(monkeypatch, capsys, repo, command)
+                monkeypatch.setattr(subprocess, "run", real_run)
+                assert got == ("silent", ""), (state, press, command, got)
+                assert not calls, (state, press, command, calls)
+
+
+# S3's shapes, each with a phrase of the plain spelling its stop must name.
+UNRECOGNISED = {
+    "git checkout feature/x": "`git switch <branch>`",
+    "git checkout README.md": "`git restore <path>`",
+    "git checkout -b y": "`git switch <branch>`",
+    "git checkout --detach HEAD~1": "`git switch --detach <rev>`",
+    "git checkout ':/fix'": "`git checkout -- <path>`",
+    "git bisect start": "`git -C <scratch clone>`",
+    "git update-ref refs/heads/y HEAD": "`git -C <scratch clone>`",
+    "sh -c 'git switch x'": "rather than as a string",
+    'bash -c "git checkout x"': "rather than as a string",
+    'eval "git switch x"': "rather than as a string",
+    "echo $(git switch x)": "outside the substitution",
+    "2>/dev/null git switch x": "Write `git` first",
+    "noglob git switch x": "Write `git` first",
+    "git 2>&1 worktree add ../wt b": "after the command's own words",
+    'git switch x && echo "unclosed': "`git commit -F <file>`",
+    # W3: a redirection written after `git` is no subcommand.
+    "git 2>/dev/null status": "after the command's own words",
+    # P2 (a): a body is read through the same shapes, nested ones too.
+    "echo $(echo $(git checkout x))": "`git switch <branch>`",
+    "X=$(git symbolic-ref HEAD refs/heads/y)": "`git -C <scratch clone>`",
+}
+
+
+def test_an_unrecognised_shape_stops_where_the_tree_matters(monkeypatch, capsys, repo):
+    """S3. Without the press, in each state where a switch would matter, the
+    guard stops before the ladder and names the shape it read and the plain
+    spelling it reads. An `ask` for the person, except in a tree another
+    session is ACTIVE in, where `docs/worktree-guard-spec.md` §A row 1 denies
+    a branch-form `checkout` outright and nobody is asked to approve it."""
+    for state in ("active", "idle", "unusable", "dirty"):
+        in_state(monkeypatch, repo, state)
+        for command, rewrite in UNRECOGNISED.items():
+            decision, reason = verdict(monkeypatch, capsys, repo, command)
+            want = "deny" if state == "active" else "ask"
+            assert decision == want, (state, command, decision, reason)
+            assert STOP in reason, (state, command, reason)
+            assert rewrite in reason, (state, command, reason)
+            assert "LEAVES_THE_TREE" in reason, (state, command, reason)
+
+
+def test_the_stop_names_the_shape_it_read(monkeypatch, capsys, repo):
+    """S3: the shape as it was read, quoted, so the person and the model see
+    which command on the line stopped it."""
+    in_state(monkeypatch, repo, "dirty")
+    for command, quoted in (
+        ("git status && git checkout feature/x", "`git checkout feature/x`"),
+        ("git update-ref refs/heads/y HEAD", "`git update-ref refs/heads/y HEAD`"),
+        ("echo $(git switch x)", "`git switch x`"),
+    ):
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        assert decision == "ask" and quoted in reason, (command, reason)
+
+
+def test_the_same_shapes_are_silent_in_a_clean_single_stream_tree(
+    monkeypatch, capsys, repo
+):
+    """S4. §A row 5: nothing to protect, so nothing is asked, whatever the
+    shape. The base asked about a hidden switch here (candidate C)."""
+    in_state(monkeypatch, repo, "clean")
+    for command in UNRECOGNISED:
+        assert verdict(monkeypatch, capsys, repo, command) == ("silent", ""), command
+
+
+def test_the_segments_tree_is_the_one_that_matters(monkeypatch, capsys, repo, tmp_path):
+    """S8. The stop is judged in the tree the segment names: a `git -C` or a
+    `cd` to a second clone is judged there, and a `cd` the walk cannot
+    resolve falls back to the session's own tree (#686)."""
+    import subprocess
+
+    other = tmp_path / "w"
+    subprocess.run(
+        ["git", "clone", "-q", str(repo), str(other)], check=True, capture_output=True
+    )
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": ([], [], True))
+    named = (f"git -C {other} checkout x", f"cd {other} && git checkout x")
+    unresolved = 'cd "$W" && git checkout x'
+
+    (other / "f.txt").write_text("changed\n", encoding="utf-8")
+    for command in named:
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        assert decision == "ask" and STOP in reason, (command, reason)
+    assert verdict(monkeypatch, capsys, repo, unresolved) == ("silent", "")
+
+    (other / "f.txt").write_text("one\ntwo\nthree\n", encoding="utf-8")
+    (repo / "f.txt").write_text("changed\n", encoding="utf-8")
+    for command in named:
+        assert verdict(monkeypatch, capsys, repo, command) == ("silent", ""), command
+    decision, reason = verdict(monkeypatch, capsys, repo, unresolved)
+    assert decision == "ask" and STOP in reason, reason
+
+
+def test_an_unrecognised_shape_stops_before_a_switch_on_the_same_line(
+    monkeypatch, capsys, repo
+):
+    """S9. The stop stops the whole line, so it comes first; a listed shape
+    beside a switch leaves the switch to today's dirty-tree row alone."""
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(
+        monkeypatch, capsys, repo, "git checkout README.md && git switch feature/x"
+    )
+    assert decision == "ask" and STOP in reason, reason
+    assert "uncommitted tracked changes" not in reason, reason
+    decision, reason = verdict(
+        monkeypatch, capsys, repo, "git status && git switch feature/x"
+    )
+    assert decision == "ask" and "uncommitted tracked changes" in reason, reason
+    assert STOP not in reason, reason
+
+
+def test_the_tree_is_read_once_for_both_kinds(monkeypatch, capsys, repo):
+    """W2. A command holding an unrecognised shape and a switch in one tree
+    reads that tree's sessions and its changes once each, and the ladder
+    takes what the stop's question already read."""
+    seen = {"sessions": 0, "changes": 0}
+    real_changes = wg.tracked_changes
+
+    def sessions(top, own=""):
+        seen["sessions"] += 1
+        return ([], [], True)
+
+    def changes(cwd):
+        seen["changes"] += 1
+        return real_changes(cwd)
+
+    monkeypatch.setattr(wg, "sessions_in_tree", sessions)
+    monkeypatch.setattr(wg, "tracked_changes", changes)
+    got = verdict(
+        monkeypatch, capsys, repo, "git checkout README.md && git switch feature/x"
+    )
+    assert got == ("silent", "")
+    assert seen == {"sessions": 1, "changes": 1}, seen
