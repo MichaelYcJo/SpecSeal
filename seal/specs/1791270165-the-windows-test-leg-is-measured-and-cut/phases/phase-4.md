@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 4 (4a and 4b) |
-| Commit | 83801eac (4a; the sampler landed at 597cc5f7, its cover case was tightened here) · 4b: the record's commit, named in `plan.md`'s Status (the cuts are fddc5cfa and 19413602) |
+| Commit | 83801eac (4a; the sampler landed at 597cc5f7, its cover case was tightened here) · ba8a93d8 (4b; the cuts are fddc5cfa and 19413602) |
 | Ran by | smith on Opus 5.5 (4a), and a second smith on Opus 5.5 on another machine (4b) |
 
 ## What this phase was asked
