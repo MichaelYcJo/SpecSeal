@@ -4174,6 +4174,30 @@ def test_two_record_files_are_read_in_the_order_they_were_written(tmp_path):
     assert record.sessions == 2
 
 
+def test_a_base_record_with_anything_unplaced_turns_only_new_into_new_question():
+    """#825 round 4's 🟡 2, at `base_word`. A base record that left tests or
+    collections out of every list cannot say a file passed: both rows of the
+    table that give `new` give `new?` naming the record's own count instead,
+    and `failing on base too`, `NOT_REACHED` and `NO_RECORD` are untouched."""
+    gate = gate_module()
+    record = gate.RunRecord()
+    record.sessions, record.unplaced = 1, 2
+    record.collected = {"tests/test_a.py", "tests/test_b.py"}
+    record.failing = {"tests/test_b.py": None}
+    left_out = gate.UNPLACED_AT_BASE.format(count=2)
+    assert gate.base_word(record, 1, "tests/test_a.py") == left_out
+    assert gate.base_word(record, 0, "tests/test_c.py") == left_out
+    assert gate.base_word(record, 1, "tests/test_b.py") == gate.ON_BASE
+    assert gate.base_word(record, 1, "tests/test_c.py") == gate.NOT_REACHED.format(
+        code=1
+    )
+    record.unplaced = 0
+    assert gate.base_word(record, 1, "tests/test_a.py") == gate.NEW
+    assert gate.base_word(record, 0, "tests/test_c.py") == gate.NEW
+    record.sessions = 0
+    assert gate.base_word(record, 1, "tests/test_a.py") == gate.NO_RECORD
+
+
 def test_the_unplaced_counts_of_this_runs_records_are_summed(tmp_path):
     """S27's reader (#825's reframe after round 3). Each record's `end`
     line counts the tests and collections the recorder wrote as no line;
