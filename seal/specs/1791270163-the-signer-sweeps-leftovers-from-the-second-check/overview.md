@@ -21,9 +21,9 @@ The second post-review check of #830 left four leftovers open; after this work a
 
 | Item | Who must answer |
 |---|---|
-| The broad gate: the full suite, the repository-wide lint and the typecheck | the session that opens the pull request (CI at the pull request); this segment is routed `straight to the PR` and `stop before the pull request`, and no sealer ran |
+| The broad gate: the full suite, the repository-wide lint and the typecheck | the sealer, once after the review rounds settle; `routing.md` was answered again as `automation` (`through the review chain`, `open the pull request`), so no segment before it runs any of the three |
 | ✅ `correction-check` over the range: no correction marker dropped at a merge, and no released ledger file changed under `Ledger frozen from` | executed 2026-10-06 by smith over `a9d7b0e..944ad17`, exit 0 (no merge commit in the range; no released ledger file changed); CI runs it again at the pull request |
-| `survivor-check` over the range | the session that opens the pull request; no review round ran, so no fix range exists for this segment to check |
+| `survivor-check` over the range | each review round's fix pass, over that pass's fix range (`agents/smith.md` §*Phases*, item 3); round 1's fix pass ran it over its whole fix range from `5bc0a48f`, exit 0, no removed wording still standing, and a later round's fixes take their own run |
 
 ## Not done
 
@@ -35,4 +35,4 @@ none — the work answered `questions.md` M1 (three rows, exit 0) and W1 (a `tes
 
 ## Next
 
-Phases 1–3 are committed. Nothing in `plan.md` is left. The branch is unpushed. The next session decides the review and pull request rows of `routing.md`, then owes the broad run above.
+Phases 1–3 are committed. Nothing in `plan.md` is left. `routing.md` was answered again as `automation`, so the review rounds run and the sealer owes the broad run above once they settle.
