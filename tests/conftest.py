@@ -822,3 +822,44 @@ def repo(tmp_path, _repo_template):
     d = tmp_path / "repo"
     shutil.copytree(_repo_template, d)
     return d
+
+
+# --- a slow case names itself (#841) -----------------------------------------
+#
+# The Windows leg grew from 7 to 40 minutes in two weeks and no run said which
+# case had grown: a wall-clock total hides the case that pushed it. A case
+# whose call runs longer than this fails, on every platform and under
+# `bin/test` as in CI, with a sentence naming it and its seconds.
+#
+# Set by `questions.md` Q6's rule (a) of work item 1791270165: 1.5 times the
+# slowest call on the Windows leg after its phases 3 and 4, rounded up to 30 s.
+# That call is `tests/test_no_shape_the_base_stops_reads_silent.py::
+# test_no_shape_the_base_stops_reads_silent` at 55.13 s in run 37457228586,
+# the slower of the runs measured (52.49 s in run 37458654434, 29.91 s in the
+# sharded run 37465328899). The same case ran 36.44 s in run 37429940700 on
+# the same code: the runner alone moves a case by 1.5 times between runs, which
+# is why the base is the slower run and not the last one.
+CASE_CEILING_S = 90
+
+
+def over_the_ceiling(nodeid, seconds):
+    """The sentence a call of `seconds` fails with, or None at or under
+    `CASE_CEILING_S`, read when the call ends."""
+    if seconds <= CASE_CEILING_S:
+        return None
+    return f"{nodeid} ran {seconds:.1f} s, over the {CASE_CEILING_S} s ceiling (#841)"
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """A passing call over the ceiling is reported failed, with
+    `over_the_ceiling`'s sentence as the whole of its report. A call that
+    failed already keeps its own report: its failure is the news."""
+    outcome = yield
+    report = outcome.get_result()
+    if report.when != "call" or not report.passed:
+        return
+    sentence = over_the_ceiling(item.nodeid, call.duration)
+    if sentence is not None:
+        report.outcome = "failed"
+        report.longrepr = sentence

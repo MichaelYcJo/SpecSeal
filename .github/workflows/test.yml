@@ -39,9 +39,25 @@ jobs:
         # depend on the interpreter, at the versions it names. Whether any
         # other module's result depends on the interpreter has not been
         # measured.
+        #
+        # `timeout`: each leg's budget in minutes, by `questions.md` Q6's rule
+        # (a) of work item 1791270165 -- 1.5 times the leg's slowest measured
+        # job after that item's phases 3 and 4, rounded up to 5. GitHub fails
+        # a job that runs past it, so a leg that grows names itself here
+        # rather than in a wait. The base is the slowest of the runs measured,
+        # because the same suite ran 1.2 times slower from one run to the
+        # next and one shard ran 1.7 times slower than its siblings in one
+        # run:
+        #   ubuntu  7 m 58 s, run 37458654434 (6 m 40 s in 37457228586,
+        #           5 m 40 s in 37465328899)               -> 15
+        #   macOS  19 m 52 s, run 37457228586 (16 m 27 s in 37458654434,
+        #          17 m 38 s in 37465328899)               -> 30
+        #   Windows, per shard: 10 m 03 s, group 3 of run 37465328899, the
+        #          only sharded run measured (the others 5 m 38 s to
+        #          6 m 22 s)                               -> 20
         include:
-          - { os: ubuntu-latest, python: "3.12" }
-          - { os: macos-latest, python: "3.12" }
+          - { os: ubuntu-latest, python: "3.12", timeout: 15 }
+          - { os: macos-latest, python: "3.12", timeout: 30 }
           # Windows in four shards (#841). `pytest-split` divides the suite
           # by each case's duration on the Windows leg, read from the
           # committed `.test_durations`, so every shard collects the whole
@@ -54,11 +70,12 @@ jobs:
           # arithmetic in
           # `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/phases/phase-3.md`.
           # ubuntu and macOS stay one job each.
-          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 1" }
-          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 2" }
-          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 3" }
-          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 4" }
+          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 1", timeout: 20 }
+          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 2", timeout: 20 }
+          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 3", timeout: 20 }
+          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 4", timeout: 20 }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
     steps:
       # Not shallow. `tests/test_a_rider_reaches_its_file.py` asks git whether
       # a recorded SHA is an ancestor of HEAD, and at depth 1 no SHA is: the
