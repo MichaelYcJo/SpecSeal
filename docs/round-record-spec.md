@@ -727,8 +727,8 @@ item back to its framer* owns that rule and its exit.
 | the first record after a `second`, with no `Reframed … after round <N>.` naming it | **fails** |
 | a `Reframed` line whose `<who>` is a placeholder or disagrees with `Planning` | **fails**, as the `Framed` line's does |
 
-The floor's two walks and the generator's printed bound read the same run, so
-the redesign's rounds are not later records of the run that stopped.
+The floor's two walks, the printed bound and the depth walk read the same run,
+so the redesign's rounds are not later records of the run that stopped.
 
 ## What ran the round — `Ran by`
 
