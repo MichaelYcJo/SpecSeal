@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 5 |
-| Commit | the record's commit, named in `plan.md`'s Status (the budget is a600768e) |
+| Commit | open: the budget is a600768e and its records 2794f613; `plan.md`'s Status takes the commit that records the confirming run |
 | Ran by | smith on Opus 5.5 (a second smith, on another machine) |
 
 ## What this phase was asked
