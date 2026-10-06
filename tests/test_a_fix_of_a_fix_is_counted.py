@@ -120,13 +120,19 @@ def deferred_to_the_frame(repo, n, start, numbers):
     return record
 
 
-def two_rounds(repo, second_location):
-    """Round 1 opens a finding in `u`, its fix changes `u`, adds `w` and
-    re-comments `v`, and round 2 opens one finding at `second_location`."""
+def round_one_fixed(repo):
+    """Round 1 opens a finding in `u`, and its fix changes `u`, adds `w` and
+    re-comments `v`."""
     declared(repo)
     code, out, _text, a = a_round(repo, 1, ROUND_1)
     assert code != 2, out
     fixed(repo, 1, a, MOD_FIXED, [1])
+
+
+def two_rounds(repo, second_location):
+    """Round 1 and its fix, then round 2 opens one finding at
+    `second_location`."""
+    round_one_fixed(repo)
     return a_round(repo, 2, finding(second_location))
 
 
@@ -268,6 +274,30 @@ def with_named_files(repo):
     commit(repo, "the files the cells name")
 
 
+@pytest.fixture(scope="session")
+def _named_and_fixed_once(tmp_path_factory):
+    """The named files, and round 1 with its fix closed, built once.
+
+    The 35 location cases below differ only in round 2's `Location`, and
+    each used to rebuild everything before it: two generator runs and five
+    commits ahead of the one run that is the case. The one case the Windows
+    leg of run 37429940700 put in its top 50 took 9 s (#841). Each claim is about how round 2's record reads
+    its finding, so a copy of the state before round 2 keeps it."""
+    d = tmp_path_factory.mktemp("fix-of-a-fix-named-and-fixed") / "repo"
+    _build(d)
+    with_named_files(d)
+    round_one_fixed(d)
+    return d
+
+
+@pytest.fixture
+def named_and_fixed(tmp_path, _named_and_fixed_once):
+    """A copy of that state in this case's own directory."""
+    d = tmp_path / "repo"
+    shutil.copytree(_named_and_fixed_once, d)
+    return d
+
+
 @pytest.mark.parametrize(
     "location",
     [
@@ -317,12 +347,11 @@ def with_named_files(repo):
         "`my mod.py:5`",
     ],
 )
-def test_a_location_that_lands_in_no_written_unit_reads_no(repo, location):
+def test_a_location_that_lands_in_no_written_unit_reads_no(named_and_fixed, location):
     """S5. Since the reframe after round 3 a finding lands only through a
     `.py` path its own `Location` carries, so every shape the three rounds
     met with a name and no such path reads `no`, whatever stands beside it."""
-    with_named_files(repo)
-    code, out, text, _ = two_rounds(repo, location)
+    code, out, text, _ = a_round(named_and_fixed, 2, finding(location))
     assert code != 2, out
     assert row(text) == "no", (location, row(text))
 
@@ -344,11 +373,10 @@ def test_a_location_that_lands_in_no_written_unit_reads_no(repo, location):
         "the return value (mod.py:5).",
     ],
 )
-def test_a_location_carrying_its_py_path_still_lands(repo, location):
+def test_a_location_carrying_its_py_path_still_lands(named_and_fixed, location):
     """S5b. A `.py` path in the `Location` is the reading that stays, with or
     without a tracked file of another kind named in the same cell."""
-    with_named_files(repo)
-    code, out, text, _ = two_rounds(repo, location)
+    code, out, text, _ = a_round(named_and_fixed, 2, finding(location))
     assert code != 2, out
     assert row(text).startswith("first — 🟡 1 at mod.py#u"), (location, row(text))
 
