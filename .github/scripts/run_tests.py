@@ -119,6 +119,16 @@ PILLOW = f"pillow=={PILLOW_VERSION}"
 CMARKGFM_VERSION = "2025.10.22"
 CMARKGFM = f"cmarkgfm=={CMARKGFM_VERSION}"
 
+# `pytest-split`, the plugin the Windows leg of `.github/workflows/test.yml`
+# stores its per-case durations with, and later divides the suite by (#841).
+# Pinned for the parser's reason, since the file it writes is what the
+# division is computed from. CI-only, so it is NOT in `PACKAGES` below:
+# `bin/test` never stores durations or divides the suite, and a local build
+# installs nothing new for it. `.github/workflows/test.yml` carries the same
+# string, and a case holds it to this one.
+PYTEST_SPLIT_VERSION = "0.11.0"
+PYTEST_SPLIT = f"pytest-split=={PYTEST_SPLIT_VERSION}"
+
 # What a built environment holds. `pytest-xdist` is here because the suite
 # runs `-n auto` by default (#337): a build without it is the build whose
 # first call refused the flag. The parser is here for the oracle above,

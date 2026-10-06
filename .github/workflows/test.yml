@@ -42,7 +42,10 @@ jobs:
         include:
           - { os: ubuntu-latest, python: "3.12" }
           - { os: macos-latest, python: "3.12" }
-          - { os: windows-latest, python: "3.12" }
+          # `store`: the Windows leg also writes each case's duration to
+          # `.test_durations` through `pytest-split`, the figures its shards
+          # are divided by (#841). The other two legs leave it empty.
+          - { os: windows-latest, python: "3.12", store: "--store-durations" }
     runs-on: ${{ matrix.os }}
     steps:
       # Not shallow. `tests/test_a_rider_reaches_its_file.py` asks git whether
@@ -82,13 +85,25 @@ jobs:
       # the pin runs on all three operating systems.
       # cmarkgfm is GitHub's renderer, which the table walker's oracle reads
       # (#647), pinned in `run_tests.py#CMARKGFM` and held to this line too.
-      - run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22
+      # pytest-split stores the Windows leg's durations (#841), pinned in
+      # `run_tests.py#PYTEST_SPLIT` and held to this line the same way.
+      - run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22 pytest-split==0.11.0
       - run: |
           git config --global user.email ci@ci
           git config --global user.name ci
       # `--durations=50`: each leg prints its own slowest cases, so a figure
       # for one operating system is read off that operating system (#841).
-      - run: pytest tests/ -q -n auto --durations=50
+      - run: pytest tests/ -q -n auto --durations=50 ${{ matrix.store }}
+      # The durations file the Windows leg stored, kept as an artifact so it
+      # can be read with `gh run download` and committed. `always()`: a run
+      # with a failing case still stored every duration it measured.
+      - if: always() && matrix.store != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-durations-${{ matrix.os }}
+          path: .test_durations
+          include-hidden-files: true
+          if-no-files-found: warn
 
   # The plugin's headline check, run against the plugin. A coordinate that
   # stopped resolving fails; drift is reported and does not. Drift means the

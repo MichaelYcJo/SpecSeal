@@ -1002,6 +1002,16 @@ def test_ci_installs_the_parser_the_runner_pins():
         for words in installs
         for word in words
     ), installs
+    # #841: pytest-split joins the same line, at the version the runner pins.
+    # It is CI's alone, so it is not in `PACKAGES` and `bin/test` never
+    # installs it.
+    assert any(rt.PYTEST_SPLIT in words for words in installs), installs
+    assert not any(
+        word.lower().startswith("pytest-split") and word != rt.PYTEST_SPLIT
+        for words in installs
+        for word in words
+    ), installs
+    assert rt.PYTEST_SPLIT not in rt.PACKAGES, rt.PACKAGES
 
 
 def test_the_section_names_the_parser_and_where_it_is_pinned():
