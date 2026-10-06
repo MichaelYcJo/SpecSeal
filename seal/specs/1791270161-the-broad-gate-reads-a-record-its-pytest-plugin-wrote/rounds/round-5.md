@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-6 |
 | Fix range | `4e3b41e0d23a26295527427ef640805226ba4b41..0fc26b5e83426841052e06a0dc265e88ea0a0405`, 5 commits |
 | Contract changes | none |
 | New units | COLLECTS_TWO_FILES_UNDER_ONE_ID (depth 1); PASSES_ITS_TEST (depth 1); CRASHES_IN_ITS_BODY (depth 1); CRASHES_IN_ITS_FIXTURE (depth 1); test_a_crash_is_never_placed_by_a_node_id_another_file_shares (depth 1); test_a_crash_report_takes_a_path_only_from_its_own_workers_report_of_it (depth 1); test_a_red_base_session_that_left_anything_out_turns_only_new_into_new_question (depth 1) |
