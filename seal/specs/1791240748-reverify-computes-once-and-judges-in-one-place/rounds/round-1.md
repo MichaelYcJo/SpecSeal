@@ -11,6 +11,7 @@
 | Fix range | `935b39180d0a8e3323b1ad3ddcb2a03a398f206e..bd9f9eb88a277f4443ec2af532fca38480e6c346`, 3 commits |
 | Contract changes | cited_row → round-1-report.md, round-1.md, family_view, moved_and_left_out, pytest; on_a_cycle → round-1-report.md, round-1.md, reverify |
 | New units | read_citation (depth 1); known_gone (depth 1); test_a_row_downstream_of_a_cycle_one_stale_row_starts_is_restamped (depth 1); test_a_row_that_never_settles_costs_no_round_per_coordinate (depth 1); test_reverify_names_a_citation_in_the_family_readers_words (depth 1); test_a_coordinate_whose_statement_is_gone_breaks_a_cycle (depth 1); test_a_coordinate_no_checkout_places_records_no_pact_change (depth 1); _two_moved_fragments (depth 1); test_the_record_is_the_same_bytes_in_any_ledger_order (depth 1) |
+| Fix of a fix | no |
 | Needs a fix | yes — 🟡 1 (downstream row left on an alternating cycle), 🟡 2 (a pass at its bound costs rounds × coordinates), 🟡 3 (a citation read by two readers), 🟡 4 (EXTERNAL and escaping coordinates recorded as BROKEN pact changes) |
 | Loses a record or crashes | no |
 

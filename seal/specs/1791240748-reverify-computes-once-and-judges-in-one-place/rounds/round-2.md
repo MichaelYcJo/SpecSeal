@@ -11,6 +11,7 @@
 | Fix range | `96cc3e46949f382f988753980ce22f421aeaf76c..90fb07c44269e2bc835eec6e665619d98f7e4188`, 2 commits |
 | Contract changes | none |
 | New units | test_a_cycle_through_a_row_left_whole_is_no_cycle (depth 1); test_two_citing_rows_sharing_a_citation_are_named_each_in_its_own_verb (depth 1); test_a_coordinate_that_does_not_settle_records_no_pact_change (depth 1) |
+| Fix of a fix | first — 🟡 1 at skills/evidence-check/scripts/evidence_check.py#reverify, a unit round-1's fixes changed; 🟡 2 at skills/evidence-check/scripts/evidence_check.py#reverify, a unit round-1's fixes changed; 🟡 3 at skills/evidence-check/scripts/evidence_check.py#plan_ledger, a unit round-1's fixes changed |
 | Needs a fix | yes — 🟡 1 (a loop through a row left whole is taken for a cycle), 🟡 2 (a citation's memo drops the row's verb), 🟡 3 (the unsettled arm's record has no case) |
 | Loses a record or crashes | no |
 

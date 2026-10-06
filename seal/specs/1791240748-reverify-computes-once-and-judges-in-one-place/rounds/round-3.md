@@ -11,6 +11,7 @@
 | Fix range | `c4c2578980f900d3a2e0a3876fd7c75d27d6cf88..c4c2578980f900d3a2e0a3876fd7c75d27d6cf88`, 0 commits |
 | Contract changes | none |
 | New units | none |
+| Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 

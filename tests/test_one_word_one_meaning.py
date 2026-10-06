@@ -823,6 +823,11 @@ def test_no_live_text_says_the_word_0_19_0_renamed():
     for rel in (*RENAMED_COMPAT, SWEEP_MODULE, "docs/the-pact.md", "hooks/config.py"):
         assert rel in tracked, f"{rel} is excepted below and no longer tracked"
     for prefix in RENAMED_RECORDS:
+        # `seal/ledger/` holds the unreleased fragments, and the release's
+        # fold empties it on purpose: an empty fragment directory is the tree
+        # just after a release, not an exception that stopped applying.
+        if prefix == "seal/ledger/":
+            continue
         assert any(p.startswith(prefix) for p in tracked), (
             f"{prefix} is excepted below and holds no tracked file"
         )
