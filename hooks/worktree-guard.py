@@ -2980,8 +2980,6 @@ def main():
             )
             if matters and (state is None or (active and not state[0])):
                 state = (active, idle, reliable, entries)
-            if state is not None and state[0]:
-                break
     if state is not None:
         stop_unrecognised(
             [found[1] for found in unrecognised],
