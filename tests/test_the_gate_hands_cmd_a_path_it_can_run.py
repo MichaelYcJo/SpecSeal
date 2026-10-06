@@ -99,7 +99,7 @@ def test_an_unset_comspec_on_windows_is_cmd_exe(tree, monkeypatch):
     "row, expected",
     [
         (ROW, HANDED),
-        # `compare_at_base`'s runner: the first command, then quoted paths.
+        # A runner handed quoted paths.
         ('bin/test "tests/x.py"', r'bin\test "tests/x.py"'),
         ("bin/test tests/a/b.py --out=dir/x", r"bin\test tests/a/b.py --out=dir/x"),
         ('"tools/run tests" -q "a/b"', r'"tools\run tests" -q "a/b"'),
@@ -300,7 +300,7 @@ def test_the_one_shell_site_is_run_and_it_applies_the_rewrite():
     """A2, the class by construction. `broad_gate.py` has exactly one call
     passing `shell=`, it is inside `run`, and the string it is handed is the
     one `handed_to_shell` produced. `gate`'s `SUITE` and `compare_at_base`'s
-    `suite-at-base-<k>` both reach a shell through it, so a third shell site
+    `suite-at-base` both reach a shell through it, so a third shell site
     written anywhere else turns this red rather than going unrewritten."""
     with open(GATE, encoding="utf-8") as handle:
         tree = ast.parse(handle.read())
