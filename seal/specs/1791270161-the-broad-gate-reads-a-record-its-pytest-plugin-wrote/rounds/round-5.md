@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `4e3b41e0d23a26295527427ef640805226ba4b41..0fc26b5e83426841052e06a0dc265e88ea0a0405`, 5 commits |
+| Contract changes | none |
+| New units | COLLECTS_TWO_FILES_UNDER_ONE_ID (depth 1); PASSES_ITS_TEST (depth 1); CRASHES_IN_ITS_BODY (depth 1); CRASHES_IN_ITS_FIXTURE (depth 1); test_a_crash_is_never_placed_by_a_node_id_another_file_shares (depth 1); test_a_crash_report_takes_a_path_only_from_its_own_workers_report_of_it (depth 1); test_a_red_base_session_that_left_anything_out_turns_only_new_into_new_question (depth 1) |
 | Fix of a fix | first — 🔴 1 at skills/verify/scripts/pytest_record/specseal_pytest_record.py#Recorder, a unit round-4's fixes changed; 🟡 2 at skills/verify/scripts/broad_gate.py#base_word, a unit round-4's fixes changed |
 | Needs a fix | yes — 🔴 1 (a crash report's path looked up by node id lands on another file where two nodes share one, and that file reads `failing on base too`), 🟡 2 (a base session that exited 0 still turns `new` into `new?`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,8 +25,8 @@ Round 5, the verifying round for the redesign's round 4, whose fixes at `70bce95
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A crash report's path is looked up by node id, so where two nodes share one (pytest 7 names a file outside the rootdir from its argument) a crashed worker's test is written failing under the other file's path, and at the base that file reads `failing on base too` for the branch's own breakage | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:182` | open | executed: pytest 7.4.4 and xdist 3.8.0 under `-n 1`, `b`'s crash written under `a/test_m.py`, for a call crash and a fixture crash, file args and directory args; with the fix applied, `b/test_m.py` and `unplaced` 1 respectively; read: `base_word` gives `failing on base too` for a file in `failing` |
-| 🟡 2 | The strict `new` demotes on every session's `unplaced`, including a base session that exited 0 and so failed nothing, and a green base with one session-parented item reads every failing file `new?` | `skills/verify/scripts/broad_gate.py:2087` | open | executed: with the fix applied, the two cases pinning the exit-0 demotion fail and nothing else does (2 failed, 44 passed); the left-out case then reads `new`, so its base exited 0; read: `read_record` sums `unplaced` regardless of `exitstatus` |
+| 🔴 1 | A crash report's path is looked up by node id, so where two nodes share one (pytest 7 names a file outside the rootdir from its argument) a crashed worker's test is written failing under the other file's path, and at the base that file reads `failing on base too` for the branch's own breakage | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:182` | **fixed** `41d1d69b` | fixed at 41d1d69b — 3fd47d99; executed: pytest 7.4.4 and xdist 3.8.0 under `-n 1`, `b`'s crash written under `a/test_m.py`, for a call crash and a fixture crash, file args and directory args; with the fix applied, `b/test_m.py` and `unplaced` 1 respectively; read: `base_word` gives `failing on base too` for a file in `failing` |
+| 🟡 2 | The strict `new` demotes on every session's `unplaced`, including a base session that exited 0 and so failed nothing, and a green base with one session-parented item reads every failing file `new?` | `skills/verify/scripts/broad_gate.py:2087` | **fixed** `41d1d69b` | fixed at 41d1d69b; executed: with the fix applied, the two cases pinning the exit-0 demotion fail and nothing else does (2 failed, 44 passed); the left-out case then reads `new`, so its base exited 0; read: `read_record` sums `unplaced` regardless of `exitstatus` |
 | 🟢 | round 4's blocking finding 1 is closed — the session's own failed collection is counted and written as no line | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:151` | confirmed | executed: `test_a_failed_collection_of_the_session_itself_is_left_out_and_counted` and `test_a_failed_collection_of_the_session_reads_no_word_of_the_root` among 46 passed at the target |
 | 🟢 | round 4's finding 2 is closed for a crashed test whose node id is its own | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:184` | confirmed | executed: both recorder-level and gate-level crash cases among 46 passed; finding 1 above is a new defect in the fix's lookup |
 | 🟢 | round 4's finding 3 is closed — every cause of a missing record is named, the row that started no pytest first | `skills/verify/scripts/broad_gate.py:2027` | confirmed | read: `NO_RECORD_CAUSES`, the A5 case and the three prose homes, each pinned with the retired phrase as gone; executed: those cases among the 46 |
