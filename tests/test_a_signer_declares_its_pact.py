@@ -1287,6 +1287,18 @@ def test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one():
         "has a `Signer` table that ends above `| Signatory |`, a row the walk "
         "never reaches — it and every signer below it would go unread"
     ], refusals
+    # A pact review record's glued old header is quoted as written too, and
+    # the review row above it is still read (#831).
+    rows, refusals, _ = config.pact_reviews(
+        "# R\n\n| Signer | Change | Verdict |\n|---|---|---|\n| a | b | holds |\n"
+        "|Signatory|Change|Verdict|\n"
+    )
+    assert rows == [(5, "a", "b", "holds")], rows
+    assert refusals == [
+        "holds a `|Signatory|Change|Verdict|` line inside its `| Signer | Change "
+        "| Verdict |` table, the word before 0.19.0, which GFM reads as one of "
+        "that table's rows — delete the line"
+    ], refusals
 
 
 def test_s4_a_broken_signer_table_does_not_fall_back_to_the_old_one():
