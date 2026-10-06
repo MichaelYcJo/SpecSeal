@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | the record's commit, named in `plan.md`'s Status (the shards are 340dc6fa and 65c8ed98) |
+| Commit | 87adbbc0 (the shards are 340dc6fa and 65c8ed98) |
 | Ran by | smith on Opus 5.5 (a second smith, on another machine) |
 
 ## What this phase was asked
