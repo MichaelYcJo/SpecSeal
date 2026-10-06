@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | 27756646 |
-| Ran by | unknown — the spawn prompt did not name the model, and a segment does not name itself |
+| Ran by | specseal:smith on Opus 5.5 |
 
 ## What this phase was asked
 
