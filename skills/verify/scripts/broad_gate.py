@@ -1900,7 +1900,7 @@ def record_path(path, worktree):
     except ValueError:
         # Another drive on Windows: not under the worktree.
         return real
-    if rel == os.pardir or rel.startswith(os.pardir + os.sep) or os.path.isabs(rel):
+    if rel.split(os.sep)[0] == os.pardir:
         return real
     return rel.replace(os.sep, "/")
 
