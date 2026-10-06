@@ -2149,9 +2149,10 @@ def _spoken(tokens) -> str:
 # their first `<` or `>` on (`&>` and `&>>` lose the `&` that `_plain_words`
 # reads as a head). A word ending in one of these takes the next word as its
 # target; any other text after the first `<` or `>` is a target glued on.
-_OPERATORS = frozenset(
-    {"<<<", "<<-", "<<", "<>", "<&", ">&", ">>!", ">>", ">|", ">!", ">", "<"}
-)
+# `<&` and `>&` are not here: the splitter cuts a word at its `&`, and
+# `merged_view` glues the next word on, so neither ends a word this reads (a
+# spaced `>& 1` arrives as `>&1`, and `_redirections` places it).
+_OPERATORS = frozenset({"<<<", "<<-", "<<", "<>", ">>!", ">>", ">|", ">!", ">", "<"})
 
 
 def _plain_words(words):
