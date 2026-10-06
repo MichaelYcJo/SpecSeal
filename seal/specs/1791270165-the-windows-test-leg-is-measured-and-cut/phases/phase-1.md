@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | b9435eda (the workflow edit; the phase closes when the dispatch tables below are recorded) |
-| Ran by | smith on Opus 5.5 |
+| Commit | b340a4c3 (the tables; the workflow edit is b9435eda) |
+| Ran by | smith on Opus 5.5 (the workflow edit), and a second smith on Opus 5.5 on another machine (the close) |
 
 ## What this phase was asked
 
