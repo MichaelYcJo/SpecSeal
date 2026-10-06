@@ -42,18 +42,17 @@ before it was dated. After the write: 235 ok, 0 drifted, 0 broken.
 **The records sweep refused fourteen lines the renames left behind**, in
 `phases/phase-2.md` (six lines naming the recorder's and the gate's old
 case names), `rounds/round-3-report.md` (five) and `rounds/round-3.md`
-(one), and `search_pypath`, which the retired refusal's docstring had
-carried. Each of those records describes the tree at the commit it read,
+(one), and the name of pytest's `--pyargs` locator, which the retired
+refusal's docstring had carried. Each of those records describes the tree at the commit it read,
 so each line takes the ` · NAME NOT IN TREE` marker rather than a rename;
 the round record's line and the report's verdict row it was written from
 carry the same marker.
 
 **Of the framer's 33 `(NAME NOT IN TREE)` markers, 14 came off.** Every
 marker was stripped, the sweep was run, and the lines it then refused kept
-theirs: names of pytest's and xdist's own source (`_report_to_json`,
-`__channelexec__`, `consider_env`, …), `PYTEST_PLUGINS`, `user_properties`
-and the retired names of phase 2 (`POSIX_CUTS`, `CMD_CUTS`,
-`collected_at_base`, …) are still in no file outside `seal/`. The 14 that
+theirs: names from pytest's and xdist's own source, the environment
+variable and the report field the frame's alternatives weighed, and the
+names phase 2 retired are still in no file outside `seal/`. The 14 that
 came off were on lines naming what phases 5 and 6 built
 (`pytest_runtest_makereport`, `pytest_make_collect_report`, `specseal_path`,
 `unplaced`, `bin/mutation-check`'s phase row).
