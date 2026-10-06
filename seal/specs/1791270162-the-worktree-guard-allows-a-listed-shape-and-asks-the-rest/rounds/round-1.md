@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #850 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `4de95fa7e66a36d8cef947b3a663b3e9b996490a..5ba5e51ae208bc701761d31884377cc397d27382`, 4 commits |
+| Contract changes | stop_unrecognised → main, round-1-report.md, round-1.md, spec.md |
+| New units | _OPERATORS (depth 1); _rebase_names_a_branch (depth 1); _cut_unread (depth 1); test_no_approval_runs_a_line_past_an_active_tree (depth 1); test_a_broken_reader_leaves_no_cut_group_silent (depth 1); test_a_rebase_naming_a_branch_is_unrecognised (depth 1); test_a_rebase_of_the_current_branch_stays_listed (depth 1); FORMS (depth 1); SWITCHING (depth 1); test_no_listed_form_moves_head_under_git (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1, 🔴 2, 🔴 3, 🟡 4 and 🟡 5: a switch beside the stop's ask is approved past an ACTIVE tree, a closed descriptor hides `worktree add` and `stash branch`, `git rebase <upstream> <branch>` switches silently, a broken reader leaves an `&`-cut group silent, and a string's `-C` is neither read nor named |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -34,13 +34,13 @@ It did not run the full suite. Before the round, the smith's narrow checks were 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | the stop's `ask` runs a switch on the same line that the ladder never judged, so one approval switches a tree another session is ACTIVE in | `hooks/worktree-guard.py:2699` | open | executed: four commands `ask` at HEAD where the base denied; `spec.md` In 2's "a stop there stops the whole line" holds only for a `deny` |
-| 🔴 2 | `_plain_words` reads `>&-`, `<&-` and `2>&-` as taking the next word, so `git worktree 2>&- add …` and `git stash 2>&- branch x` are listed | `hooks/worktree-guard.py:2161` | open | executed: silent in dirty and ACTIVE trees where the base asked; bash creates the worktree |
-| 🔴 3 | `rebase` is listed, and `git rebase <upstream> <branch>` switches HEAD to `<branch>` | `hooks/worktree-guard.py:2086` | open | executed against git 2.50.1: three forms move HEAD; the build is silent in an ACTIVE tree |
-| 🟡 4 | `_merged_findings` returns no finding when the reader is missing or raises, against the policy's "never a silence" | `hooks/worktree-guard.py:2321` | open | executed: three silent rows in a dirty tree |
-| 🟡 5 | a string's `-C` is judged in the typed-from tree, and no sentence names it | `hooks/worktree-guard.py:2397` | open | executed: `sh -c 'git -C W switch feature/x'` silent with `W` dirty; not a regression |
-| ⬜ 6 | the module comment says the wider reader never picks the tree | `hooks/worktree-guard.py:157` | open | read: `_finding_tree` composes its `-C` |
-| ⬜ 7 | `git branch -m` leaves HEAD on a different name, against `spec.md`'s literal definition | `hooks/worktree-guard.py:2056` | open | executed; the Premise holds, so a comment only |
+| 🔴 1 | the stop's `ask` runs a switch on the same line that the ladder never judged, so one approval switches a tree another session is ACTIVE in | `hooks/worktree-guard.py:2699` | **fixed** `bb93fe13` | fixed at bb93fe13 — the stop is a `deny` where a switch shares the line, and every tree on the line is read before the stop, so an ACTIVE second tree denies; d594eb81 drops the `break` a mutation survived; executed: four commands `ask` at HEAD where the base denied; `spec.md` In 2's "a stop there stops the whole line" holds only for a `deny` |
+| 🔴 2 | `_plain_words` reads `>&-`, `<&-` and `2>&-` as taking the next word, so `git worktree 2>&- add …` and `git stash 2>&- branch x` are listed | `hooks/worktree-guard.py:2161` | **fixed** `bb93fe13` | fixed at bb93fe13 — `_OPERATORS` takes the next word as the target only where a word ends on the operator itself, and `_redirections` enumerates `-`, `1-` and word targets ending in `-`; 95d39d09 drops `<&` and `>&`, which the splitter never hands to this function; executed: silent in dirty and ACTIVE trees where the base asked; bash creates the worktree |
+| 🔴 3 | `rebase` is listed, and `git rebase <upstream> <branch>` switches HEAD to `<branch>` | `hooks/worktree-guard.py:2086` | **fixed** `bb93fe13` | fixed at bb93fe13 — `rebase` stays listed and its branch-naming forms read unrecognised (`_rebase_names_a_branch`); `test_no_listed_form_moves_head_under_git` runs one form per `LEAVES_THE_TREE` row under git; executed against git 2.50.1: three forms move HEAD; the build is silent in an ACTIVE tree |
+| 🟡 4 | `_merged_findings` returns no finding when the reader is missing or raises, against the policy's "never a silence" | `hooks/worktree-guard.py:2321` | **fixed** `bb93fe13` | fixed at bb93fe13 — both early returns of `_merged_findings` go through `_cut_unread`, so a broken reader costs a stop; executed: three silent rows in a dirty tree |
+| 🟡 5 | a string's `-C` is judged in the typed-from tree, and no sentence names it | `hooks/worktree-guard.py:2397` | **fixed** `bb93fe13` | fixed at bb93fe13 — named in §Known limits and §A: a string's `-C` is not read, since `spec.md` In 2 judges a string in its segment's tree; executed: `sh -c 'git -C W switch feature/x'` silent with `W` dirty; not a regression |
+| ⬜ 6 | the module comment says the wider reader never picks the tree | `hooks/worktree-guard.py:157` | **fixed** `bb93fe13` | fixed at bb93fe13 — the module comment names `_finding_tree` as the one place the wider reading picks a tree; read: `_finding_tree` composes its `-C` |
+| ⬜ 7 | `git branch -m` leaves HEAD on a different name, against `spec.md`'s literal definition | `hooks/worktree-guard.py:2056` | **fixed** `bb93fe13` | fixed at bb93fe13 — the `branch` row says `-m` renames HEAD's branch on the same line of commits; ledger row F6 at 5ba5e51a; executed; the Premise holds, so a comment only |
 | 🟢 | `_finding_tree` reads past the frozen walk only for a segment it reads no git in, one `-C` per finding, judged in that finding's own tree | `hooks/worktree-guard.py:2397` | confirmed | read; no slot is shared, so #689's ordering failure cannot arise |
 | 🟢 | each unrecognised shape is judged in its own tree, each directory looked up once | `hooks/worktree-guard.py:2878` | confirmed | read; executed in the two-tree rows of 🟡 5 |
 | 🟢 | #841's S5 and `Re-read · D1` were removed under the ledger's REMOVED rule, and every marker sits on a line naming a name the tree no longer has | `seal/ledger/1791270165-the-windows-test-leg-is-measured-and-cut.md` | confirmed | read: the rule in `docs/the-evidence-ledger.md`; each of the 28 lines checked against `git grep` |
