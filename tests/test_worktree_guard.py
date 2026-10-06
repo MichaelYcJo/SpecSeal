@@ -17,33 +17,38 @@ ACTIVE = [(111, "/tree", 1.0, 0.5, "VS Code")]
 IDLE = [(222, "/tree", 400.0, 90.0, "Terminal")]
 
 
-def reason_for(cmd, cwd):
-    """The verdict `main()` would reach for `cmd`, without the session half.
+def reason_for(cmd):
+    """The first shape `main()` would act on in `cmd`, without the session
+    half: a switch, a creation or an unrecognised shape, and None where every
+    segment is listed or no git at all.
 
-    `split_command` returns segments as TOKEN LISTS, so classification and the
+    `split_command` returns segments as TOKEN LISTS, so the shape and the
     quoting decision come from one place — a quoted sentence is a single token
-    and can never arrive here as a command word.
+    and can never arrive here as a command word. Since #826 the shape is read
+    from the words alone, so no repository is needed.
     """
     segments, _clean = wg.split_command(cmd)
     for tokens in segments:
-        got = wg.classify(tokens, cwd)
-        if got:
+        got = wg.shape_of(tokens)
+        if got not in (None, "listed"):
             return got
     return None
 
 
-# --- classify: what counts as a branch switch / worktree creation ---------
+# --- shape_of: what counts as a branch switch / worktree creation ---------
 
 
 @pytest.mark.parametrize(
     "cmd,expected",
     [
         ("git switch feature/x", "switch"),
-        ("git switch -c feature/y", "create+switch"),
+        ("git switch -c feature/y", "switch"),
         ("git switch -", "switch"),  # previous branch IS a switch
-        ("git checkout -b feature/y", "create+switch"),
-        ("git checkout -", "switch"),
-        ("git worktree add ../wt feature/x", "worktree-add"),
+        # A `checkout` with no `-- <path>` is unrecognised: its stop names
+        # `git switch` and `git checkout -- <path>` (#826).
+        ("git checkout -b feature/y", "unrecognised"),
+        ("git checkout -", "unrecognised"),
+        ("git worktree add ../wt feature/x", "creation"),
         ("git worktree list", None),
         ("git worktree remove ../wt", None),
         ("echo git switch feature/x", None),  # prose mention, not a command
@@ -54,8 +59,8 @@ def reason_for(cmd, cwd):
         # An unclosed apostrophe used to make shlex refuse the segment, and a
         # refused segment carried no classification at all.
         ("git switch feature/x  # don't ask", "switch"),
-        ("git worktree add ../wt f  # user's call", "worktree-add"),
-        ("git checkout -b feature/y  # don't rebase", "create+switch"),
+        ("git worktree add ../wt f  # user's call", "creation"),
+        ("git checkout -b feature/y  # don't rebase", "unrecognised"),
         # A quoted string arrives as one token, so its contents can never
         # present themselves as a command word.
         ("echo don't switch feature/x", None),
@@ -78,24 +83,18 @@ def reason_for(cmd, cwd):
         ('echo "a; git switch feature/x; b"', None),
     ],
 )
-def test_classify(repo, cmd, expected):
-    assert reason_for(cmd, str(repo)) == expected
+def test_shape_of(cmd, expected):
+    assert reason_for(cmd) == expected
 
 
-def test_classify_checkout_of_existing_file_is_restore(repo):
-    assert reason_for("git checkout f.txt", str(repo)) is None
-
-
-def test_classify_checkout_dwim_remote_branch(repo, tmp_path):
-    import subprocess
-
-    clone = tmp_path / "clone"
-    subprocess.run(["git", "clone", "-q", str(repo), str(clone)], check=True)
-    # feature/x exists only as origin/feature/x in the clone
-    subprocess.run(
-        ["git", "-C", str(clone), "branch", "-Dq", "feature/x"], capture_output=True
-    )
-    assert reason_for("git checkout feature/x", str(clone)) == "switch"
+def test_a_checkout_restores_by_its_dashes_and_not_by_the_tree(repo):
+    """#826. `git checkout f.txt` used to be a restore because `f.txt` exists
+    in the tree and no ref has its name. The tree is no longer read: the same
+    words name a branch as easily as a file, so they are unrecognised, and
+    the `--` is what makes a restore."""
+    assert (repo / "f.txt").exists()
+    assert reason_for("git checkout f.txt") == "unrecognised"
+    assert reason_for("git checkout -- f.txt") is None
 
 
 # --- decision matrix (session detection stubbed) --------------------------
@@ -782,12 +781,12 @@ def test_an_apostrophe_after_the_token_no_longer_hides_it(monkeypatch, capsys, r
 
 def test_the_C_target_follows_the_segment_that_was_judged(repo):
     """`main()` asks `segment_cwd` for the `-C` target of the very segment
-    `classify` judged, from the same token list. Reading the two from separate
-    tokenizations is how a switch aimed at another repository gets judged
-    against THIS tree."""
+    whose shape it read, from the same token list. Reading the two from
+    separate tokenizations is how a switch aimed at another repository gets
+    judged against THIS tree."""
     cmd = "git -C /x/y switch b  # don't"
     segments, _ = wg.split_command(cmd)
-    assert wg.classify(segments[0], str(repo)) == "switch"
+    assert wg.shape_of(segments[0]) == "switch"
     # `normpath`, because `apply_chdir` ends in one: the assertion is that
     # the target followed the segment, not that this platform spells a path
     # with `/`.
@@ -828,7 +827,7 @@ def test_a_quoted_C_value_survives_an_apostrophe(repo):
         ("git -C 'my repo' switch b  # don't", "/base/my repo"),
     ):
         segments, _ = wg.split_command(cmd)
-        assert wg.classify(segments[0], str(repo)) == "switch", cmd
+        assert wg.shape_of(segments[0]) == "switch", cmd
         assert wg.segment_cwd(segments[0], "/base") == os.path.normpath(target), cmd
 
 

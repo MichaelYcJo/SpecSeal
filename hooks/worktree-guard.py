@@ -141,13 +141,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # the one question about kinds it asks that module is below, and `has_token`
 # has it take heredoc bodies out, #780): the splitter, `parse_git`,
 # `adds_a_worktree`, the walk and `Unresolved` all come from there, so what it
-# recognises and where it judges are the release base's by construction. Two
-# rules are read past the base. Since #764 and #738, on the owner's answer of
-# 2026-10-04, a `checkout`'s and a `switch`'s own words, as git is handed
-# them (`read_switch_words`). Since #790, a `checkout`'s name, looked up the
-# way `git checkout` resolves it (`is_ref`, `tracked_in_any_remote`). The
-# segments and words it reads still come from here. The name `cmdline` is
-# kept so the rest of this file reads as it did.
+# recognises and where it judges are the release base's by construction.
+# Since #826 nothing is read past the base's words: a segment is listed, a
+# switch, a creation or unrecognised by its subcommand and, for `checkout`,
+# `worktree` and `stash`, the word that decides it (`shape_of`). The name
+# `cmdline` is kept so the rest of this file reads as it did.
 # `worktree_consent` imports the same module, so the two share one `Unresolved`.
 import cmdline_base as cmdline
 import console
@@ -322,400 +320,6 @@ def walk_command(command: str, cwd: str, windows=None):
     """
     items, _clean = _tokenize_with_separators(_judgment_text(command), windows)
     return cmdline.walk_directories(items, cwd)
-
-
-# --- a `checkout`'s and a `switch`'s words, as git is handed them ----------
-#
-# #764 and #738 (work item 1791119071), on the owner's answer of 2026-10-04,
-# which reopened the per-subcommand rule `classify` had kept from `86256492`.
-# `hooks/cmdline_base.py` is not reopened: its segments and words are read as
-# they come, and the reading below happens here.
-
-# A redirection's operator at the start of a word: an optional descriptor,
-# a number or bash 4.1's `{name}`, then the operator, longer ones first.
-# `hooks/cmdline.py`'s `_REDIRECTION` names the same list, and is not imported
-# for it: `classify` keeps answering where that module fails to load, so
-# `test_the_reduction_takes_out_every_redirection_the_reader_names` binds the
-# two instead.
-_REDIRECTION = re.compile(
-    r"(?:[0-9]+|\{[A-Za-z_][A-Za-z0-9_]*\})?"
-    r"(?:<<<|<<-|<<|<>|<&|>&|&>>|&>|>>!|>>|>\||>!|>|<)"
-)
-
-
-def _redirection_width(words, i):
-    """How many of WORDS, from I, one redirection takes -- 0 where WORDS[I]
-    is none. A target glued to its operator is one word, a spaced one is the
-    next word, and a process substitution as the target runs to the word that
-    closes it. `hooks/cmdline.py#redirection_width` reads the same way."""
-    m = _REDIRECTION.match(words[i]) if i < len(words) else None
-    if not m:
-        return 0
-    target, j = words[i][m.end() :], i + 1
-    if not target:
-        if j >= len(words):
-            return 1
-        target, j = words[j], j + 1
-    if target.startswith(("(", ">(", "<(")):
-        depth = target.count("(") - target.count(")")
-        while depth > 0 and j < len(words):
-            depth += words[j].count("(") - words[j].count(")")
-            j += 1
-    return j - i
-
-
-def handed_words(words):
-    """WORDS as the program is handed them, once bash has taken its
-    redirections off the command line.
-
-    bash ends a word at `<` and `>` wherever they stand, so `feature/x>f`
-    hands git `feature/x`, and `checkout>f` hands it `checkout`; a number or a
-    `{name}` in front is the operator's own descriptor and stays with it. A
-    word holding whitespace was quoted, so it is not cut. An `&` the wider
-    splitter leaves on a word's end before a `>`-led word is `&>`'s, and goes
-    with it. Then every redirection is taken out, a spaced target with its
-    operator (#737, #738).
-    """
-    cut = []
-    for w in words:
-        k = min((w.find(c) for c in "<>" if c in w), default=-1)
-        if (
-            k > 0
-            and not w[:k].isdigit()
-            and not (w[0] == "{" and w[k - 1] == "}")
-            and not any(c.isspace() for c in w)
-        ):
-            cut += [w[:k], w[k:]]
-        else:
-            cut.append(w)
-    cut = [
-        w[:-1]
-        if w.endswith("&") and i + 1 < len(cut) and cut[i + 1].startswith(">")
-        else w
-        for i, w in enumerate(cut)
-    ]
-    cut = [w for w in cut if w]
-    out, i = [], 0
-    while i < len(cut):
-        width = _redirection_width(cut, i)
-        if width:
-            i += width
-            continue
-        out.append(cut[i])
-        i += 1
-    return out
-
-
-# What an option takes: nothing, a value it must be given (stuck to it, or
-# the next word), or a value it may be given stuck only (`git help cli`).
-NONE, VALUE, OPTIONAL = "none", "value", "optional"
-
-
-class _Options:
-    """One subcommand's options: `short` maps a letter, `long` a name, to
-    `(takes, creates)`."""
-
-    def __init__(self, short, long):
-        self.short = short
-        self.long = long
-
-
-# Every option `git checkout -h` and `git switch -h` list on git 2.54.0, which
-# hides none (`--git-completion-helper-all` names the same set). Static, and
-# bound to the installed git by `test_the_option_table_binds_the_installed_git`:
-# an option a later git adds reads as one that takes nothing until it is
-# listed here, which is how every value-taking option read before #764.
-SWITCH_OPTIONS = {
-    "checkout": _Options(
-        short={
-            "b": (VALUE, True),
-            "B": (VALUE, True),
-            "l": (NONE, False),
-            "q": (NONE, False),
-            "m": (NONE, False),
-            "d": (NONE, False),
-            "t": (OPTIONAL, False),
-            "f": (NONE, False),
-            "2": (NONE, False),
-            "3": (NONE, False),
-            "p": (NONE, False),
-            "U": (VALUE, False),
-        },
-        long={
-            "guess": (NONE, False),
-            "overlay": (NONE, False),
-            "auto-advance": (NONE, False),
-            "quiet": (NONE, False),
-            "recurse-submodules": (OPTIONAL, False),
-            "progress": (NONE, False),
-            "merge": (NONE, False),
-            "conflict": (VALUE, False),
-            "detach": (NONE, False),
-            "track": (OPTIONAL, False),
-            "force": (NONE, False),
-            "orphan": (VALUE, True),
-            "overwrite-ignore": (NONE, False),
-            "ignore-other-worktrees": (NONE, False),
-            "ours": (NONE, False),
-            "theirs": (NONE, False),
-            "patch": (NONE, False),
-            "unified": (VALUE, False),
-            "inter-hunk-context": (VALUE, False),
-            "ignore-skip-worktree-bits": (NONE, False),
-            "pathspec-from-file": (VALUE, False),
-            "pathspec-file-nul": (NONE, False),
-        },
-    ),
-    "switch": _Options(
-        short={
-            "c": (VALUE, True),
-            "C": (VALUE, True),
-            "q": (NONE, False),
-            "m": (NONE, False),
-            "d": (NONE, False),
-            "t": (OPTIONAL, False),
-            "f": (NONE, False),
-        },
-        long={
-            "create": (VALUE, True),
-            "force-create": (VALUE, True),
-            "guess": (NONE, False),
-            "discard-changes": (NONE, False),
-            "quiet": (NONE, False),
-            "recurse-submodules": (OPTIONAL, False),
-            "progress": (NONE, False),
-            "merge": (NONE, False),
-            "conflict": (VALUE, False),
-            "detach": (NONE, False),
-            "track": (OPTIONAL, False),
-            "force": (NONE, False),
-            "orphan": (VALUE, True),
-            "overwrite-ignore": (NONE, False),
-            "ignore-other-worktrees": (NONE, False),
-        },
-    ),
-}
-
-
-def _long_option(options, body):
-    """`(takes the next word, creates)` for the long option `--BODY`.
-
-    Resolved the way git's option parser resolves it: an exact name first,
-    then a unique prefix, and a value given after `=` takes no word. A name
-    git refuses, unknown or an ambiguous prefix, reads as an option that
-    takes nothing -- the reading every `-` word had before #764. A negation
-    (`--no-orphan`, `--no-cr`) takes no value and creates nothing, which is
-    that same reading, so it needs no rule of its own: no long name of either
-    subcommand begins with `no-`, and every `--no-` word lands there."""
-    name, stuck, _value = body.partition("=")
-    found = [name] if name in options.long else []
-    found = found or [n for n in options.long if n.startswith(name)]
-    if len(found) != 1:
-        return False, False
-    takes, creates = options.long[found[0]]
-    return takes == VALUE and not stuck, creates
-
-
-def read_switch_words(sub, args):
-    """`(creates, names, after)` for a `checkout` or `switch` whose
-    arguments are ARGS: whether a creating option is present, with or without
-    its value; the words git's option parser leaves as names, before any
-    `--`; and the words after a `--`, or None where there is none.
-
-    ARGS are read as git is handed them (`handed_words`), and then as its
-    option parser reads them (`git help cli`): options up to `--`, also
-    after a name; a short word a letter at a time, a letter that must take a
-    value taking the rest of the word or else the next word, one that may
-    take a value taking only the rest of the word; a long word by
-    `_long_option`. A lone `-` is a name. `--end-of-options` ends the options
-    and is no word itself."""
-    options = SWITCH_OPTIONS[sub]
-    words = handed_words(args)
-    creates, names, i, ended = False, [], 0, False
-    while i < len(words):
-        w = words[i]
-        i += 1
-        if w == "--":
-            return creates, names, words[i:]
-        if ended or w == "-" or not w.startswith("-"):
-            names.append(w)
-        elif w == "--end-of-options":
-            ended = True
-        elif w.startswith("--"):
-            takes_next, makes = _long_option(options, w[2:])
-            creates = creates or makes
-            i += 1 if takes_next else 0
-        else:
-            for j, letter in enumerate(w[1:], start=1):
-                found = options.short.get(letter)
-                if found is None:
-                    break
-                takes, makes = found
-                creates = creates or makes
-                if takes == NONE:
-                    continue
-                if takes == VALUE and j == len(w) - 1:
-                    i += 1
-                break
-    return creates, names, None
-
-
-def switch_kind(parsed):
-    """The kind of a `parse_git` result from its words alone: "switch",
-    "creation" or None.
-
-    `classify` answers the same question against a tree: a `checkout` of a
-    path that exists, or of a name that is no ref, is not a switch there. This
-    reads no tree, so a `checkout` counts wherever its words alone can name a
-    branch, in `classify`'s order: one carrying a creating option counts,
-    with or without a name; then one with a word after its `--` does not,
-    whatever stands before it; then one naming `-` or a word other than `.`
-    does, a `--` with nothing after it included, because git reads that `--`
-    as saying only that the name is no file. That is the
-    upper bound phase 3 of work item 1790993140 counted with (`questions.md`
-    D3), and `docs/worktree-guard-spec.md` §*Which tree* states the same
-    words. A `switch` counts wherever it names a word or `-`, `--` or no
-    `--`, or carries a creating option.
-
-    The words are git's (`read_switch_words`, #764 and #738): a creating
-    option counts in every spelling git's option parser accepts, an option's
-    value is not a name, and a redirection is no word.
-    """
-    if not parsed:
-        return None
-    sub, args, _chdirs = parsed
-    if sub == "worktree":
-        positionals = [a for a in args if not a.startswith("-")]
-        return "creation" if positionals[:1] == ["add"] else None
-    if sub not in SWITCH_OPTIONS:
-        return None
-    creates, names, after = read_switch_words(sub, args)
-    if sub == "switch":
-        return "switch" if creates or names or after else None
-    if creates:
-        return "switch"
-    if after:
-        return None
-    if any(n != "." for n in names):
-        return "switch"
-    return None
-
-
-def wider_only_kinds(command: str, cwd: str, judged=None) -> set:
-    """Candidate C of #678: the kinds only the commit gate's reading finds.
-
-    Each kind -- "switch", "creation" -- that `hooks/cmdline.py`'s reading
-    finds in COMMAND where the frozen reading finds none of it: a git behind
-    a redirection (`git 2>&1 worktree add`, `2>/dev/null git switch x`), a
-    zsh precommand word, a spaced `--config-env`. The wider reading is its
-    splitter's segments, `merged_view`'s groups and the words a redirection
-    glued to a word's end, each read by its `parse_git`, as the commit gate
-    reads them. A kind the frozen loop judged keeps its slot and its verdict,
-    and a view's kind is hidden only where the frozen parser reads it from
-    none of the segments the view was made from, so neither is reported
-    (round 1 of 1790745049, red 1; rounds 1 and 2 of 1790993140, yellows 3
-    and 8). JUDGED is the kinds `main`'s loop judged; without
-    it, the kinds the frozen segments' words hold stand in.
-
-    Wired by phase 4 of work item 1790993140, because it fired on none of the
-    27,351 recorded command and directory pairs phase 3 counted, and the
-    per-view reading round 1 measured fired on none either. Where the wider
-    reader failed to load, it finds nothing, which is the base's answer.
-    """
-    if wide is None:
-        return set()
-    if judged is None:
-        judged = {
-            switch_kind(parse_git(tokens))
-            for tokens, _wheres in walk_command(command, cwd)
-        }
-    text = wide.drop_heredoc_bodies(wide.drop_comments(command))
-    items, _clean = wide.split_segments_with_separators(text)
-    segments = [tokens for _sep, tokens in items]
-    # Each view beside the segments it was made from. The frozen walk reads
-    # those segments as written, never a glued group or a cut word, so a kind
-    # is hidden unless the frozen parser reads it from one of the view's own
-    # segments: `git checkout README.md` is a restore to `classify` and must
-    # not silence a switch behind a redirection after it, and `git
-    # switch>/dev/null x` is no switch to the frozen parser, although its cut
-    # view is (round 2 of 1790993140).
-    sourced = [(tokens, [tokens]) for tokens in segments]
-    sourced += [
-        (tokens, [segments[i] for i in parts])
-        for parts, tokens in wide.merged_view(items)
-    ]
-    wider = set()
-    for view, sources in sourced:
-        frozen = {switch_kind(parse_git(tokens)) for tokens in sources}
-        # The view as the program is handed it. A cut or merged view carries
-        # a redirection word its segments do not, and `switch_kind` reads any
-        # word as a name, so `git checkout . &>/dev/null` read as a switch
-        # (#737).
-        kind = switch_kind(wide.parse_git(_bare_words(view)))
-        if kind and kind not in frozen:
-            wider.add(kind)
-    return wider - set(judged)
-
-
-def _bare_words(tokens):
-    """TOKENS as the program is handed them: a redirection glued to a word's
-    end cut off, and then every redirection taken out (#737).
-
-    bash ends a word at `<` and `>` wherever they stand, and at `&>`, so
-    `checkout>/dev/null` hands git `checkout` and `.&>/dev/null` hands it `.`.
-
-    The reduction is `handed_words`, the one the frozen side reads through
-    too, so C's views and the segments they are compared with cannot reduce
-    differently. It replaced `wide.unglued` and `wide._without_redirections`
-    here after the two gave the same words for all 50,568 views of the
-    generated shapes (work item 1791119071, `questions.md` W1).
-    """
-    return handed_words(tokens)
-
-
-def ask_what_only_the_wider_reading_finds(kinds, cwd, session_id, transcript_path):
-    """Put KINDS -- what only the wider reading found -- to the person (#678).
-
-    Asked only where this guard was about to say nothing, so every deny,
-    choice and ask the frozen reading earns still decides first. A creation
-    reads consent first, exactly as `guard_worktree_creation` does, and is
-    silent under it, as at the base (`questions.md` D10): under `automation`
-    the consent is the person's own press. Returns when nothing is left to ask.
-    """
-    if "creation" in kinds:
-        top = repo_paths(cwd)[0] or cwd
-        if worktree_consent.consent(top, session_id, transcript_path):
-            kinds = kinds - {"creation"}
-    if not kinds:
-        return
-    en, ko = [], []
-    if "switch" in kinds:
-        en.append("switches a branch")
-        ko.append("브랜치 전환")
-    if "creation" in kinds:
-        en.append("creates a worktree")
-        ko.append("worktree 생성")
-    respond(
-        "ask",
-        tr(
-            f"This command {' and '.join(en)} in a shape this guard does not "
-            "read: a git behind a redirection (`2>/dev/null git …`, `git 2>&1 "
-            "…`), behind zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or "
-            "`foreach i (…)`, or after a spaced `--config-env`. So it could not "
-            "check which tree that runs in or whether another session is working "
-            "there. Confirm to proceed, or re-issue it as a plain `git switch …` "
-            "or `git worktree add …` (with `git -C <dir>` for another tree), "
-            "which it reads.",
-            f"이 명령의 {'·'.join(ko)}은 이 guard 가 읽지 않는 모양으로 적혀 "
-            "있습니다. 리다이렉션 뒤의 git(`2>/dev/null git …`, `git 2>&1 …`), "
-            "zsh 의 `noglob`·`nocorrect`·`repeat N`·`for i (…)`·`foreach i (…)` "
-            "뒤의 git, 또는 값을 띄어 쓴 `--config-env` 뒤의 git 입니다. "
-            "그래서 어느 트리에서 실행되는지, 다른 세션이 그 트리에서 작업 중인지 "
-            "확인하지 못했습니다. 진행하려면 확인해 주세요. 아니면 이 guard 가 "
-            "읽는 평범한 `git switch …` 나 `git worktree add …` (다른 트리라면 "
-            "`git -C <dir>`) 로 다시 실행하세요.",
-        ),
-    )
 
 
 # RIDER: no production caller reaches this any more. `main` reads the command
@@ -1030,312 +634,15 @@ def judgeable(tokens, where: str, cwd: str):
 def segment_cwd(tokens, cwd: str) -> str:
     """`cwd` with this segment's own `git -C` applied, or `cwd` unchanged.
 
-    Takes the token list `split_command` produced -- the same one `classify`
-    judged. `main()` asks this for the `-C` target of the segment it just
-    classified, so reading both from one tokenization is what keeps the
-    verdict and the tree it is about in agreement.
+    Takes the token list the walk produced -- the same one `shape_of` read.
+    `main()` asks this for the `-C` target of the segment whose shape it just
+    read, so reading both from one tokenization is what keeps the verdict and
+    the tree it is about in agreement.
     """
     parsed = parse_git(tokens)
     if not parsed:
         return cwd
     return apply_chdir(cwd, parsed[2])
-
-
-def _verified(revision: str, cwd: str):
-    """The object name `git rev-parse --verify` gives REVISION in `cwd`, or
-    None where it gives none or cannot run."""
-    try:
-        r = subprocess.run(
-            ["git", "rev-parse", "--verify", "--quiet", revision],
-            cwd=cwd or None,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except Exception:
-        return None
-    if r.returncode != 0:
-        return None
-    return r.stdout.strip() or None
-
-
-def _commit_named(name: str, cwd: str):
-    """The commit NAME names, or None: `<name>^{commit}` first, as at
-    `a3aa139a`, then NAME resolved alone and peeled by its object name, and
-    last NAME read by git's object lookup alone (`_object_named`) and peeled.
-
-    The second step exists because a suffix is not always read as one. A
-    message search (`:/<text>`) takes everything after `:/` as its pattern,
-    so `:/fix^{commit}` searches for a message holding `^{commit}` and finds
-    none, while `git checkout :/fix` detaches at the newest commit whose
-    message matches (#790). An object name holds no syntax a suffix could be
-    absorbed into, so it peels whatever named it.
-
-    The third exists because `rev-parse` reads a word as a range before it
-    reads it as a name (round 1 of 1791163981, 🟡 1): a message search
-    holding `..` is two revisions to it wherever both halves resolve, and one
-    ending in `^!`, `^@` or `^-<n>` can be a commit and its parents. `git
-    checkout` hands the whole word to the object lookup."""
-    found = _verified(f"{name}^{{commit}}", cwd)
-    if found is None:
-        named = _verified(name, cwd) or _object_named(name, cwd)
-        if named is not None:
-            found = _verified(f"{named}^{{commit}}", cwd)
-    return found
-
-
-_OBJECT_NAME = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
-
-
-def _object_named(name: str, cwd: str):
-    """The object NAME names through git's object lookup alone, or None.
-
-    `git cat-file --batch-check` reads each input line as one object name,
-    with no range or parent shorthand read in front of it, which is how `git
-    checkout` reads its name. Where the lookup finds nothing it prints the
-    name and `missing`, which is no object name, and a name holding a newline
-    is two lines, whose two answers are not one object name either."""
-    try:
-        r = subprocess.run(
-            ["git", "cat-file", "--batch-check=%(objectname)"],
-            input=name + "\n",
-            cwd=cwd or None,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except Exception:
-        return None
-    word = r.stdout.strip()
-    return word if _OBJECT_NAME.fullmatch(word) else None
-
-
-def _one_merge_base(name: str, cwd: str) -> bool:
-    """Whether `git checkout NAME` reads NAME as `<a>...<b>` and finds exactly
-    one merge base, as git's `checkout` does: split at the first `...`, an
-    empty side read as `HEAD`. `rev-parse --verify` takes one revision, so no
-    suffix and no peel reads this form."""
-    left, _, right = name.partition("...")
-    sides = [_commit_named(side or "HEAD", cwd) for side in (left, right)]
-    if None in sides:
-        return False
-    try:
-        r = subprocess.run(
-            ["git", "merge-base", "--all", *sides],
-            cwd=cwd or None,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except Exception:
-        return False
-    return r.returncode == 0 and len(r.stdout.split()) == 1
-
-
-def is_ref(name: str, cwd: str) -> bool:
-    """Whether `git checkout NAME` would find a commit for NAME in `cwd`.
-
-    Read the way `git checkout` resolves a name (#790, work item
-    1791163981): every single-revision expression of `gitrevisions(7)` that
-    peels to a commit (`_commit_named`), and the merge-base shorthand
-    `<a>...<b>` where it has exactly one base (`_one_merge_base`). Each step
-    runs only where the one before it said no, so a name `a3aa139a` resolved
-    answers yes with that commit's single call, and nothing it said yes to
-    becomes a no. A form git refuses can still answer yes, which asks about a
-    command that would not have run: `^<rev>`, read as a ref since before
-    #790, is one."""
-    if _commit_named(name, cwd) is not None:
-        return True
-    return "..." in name and _one_merge_base(name, cwd)
-
-
-def tracked_in_any_remote(name: str, cwd: str) -> bool:
-    """Whether a remote-tracking branch under `refs/remotes/` ends in
-    `/<name>`, which is where `git checkout NAME` guesses from when no branch
-    has that name (`--guess`, git's default).
-
-    git guesses from a remote by any name, where this guard used to ask
-    `origin/<name>` alone (#790). git refuses where two remotes hold the name
-    and no `checkout.defaultRemote` picks one, and under `--detach`; this
-    reads neither, so it asks about both, which is the louder direction. A
-    name a longer remote branch ends in (`x` beside `origin/feature/x`) is
-    read too, so a remote whose own name holds a `/` is never missed.
-
-    Where none ends so, the guess is read the way git makes it: each remote's
-    fetch refspec maps `refs/heads/<name>` to the ref it fetches into
-    (`_fetched_as`), and NAME counts where one of those refs exists. A remote
-    whose branches land outside `refs/remotes/`, or under a renaming glob, is
-    guessed from by git, and was silent here (round 1 of 1791163981, 🟡 2)."""
-    if any(ref.endswith("/" + name) for ref in _refs(["refs/remotes/"], cwd)):
-        return True
-    mapped = _fetched_as(name, cwd)
-    return bool(mapped) and any(ref in mapped for ref in _refs(sorted(mapped), cwd))
-
-
-def _refs(patterns, cwd: str):
-    """The refs `git for-each-ref` lists under PATTERNS in `cwd`. A failed
-    listing prints nothing, so it lists nothing."""
-    try:
-        r = subprocess.run(
-            ["git", "for-each-ref", "--format=%(refname)", *patterns],
-            cwd=cwd or None,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except Exception:
-        return []
-    # A ref name holds no newline, and may hold U+0085, U+2028 or U+2029,
-    # which `splitlines` also splits at (#811). The listing ends in a
-    # newline, and the empty word after it is no ref.
-    return [ref for ref in r.stdout.split("\n") if ref]
-
-
-def _fetched_as(name: str, cwd: str) -> set:
-    """The refs `refs/heads/NAME` is fetched into, through every remote's
-    `remote.<remote>.fetch` refspec, as git's checkout guess maps it: an
-    exact source names its destination, a source with one `*` matches what it
-    stands for and puts it in place of the destination's `*`, and a refspec
-    with no `:` maps nothing (a negative refspec has none). The entries are
-    read NUL-separated, because a remote's name can hold a space, which `git
-    remote add` refuses and git's fetch and guess still read (round 2 of
-    1791163981, 🟡 1)."""
-    try:
-        r = subprocess.run(
-            ["git", "config", "-z", "--get-regexp", r"^remote\..*\.fetch$"],
-            cwd=cwd or None,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except Exception:
-        return set()
-    source = "refs/heads/" + name
-    mapped = set()
-    for entry in r.stdout.split("\0"):
-        # No strip: git's config reader has already taken the ASCII
-        # whitespace off, and a ref name may end in a Unicode space that
-        # `str.strip` would remove (#811).
-        spec = entry.partition("\n")[2].lstrip("+")
-        src, colon, dst = spec.partition(":")
-        if not colon:
-            continue
-        if "*" not in src:
-            if src == source:
-                mapped.add(dst)
-            continue
-        head, _, tail = src.partition("*")
-        middle = source[len(head) : len(source) - len(tail)]
-        if source == head + middle + tail:
-            mapped.add(dst.replace("*", middle, 1))
-    return mapped
-
-
-def classify(tokens, cwd: str, base_only: bool = False):
-    """Return a reason string if this segment switches branch or adds a worktree.
-
-    Takes one segment's token list from `split_command`. Quoting is settled
-    there: a quoted sentence is a single token, so it can never present itself
-    here as a command word, and a command the lexer gave up on contributes the
-    tokens it did read rather than nothing at all.
-
-    BASE_ONLY looks a `checkout`'s name up with `a3aa139a`'s lookups alone,
-    `<name>^{commit}` and `origin/<name>^{commit}`, which is how `main` tells
-    a switch the base read from one only #790's lookups read (round 1 of
-    1791163981, 🟡 3). Every other word is read the same either way.
-    """
-    parsed = parse_git(tokens)
-    if not parsed:
-        return None
-    sub, args, chdirs = parsed
-    # `-C` moves the repository this segment reads, so the ref lookups and the
-    # path-exists test below have to follow it.
-    cwd = apply_chdir(cwd, chdirs)
-
-    if sub == "worktree":
-        # Only creation is guarded; list/remove/prune are how you clean up.
-        # The test itself lives in `cmdline.adds_a_worktree`, because
-        # `hooks/worktree_consent.py` asks the same question of a command that
-        # already ran and cannot import this file by name.
-        return "worktree-add" if cmdline.adds_a_worktree(tokens) else None
-
-    # A `switch` or `checkout` is read by its words as git is handed them
-    # (`read_switch_words`, #764 and #738, on the owner's answer of
-    # 2026-10-04): a creating option in any spelling git's option parser
-    # accepts, the names left once every option has taken its value, and
-    # what stands after a `--`. A redirection is no word, so `feature/x>f`
-    # names `feature/x` and `2>/dev/null` names nothing.
-    if sub == "switch":
-        # git switch <branch> / -c <branch> / `-` (previous)  => switches tree
-        creating, names, after = read_switch_words(sub, args)
-        if creating or names or after:
-            return "create+switch" if creating else "switch"
-        return None
-
-    if sub == "checkout":
-        creating, names, after = read_switch_words(sub, args)
-        if creating:
-            return "create+switch"
-        if after:
-            return None  # explicit path restore: a pathspec follows `--`
-        if "-" in names:
-            return "switch"  # previous branch
-        if not names:
-            return None
-        first = names[0]
-        # A `--` with nothing after it (`git checkout <name> --`) only says the
-        # name before it is no file, and git switches to it (round 1 of work
-        # item 1791119071, red 1), so the path test is not asked of it.
-        if after is None and (
-            first == "."
-            or os.path.exists(os.path.join(cwd or ".", first))
-            or os.path.exists(first)
-        ):
-            return None  # restoring a file/dir, not switching branch
-        # The name as `git checkout` resolves it (#790): a revision, a
-        # merge-base shorthand, or a branch guessed from a remote. The
-        # `origin/` lookup is the base's guess, kept beside the wider one so a
-        # name it found is still found by the same call.
-        if base_only:
-            looks_up, guesses = _the_bases_lookup, _no_guess
-        else:
-            looks_up, guesses = is_ref, tracked_in_any_remote
-        if looks_up(first, cwd):
-            return "switch"
-        if looks_up(f"origin/{first}", cwd) or guesses(first, cwd):
-            return "switch"  # DWIM checkout of a remote-only branch
-        # `(git checkout topic)` puts the closing parenthesis on the BRANCH
-        # NAME, so the lookups above ask about `topic)` and find nothing.
-        # Retried only after the name AS WRITTEN has already failed, which is
-        # what keeps a branch that genuinely ends in `)` answering first.
-        # Peeled ONE at a time, longest name first. Stripping every trailing
-        # parenthesis at once took a character off a branch really called
-        # `weird)` as soon as it appeared inside a subshell, so the property
-        # round 2 asked for held only outside one.
-        bare = first
-        while bare.endswith(")"):
-            bare = bare[:-1]
-            if (
-                looks_up(bare, cwd)
-                or looks_up(f"origin/{bare}", cwd)
-                or guesses(bare, cwd)
-            ):
-                return "switch"
-        return None
-
-    return None
-
-
-def _the_bases_lookup(name: str, cwd: str) -> bool:
-    """`a3aa139a`'s `is_ref`: the one `<name>^{commit}` call, which is also
-    the first step of `_commit_named`."""
-    return _verified(f"{name}^{{commit}}", cwd) is not None
-
-
-def _no_guess(name: str, cwd: str) -> bool:
-    """`a3aa139a` guessed from `origin/<name>` alone, which `classify` asks
-    through its lookup; it read no other remote."""
-    return False
 
 
 def ancestors(pid: int):
@@ -2712,8 +2019,8 @@ def judge_creation(
 # treats everything else as a possible switch, judged only where a switch
 # would matter: another session ACTIVE or IDLE in the tree, detection
 # unusable, or tracked changes (`docs/worktree-guard-spec.md` §A rows 1-4).
-# `classify` and the readings are still defined, and `main` no longer reaches
-# them; phase 3 of the work item removes them.
+# Phase 3 of the work item removed the four readings and `classify` with
+# them; nothing in this file looks a name up any more.
 
 # Every git subcommand the recorded runs hold whose plain invocation leaves
 # HEAD's branch where it was. The count beside each is the distinct (command,
@@ -2831,6 +2138,29 @@ def _spoken(tokens) -> str:
     )
 
 
+def _plain_words(words):
+    """WORDS as bash hands them to git once its redirections are off: a word
+    holding `<` or `>` goes, with the word after it where the operator ends
+    the word (a target written apart), and text glued in front of the
+    operator stays as a word of its own (`add>/dev/null` hands git `add`). A
+    number or a `{name}` there is the operator's descriptor and an `&` is
+    `&>`'s, so neither stays. A word holding whitespace was quoted, so its
+    `<` or `>` is the word's own."""
+    out, skip = [], False
+    for word in words:
+        if skip:
+            skip = False
+        elif ("<" in word or ">" in word) and not any(c.isspace() for c in word):
+            head = word[: min(word.find(c) for c in "<>" if c in word)]
+            head = head[:-1] if head.endswith("&") else head
+            if head and not head.isdigit() and not head.startswith("{"):
+                out.append(head)
+            skip = word[-1] in "<>&|!-"
+        else:
+            out.append(word)
+    return out
+
+
 def _restores(args) -> bool:
     """Whether a `checkout`'s words carry a `--` with a path after it.
 
@@ -2840,17 +2170,34 @@ def _restores(args) -> bool:
     git switches to it, so it does not count, and neither does a redirection
     after it: `git checkout x -- >/dev/null` hands git `x --`. A redirection
     written apart from its target takes the next word with it."""
-    if "--" not in args:
-        return False
-    skip = False
-    for word in args[args.index("--") + 1 :]:
-        if skip:
-            skip = False
-        elif "<" in word or ">" in word:
-            skip = word[-1] in "<>&|!-"
-        else:
-            return True
-    return False
+    return "--" in args and bool(_plain_words(args[args.index("--") + 1 :]))
+
+
+# The subcommands whose listing rests on the first word after them, and the
+# word that moves a branch or adds a worktree there.
+_DECIDED_BY = {"worktree": "add", "stash": "branch"}
+
+
+def _hidden_mover(sub, args) -> str:
+    """The redirection that hides `worktree add` or `stash branch` from the
+    frozen reading, or "" where none does.
+
+    The frozen reading takes the first word that is no option as the one
+    that decides, and a redirection can stand there: `git worktree
+    2>/dev/null add` and `git worktree add>/dev/null` create a worktree under
+    bash, and `git stash 2>/dev/null branch x` takes a branch. So where the
+    first word bash hands git is the deciding word and the frozen first word
+    is not, the redirection hid it. `git worktree list>/dev/null` and `git
+    stash 2>/dev/null` hide nothing. An `&`-led operator cuts the segment
+    before it reaches here, and `_merged_findings` reads that group whole."""
+    moving = _DECIDED_BY.get(sub)
+    if moving is None:
+        return ""
+    frozen = [a for a in args if not a.startswith("-")][:1]
+    handed = [w for w in _plain_words(args) if not w.startswith("-")][:1]
+    if handed != [moving] or frozen == [moving]:
+        return ""
+    return next((w for w in args if "<" in w or ">" in w), moving)
 
 
 def _git_finding(tokens, parsed):
@@ -2861,6 +2208,9 @@ def _git_finding(tokens, parsed):
         return "creation", None
     if sub == "switch":
         return "switch", None
+    hidden = _hidden_mover(sub, args)
+    if hidden:
+        return "unrecognised", Finding("redirection", words, hidden)
     if sub == "worktree":
         return "listed", None
     if sub == "checkout":
@@ -2955,15 +2305,31 @@ def shape_of(tokens):
 
 def _merged_findings(items):
     """[(index, finding)] for a git a redirection's `&` cut out of its own
-    segment (`2>&1 git switch x`), read whole by `merged_view`. A group with
-    a part the frozen reading reads as git is that part's, so it is skipped:
-    `git checkout . &>/dev/null` is the frozen `checkout`'s finding."""
+    segment (`2>&1 git switch x`), read whole by `merged_view`.
+
+    A group with a part the frozen reading reads as git is that part's where
+    the part is a switch, a creation or unrecognised: `git checkout .
+    &>/dev/null` is the frozen `checkout`'s finding. Where every such part is
+    listed, the group is read again whole through the same shapes, because
+    the cut can take the word the listing rests on: `git worktree &>/dev/null
+    add ../wt b` is `git worktree` to the frozen reading and a creation to
+    bash. `git status &>/dev/null` is listed either way."""
     if wide is None:
         return []
     out = []
     try:
         for parts, toks in wide.merged_view(items):
-            if any(parse_git(items[p][1]) for p in parts):
+            frozen = [(p, parse_git(items[p][1])) for p in parts]
+            frozen = [(p, parsed) for p, parsed in frozen if parsed]
+            if frozen:
+                if any(_git_finding(items[p][1], f)[0] != "listed" for p, f in frozen):
+                    continue
+                parsed = wide.parse_git(toks)
+                shape, finding = _git_finding(toks, parsed) if parsed else (None, None)
+                if shape in ("switch", "creation"):
+                    finding = Finding(shape, _spoken(toks))
+                if finding is not None:
+                    out.append((parts[-1], finding))
                 continue
             if _wide_git(toks):
                 out.append((parts[-1], Finding("hidden", _spoken(toks))))
@@ -3022,6 +2388,28 @@ def _first_finding_in(body, depth):
     for finding in _command_findings(text, clean, depth):
         return finding
     return None
+
+
+def _finding_tree(tokens, where, cwd):
+    """The directory an unrecognised shape's verdict is about.
+
+    `judgeable`'s, which composes the segment's own `-C` as the frozen
+    reading reads it. A git only the wider reader reads (`2>/dev/null git -C
+    W switch x`) carries a `-C` the frozen reading cannot see, so the wider
+    reading's is composed the same way: the shape is judged in `W`, where it
+    runs, not in the tree it was typed from. A body or an untokenizable
+    command (TOKENS None) is judged in the session's own tree."""
+    if tokens is None:
+        return cwd
+    here, target = judgeable(tokens, where, cwd)
+    if parse_git(tokens) is None and wide is not None:
+        try:
+            parsed = _wide_git(tokens)
+        except (Exception, SystemExit):
+            parsed = None
+        if parsed and parsed[2]:
+            return apply_chdir(here, parsed[2])
+    return target
 
 
 def _sessions(top, session_id, seen):
@@ -3474,13 +2862,20 @@ def main():
     unrecognised.sort(key=lambda found: found[0])
 
     # The stop of `spec.md` In 3, taken before the ladder because it stops
-    # the whole line. Only where the tree the first unrecognised shape names
+    # the whole line. Only where the tree an unrecognised shape names
     # matters: in a clean tree nobody else is in, §A row 5 says nothing of a
-    # switch, and nothing here says more of a shape that might be one.
+    # switch, and nothing here says more of a shape that might be one. Each
+    # shape is judged in the tree its own segment names, first one first, so
+    # one in a clean tree takes no stop away from one behind it in a dirty
+    # tree (`git checkout README.md && 2>/dev/null git -C W switch x`); each
+    # tree is read once, and the stop lists every shape on the line.
     seen = {}
-    if unrecognised:
-        _index, _first, tokens, where = unrecognised[0]
-        at = judgeable(tokens, where, cwd)[1] if tokens is not None else cwd
+    placed = set()
+    for _index, _found, tokens, where in unrecognised:
+        at = _finding_tree(tokens, where, cwd)
+        if at in placed:
+            continue
+        placed.add(at)
         at_top = repo_paths(at)[0]
         if at_top:
             matters, active, idle, reliable, entries = tree_matters(
