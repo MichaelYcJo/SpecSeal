@@ -24,8 +24,10 @@
   count that disagrees with its run in either direction, a run that counted
   past the stop or wrote a fix under it, and a record after the stop with no
   `Reframed` line for it. Notes, confirmations and out-of-scope rows never
-  count, nor does a finding in prose, a code name mentioned beside a
-  document's path, or one the reader cannot place.
+  count, nor does a finding in prose, a code name mentioned beside the path
+  of any non-Python file the repository tracks (a document, a `bin/`
+  wrapper, a `.cmd`, a `Makefile`), a bare name more than one touched file
+  defines, or one the reader cannot place.
 
   Replayed over the committed round records of the four 0.18 releases, with
   the pull request heads fetched (119 of 122 records resolve), the stop

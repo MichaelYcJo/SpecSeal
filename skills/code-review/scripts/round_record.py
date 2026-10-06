@@ -2233,7 +2233,9 @@ COMMISSIONS_NOTHING = (
 # whitespace, backticks and the punctuation that joins prose to a path. Each is
 # asked of the TREE whether it is a file (`names_a_file`), never of a list of
 # extensions — round 2's 🟡 2 of #823 was a `bin/` wrapper, a `.cmd` and a
-# `Makefile` that a fourteen-extension list did not reach.
+# `Makefile` that the fourteen-extension `NAMES_A_FILE_RE` this replaced did
+# not reach. The name stays in this comment because rounds 1 and 2's records
+# cite it.
 CELL_WORD_RE = re.compile(r"[^\s`,;()\[\]]+")
 # What follows a path inside one word: a line, a unit, a hash.
 PATH_TAIL_RE = re.compile(r"::|[:#@]")

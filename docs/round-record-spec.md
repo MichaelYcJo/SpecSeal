@@ -691,10 +691,11 @@ makes, to a top-level Python unit that round K-1's `Fix range` added or changed
 — present at both ends with a different `ast.dump`, so a re-commented unit has
 not changed. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and nor do
 a prose file, a module-level line, a `Location` nothing places, a file only the
-diff-line heuristic reads, and a range of no commits. A cell naming a file is
-about that file, so a backticked name beside it lands only through that path,
-and a bare name only where one file of the range carries it. A range whose ends
-this tree cannot resolve refuses `new` at exit 2 where an open row could land.
+diff-line heuristic reads, and a range of no commits. A cell naming a file the
+tree tracks, with or without `:line`, is about that file: a name beside it lands
+only through a `.py` path, and a bare name only where exactly one file the range
+touched defines it at the target. A range whose ends this tree cannot resolve
+refuses `new` at exit 2 while any row owing a fix is open, wherever it points.
 
 | The value | When |
 |---|---|
