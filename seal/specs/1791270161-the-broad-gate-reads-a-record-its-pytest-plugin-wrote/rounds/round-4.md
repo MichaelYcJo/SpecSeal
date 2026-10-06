@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-5 |
 | Fix range | `70bce95b41a3601ef81a0f03b94cbeb3071cc512..acb85a7408188328f2e32e3a07ac2c0be9efefde`, 6 commits |
 | Contract changes | pytest_make_collect_report → round-4-report.md, round-4.md |
 | New units | UNPLACED_AT_BASE (depth 1); SESSION_WALK_FAILS (depth 1); test_a_failed_collection_of_the_session_itself_is_left_out_and_counted (depth 1); CRASHES_ITS_WORKER (depth 1); test_a_test_whose_worker_crashed_is_recorded_failing_under_its_file (depth 1); test_a_base_record_with_anything_unplaced_turns_only_new_into_new_question (depth 1); test_a_test_whose_worker_crashed_at_the_base_fails_there (depth 1); CRASHES_ITS_WORKER_IN_SETUP (depth 1); test_a_base_record_that_left_a_test_out_gives_no_new (depth 1); test_a_failed_collection_of_the_session_reads_no_word_of_the_root (depth 1) |
