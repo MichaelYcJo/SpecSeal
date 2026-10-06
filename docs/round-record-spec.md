@@ -691,8 +691,10 @@ makes, to a top-level Python unit that round K-1's `Fix range` added or changed
 — present at both ends with a different `ast.dump`, so a re-commented unit has
 not changed. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and nor do
 a prose file, a module-level line, a `Location` nothing places, a file only the
-diff-line heuristic reads, and a range of no commits. A range whose ends this
-tree cannot resolve refuses `new` at exit 2.
+diff-line heuristic reads, and a range of no commits. A cell naming a file is
+about that file, so a backticked name beside it lands only through that path,
+and a bare name only where one file of the range carries it. A range whose ends
+this tree cannot resolve refuses `new` at exit 2 where an open row could land.
 
 | The value | When |
 |---|---|
@@ -701,7 +703,8 @@ tree cannot resolve refuses `new` at exit 2.
 | `second — <the same>; the fix passes stop here and the work item goes back to its framer` | something lands, and an earlier record of the run reads `first` |
 
 A **run** is the records from round 1, or from the record after the last
-`second`, up to and including the next `second`. At `second`, `new` prints the
+`second`, up to and including the next `second`; the depth walk reads one too.
+At `second`, `new` prints the
 stop and no fix pass runs: the open findings close `deferred the frame`, and
 `new` refuses the next record until `spec.md`'s foot carries `Reframed <date>
 by <who>, after round <N>.` under the `Framed` line.
@@ -717,6 +720,8 @@ item back to its framer* owns that rule and its exit.
 | no row, begun before it or with no timestamp prefix | prints |
 | empty, a bare `first` or `second`, or any other word | **fails**, at any age |
 | the second landing of a run reading `first` | **fails** — the count says `second` |
+| a `second` with no landing before it in its run, which cuts nothing | **fails** — the count says `first` |
+| `first` or `second` on a run's first record — round 1, or after a stop | **fails** — no fix pass of the run precedes it |
 | a third landing in one run | **fails**, naming the record it went past |
 | a `second` whose verdicts closed on a fix | **fails** — a fix pass ran after the stop |
 | the first record after a `second`, with no `Reframed … after round <N>.` naming it | **fails** |

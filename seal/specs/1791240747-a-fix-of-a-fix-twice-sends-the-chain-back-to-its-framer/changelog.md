@@ -16,17 +16,20 @@
   with the run's round records. The next record is refused until the framer
   has added `Reframed <date> by <who>, after round <N>.` under the `Framed`
   line of `spec.md`, and the redesign's rounds start a new run: the floor, the
-  printed bound and the count do not reach back across the stop.
+  printed bound, the count and the depth of new units do not reach back
+  across the stop.
 
   `chain-check` refuses, for work items begun from this release, a record
-  without the row, a value outside `no`, `first — …` and `second — …`, a run
-  that counted past the stop or wrote a fix under it, and a record after the
-  stop with no `Reframed` line for it. Notes, confirmations and out-of-scope
-  rows never count, nor does a finding in prose or one the reader cannot
-  place.
+  without the row, a value outside `no`, `first — …` and `second — …`, a
+  count that disagrees with its run in either direction, a run that counted
+  past the stop or wrote a fix under it, and a record after the stop with no
+  `Reframed` line for it. Notes, confirmations and out-of-scope rows never
+  count, nor does a finding in prose, a code name mentioned beside a
+  document's path, or one the reader cannot place.
 
-  Replayed over every committed round record whose fix range this clone
-  still carries (83 records of 57 work items, at the `v0.18.0` and `v0.18.3`
-  tags), the stop would have reached 18 work items, #814 and #801 among
-  them, both at round 3. That count is the repository owner's to weigh
-  against a finer grain; `questions.md` of the work item holds the numbers.
+  Replayed over the committed round records of the four 0.18 releases, with
+  the pull request heads fetched (119 of 122 records resolve), the stop
+  would have reached 26 of 64 work items, #814 and #801 among them, both at
+  round 3. A reviewer opened 11 of those stops: 10 were real fixes of fixes,
+  one a defect written by the fix pass before the previous one, and none a
+  false stop.

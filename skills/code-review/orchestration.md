@@ -275,9 +275,10 @@ spends on a redesign instead.
 
 **A record after the stop is the redesign's, not a later round of the run.**
 Everything that counts records starts over past a `second` — the floor, the
-bound `new` prints, this count, and the round cap — so the redesign's own
-finding round and verifying round are not refused for following a floor the
-stopped run had met.
+bound `new` prints, this count, the depth in `New units`, and the round cap —
+so the redesign's own finding round and verifying round are not refused for
+following a floor the stopped run had met, and a unit the stopped run added is
+no depth-1 parent of the redesign's units.
 
 What it cannot see, stated rather than left to be found: a landing it cannot
 place counts as none — a prose file, a module-level line, a `Location` nothing
