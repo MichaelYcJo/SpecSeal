@@ -1874,14 +1874,16 @@ class RunRecord:
     the order the records first name it; `collected` every file any line
     names. A file is its path made relative to the run's worktree and
     spelled with `/`, or its absolute path where it lies outside the
-    worktree. `skipped` counts lines that did not parse.
+    worktree. `skipped` counts lines that did not parse. `unplaced` sums the
+    `end` lines' counts of the tests and collections the recorder wrote as
+    no line, for want of a file of their own (#825's reframe after round 3).
 
     Named apart from `Record`, which is a round record's home (#666)."""
 
-    __slots__ = ("collected", "failing", "sessions", "skipped")
+    __slots__ = ("collected", "failing", "sessions", "skipped", "unplaced")
 
     def __init__(self):
-        self.sessions, self.skipped = 0, 0
+        self.sessions, self.skipped, self.unplaced = 0, 0, 0
         self.failing, self.collected = {}, set()
 
 
@@ -1917,10 +1919,12 @@ def read_record(directory, key, worktree):
     Every line naming a path is a test or a failed collection, and its
     `outcome` says whether it failed. A file's lines are read as a set —
     xdist's controller is handed one failed collection once per worker
-    (`phases/phase-1.md` of 1791270161) — and nothing is counted. Files are
+    (`phases/phase-1.md` of 1791270161) — and no test or collection is
+    counted. Files are
     read in the order they were last written, so where a row runs pytest
     twice the first runner's files come first. A directory that cannot be
-    listed, or a file that cannot be read, holds no record."""
+    listed, or a file that cannot be read, holds no record. An `end` line's
+    `unplaced`, where it is an integer, is added to the record's."""
     record = RunRecord()
     try:
         names = os.listdir(directory)
@@ -1954,6 +1958,9 @@ def read_record(directory, key, worktree):
             continue
         record.sessions += 1
         for value in parsed[1:]:
+            unplaced = value.get("unplaced")
+            if value.get("kind") == "end" and type(unplaced) is int:
+                record.unplaced += unplaced
             path_of = value.get("path")
             if not isinstance(path_of, str):
                 continue
@@ -2010,18 +2017,27 @@ EARNS_THE_WORD = (
     "hands it rather than replacing them, and runs pytest in that "
     "environment rather than one it builds, through any wrapper"
 )
+# What a missing record means, said by both reasons: either cause, never one
+# of them as the only one (#825 round 3's 🟡 3). The recorder's warning is
+# `specseal_pytest_record: no record written: <error>`.
+NO_RECORD_CAUSES = (
+    "none loaded it, or the one that did could not write its record and "
+    "warned 'specseal_pytest_record: no record written' in {kept}"
+)
 # Where the row's run at `HEAD` left no record carrying its key: the files
 # come from the `FAILED` lines of `suite.txt`, and the base is not run.
 NO_RECORD_AT_HEAD = (
-    f"{NOT_MEASURED}: no pytest the row ran here loaded the gate's recorder, "
-    "so this file is named only by a FAILED line of suite.txt and the base "
-    f"was not run. {EARNS_THE_WORD}"
+    f"{NOT_MEASURED}: no pytest the row ran here left a record of the gate's "
+    f"recorder ({NO_RECORD_CAUSES.format(kept='suite.txt')}), so this file is "
+    "named only by a FAILED line of suite.txt and the base was not run. "
+    f"{EARNS_THE_WORD}"
 )
 # Where the row's run at the base left no record carrying the base's key.
 NO_RECORD = (
     f"{NOT_MEASURED}: the row ran once at the base, and no pytest it ran there "
-    "loaded the gate's recorder (kept as suite-at-base.txt, with records/ "
-    f"beside it). {EARNS_THE_WORD}"
+    "left a record of the gate's recorder "
+    f"({NO_RECORD_CAUSES.format(kept='suite-at-base.txt')}; records/ is beside "
+    f"it). {EARNS_THE_WORD}"
 )
 # Formatted with the exit of the row's run at the base, where no session of
 # that run collected the file and the run did not exit 0 (`questions.md` Q1
@@ -2922,10 +2938,16 @@ def panel(
     return [(label, fit(value)) for label, value in rows]
 
 
-def failure_lines(check, verdicts=None):
+def failure_lines(check, verdicts=None, unplaced=0):
     """What the failure form quotes for one check: its first lines, the
     FAILED lines with their base verdict where there are any, the exit code,
     and the file holding the rest.
+
+    **Where the record at `HEAD` left tests or collections out, it says how
+    many** (#825's reframe after round 3). `unplaced` is the head record's
+    count of them — a test with no file of its own, a report a plugin built
+    without its path — and each is in no list above, so a person reading the
+    list alone would not know they ran.
 
     **A failing `suite` whose output holds no pytest summary says so** (#448).
     Its exit code alone reads as tests failing, and it is equally what a
@@ -2942,10 +2964,9 @@ def failure_lines(check, verdicts=None):
     """
     lines = [f"exit {check.code}", *check.first_lines()]
     if verdicts:
-        # Where no pytest at `HEAD` loaded the recorder the base is not run,
-        # and every row says so; nor is it where the base could not be
-        # checked out. The heading does not claim otherwise (#825 rounds 1
-        # and 2).
+        # Where no pytest at `HEAD` left a record the base is not run, and
+        # every row says so; nor is it where the base could not be checked
+        # out. The heading does not claim otherwise (#825 rounds 1 and 2).
         words = set(verdicts.values())
         if words == {NO_RECORD_AT_HEAD}:
             lines.append(NAMED_BY_FAILED_LINES)
@@ -2954,6 +2975,8 @@ def failure_lines(check, verdicts=None):
         else:
             lines.append(COMPARED_AT_BASE)
         lines.extend(f"  {f}  {word}" for f, word in verdicts.items())
+    if unplaced:
+        lines.append(UNPLACED.format(count=unplaced))
     if check.name == SUITE:
         counts = suite_counts(check.text)
         lines.append(counts or NO_SUMMARY)
@@ -2966,7 +2989,7 @@ def failure_lines(check, verdicts=None):
 
 
 # The heading over a failing suite's files: compared at the base, named by
-# `FAILED` lines alone where no pytest at `HEAD` loaded the recorder, or not
+# `FAILED` lines alone where no pytest at `HEAD` left a record, or not
 # compared because the base could not be checked out.
 COMPARED_AT_BASE = "failing test files, compared at the base:"
 NAMED_BY_FAILED_LINES = (
@@ -2974,6 +2997,16 @@ NAMED_BY_FAILED_LINES = (
 )
 BASE_NOT_CHECKED_OUT = (
     "failing test files, not compared: the base could not be checked out:"
+)
+
+# The line under the listing where the record at `HEAD` counted tests or
+# collections it wrote as no line, formatted with the count.
+UNPLACED = (
+    "{count} of the tests and collections the row's pytest reported had no "
+    "file of their own and are in no list: a test a conftest or a plugin "
+    "parents to the session or to a directory, or a report a plugin built "
+    "without its path (counted as unplaced on the end line of each record "
+    "under records/)"
 )
 
 # The line a failing `suite` gets where its output carries no pytest summary.
@@ -3260,20 +3293,21 @@ def gate(args, console_wants_letters, terminal=False):
     for name, check in checks.items():
         if not check.failed:
             continue
-        verdicts = None
+        verdicts, unplaced = None, 0
         if name == SUITE:
             # The failing files come from the record the row's pytest wrote
-            # here. Where no pytest loaded the recorder there is nothing to
+            # here. Where no pytest left a record there is nothing to
             # compare, so the `FAILED` lines only name the files, and the base
             # is not run (#825).
             head = read_record(records_dir(keep), head_key, root)
+            unplaced = head.unplaced
             if head.sessions:
                 files = list(head.failing)
                 if files:
                     verdicts = compare_at_base(root, base.commit, command, files, keep)
             else:
                 verdicts = {f: NO_RECORD_AT_HEAD for f in failing_files(check.text)}
-        failures.append((name, failure_lines(check, verdicts)))
+        failures.append((name, failure_lines(check, verdicts, unplaced)))
     # The preflight's ask (#702), after the arms and whatever they found, so
     # a chain refusal and a `seal` refusal are both named in one run. It is
     # NOT an arm: it mirrors no CI step, so it is no `checks[...] = run(...)`

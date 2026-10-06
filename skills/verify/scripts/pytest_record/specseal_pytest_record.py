@@ -49,7 +49,8 @@ What it leaves out, and counts. A test whose node's path is a directory --
 an item a conftest or a plugin parents to the session or to a directory --
 has no file of its own, and a report that reaches the recorder without the
 path -- one a plugin built or rebuilt itself -- names none. Neither is
-written; each node is counted once on the `end` line. A file that is gone is still named: a module that removes its own
+written; each node is counted once on the `end` line, and the gate says the
+count under its list of failing files. A file that is gone is still named: a module that removes its own
 file while it runs keeps its failing line.
 
 It never changes an outcome, never raises out of a hook, and runs none of

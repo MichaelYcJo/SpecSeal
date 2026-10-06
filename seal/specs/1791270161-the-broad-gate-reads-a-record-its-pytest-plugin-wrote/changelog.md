@@ -20,13 +20,15 @@
     cannot collect it;
   - `new` where the base's run collects the file and passes it, or runs to
     exit 0 without collecting it;
-  - `new?` where no pytest at the base loaded the recorder, or where the
-    base's row exited non-zero before any of its pytest sessions collected
-    the file. The second is also how a file the branch added reads on a base
+  - `new?` where no pytest at the base left a record, because none loaded
+    the recorder or the one that did could not write its record, or where
+    the base's row exited non-zero before any of its pytest sessions
+    collected the file. The second is also how a file the branch added reads on a base
     whose row already fails.
 
-  Where no pytest of the row loaded the recorder at all, the `FAILED` lines
-  name the files, each reads `new?`, and the base is not run. The kept output
+  Where no pytest of the row left a record at all, the `FAILED` lines name
+  the files, each reads `new?`, and the base is not run. The reason printed
+  beside each such file names both causes. The kept output
   holds `suite-at-base.txt` and the records under `records/`.
 
 - **Rows 0.18.3 refused to measure now get a measured word.** A row that runs
@@ -65,7 +67,8 @@
   made from the path could give two files one name. A test with no file of
   its own, which a conftest or a plugin attaches to the session or to a
   directory, and a report a plugin rebuilt without the path are left out of
-  every list and counted on the record's `end` line.
+  every list and counted on the record's `end` line, and the gate says how
+  many under the failing files.
 
 ### Fixed
 
