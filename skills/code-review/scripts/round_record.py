@@ -2365,13 +2365,13 @@ def landings(reader, root, target, keyed, previous):
     `keyed` is the report's verdict rows as `verdict_rows` keys them; the open
     ones are the rows `close` will demand a fix-table row for. `previous` is
     `(K-1, path)` of the record before this one, or None for round 1. Each
-    `Location` is resolved at THIS round's target through `location_units`,
-    the reading the depth walk already makes, and of what it returns only the
-    pairs placed through a `.py` path the cell itself carries count —
-    `path:line`, `path#unit`, `path::unit`.
+    `Location` is resolved at THIS round's target through `location_units`
+    with `paths_only`, so only a code span or word that is wholly
+    `path:line`, `path#unit` or `path::unit` (`path_forms`) counts.
 
     Lands nowhere: a row whose severity commissions no fix
-    (`COMMISSIONS_NOTHING`); a name with no `.py` path, backticked or bare,
+    (`COMMISSIONS_NOTHING`); a `#name` apart from its path, and a path that
+    is the tail of a longer token; a name with no `.py` path, backticked or bare,
     whatever stands beside it — a document, a wrapper, a basename the tree
     holds twice, a path it does not hold (the reframe after round 3, the
     comment above `fof_count_of`); a module-level line; a `Location` the
