@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #843 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `5bc0a48f59b605a96a083aa3fafd8a920ede62d6..149ef480cd6b50d75d9c5e65ab44b5635fa812b9`, 5 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | yes — 🟡 1, a table or a footnote definition directly under the statement still stays exempt from the sweep. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,11 +25,11 @@ Round 1 of the chain the owner chose on 2026-10-06 (`routing.md`, answered again
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The widened span end misses two blocks cmark-gfm starts directly under a paragraph: a table (a line over a delimiter row) and a footnote definition; the old word in either stays exempt, against the §12 class `spec.md` §*Grounding* claims | `tests/test_one_word_one_meaning.py:737` | open | executed: cmark-gfm renders `<p>` then `<table>` for three table plants and closes the paragraph at a footnote definition; all four green through the span function at base and at HEAD; the fence turns them red, keeps the continuation line and the baseline green, and the module passes (21) |
-| ⬜ 2 | R6's re-read row says the span ends at the end of the paragraph, and the changelog says the check sweeps whatever follows; both are one shape short while 🟡 1 stands | `seal/ledger/1791270163-the-signer-sweeps-leftovers-from-the-second-check.md:3` | open | read, with 🟡 1's plants executed; a correction to the run's paperwork, not counted in `Needs a fix` |
-| ⬜ 3 | The overview's Not verified table names the broad gate's and survivor-check's answerers from the first routing answer, which `routing.md` has since replaced | `seal/specs/1791270163-the-signer-sweeps-leftovers-from-the-second-check/overview.md:24` | open | read against `routing.md`; a correction to the run's paperwork, not counted in `Needs a fix` |
-| ⬜ 4 | No case pins the glued quote for a review record, which `spec.md` S2 states | `tests/test_a_signer_declares_its_pact.py:1257` | open | executed: `pact_reviews` quotes `\|Signatory\|Change\|Verdict\|` as written and reads the row under it; `grep` finds no case for it |
-| ⬜ 5 | The `glued` list re-splits the text per glued row and tests `holds_old` per row inside the comprehension | `hooks/config.py:1350` | open | read; cleanup, no behaviour changes |
+| 🟡 1 | The widened span end misses two blocks cmark-gfm starts directly under a paragraph: a table (a line over a delimiter row) and a footnote definition; the old word in either stays exempt, against the §12 class `spec.md` §*Grounding* claims | `tests/test_one_word_one_meaning.py:737` | **fixed** `5ed7503e` | fixed at 5ed7503e; executed: cmark-gfm renders `<p>` then `<table>` for three table plants and closes the paragraph at a footnote definition; all four green through the span function at base and at HEAD; the fence turns them red, keeps the continuation line and the baseline green, and the module passes (21) |
+| ⬜ 2 | R6's re-read row says the span ends at the end of the paragraph, and the changelog says the check sweeps whatever follows; both are one shape short while 🟡 1 stands | `seal/ledger/1791270163-the-signer-sweeps-leftovers-from-the-second-check.md:3` | **fixed** `6365df4b` | fixed at 6365df4b; read, with 🟡 1's plants executed; a correction to the run's paperwork, not counted in `Needs a fix` |
+| ⬜ 3 | The overview's Not verified table names the broad gate's and survivor-check's answerers from the first routing answer, which `routing.md` has since replaced | `seal/specs/1791270163-the-signer-sweeps-leftovers-from-the-second-check/overview.md:24` | **fixed** `53649c22` | fixed at 53649c22; read against `routing.md`; a correction to the run's paperwork, not counted in `Needs a fix` |
+| ⬜ 4 | No case pins the glued quote for a review record, which `spec.md` S2 states | `tests/test_a_signer_declares_its_pact.py:1257` | **fixed** `6ab8fedf` | fixed at 6ab8fedf; executed: `pact_reviews` quotes `\|Signatory\|Change\|Verdict\|` as written and reads the row under it; `grep` finds no case for it |
+| ⬜ 5 | The `glued` list re-splits the text per glued row and tests `holds_old` per row inside the comprehension | `hooks/config.py:1350` | answered | a cleanup with no behaviour change, left out of the fix pass by the orchestrator so that the verifying round reads only the four fixes; the comprehension stays as it is; read; cleanup, no behaviour changes |
 | 🟢 | the second check's ⬜ 1 is closed for the six blocks it named | `tests/test_one_word_one_meaning.py:737` | confirmed | executed: list item, block quote, fence, `***`, `div` and `---` plants green with the base module and red at HEAD; the continuation line green both times; the remainder is 🟡 1 |
 | 🟢 | the second check's ⬜ 2 is closed — the filter's position is pinned | `tests/test_a_signer_declares_its_pact.py:1278` | confirmed | executed: the S4 case fails with the filter moved inside the `if holds_old and not any(…)` branch (the glued header returns as an entry), passes at HEAD |
 | 🟢 | the second check's ⬜ 3 is closed — the glued line is quoted as written | `hooks/config.py:1369` | confirmed | executed: the S4 case fails with the base reader, with the quote rebuilt from the cells, and with the strip removed; `\|Signatory\|`, an indented line and CRLF text all quote as written through `pact_signers`; the four other pact modules 776 passed |
