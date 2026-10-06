@@ -2430,13 +2430,14 @@ def landings(reader, root, target, keyed, previous):
     tracked = tracked_at(root, target)
     found = []
     for label, location in open_rows:
-        # The reframe after round 3: only a pair `location_units` placed
-        # through a `.py` path the cell carries can land. A name with no path
-        # lands nowhere, whatever stands beside it — no prose is read to
-        # decide otherwise.
-        for rel, unit in location_units(reader, root, target, location, tracked):
-            if rel is None:
-                continue
+        # The reframe after round 3, and round 4's class: only a token that is
+        # wholly `path:line`, `path#unit` or `path::unit` can land, its path
+        # and its place written together. A name with no path, a `#name`
+        # standing apart from its path, and a path that is the tail of a
+        # longer token land nowhere — no prose is read to decide otherwise.
+        for rel, unit in location_units(
+            reader, root, target, location, tracked, paths_only=True
+        ):
             landing = (label, rel, unit, units.get((rel, unit)))
             if landing[3] is not None and landing not in found:
                 found.append(landing)
@@ -2943,6 +2944,25 @@ LOCATION_LINE_RE = re.compile(r"([\w./-]+\.py):(\d+)")
 FRAGMENT_RE = re.compile(r'(?<![\w./\-"#])#([A-Za-z_]\w*)')
 IDENTIFIER_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
 BARE_IDENTIFIER_RE = re.compile(r"^([A-Za-z_]\w*)(?:\(\))?$")
+# The three forms a fix-of-a-fix landing is read from (#823), matched against
+# a WHOLE token and never searched for inside one: `path:line` (a range after
+# it allowed), `path#unit` and `path::unit` (a `()` and an `@hash` after it
+# allowed). A token is a code span's whole content, or a whitespace-separated
+# word outside the spans with the punctuation that ends a clause stripped. So
+# `pkg\mod.py:5`, `a+mod.py:5` and a span reading `my mod.py:5` are no
+# `mod.py` — the path is the token's tail, not the token (round 4's 🟡 2) —
+# and a `#name` standing apart from its path is no form at all (🟡 1).
+# The range dash is built by codepoint, as `DASH` is: an en dash in a literal
+# is what ruff's RUF001 reads as a mistyped hyphen.
+PATH_FORM_RE = re.compile(
+    r"([\w./-]+\.py)"
+    r"(?::(\d+)(?:[-" + chr(0x2013) + r"]\d+)?"
+    r"|(?:#|::)([A-Za-z_]\w*)(?:\(\))?(?:@[0-9a-f]+)?)"
+)
+CODE_SPAN_RE = re.compile(r"`([^`]+)`")
+# What ends a clause around a word outside the spans. A closing parenthesis is
+# stripped only where the word opened none of its own, so `u()` keeps its `()`.
+CLAUSE_END = ".,;:"
 # A finding id is a bare integer, optionally behind a severity marker. #227:
 # the id used to be the FIRST digit run anywhere in the cell, so `R2-1` and
 # `R2-2` both read as `2` and eight round-prefixed findings collapsed toward
@@ -3963,7 +3983,7 @@ def resolve_path(rel, tracked):
     return ends[0] if len(ends) == 1 else None
 
 
-def location_units(reader, root, a, text, tracked):
+def location_units(reader, root, a, text, tracked, paths_only=False):
     """[(path or None, unit)] the `Location` cell of a finding names.
 
     Every path is resolved against `tracked`, the tree at `a` where the fix
@@ -3972,7 +3992,15 @@ def location_units(reader, root, a, text, tracked):
     at `a`. A backticked identifier, with or without `()`, or a cell that
     is one bare identifier, names a unit and no file, and the caller finds
     the file among the ones the range touched.
+
+    `paths_only` is `landings`' reading and not the depth walk's (round 4 of
+    #823): only a token that IS one of the three path forms (`PATH_FORM_RE`)
+    places a unit, its path and its unit or line written together. A fragment
+    borrowing the last path the cell resolved, a backticked or bare name, and
+    a path that is the tail of a longer token place nothing.
     """
+    if paths_only:
+        return path_forms(reader, root, a, text, tracked)
     visible = reader.visible(text)
     out, last = [], None
     for m in LOCATION_UNIT_RE.finditer(visible):
@@ -3992,6 +4020,40 @@ def location_units(reader, root, a, text, tracked):
     m = BARE_IDENTIFIER_RE.match(visible)
     if m:
         out.append((None, m.group(1)))
+    return out
+
+
+def path_forms(reader, root, a, text, tracked):
+    """[(path, unit)] for every token of the cell that is wholly a path form.
+
+    A token is a code span's whole content, or a word outside the spans with
+    `CLAUSE_END` stripped from its end; it counts only where `PATH_FORM_RE`
+    matches ALL of it, so a `.py` path that is a suffix of the token is not
+    read. The path resolves as `location_units` resolves one, and a line to
+    the top-level unit holding it at `a`.
+    """
+    visible = reader.visible(text)
+    tokens = CODE_SPAN_RE.findall(visible) + CODE_SPAN_RE.sub(" ", visible).split()
+    out = []
+    for token in tokens:
+        token = token.strip().lstrip("(").rstrip(CLAUSE_END)
+        if token.endswith(")") and token.count(")") > token.count("("):
+            token = token[:-1].rstrip(CLAUSE_END)
+        m = PATH_FORM_RE.fullmatch(token)
+        if m is None:
+            continue
+        rel = resolve_path(m.group(1), tracked)
+        if rel is None:
+            continue
+        if m.group(3):
+            unit = m.group(3)
+        else:
+            module = parse_module(reader.show(root, a, rel))
+            unit = (
+                enclosing_unit(top_units(module), int(m.group(2))) if module else None
+            )
+        if unit and (rel, unit) not in out:
+            out.append((rel, unit))
     return out
 
 

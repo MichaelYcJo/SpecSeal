@@ -303,6 +303,18 @@ def with_named_files(repo):
         "`gone.md`, which names `u`",
         '"bin/tool" calls `u`',
         "bin/tool's `u`",
+        # Round 4's 🟡 1: a `#name` fragment standing apart from its path
+        # borrows the last path the cell resolved, so what stands beside it
+        # would decide the place. It is a mention.
+        "`mod.py#v`; see #w",
+        "`f.py#x` and `#w`, beside `mod.py#v`",
+        # Round 4's 🟡 2, and its class: a `.py` path that is only the TAIL of
+        # the token it stands in — after a backslash, a `+`, or a space inside
+        # one code span — is not that path, and lands neither on the file its
+        # tail names nor anywhere else.
+        "`pkg\\mod.py:5`",
+        "`a+mod.py:5`",
+        "`my mod.py:5`",
     ],
 )
 def test_a_location_that_lands_in_no_written_unit_reads_no(repo, location):
@@ -323,6 +335,13 @@ def test_a_location_that_lands_in_no_written_unit_reads_no(repo, location):
         "`mod.py::u`",
         "`mod.py:5`, called from `bin/tool`",
         "`mod.py#u`, as `README.md` describes",
+        # The whole-token reading keeps what the records write: a line range,
+        # a `./` prefix, a `()` after the unit, and a path outside a code span.
+        "`mod.py:4-5`",
+        "`./mod.py:5`",
+        "`mod.py#u()`",
+        "mod.py:5, the return value",
+        "the return value (mod.py:5).",
     ],
 )
 def test_a_location_carrying_its_py_path_still_lands(repo, location):
@@ -529,11 +548,17 @@ def test_a_reframed_record_is_written_and_starts_the_count_at_no(repo, touched):
     `u` — the unit round 2's fixes wrote — reads `no`, because round 3 wrote
     no fixes for it to land in. `touched` is the same with a code commit in
     the stop's range: a `second` is the end of its run whatever its range
-    holds, so the redesign's first record starts the count at `no`."""
+    holds, so the redesign's first record starts the count at `no`.
+
+    The finding is located by its path, `mod.py#u`, which is a landing
+    `landings` would accept: located by a bare `u` since the reframe after
+    round 3, it landed nowhere anyway and pinned no guard (round 4's 🟡 3)."""
     stopped(repo, touched)
     write(repo, f"{ITEM}/spec.md", "# a spec\n\n" + FRAMED + REFRAMED)
     commit(repo, "the frame, redrawn")
-    code, out, text = generate(repo, n=4, report_text=round_report(finding("`u`")))
+    code, out, text = generate(
+        repo, n=4, report_text=round_report(finding("`mod.py#u`"))
+    )
     assert code != 2, out
     assert text is not None, out
     assert row(text) == "no"
