@@ -12,6 +12,10 @@ on:
     # no `synchronize` fires, nothing re-runs, and the draft's green stays on
     # that SHA through the merge. Two clicks, no commit.
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  # A pushed branch measured without a pull request (#841): a branch whose
+  # routing stops before the pull request runs nothing on push, and the
+  # Windows leg's own `--durations` table is the only per-case figure for it.
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -60,8 +64,13 @@ jobs:
       # inside them. The spawn count does not vary by platform; the price of
       # one spawn does: 7ms on ubuntu, 22ms on macOS, 60ms on windows, where
       # there is no `fork`, Defender scans each new image, and `git` carries an
-      # MSYS2 runtime per invocation. That is the whole of why the windows leg
-      # took 198s against ubuntu's 24s. Nothing is shared between tests -- each
+      # MSYS2 runtime per invocation. Those figures, and the windows leg's 198s
+      # against ubuntu's 24s that they explained, are from the suite as it
+      # stood then; by 2026-10-06 the windows job took 37-40 minutes. The
+      # current per-case figures are each leg's own `--durations` table below,
+      # recorded with their run ids in
+      # `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/phases/phase-1.md`.
+      # Nothing is shared between tests -- each
       # builds its own repository under `tmp_path` -- so the spawns can be run
       # several at a time, and the workers scale with whatever cores the runner
       # has rather than with a number written here.
@@ -77,7 +86,9 @@ jobs:
       - run: |
           git config --global user.email ci@ci
           git config --global user.name ci
-      - run: pytest tests/ -q -n auto
+      # `--durations=50`: each leg prints its own slowest cases, so a figure
+      # for one operating system is read off that operating system (#841).
+      - run: pytest tests/ -q -n auto --durations=50
 
   # The plugin's headline check, run against the plugin. A coordinate that
   # stopped resolving fails; drift is reported and does not. Drift means the
