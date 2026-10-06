@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #845 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `c84ac48ed82305b55efde9dfd13ed1aa5b904434..254130b0f490913b28066608e3bbd1d685eb664a`, 3 commits |
 | Contract changes | a_stopped_run → round-1-report.md, round-1.md; test_a_call_over_the_ceiling_is_named_with_its_seconds → pytest only; test_a_call_at_or_under_the_ceiling_says_nothing → pytest only |
 | New units | CASE_CEILING_DEFAULT_S (depth 1); CEILING_VARIABLE (depth 1); _stopped_untouched (depth 1); _stopped_touched (depth 1); ceiling_read_by_a_fresh_import (depth 1); test_the_variable_raises_the_ceiling_for_one_run_and_unset_is_ninety (depth 1) |
