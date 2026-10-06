@@ -251,12 +251,31 @@ def test_a_finding_inside_a_unit_the_fixes_added_says_added(repo):
         "`mod.py#v`",
         # A path this tree does not carry.
         "`nowhere.py:3`",
+        # Round 1's 🟡 1: a prose file whose sentence names the unit the fixes
+        # changed, and one naming the unit they added.
+        "`README.md:1`, which describes `u`",
+        "`README.md`, the sentence about `w()`",
+        # The same beside a `.py` file the range did not touch.
+        "`f.py:1`, called from `u`",
     ],
 )
 def test_a_location_that_lands_in_no_written_unit_reads_no(repo, location):
     code, out, text, _ = two_rounds(repo, location)
     assert code != 2, out
     assert row(text) == "no", (location, row(text))
+
+
+def test_a_bare_name_two_files_of_the_range_carry_does_not_land(repo):
+    """Round 1's 🟡 1, its other half: a bare name lands only where it
+    resolves to one file of the range. Here round 1's fix changes `u` in
+    `mod.py` and adds another `u` in `other.py`."""
+    declared(repo)
+    _code, _out, _text, a = a_round(repo, 1, ROUND_1)
+    write(repo, "other.py", "def u():\n    return 0\n")
+    fixed(repo, 1, a, MOD_FIXED, [1])
+    code, out, text, _ = a_round(repo, 2, finding("`u`"))
+    assert code != 2, out
+    assert row(text) == "no", row(text)
 
 
 def test_a_finding_the_report_already_closed_does_not_land(repo):
@@ -312,9 +331,9 @@ def test_a_fix_range_of_no_commits_lands_nowhere(repo):
 # --- S6, the unresolvable range ---------------------------------------------
 
 
-def test_a_fix_range_this_tree_does_not_carry_is_refused(repo):
-    """S6. `new` counts from the previous range, and it runs where `close`
-    ran; ends this tree cannot resolve mean the wrong tree."""
+def foreign_range(repo):
+    """Round 1 closed, then its `Fix range` rewritten to commits this tree
+    does not carry."""
     declared(repo)
     _code, _out, _text, a = a_round(repo, 1, ROUND_1)
     fixed(repo, 1, a, MOD_FIXED, [1])
@@ -328,11 +347,30 @@ def test_a_fix_range_this_tree_does_not_carry_is_refused(repo):
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     commit(repo, "a range from somewhere else")
+
+
+def test_a_fix_range_this_tree_does_not_carry_is_refused(repo):
+    """S6. `new` counts from the previous range, and it runs where `close`
+    ran; ends this tree cannot resolve mean the wrong tree."""
+    foreign_range(repo)
     code, out, text = generate(repo, n=2, report_text=round_report(finding("`u`")))
     assert code == 2, out
     assert text is None, "a refused record was written"
     assert "`deadbeef..cafebabe`" in out, out
     assert "the wrong tree to count in" in out, out
+
+
+def test_a_foreign_range_with_no_open_row_reads_no(repo):
+    """Round 1's ⬜ 3. With nothing open, nothing lands whatever the range
+    holds, so a range this tree cannot resolve decides nothing and refuses
+    nothing."""
+    foreign_range(repo)
+    code, out, text = generate(
+        repo, n=2, report_text=round_report(finding("`u`", verdict="withdrawn"))
+    )
+    assert code != 2, out
+    assert text is not None, out
+    assert row(text) == "no"
 
 
 # --- S7, no record after the stop without a reframe -------------------------
@@ -385,6 +423,26 @@ def test_a_reframe_naming_another_round_does_not_permit_the_record(repo):
     code, out, text = generate(repo, n=4, report_text=round_report(finding("`u`")))
     assert code == 2, out
     assert text is None
+
+
+def test_the_depth_restarts_at_a_stop(repo):
+    """Round 1's ❓, decided by the orchestrator: a redesign is a new run, so
+    a unit the stopped run's fixes added (`w`, round 1) does not make a unit
+    the redesign's fix adds depth 2. Round 4's finding sits in `w`, and its
+    fix adds `helper` to the same file; the depth walk reads the current run
+    only, so `close` writes the record."""
+    stopped(repo)
+    write(repo, f"{ITEM}/spec.md", "# a spec\n\n" + FRAMED + REFRAMED)
+    commit(repo, "the frame, redrawn")
+    code, out, _text, d = a_round(repo, 4, finding("`mod.py#w`"))
+    assert code != 2, out
+    grown = (
+        MOD_FIXED_AGAIN.replace("return 3", "return helper()")
+        + "\n\ndef helper():\n    return 3\n"
+    )
+    fixed(repo, 4, d, grown, [1])
+    record = (repo / ROUNDS / "round-4.md").read_text(encoding="utf-8")
+    assert "helper (depth 1)" in fields(record)["New units"], record
 
 
 @pytest.mark.parametrize("touched", [False, True])

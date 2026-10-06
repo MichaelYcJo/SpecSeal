@@ -3828,13 +3828,21 @@ def runs_of(reader, root, records):
     finding round and its verifying round would be the second and third
     records after the stopped run's floor, and `stopping_floor` would refuse
     the redesign for existing.
+
+    **Only a `second` its run counted cuts it** (round 1's ⬜ 2). One with no
+    earlier landing in its run disagrees with its run, `fix_of_a_fix` refuses
+    it, and letting it cut would restart the floor's walks on a stop that
+    never happened. `round_record.py#current_run` cuts by the same rule.
     """
-    runs, current = [], []
+    runs, current, landed = [], [], False
     for rel in records:
         current.append(rel)
-        if fof_of(reader, root, rel)[1] == 2:
+        count = fof_of(reader, root, rel)[1] or 0
+        if count == 2 and landed:
             runs.append(current)
-            current = []
+            current, landed = [], False
+        elif count:
+            landed = True
     if current:
         runs.append(current)
     return runs
@@ -3857,6 +3865,8 @@ def fix_of_a_fix(reader, root, rel, earlier, stopped=None):
       no row, begun before it or with no timestamp prefix  prints
       a row that is none of the three values               fails, any age
       a second landing of the run reading `first`          fails
+      a `second` with no earlier landing in its run        fails
+      a landing on the first record of a run               fails
       a third landing in one run                           fails
       a `second` whose verdicts closed on a fix            fails
       the first record after a `second`, and `spec.md`'s   fails
@@ -3931,6 +3941,33 @@ def fix_of_a_fix(reader, root, rel, earlier, stopped=None):
         return errors, notices
 
     landed = [p for p in earlier if fof_of(reader, root, p)[1]]
+    # The other direction (round 1's ⬜ 2). The first record of a run follows
+    # no fix pass of that run — round 1 follows none, and the record after a
+    # `second` follows one that closed on deferrals — so nothing of it can
+    # land; and a `second` with no landing before it in its run is a `first`.
+    if count and not earlier:
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FIX_OF_A_FIX}` reads `{cell.strip()}` on the first record "
+                "of its run, which follows no fix pass of the run: round 1 "
+                f"follows none, and the record after a `{FOF_SECOND}` follows "
+                f"one that closed on deferrals. It reads `{FOF_NO}`",
+            )
+        )
+    elif count == 2 and not landed:
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FIX_OF_A_FIX}` reads `{FOF_SECOND}`, and no earlier record "
+                f"of this run landed, so the count says `{FOF_FIRST}`. A "
+                f"`{FOF_SECOND}` ends the run and sends the work item back to "
+                "its framer, and one the run did not count would stop it on a "
+                "landing that never happened",
+            )
+        )
     if count == 1 and landed:
         errors.append(
             (
@@ -4713,8 +4750,10 @@ def frame(reader, routing, root, item, rel, declared):
         if mark is None:
             problems.append(
                 f"{item}/spec.md does not END with the framer's mark. The "
-                "last non-empty line has to read `Framed <date> by <who>, "
-                "before the build.` — `templates/sdd-spec.md` ships it, and "
+                "last non-empty line that is not a `Reframed <date> by <who>, "
+                "after round <N>.` line — a reframe writes those UNDER the "
+                "mark, with a round number — has to read `Framed <date> by "
+                "<who>, before the build.` — `templates/sdd-spec.md` ships it, and "
                 "it is the only evidence in the tree that the framing "
                 "happened, because the other framer mark lives in the git "
                 "dir and a git dir does not travel here"

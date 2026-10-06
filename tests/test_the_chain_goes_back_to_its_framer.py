@@ -280,6 +280,56 @@ def test_a_second_whose_verdicts_closed_on_a_fix_fails(repo):
     assert "reads `second` and this record's verdicts closed on a fix" in out, out
 
 
+ORPHAN = "and no earlier record of this run landed, so the count says `first`"
+FIRST_OF_A_RUN = "on the first record of its run, which follows no fix pass of the run"
+
+
+def test_a_second_with_no_earlier_landing_fails_and_does_not_cut_the_run(repo):
+    """Round 1's ⬜ 2. An orphan `second` disagrees with its run; and since it
+    does not cut the run, the record after it needs no reframe and is not
+    read as a run's first record."""
+    declared(repo, ITEM, rec(), rec(fof=SECOND), rec())
+    code, out = run(repo)
+    assert code == 1, out
+    assert ORPHAN in out, out
+    assert "carries no `Reframed" not in out, out
+
+
+def test_a_landing_on_round_one_fails(repo):
+    declared(repo, ITEM, rec(fof=FIRST), rec(fof=SECOND))
+    code, out = run(repo)
+    assert code == 1, out
+    assert f"reads `{FIRST}` {FIRST_OF_A_RUN}" in out, out
+
+
+def test_a_landing_on_the_first_record_after_a_stop_fails(repo):
+    declared(repo, ITEM, *STOPPED[:3], rec(fof=FIRST), spec=f"{FRAMED}\n{REFRAMED}")
+    code, out = run(repo)
+    assert code == 1, out
+    assert FIRST_OF_A_RUN in out, out
+    assert out.count(FIRST_OF_A_RUN) == 1, out
+
+
+def test_a_foot_that_does_not_end_with_the_mark_says_what_the_foot_may_end_on(repo):
+    """Round 1's ⬜ 4, pinned (§14): a foot may end on `Reframed` lines, so the
+    refusal names them rather than asking for the mark on the last line. An
+    unfilled `Reframed … after round <N>.` reaches this sentence."""
+    declared(
+        repo,
+        ITEM,
+        rec(),
+        planning="framer",
+        spec=f"{FRAMED}\nReframed <date> by <who>, after round <N>.",
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert (
+        "The last non-empty line that is not a `Reframed <date> by <who>, after "
+        "round <N>.` line — a reframe writes those UNDER the mark, with a round "
+        "number — has to read `Framed <date> by <who>, before the build.`"
+    ) in out, out
+
+
 def test_a_record_after_a_second_needs_the_reframe(repo):
     declared(repo, ITEM, *STOPPED, spec=FRAMED)
     code, out = run(repo)

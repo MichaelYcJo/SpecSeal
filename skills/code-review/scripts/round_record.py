@@ -2229,6 +2229,12 @@ COMMISSIONS_NOTHING = (
     "\N{LARGE GREEN CIRCLE}",
     "\N{BLACK QUESTION MARK ORNAMENT}",
 )
+# A file a `Location` cell names, of any kind a record's findings point at.
+# Beside one, a backticked name is prose about that file, never a unit in
+# another (round 1's 🟡 1 of #823).
+NAMES_A_FILE_RE = re.compile(
+    r"[\w./-]+\.(?:py|md|markdown|txt|rst|json|toml|ya?ml|cfg|ini|sh|js|ts)\b"
+)
 
 
 def fof_count_of(reader, path):
@@ -2260,11 +2266,19 @@ def current_run(reader, earlier):
     is not a later record of anything at or before it -- which is what lets
     the redesign's own rounds exist without the stopped run's floor, its
     reopening or its count reaching across the stop.
+
+    **Only a `second` its run counted cuts it** (round 1's ⬜ 2): one with no
+    earlier landing in the run is a record that disagrees with its run, which
+    the gate refuses, and letting it cut would restart the floor's walks on a
+    stop that never happened. `chain_check.runs_of` cuts by the same rule.
     """
-    last = None
+    last, landed = None, False
     for index, (_k, path) in enumerate(earlier):
-        if fof_count_of(reader, path) == 2:
-            last = index
+        count = fof_count_of(reader, path) or 0
+        if count == 2 and landed:
+            last, landed = index, False
+        elif count:
+            landed = True
     if last is None:
         return list(earlier), None
     return list(earlier[last + 1 :]), earlier[last]
@@ -2351,15 +2365,33 @@ def landings(reader, root, target, keyed, previous):
     the reading the depth walk already makes.
 
     Lands nowhere: a row whose severity commissions no fix
-    (`COMMISSIONS_NOTHING`), a prose file, a module-level line, a `Location`
+    (`COMMISSIONS_NOTHING`), a prose file — a backticked name beside it
+    included — a name beside a `.py` path other than through that path, a
+    bare name two files of the range carry, a module-level line, a `Location`
     the reader cannot place, a previous record with no `Fix range` or one of
-    zero commits. A `Fix range` whose ends do not resolve here is refused: `new`
-    runs where `close` ran, and a tree without those commits is the wrong
-    tree to count in. The direction for everything the reading cannot place
+    zero commits. A `Fix range` whose ends do not resolve here is refused when
+    an open row could land in it: `new` runs where `close` ran, and a tree
+    without those commits is the wrong tree to count in. With no open row the
+    range decides nothing and is not read. The direction for everything the reading cannot place
     is the permissive one, because a miss costs what today costs and a stop
     costs a framer segment.
     """
     if previous is None:
+        return []
+    # The open rows first (round 1's ⬜ 3): with none, nothing lands whatever
+    # the range holds, so a range this tree cannot resolve decides nothing.
+    open_rows = []
+    for _number, (_i, cells) in keyed.items():
+        seen = [reader.visible(c) for c in cells]
+        if chain.verdict_of(seen, VERDICT_COL) in chain.CLOSED_WORDS:
+            continue
+        label = seen[NUMBER_COL].strip()
+        if label.startswith(COMMISSIONS_NOTHING):
+            continue
+        open_rows.append(
+            (label, cells[LOCATION_COL] if len(cells) > LOCATION_COL else "")
+        )
+    if not open_rows:
         return []
     k, path = previous
     text = read_text(path, f"earlier record round-{k}.md")
@@ -2385,20 +2417,23 @@ def landings(reader, root, target, keyed, previous):
         return []
     tracked = tracked_at(root, target)
     found = []
-    for _number, (_i, cells) in keyed.items():
-        seen = [reader.visible(c) for c in cells]
-        if chain.verdict_of(seen, VERDICT_COL) in chain.CLOSED_WORDS:
-            continue
-        location = cells[LOCATION_COL] if len(cells) > LOCATION_COL else ""
-        label = seen[NUMBER_COL].strip()
-        if label.startswith(COMMISSIONS_NOTHING):
-            continue
-        for rel, unit in location_units(reader, root, target, location, tracked):
-            hits = (
-                [(rel, unit)]
-                if rel is not None
-                else [key for key in units if key[1] == unit]
-            )
+    for label, location in open_rows:
+        pairs = location_units(reader, root, target, location, tracked)
+        # Round 1's 🟡 1. A cell that names a file is about that file, so a
+        # backticked name beside it is prose about the file and never a unit
+        # in another one: a document `Location` lands nowhere (S5, §Out), and
+        # a name beside a `.py` path lands only through that path.
+        if NAMES_A_FILE_RE.search(reader.visible(location)):
+            pairs = [(rel, unit) for rel, unit in pairs if rel is not None]
+        for rel, unit in pairs:
+            if rel is not None:
+                hits = [(rel, unit)]
+            else:
+                # A bare name lands only where it resolves to one file of the
+                # range; a name two touched files carry places nothing.
+                hits = [key for key in units if key[1] == unit]
+                if len(hits) != 1:
+                    continue
             for key in hits:
                 landing = (label, key[0], key[1], units.get(key))
                 if landing[3] is not None and landing not in found:
@@ -4226,7 +4261,11 @@ def close(args):
 
     paths = touched(root, a, b)
     changed, added, heuristic, at_a, at_b = measure(reader, root, a, b, paths)
-    earlier = earlier_records(routing, rounds, args.round)
+    # The units of the CURRENT run (#823, decided by the orchestrator at
+    # round 1): a redesign after a `second` is a new run, so a unit the
+    # stopped run's fixes added does not make the redesign's units depth 2,
+    # the way the floor, the bound and the count restart there.
+    earlier = current_run(reader, earlier_records(routing, rounds, args.round))[0]
     depth_two(
         reader,
         root,
