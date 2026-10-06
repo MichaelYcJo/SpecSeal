@@ -11,6 +11,7 @@ and a pytest it starts in turn, in a child process or in its own, records
 nothing (S2, S3); with no key or no directory nothing is written (S5).
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -140,6 +141,50 @@ def test_the_recorder_records_its_own_process(tmp_path):
     assert all(os.path.isabs(t["path"]) for t in tests)
     failed = [(t["nodeid"], t["when"]) for t in tests if t["outcome"] == "failed"]
     assert failed == [("tests/test_mixed.py::test_bad", "call")]
+
+
+# A base class whose test is defined in one module and collected, by
+# inheritance, in another; and a test function one module imports from the
+# other. pytest's `report.location` names the module that DEFINES the test.
+DEFINES_THE_TEST = (
+    "class Base:\n    v = 1\n\n    def test_shared(self):\n        assert self.v == 1\n\n\n"
+    "def test_imported():\n    assert False\n"
+)
+COLLECTS_IT = (
+    "import os\nimport sys\n\n"
+    "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\n"
+    "from test_defines import Base, test_imported  # noqa: E402,F401\n\n\n"
+    "class TestCollected(Base):\n    v = 2\n"
+)
+
+
+@pytest.mark.parametrize("flags", [(), ("-n", "2")], ids=["plain", "xdist"])
+def test_a_test_is_recorded_under_the_module_that_collected_it(tmp_path, flags):
+    """#825 phase 4, found by the regression corpus (N1, N1b, Q4). A test a
+    module inherits or imports from another fails there, and the record
+    names the COLLECTING module: the word at the base is about the file the
+    gate compares, and `report.location[0]` names the defining one, which
+    gave a file the base passes `failing on base too`. The defining module's
+    own collected tests stay under it."""
+    if flags and importlib.util.find_spec("xdist") is None:
+        pytest.skip("pytest-xdist is not installed here")
+    root, records = project(
+        tmp_path,
+        {"test_defines.py": DEFINES_THE_TEST, "test_collects.py": COLLECTS_IT},
+    )
+    result = run_pytest(root, recording_env(records), "-q", *flags)
+    assert result.returncode == 1, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    failed = {
+        (line["nodeid"], os.path.basename(line["path"]))
+        for line in lines
+        if line["kind"] == "test" and line["outcome"] == "failed"
+    }
+    assert failed == {
+        ("tests/test_collects.py::TestCollected::test_shared", "test_collects.py"),
+        ("tests/test_collects.py::test_imported", "test_collects.py"),
+        ("tests/test_defines.py::test_imported", "test_defines.py"),
+    }, failed
 
 
 @pytest.mark.parametrize(

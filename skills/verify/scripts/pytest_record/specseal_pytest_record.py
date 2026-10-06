@@ -28,10 +28,14 @@ object per line with a `kind`:
   collect   a failed collection: nodeid, outcome "failed", path (absolute)
   end       exitstatus -- for the person reading the kept file only
 
-A path is the rootdir joined to the path pytest attached to the report
-(`report.location[0]` for a test, `report.fspath` for a collection), both of
-which are relative to the rootdir on a plain run and on an xdist controller
-alike. Each line is flushed as it is written, so a crash leaves what ran.
+A path is the rootdir joined to `report.fspath`, the node id's path: the
+module that COLLECTED the test, relative to the rootdir on a plain run and on
+an xdist controller alike. Never `report.location[0]`, which names the module
+that DEFINES the test function, so a test a module inherits or imports from
+another would be written under the other module, and the gate would give a
+file the base passes `failing on base too` (#825 phase 4, the regression
+corpus's N1). Each line is flushed as it is written, so a crash leaves what
+ran.
 
 It never prints, never changes an outcome and never raises out of a hook: a
 directory it cannot write is one warning and no record, which the gate reads
@@ -39,8 +43,8 @@ as no record -- the strict side.
 
 It runs in the ROW's interpreter, whose version the gate does not know, so it
 is written for Python 3.8 syntax and reads only names pytest has had since
-6.1 (`config.rootpath`; `config.invocation_params` since 5.1; `location`,
-`fspath` and `pytest_collectreport` older). Measured on pytest 7.4, 8.0, 8.1
+6.1 (`config.rootpath`; `config.invocation_params` since 5.1; `fspath` and
+`pytest_collectreport` older). Measured on pytest 7.4, 8.0, 8.1
 and 9.1, with pytest-xdist 3.8 under `-n 2` on the last: the `-p` in
 `PYTEST_ADDOPTS` loads it on each, and an xdist controller receives every
 worker's test and failed-collection reports (`phases/phase-1.md` of work item
@@ -137,7 +141,7 @@ class Recorder:
             "nodeid": report.nodeid,
             "when": report.when,
             "outcome": report.outcome,
-            "path": self.absolute(report.location[0]),
+            "path": self.absolute(report.fspath),
         }
         if hasattr(report, "wasxfail"):
             line["wasxfail"] = str(report.wasxfail)

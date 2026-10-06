@@ -6077,86 +6077,96 @@ REGRESSED = [
     ),
 ]
 # The word each file reads here, under the layout's own row and under the
-# same row handing pytest no path of its own: `new`, `on` for `failing on
-# base too`, or a reason and the number of the file's run alone. Measured by
-# phase 2, beside the words a3aa139a and the first build gave.
+# same row handing pytest no path of its own, derived from the layout's
+# `at_base` (#825): `on` where the base's own run fails a test of the file,
+# `new` where the base's run collects the file and passes it, or ends 0 without
+# collecting it, and `not-reached:<exit>` where the base's row ended non-zero
+# without any of its pytest sessions collecting the file. A file is named from
+# the repository root, so a `cd sub` row's file is `sub/tests/…`.
+NOT_REACHED_1 = "not-reached:1"
+P1_SHAPE = {"tests/test_api.py": NOT_REACHED_1}
+P7_SUB = {
+    "sub/tests/test_x.py": NOT_REACHED_1,
+    "sub/tests/test_y.py": NOT_REACHED_1,
+    "sub/tests/test_z.py": NOT_REACHED_1,
+}
 REGRESSED_WORDS = {
-    ("P1", "own"): {"tests/test_api.py": "beyond:1"},
-    ("P1", "files"): {"tests/test_api.py": "new"},
-    ("P2", "own"): {"tests/test_two.py": "beyond:1"},
-    ("P2", "files"): {"tests/test_two.py": "new"},
-    ("P3-sh", "own"): {"tests/test_two.py": "multi:1"},
-    ("P3-sh", "files"): {"tests/test_two.py": "multi:1"},
-    ("P3-no-junitxml", "own"): {"tests/test_two.py": "multi:1"},
-    ("P3-no-junitxml", "files"): {"tests/test_two.py": "multi:1"},
-    ("P7-p1b", "own"): {
-        "tests/test_x.py": "new",
-        "tests/test_y.py": "company",
-        "tests/test_z.py": "company",
-    },
-    ("P7-p1b", "files"): {
-        "tests/test_x.py": "new",
-        "tests/test_y.py": "company",
-        "tests/test_z.py": "company",
-    },
-    ("P7-both", "own"): {
-        "tests/test_x.py": "new",
-        "tests/test_y.py": "company",
-        "tests/test_z.py": "company",
-    },
-    ("P7-both", "files"): {
-        "tests/test_x.py": "new",
-        "tests/test_y.py": "company",
-        "tests/test_z.py": "company",
-    },
+    # The base's own `test_users` fails and `test_api.py` holds no test there.
+    ("P1", "own"): P1_SHAPE,
+    ("P1", "files"): P1_SHAPE,
+    # The base's deeper `test_two.py` fails; the root one holds no test.
+    ("P2", "own"): {"tests/test_two.py": NOT_REACHED_1},
+    ("P2", "files"): {"tests/test_two.py": NOT_REACHED_1},
+    # The root runner passes the root file at the base, then `sub`'s fails.
+    ("P3-sh", "own"): {"tests/test_two.py": "new"},
+    ("P3-sh", "files"): {"tests/test_two.py": "new"},
+    ("P3-no-junitxml", "own"): {"tests/test_two.py": "new"},
+    ("P3-no-junitxml", "files"): {"tests/test_two.py": "new"},
+    # The base's root runner fails `tests/test_y.py`, so `&&` never reaches
+    # the runner in `sub` that the branch's failures come from.
+    ("P7-p1b", "own"): P7_SUB,
+    ("P7-p1b", "files"): P7_SUB,
+    ("P7-both", "own"): P7_SUB,
+    ("P7-both", "files"): P7_SUB,
     ("P7-mixed", "own"): {
-        "tests/test_y.py": "company",
-        "tests/test_w.py": "company",
+        "sub/tests/test_y.py": NOT_REACHED_1,
+        "sub/tests/test_w.py": NOT_REACHED_1,
     },
-    ("P7-mixed", "files"): {"tests/test_y.py": "company", "tests/test_w.py": "company"},
-    ("Q1", "own"): {"tests/test_two.py": "beyond:1"},
-    ("Q1", "files"): {"tests/test_two.py": "new"},
-    ("Q3", "own"): {"a/tests/test_two.py": "beyond:1"},
-    ("Q3", "files"): {"a/tests/test_two.py": "new"},
-    ("Q3b", "own"): {"a/b/tests/test_two.py": "beyond:1"},
-    ("Q3b", "files"): {"a/b/tests/test_two.py": "beyond:1"},
-    ("Q4", "own"): {"tests/test_two.py": "beyond:1"},
-    ("Q4", "files"): {"tests/test_two.py": "new"},
-    ("Q5", "own"): {"tests/test_api.py": "beyond:1"},
-    ("Q5", "files"): {"tests/test_api.py": "new"},
-    ("Q8", "own"): {"tests/test_two.py": "multi:1"},
-    ("Q8", "files"): {"tests/test_two.py": "multi:1"},
-    ("Qf-row", "own"): {"tests/test_api.py": "beyond:1"},
-    ("Qf-row", "files"): {"tests/test_api.py": "new"},
-    ("Qf-env", "own"): {"tests/test_api.py": "beyond:1"},
-    ("Qf-env", "files"): {"tests/test_api.py": "new"},
-    ("Qf-ini", "own"): {"tests/test_api.py": "beyond:1"},
-    ("Qf-ini", "files"): {"tests/test_api.py": "new"},
-    ("Qs2", "own"): {"tests/test_two.py": "multi:1"},
-    ("Qs2", "files"): {"tests/test_two.py": "multi:1"},
-    ("R1-row", "own"): {"tests/test_api.py": "beyond:1"},
-    ("R1-row", "files"): {"tests/test_api.py": "new"},
-    ("R1-ini", "own"): {"tests/test_api.py": "beyond:1"},
-    ("R1-ini", "files"): {"tests/test_api.py": "new"},
-    ("R2", "own"): {"tests/test_api.py": "beyond:1"},
-    ("R2", "files"): {"tests/test_api.py": "new"},
-    ("R2b", "own"): {"tests/test_two.py": "beyond:1"},
-    ("R2b", "files"): {"tests/test_two.py": "new"},
-    ("R3", "own"): {"vendor/tests/test_two.py": "beyond:1"},
+    ("P7-mixed", "files"): {
+        "sub/tests/test_y.py": NOT_REACHED_1,
+        "sub/tests/test_w.py": NOT_REACHED_1,
+    },
+    ("Q1", "own"): {"tests/test_two.py": NOT_REACHED_1},
+    ("Q1", "files"): {"tests/test_two.py": NOT_REACHED_1},
+    # Under the files-only row the base's run is `pytest -q a`, which
+    # collects no test at all there: exit 5.
+    ("Q3", "own"): {"a/tests/test_two.py": NOT_REACHED_1},
+    ("Q3", "files"): {"a/tests/test_two.py": "not-reached:5"},
+    ("Q3b", "own"): {"a/b/tests/test_two.py": NOT_REACHED_1},
+    ("Q3b", "files"): {"a/b/tests/test_two.py": NOT_REACHED_1},
+    # The base's failure is `TestThree`'s, collected from `test_three.py`,
+    # though the method it inherits is defined in `test_two.py`.
+    ("Q4", "own"): {"tests/test_two.py": NOT_REACHED_1},
+    ("Q4", "files"): {"tests/test_two.py": NOT_REACHED_1},
+    ("Q5", "own"): P1_SHAPE,
+    ("Q5", "files"): P1_SHAPE,
+    ("Q8", "own"): {"tests/test_two.py": "new"},
+    ("Q8", "files"): {"tests/test_two.py": "new"},
+    ("Qf-row", "own"): P1_SHAPE,
+    ("Qf-row", "files"): P1_SHAPE,
+    ("Qf-env", "own"): P1_SHAPE,
+    ("Qf-env", "files"): P1_SHAPE,
+    ("Qf-ini", "own"): P1_SHAPE,
+    ("Qf-ini", "files"): P1_SHAPE,
+    ("Qs2", "own"): {"tests/test_two.py": "new"},
+    ("Qs2", "files"): {"tests/test_two.py": "new"},
+    ("R1-row", "own"): P1_SHAPE,
+    ("R1-row", "files"): P1_SHAPE,
+    ("R1-ini", "own"): P1_SHAPE,
+    ("R1-ini", "files"): P1_SHAPE,
+    ("R2", "own"): P1_SHAPE,
+    ("R2", "files"): P1_SHAPE,
+    ("R2b", "own"): {"tests/test_two.py": NOT_REACHED_1},
+    ("R2b", "files"): {"tests/test_two.py": NOT_REACHED_1},
+    # The row's own run fails the base's `tests/test_two.py`; the files-only
+    # run collects `gen` and `vendor` alone, passes and never collects the file.
+    ("R3", "own"): {"vendor/tests/test_two.py": NOT_REACHED_1},
     ("R3", "files"): {"vendor/tests/test_two.py": "new"},
-    ("N1", "own"): {"tests/test_api.py": "beyond:1"},
+    # The base's `test_api.py` passes its own `test_two`; the failure there is
+    # `test_users.py`'s, through a test it inherits or imports from `test_api.py`.
+    ("N1", "own"): {"tests/test_api.py": "new"},
     ("N1", "files"): {"tests/test_api.py": "new"},
-    ("N1-xdist", "own"): {"tests/test_api.py": "beyond:1"},
+    ("N1-xdist", "own"): {"tests/test_api.py": "new"},
     ("N1-xdist", "files"): {"tests/test_api.py": "new"},
-    ("N1b", "own"): {"tests/test_api.py": "beyond:1"},
+    ("N1b", "own"): {"tests/test_api.py": "new"},
     ("N1b", "files"): {"tests/test_api.py": "new"},
     ("N1c", "own"): {
-        "tests/test_api.py": "company",
-        "tests/test_api/test_users.py": "company",
+        "tests/test_api.py": "new",
+        "tests/test_api/test_users.py": "on",
     },
-    ("N3", "own"): {"vendor/tests/test_two.py": "beyond:1"},
+    ("N3", "own"): {"vendor/tests/test_two.py": NOT_REACHED_1},
     ("N3", "files"): {"vendor/tests/test_two.py": "new"},
-    ("N7", "own"): {"tests/test_two.py": "beyond:1"},
+    ("N7", "own"): {"tests/test_two.py": "on"},
     ("N7", "files"): {"tests/test_two.py": "on"},
 }
 REGRESSED_CASES = [
@@ -6169,39 +6179,28 @@ REGRESSED_CASES = [
 
 def word_for(gate, spec):
     """The whole word a spec in `REGRESSED_WORDS` stands for."""
-    kind, _, n = spec.partition(":")
-    if kind == "beyond":
-        return gate.COLLECTED_BEYOND.format(n=int(n))
-    if kind == "multi":
-        return gate.MULTI_RUNNER.format(n=int(n))
-    if kind == "company":
-        return gate.COMPANY
+    kind, _, code = spec.partition(":")
+    if kind == "not-reached":
+        return gate.NOT_REACHED.format(code=int(code))
+    if kind == "no-record":
+        return gate.NO_RECORD
     return {"new": gate.NEW, "on": gate.ON_BASE}[kind]
 
 
-@pytest.mark.skip(
-    reason=(
-        "1791270161's phase 4 re-derives REGRESSED_WORDS from each layout's "
-        "at_base for the record-based comparison (#825); the words below name "
-        "reasons phase 2 retired"
-    )
-)
 @pytest.mark.parametrize("layout, runner", REGRESSED_CASES)
 def test_every_layout_the_first_build_reopened_reads_the_word_the_base_gives(
     tmp_path, layout, runner
 ):
-    """S17 (#789, #812, #807). Each layout here is one a review of #789's
-    first build found giving `failing on base too` to a file the base passes
-    or holds no test in, at a3aa139a or at a commit of that build. None of
-    them needs to be recognised now: a run that collected another file, or
-    a row that ran pytest twice, fails the proof, and the file reads `new?`
-    with its reason; a file of a group of several failing files reads
-    `new?` too (#789 round 2); a file the base has no failing test in reads
-    `new`. The one `failing on base too` among them, N7 under the files-only
-    row, is a file the base does fail, run alone from the start and
-    collected alone, and a3aa139a gave it the same word. N1c's package
-    module, which a3aa139a also called `failing on base too`, is one of two
-    failing files of one run and reads `new?`."""
+    """S17 of #789 and S20 of #825. Each layout here is one a review of
+    #789's first build found giving `failing on base too` to a file the base
+    passes or holds no test in, at a3aa139a or at a commit of that build.
+    Each file's word is now the base's own: the row runs once at the base and
+    the pytest process that collected a test writes its outcome down, under
+    the module that collected it, so a test inherited or imported from the
+    file is the collecting module's (N1, N1b, N1c, Q4). `failing on base too`
+    is given only where the base fails a test of that file itself (N1c's
+    `test_users.py`, N7); a file the base never reached on a red row reads
+    `new?` naming the exit, which is `questions.md` Q1's trade."""
     name, row, at_base, on_feature, extra = layout
     if extra.get("posix"):
         posix_row_shell_or_skip()
