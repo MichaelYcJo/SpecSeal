@@ -1,12 +1,12 @@
-"""A pact anchor is invisible to the signatory's own evidence check (#647, B).
+"""A pact anchor is invisible to the signer's own evidence check (#647, B).
 
-A signatory cites a clause of a pact held in another repository as
+A signer cites a clause of a pact held in another repository as
 
     pact:<name>/"<heading path>"@<hash>
 
 in its spec's Grounding and in a ledger row's `Clause` cell, beside its own
 code coordinate in `Code grounds`. `pact-check` at the pact's repository
-grades it. The signatory's own `evidence-check` must read past it: a pact
+grades it. The signer's own `evidence-check` must read past it: a pact
 anchor read as a coordinate would be `BROKEN` (no such file here), and a
 clause heading holding `v1.2:3` read by `OLD_COORD_RE` would be `OLD-FORMAT`
 at exit 2.
@@ -69,11 +69,11 @@ def test_a_word_ending_in_pact_is_not_an_anchor():
     assert ec.PACT_ANCHOR_RE.search('compact:x/"## A"@1a2b3c4d') is None
 
 
-def signatory(tmp_path, clause_cell, grounds_extra=""):
-    """A signatory tree: one Python unit and a ledger row citing it, with
+def signer(tmp_path, clause_cell, grounds_extra=""):
+    """A signer tree: one Python unit and a ledger row citing it, with
     CLAUSE_CELL as the row's `Clause` and GROUNDS_EXTRA after its local
     coordinate in `Code grounds`."""
-    root = tmp_path / "signatory"
+    root = tmp_path / "signer"
     (root / "src").mkdir(parents=True)
     (root / "seal").mkdir()
     (root / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
@@ -93,13 +93,13 @@ def signatory(tmp_path, clause_cell, grounds_extra=""):
 def test_a_pact_anchor_in_the_clause_cell_leaves_the_local_coordinate_alone(
     tmp_path,
 ):
-    """S7. The signatory's check reports its own coordinate and nothing
+    """S7. The signer's check reports its own coordinate and nothing
     for the pact anchor: no OLD-FORMAT for `v1.2:3`, no BROKEN, no
     EXTERNAL, and exit 0."""
     clause = (
         'P1 · built against `pact:orders-api/"## v1.2:3 shape / ### Fields"@1a2b3c4d`'
     )
-    root, ledger = signatory(tmp_path, clause)
+    root, ledger = signer(tmp_path, clause)
     findings = ec.check_ledger(str(ledger), str(root), {})
     assert [f[0] for f in findings] == ["OK"], findings
     done = subprocess.run(
@@ -118,7 +118,7 @@ def test_a_pact_anchor_in_the_clause_cell_leaves_the_local_coordinate_alone(
 def test_a_pact_anchor_beside_the_local_coordinate_is_not_malformed(tmp_path):
     """A pact anchor written into `Code grounds` beside the code coordinate
     is not a coordinate the ledger failed to write."""
-    root, ledger = signatory(
+    root, ledger = signer(
         tmp_path,
         "P2 · the field list",
         ', `pact:orders-api/"## v1.2:3 shape / ### Fields"@1a2b3c4d`',
@@ -132,7 +132,7 @@ def test_migrate_leaves_a_pact_anchor_alone(tmp_path):
     clause's `v1.2:3` is not a row to migrate, so nothing is left behind
     and the file is untouched."""
     clause = 'P3 · `pact:orders-api/"## v1.2:3 shape"@1a2b3c4d`'
-    root, ledger = signatory(tmp_path, clause)
+    root, ledger = signer(tmp_path, clause)
     before = ledger.read_text(encoding="utf-8")
     assert ec.old_format_rows(before) == []
     assert ec.migrate([str(ledger)], str(root)) == (0, [], 0)
@@ -193,12 +193,12 @@ def test_a_name_quoted_in_a_pact_clause_heading_is_not_a_claim_here():
     assert ec.stated_coordinates([bare]) == [(1, "api/orders.py", "serialise")]
 
 
-def test_a_live_spec_citing_such_a_clause_leaves_the_signatorys_check_at_0(
+def test_a_live_spec_citing_such_a_clause_leaves_the_signers_check_at_0(
     tmp_path,
 ):
     """The records arm reads a live work item's `spec.md`; a field named in
     a cited clause's heading is not a name this tree must carry."""
-    root, _ledger = signatory(tmp_path, "P1 · the total")
+    root, _ledger = signer(tmp_path, "P1 · the total")
     item = "1790000000-x"
     (root / "seal" / "ledger").mkdir()
     (root / "seal" / "ledger" / f"{item}.md").write_text("", encoding="utf-8")

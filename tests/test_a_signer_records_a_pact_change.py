@@ -1,6 +1,6 @@
-"""A signatory records a pact change when its re-read moves code a clause binds (#647, C).
+"""A signer records a pact change when its re-read moves code a clause binds (#647, C).
 
-A signatory names the pact it signs in `seal/config.md` and cites clauses as
+A signer names the pact it signs in `seal/config.md` and cites clauses as
 pact anchors in its ledger rows. When `evidence-check --reverify` moves the
 hash of a row that cites a clause of a declared pact -- in place, or into a
 `Re-read ·` row under the freeze -- finds the code under one moved where
@@ -10,7 +10,7 @@ coordinate of one BROKEN, it appends one row per ledger row to
 the work item's `spec.md`; the refused row is #746's, and a move starting at
 the newest reading is #774's.
 
-Each case builds a temporary signatory: `src/orders.py`, a ledger row citing
+Each case builds a temporary signer: `src/orders.py`, a ledger row citing
 `pact:orders-api/"## Order response shape / ### Fields"@1a2b3c4d` beside a
 local coordinate, and a `Pact` row naming `git@example.com:org/orders-api.git`.
 """
@@ -376,7 +376,8 @@ def test_a_vendored_copy_says_it_recorded_nothing(repo, tmp_path):
     assert (
         f"  LEFT  seal/ledger/{ITEM}.md:1  cites a pact clause, and this copy of "
         "evidence_check.py has no hooks/ beside it to read the `Pact` row with — no "
-        "pact change was recorded and nothing was re-stamped"
+        "pact change was recorded and nothing was re-stamped; run the plugin's "
+        "`evidence-check --reverify` where the signer is checked out"
     ) in out, out
 
 
@@ -661,7 +662,7 @@ REPOSITORY_PIPED = (
 
 def test_this_repositorys_own_piped_coordinates_are_recorded_once(repo):
     """The three coordinates holding `\\|` that stand in this repository's
-    own ledger, cited beside a clause in a signatory holding the same two
+    own ledger, cited beside a clause in a signer holding the same two
     templates, then the templates edited under them: each is recorded once,
     and a second and third run add nothing."""
     for rel in {r for r, _ in REPOSITORY_PIPED}:
@@ -703,7 +704,7 @@ def test_this_repositorys_own_piped_coordinates_are_recorded_once(repo):
 
 
 def _fixture(repo, shape):
-    """Write one signatory ledger and move its code, for the property case."""
+    """Write one signer ledger and move its code, for the property case."""
     s = unit_hash(repo, "src/orders.py", "serialize")
     e = unit_hash(repo, "src/orders.py", "evict")
     two = f'`{CLAUSE}`, `pact:orders-api/"## Errors"@5e6f7a8b`, '
@@ -1482,7 +1483,8 @@ def test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause(
         f"  LEFT  seal/ledger/{ITEM}.md:1  moved, and `Pact notify` may be "
         "`always`, and this copy of evidence_check.py has no hooks/ beside it "
         "to read the `Pact notify` row with — no pact change was recorded and "
-        "nothing was re-stamped"
+        "nothing was re-stamped; run the plugin's `evidence-check --reverify` "
+        "where the signer is checked out"
     ) in out, out
     assert not (repo / "seal" / "pact-changes").exists(), out
 
@@ -1695,7 +1697,7 @@ def test_s9_a_vendored_copy_leaves_where_the_plugin_refuses_a_pact_line(
     copy with no `hooks/` leaves the moved row too: it reads the same lines
     by the same word, and it has no walk, so a plain `Pact notify` row
     anywhere beside a `Pact` value is enough. The full S2 corpus runs
-    through its decision in `tests/test_a_signatory_declares_its_pact.py`;
+    through its decision in `tests/test_a_signer_declares_its_pact.py`;
     these run it end to end."""
     (repo / "seal" / "config.md").write_text(
         config_text(("Mode", "shared"), ("Pact", PACT_URL)) + below,
@@ -2330,7 +2332,7 @@ def test_a_coordinate_no_checkout_places_records_no_pact_change(repo, coord):
 
 
 def _two_moved_fragments(top):
-    """A signatory at TOP with two fragments, each a row citing the clause
+    """A signer at TOP with two fragments, each a row citing the clause
     over `serialize`, which then moves. Returns the two fragments."""
     (top / "src").mkdir(parents=True)
     (top / "src" / "orders.py").write_text(SOURCE, encoding="utf-8")

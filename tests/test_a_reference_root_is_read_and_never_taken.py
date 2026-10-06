@@ -167,7 +167,7 @@ SHIPPED = {
     "unverified-check": (PREDICATE, "the walk and the base, by one rule"),
     "settle": (PINNED, "settle.py#SPECS; its citation scan reads as a citer"),
     "correction-check": (PINNED, "correction_check.py#LEDGER/FRAGMENTS/RELEASES"),
-    "pact-check": (PINNED, "pact_check.py#anchor_files, under each signatory's root"),
+    "pact-check": (PINNED, "pact_check.py#anchor_files, under each signer's root"),
     "evidence-check": (
         PINNED,
         "evidence_check.py#default_patterns; the tree corpus reads as the tree",
