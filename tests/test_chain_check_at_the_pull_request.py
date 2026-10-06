@@ -2503,11 +2503,15 @@ def _record_walk(chain, reader, routing, root, records):
     failures = []
     for rels in by_item.values():
         ordered = sorted(rels, key=lambda r: routing.round_number(os.path.basename(r)))
-        for index, rel in enumerate(ordered):
-            errors, _ = chain.fix_surface(reader, root, rel)
-            failures.extend(errors)
-            errors, _ = chain.stopping_floor(reader, root, rel, ordered[index + 1 :])
-            failures.extend(errors)
+        # The floor reads a run, as `chain_check.main` hands it: a record
+        # after a `second` belongs to the redesign, not to the stopped run
+        # (#823).
+        for run in chain.runs_of(reader, root, ordered):
+            for index, rel in enumerate(run):
+                errors, _ = chain.fix_surface(reader, root, rel)
+                failures.extend(errors)
+                errors, _ = chain.stopping_floor(reader, root, rel, run[index + 1 :])
+                failures.extend(errors)
     return failures
 
 

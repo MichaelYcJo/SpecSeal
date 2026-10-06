@@ -85,7 +85,8 @@ every repository, whatever either row says:
   case reads literally** — a round record's `Target SHA`, `PR`, `Broad gate`,
   `Fixes checked by`, `Contract changes`, `New units` and the `depth` its
   entries carry, `Needs a fix`, `Loses a record or crashes` with the `no` and
-  `yes` its answer is written in, and the `Pass`
+  `yes` its answer is written in, `Fix of a fix` with its `first` and
+  `second`, and the `Pass`
   checkbox; its `## Verdicts`, `## Executed probes`, `## Inherited
   coordinates` and `## Deferred` headings, and the `Verdict` column of the
   first; the verdict words `fixed`, `answered`, `withdrawn`, `not a defect`,

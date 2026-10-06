@@ -1,0 +1,40 @@
+### Changed
+
+- A review run whose fixes are themselves the next round's finding twice now
+  stops its fix passes and sends the work item back to its framer (#823). In
+  two 0.18.3 chains a fix pass wrote code, the next round found a regression
+  inside that code, and it happened again one round later; nothing counted
+  it, and each run filed its third fix as an issue that begot another.
+
+  `round-record new` now writes a `Fix of a fix` row on every round record.
+  It reads the previous record's fix range and asks whether an open finding
+  that owes a fix sits inside a top-level function, class or constant those
+  fixes added or changed. The first such finding in a run reads `first`; the
+  second reads `second`, and `new` prints that no fix pass is to be
+  commissioned. The record's open findings close `deferred the frame`, the
+  pull request is labelled `chain: reframed`, and the framer is spawned again
+  with the run's round records. The next record is refused until the framer
+  has added `Reframed <date> by <who>, after round <N>.` under the `Framed`
+  line of `spec.md`, and the redesign's rounds start a new run: the floor, the
+  printed bound, the count and the depth of new units do not reach back
+  across the stop.
+
+  `chain-check` refuses, for work items begun from this release, a record
+  without the row, a value outside `no`, `first — …` and `second — …`, a
+  count that disagrees with its run in either direction, a run that counted
+  past the stop or wrote a fix under it, and a record after the stop with no
+  `Reframed` line for it. A finding counts only through the `.py` path its
+  own location carries (`path:line`, `path#unit`, `path::unit`), written as a
+  whole code span or word; a code name given without its file, a `#name`
+  apart from its path, and a path that is only the tail of a longer token
+  (`pkg\mod.py`) count for nothing, whatever stands beside them, and
+  so do notes, confirmations, out-of-scope rows and a location the reader
+  cannot place. A reviewer who wants a finding counted writes its path.
+
+  Replayed over the committed round records of the four 0.18 releases, with
+  the pull request heads fetched (119 of 122 records resolve), the stop
+  would have reached 26 work items, #814 and #801 among them, both at
+  round 3: the same count the reading before the path-only rule gave, so
+  requiring the path lost none of them. A reviewer opened 11 of those stops: 10 were real fixes of fixes,
+  one a defect written by the fix pass before the previous one, and none a
+  false stop.

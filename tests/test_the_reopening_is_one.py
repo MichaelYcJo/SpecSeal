@@ -478,9 +478,13 @@ def _capped_failures(chain, reader, routing, root, records):
     failures = []
     for rels in by_item.values():
         ordered = sorted(rels, key=lambda r: routing.round_number(os.path.basename(r)))
-        for index, rel in enumerate(ordered):
-            errors, _ = chain.stopping_floor(reader, root, rel, ordered[index + 1 :])
-            failures.extend(e for e in errors if CAPPED in e[2])
+        # The walk reads a run, as `chain_check.main` hands it: a record
+        # after a `second` belongs to the redesign, not to the stopped run
+        # (#823).
+        for run in chain.runs_of(reader, root, ordered):
+            for index, rel in enumerate(run):
+                errors, _ = chain.stopping_floor(reader, root, rel, run[index + 1 :])
+                failures.extend(e for e in errors if CAPPED in e[2])
     return failures
 
 
