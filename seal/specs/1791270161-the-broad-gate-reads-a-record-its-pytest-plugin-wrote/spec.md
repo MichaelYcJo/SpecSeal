@@ -43,7 +43,10 @@ it out of its own environment, so a pytest it spawns in turn (a test that
 runs pytest, an xdist worker) loads the recorder and records nothing. The
 recorder writes one JSON Lines file per claiming process: a session line,
 one line per test report and per failed collection, each with the file's
-absolute path, and an end line. On a failing suite the gate reads `HEAD`'s
+absolute path, and an end line. That path is the node's own — read in the
+process that holds the item or the collector and carried on the report —
+and never a path derived from a node id and a rootdir (reframed after round
+3; §*The class*). On a failing suite the gate reads `HEAD`'s
 record for the failing files, runs the row **once, unchanged** at the base
 with a second key, reads the base's record and gives each file its word
 from a five-row table. No file is appended to any run, no prefix is cut, no
@@ -76,7 +79,7 @@ the smith's phase 1 and are rows of `questions.md`.
 | R1 | `_pytest/config/__init__.py#_preparse`: `PYTEST_ADDOPTS` is split and prepended to the arguments, then `consider_preparse(args, exclude_only=False)` reads every `-p`, then `consider_env()` reads `PYTEST_PLUGINS`; `PYTEST_DISABLE_PLUGIN_AUTOLOAD` gates only setuptools entry points | A `-p <module>` carried in `PYTEST_ADDOPTS` loads the recorder before any conftest, and a row that disables autoload does not stop it. Confirmed on 9.1.1 by reading; 7.4, 8.0 and 8.1 are a *measurement* (Q-M1) (NAME NOT IN TREE) |
 | R2 | `#import_plugin`: `importlib.import_module(importspec)`, and a module already registered under that name is skipped (`get_plugin(modname) is not None`) | The recorder is reached through `sys.path`, so `PYTHONPATH` is the carrier, and a `-p` repeated by an outer gate run (this repository's own suite spawning the gate) is harmless |
 | R3 | `_pytest/pytester.py:707`: `mp.delenv("PYTEST_ADDOPTS", raising=False)` | A `pytester`-driven inner run never loads the recorder at all; the key rule below covers the subprocess kind |
-| R4 | `_pytest/nodes.py#Item.location`: `(relfspath, lineno, name)` with `relfspath` relative to `config.rootpath` through `bestrelpath`; `_pytest/reports.py#BaseReport.fspath`: the nodeid up to `::` | A report carries its node id's path, `fspath`, relative to the rootdir for a file under it, on the controller as well as in a plain run, so `rootdir / fspath` is the absolute path of the module that collected the test, for a test report and a `CollectReport` alike. Neither needs `item.path`, so the recorder reads reports only. Corrected, *inferred during implementation*: `location[0]` comes from `reportinfo()` and names the module that DEFINES the test function, which gave a file the base passes `failing on base too` in the corpus (phase 4); and a file outside the rootdir is named against the argument that reached it, so a session handed such a path writes no record (round 1) |
+| R4 | `_pytest/nodes.py#Item.location`: `(relfspath, lineno, name)` with `relfspath` relative to `config.rootpath` through `bestrelpath`; `_pytest/reports.py#BaseReport.fspath`: the nodeid up to `::` | A report carries its node id's path, `fspath`, relative to the rootdir for a file under it, on the controller as well as in a plain run, so `rootdir / fspath` is the absolute path of the module that collected the test, for a test report and a `CollectReport` alike. Neither needs `item.path`, so the recorder reads reports only. Corrected, *inferred during implementation*: `location[0]` comes from `reportinfo()` and names the module that DEFINES the test function, which gave a file the base passes `failing on base too` in the corpus (phase 4); and a file outside the rootdir is named against the argument that reached it, so a session handed such a path writes no record (round 1). **Reframed after round 3**: `rootdir / fspath` is right only for a node pytest names relative to its rootpath, and rounds 1–3 each found another branch of pytest's naming rule it is wrong for. The recorder now writes the node's own path, read where the node exists (R14–R16), and reads no node id for a path at all |
 | R5 | `xdist/remote.py` `__channelexec__`: a worker is a child process that inherits `os.environ` and prepends its import path to `PYTHONPATH`; `xdist` forwards every worker's test and collect reports to the controller's `pytest_runtest_logreport` and `pytest_collectreport` | The controller alone records a whole `-n auto` run; workers find no key (the controller took it) and record nothing. That the controller sees every collect report under `-n 2` is a *measurement* (Q-M2) (NAME NOT IN TREE) |
 | R6 | `_pytest/main.py#Session.shouldstop`, `shouldfail` | Available to the recorder, and not needed: the base run's exit code decides the not-reached rule below |
 | R7 | `.github/scripts/run_tests.py#main`: `subprocess.run(command, cwd=str(root))` with no `env` | `bin/test` hands the gate's environment through to pytest unchanged, so this repository's own row records |
@@ -87,14 +90,42 @@ the smith's phase 1 and are rows of `questions.md`.
 | R12 | `tests/test_one_word_one_meaning.py`: the guarded words are `seal`, `segment`, `pact`, `signatory` | *plugin* is not guarded; this spec still says *recorder* for the pytest plugin, because every document here already uses *plugin* for the Claude Code plugin |
 | R13 | `templates/config.md` rule 3 at a9d7b0e5, 1341 words; `changelog/0.18.3.md` §*Fixed*, §*Changed*; `seal/releases/0.18.1.md` B2–B4, `0.18.2.md` D1, D2, `0.18.3.md` R1–R5 and its `Corrected ·` rows | What the records say today, and which released rows this makes false (Scope 11) |
 
+The three rows below were read by the reframe of 2026-10-06, after round 3,
+in the same environment (pytest 9.1.1, pytest-xdist 3.8.0), and each is
+`read`. They ground the redesign in `plan.md` Alternative N.
+
+| # | What was read | What it settles |
+|---|---|---|
+| R14 | `_pytest/reports.py`: `TestReport.__init__` (line 318) and `CollectReport.__init__` (465) end in `self.__dict__.update(extra)` from a `**extra` parameter, and the latter's docstring says "Reports can contain arbitrary extra attributes"; `_report_to_json` (541) begins `d = report.__dict__.copy()` and rewrites only `longrepr`, `result` and path-like values; `_report_kwargs_from_json` (614) rebuilds `longrepr` and returns the whole dict, from which `_from_json` builds the class | An attribute a hook sets on a report in the process that made it survives the trip through `pytest_report_to_serializable` and back: it is in `__dict__`, a string is copied as it is, and the rebuilt report takes it through `**extra`. That is the carrier of the redesign, and it is pytest's documented shape rather than a private one (NAME NOT IN TREE) |
+| R15 | `xdist/remote.py` `__channelexec__` (line 404): a popen worker's `sys.path` is the controller's frozen copy, which holds the recorder's directory; `config = _prepareconfig(args, None)` (420) with the controller's `invocation_params.args`; `_pytest/config/__init__.py` `_prepareconfig` → `config.parse(args)` with `addopts` on, which reads `PYTEST_ADDOPTS` from the worker's inherited environment (1523) and then `consider_preparse(args, exclude_only=False)` (1576). `remote.py` `pytest_runtest_logreport` (281) serializes the report pytest's runner made; `pytest_collectreport` (292) sends a report that did not pass. `xdist/dsession.py` `worker_testreport` (326) and `_failed_worker_collectreport` (399) rebuild it and call the controller's `pytest_runtest_logreport` and `pytest_collectreport` | Every xdist worker loads the recorder, through the same `-p` the controller read, and finds no key (R5) so registers no `Recorder`; a hook the module registers at import runs on the worker regardless. A report the worker's hooks annotated is the report the controller's recorder is handed. The controller dedups a failed collection by its `longrepr` here, and phase 1 measured one arriving per worker; the reader's set semantics stand either way. Measured in phase 5 (Q-M3) (NAME NOT IN TREE) |
+| R16 | `_pytest/nodes.py` `Node.__init__` (147): `path = parent.path` where none is given, then `self.path = path` — a node's own absolute path, set from the filesystem at collection; `FSCollector.__init__` (552): the node id is MADE from `path`, relative to `rootpath` where it lies lexically under it, else relative to the initial path holding it, else the parent's id plus `::` and a name. `_pytest/hookspec.py`: `pytest_runtest_makereport` (758) and `pytest_make_collect_report` (458) are `firstresult` hooks, so a hookwrapper around either reads the one report; `_pytest/runner.py` `call_and_report` (236) calls the first and then `pytest_runtest_logreport` in the same process, and `collect_one_node` (586) calls the second and then `pytest_collectreport` | The node id is derived from the path and not the other way round, so reading the path off the node is reading the thing the id was made from — the derivation rounds 1–3 re-implemented and this reframe stops reading. The two hooks run where the node exists and before xdist serializes the report, so the path is on the report when it leaves the worker. An item a conftest or a plugin parents to the session or to a directory carries that parent's directory as its path, which is no file of its own (Scope 1) (NAME NOT IN TREE) |
+
 ## The class, enumerated by construction
 
 **A file reads `failing on base too` only where a record carrying the base
 run's key holds a failing test or a failed collection whose absolute path,
 made relative to the base's worktree, is that file.** The record is written
-by code the gate ships, inside the pytest process that collected the test,
-from the path pytest itself attached to the report. There is no "whose" to
-infer: the process that failed the test is the process that wrote the line.
+by code the gate ships, inside the pytest process that claimed the key, and
+the path on each line is the node's own — `item.path` for a test,
+`collector.path` for a failed collection — read in the process that holds
+the node and carried on the report to the process that writes (R14–R16;
+reframed after round 3). There is no "whose" to infer, and there is no
+naming rule to re-derive: the process that failed the test is the process
+that wrote the line, and the path was pytest's own before any node id was
+made from it.
+
+**Why the reframe, in one paragraph.** The build wrote a line's path as
+`rootdir / report.fspath`, the node id's path joined to the rootdir, which
+is right for every node pytest names relative to its rootpath and wrong for
+every other. Round 1 found a path outside the rootdir, round 2 a `--pyargs`
+package and a symlinked rootdir, round 3 a collector built below the root
+and a `--pyargs` name the refusal imported too early — one branch of the
+same derivation each time, each fix a refusal or a guard that re-derived
+pytest's rule a little further, and the third round's two 🔴 both inside
+the unit the second round's fixes changed. §12 says a defect belongs to a
+class, and the class here is the derivation, not any branch of it. The
+redesign reads the path pytest already holds, and the refusal, the guard,
+the rootdir join and every sentence that described them retire.
 
 Each way the word could still be wrong is a way to put a false line into a
 keyed record, and each is named:
@@ -108,19 +139,32 @@ keyed record, and each is named:
   ran. A test that reads the file the recorder is writing could append to
   it; this is constructed only, needs a test written against this gate,
   and is named rather than closed.
-- **A path pytest attached to the wrong file.** The report's path is where
-  pytest collected the test (R4); a test a module inherits from a helper
-  is reported under the module that collected it, not the helper that
-  defines it. This is the opposite of `xunit1`'s `file`, which is why the
-  0.18.3 frame's Alternative B lost, and it is what makes placement by
-  name unnecessary here.
-- **Two files at one relative path.** Two runners in two directories report
-  different absolute paths, and relative to the worktree they stay
-  different. They coincide only for one file, which is one file. Corrected,
-  *inferred during implementation* (round 1): a pytest handed a path outside its rootdir
-  names those files against the argument rather than the rootdir, so two
-  files under two arguments can share one name; such a session writes no
-  record, and its files read `new?`.
+- **A path pytest attached to the wrong file.** `item.path` is the module
+  that COLLECTED the test (R16; phase 4 found `report.location[0]` naming
+  the module that defines it, and the reframe keeps the collecting module).
+  A test a module inherits from a helper is reported under the module that
+  collected it, not the helper that defines it. This is the opposite of
+  `xunit1`'s `file`, which is why the 0.18.3 frame's Alternative B lost,
+  and it is what makes placement by name unnecessary here.
+- **Two files at one path.** Closed by construction: a node's path is its
+  own, set from the filesystem when the node was collected (R16), so no
+  rootdir, initial path, argument, symlink or conftest-built collector
+  enters it. Every layout rounds 1–3 found misnamed — a path outside the
+  rootdir, `-c` or `--rootdir` elsewhere or through a symlink, a `--pyargs`
+  package or namespace package outside, a collector built at the root and
+  one built below it — is recorded under its own path now, and each of
+  their cases asserts the line (S24, S26). The one node whose path is no
+  file of its own is an item a conftest or a plugin parents to the session
+  or to a directory: its path is that directory, its `test` line is not
+  written (Scope 1), and so nothing shares a word with it.
+- **A report that reaches the recording process without its path.** A
+  plugin that builds a report of its own and logs it directly, or rebuilds
+  one dropping attributes it does not know, hands the recorder a report
+  with no path on it (a worker that did not load the recorder would too,
+  and R15 reads that none exists). The line is not written and is counted
+  on the `end` line; the file is in no list, the gate says how many lines
+  went unplaced (Scope 6), and rule 3 names it. Strict: a word is never
+  given from a path the recorder guessed.
 
 Everything else the mechanism can get wrong is strict: no recorder loaded
 (`tox`, `nox`, `env -i`, a container, a row that sets `PYTHONPATH` or
@@ -145,29 +189,55 @@ record, and the word is `new?`.
      (`pop`) into a module variable and reads `SPECSEAL_RECORD_DIR`. Taking
      it out is what keeps a child pytest — one a test spawns, an xdist
      worker — from recording: it inherits an environment with no key.
+   - **Two hooks of the module's own run in every process that loaded it,
+     key or none** (reframed after round 3). Under xdist the process that
+     holds an item is a worker and the process that records is the
+     controller (R5, R15), so the path has to be read where the node is and
+     travel with the report. A hookwrapper on `pytest_runtest_makereport` (NAME NOT IN TREE)
+     sets the node's own path, `str(item.path)` (`item.fspath` below pytest
+     7, through `getattr`), on the report as one string attribute of the
+     recorder's own; a hookwrapper on `pytest_make_collect_report` sets (NAME NOT IN TREE)
+     `str(collector.path)` the same way. Each adds one attribute to a
+     report pytest already made, reads nothing else, imports nothing, and
+     changes no outcome and no field pytest reads (R14). The old-style
+     `hookwrapper=True` spelling is the one every build from the floor up
+     accepts. (NAME NOT IN TREE)
    - **At `pytest_configure`** the first session configured in the process
      claims the key and the module variable is cleared, so a second session
      in the same process (an in-process `pytest.main` a test calls) finds
-     none. With no key or no directory the recorder registers nothing and
-     changes nothing.
+     none. With no key or no directory the recorder registers no `Recorder`
+     and writes nothing.
    - **At `pytest_sessionstart`** it opens `<dir>/<key>-<pid>.jsonl` and
      writes a `session` line: the key, the pid, `rootdir` and `invocation_dir`
-     as absolute strings, and `pytest`'s version.
+     as absolute strings, and `pytest`'s version. It reads no argument, no
+     option and no ini value: the refusal `an_argument_lies_outside_the_rootdir`
+     of rounds 1–2 and the guard in `write` retire with the rootdir join
+     (the reframe). (NAME NOT IN TREE)
    - **At `pytest_runtest_logreport`** it appends a `test` line per report:
      `nodeid`, `when`, `outcome`, `wasxfail` where set, and `path`, the
-     absolute path `os.path.normpath(os.path.join(rootdir, report.fspath))`,
-     the module that collected the test (`report.location[0]` before phase 4,
-     corrected *inferred during implementation*); a session handed a path outside its
-     rootdir writes no line at all (round 1).
+     attribute the makereport hook set — the module that collected the
+     test, `item.path` (`report.location[0]` before phase 4, the rootdir
+     joined to `report.fspath` before the reframe, each corrected *inferred
+     during implementation*). A report with no such attribute, and one whose
+     path is a directory (an item with no file of its own, R16), is written
+     as no line and counted; the record continues, because the line was the
+     wrong one and not the record.
      **At `pytest_collectreport`**, where the report failed, a `collect` line
-     with `nodeid`, `outcome: "failed"` and `path` from `report.fspath` the
-     same way. Each line is flushed as written, so a crash leaves what ran.
+     with `nodeid`, `outcome: "failed"` and `path`, the attribute the
+     collect-report hook set — the collector's own path, a file for a module
+     or a class and a directory for a directory or a package whose
+     collection failed, which is the thing that failed. A report with no
+     such attribute is written as no line and counted. Each line is flushed
+     as written, so a crash leaves what ran.
    - **At `pytest_sessionfinish`** it appends an `end` line with
-     `exitstatus`. Nothing in the gate's table depends on it; it is for the
-     person reading the kept file.
-   - It never prints, never changes an outcome, never raises out of a hook:
-     a directory it cannot write is one `warnings.warn` and no record,
-     which the gate then reads as no record (strict).
+     `exitstatus` and `unplaced`, the count of lines not written for want of
+     a path or for a directory path. The gate reads `unplaced` for one
+     sentence to the person (Scope 6) and nothing in its table depends on
+     the line.
+   - It never prints, never changes an outcome, never raises out of a hook,
+     and imports nothing of the row's — no `find_spec`, no module lookup
+     (round 3's 🔴 1): a directory it cannot write is one `warnings.warn`
+     and no record, which the gate then reads as no record (strict). (NAME NOT IN TREE)
 2. **The environment every measured run is handed.** `recording_env(keep, key)`
    in `broad_gate.py`: `os.environ` copied, `PYTHONPATH` with the
    recorder's directory prepended (`os.pathsep`), `PYTEST_ADDOPTS` with
@@ -224,6 +294,16 @@ record, and the word is `new?`.
    `COLLECTED_BEYOND`, `MULTI_RUNNER` and `COMPANY` retire. Each surviving
    or new reason is pinned whole in
    `test_the_unmeasured_word_says_so_and_every_reader_is_told_it`.
+   **Reframed after round 3 (round 3's 🟡 3 and ⬜ 4):** `NO_RECORD_AT_HEAD`
+   and `NO_RECORD` name both causes of a missing record — no pytest the row
+   ran loaded the recorder, or the one that did could not write its file
+   and warned in `suite.txt` — because a sentence that names one cause as
+   the only one sends a person after a problem the row does not have. And
+   where the head record's `unplaced` count is non-zero, the failure form
+   prints one sentence under the listing: how many test or collection
+   reports reached the recorder with no file of their own and are in no
+   list, naming `records/` and the `end` line. The smith names the constant;
+   it is pinned whole with the others.
 7. **What retires from `broad_gate.py`**, and the cases over it:
    `row_prefixes`, `POSIX_CUTS`, `CMD_CUTS` and the two row-cut (NAME NOT IN TREE)
    parametrized cases and the shell-selection case over them; `JUNIT_REPORT`,
@@ -270,6 +350,22 @@ record, and the word is `new?`.
    is reactive and mechanical*, which names the prefixes and the JUnit
    report today; the comments over every constant that stays. The sentence
    "`new?` with the reason no run measured it" stays, and is pinned.
+   **Reframed after round 3:** rule 3's paragraph on a pytest naming files
+   outside its rootdir, its "the refusals above close every branch" sentence,
+   `compare_at_base`'s docstring paragraph that says the same, the recorder's
+   docstring paragraphs on the rootdir, and the changelog fragment's bullet
+   "A pytest that names a file outside its rootdir writes no record" all
+   retire, each asserted gone where it was pinned. In their place rule 3
+   says, in two sentences, what the record names a file by — the path
+   pytest itself holds for the node, read where the node exists, so a file
+   outside the rootdir, a `--pyargs` module wherever Python imports it from
+   and a collector a conftest builds are named by their own paths — and the
+   two kinds of report it leaves out: a test with no file of its own (an
+   item a conftest or a plugin parents to the session or to a directory) and
+   a report that reached the recorder without its path (one a plugin built
+   or rebuilt itself), each in no list, counted, and said in the failure
+   form. The limit "named rather than closed" goes back to being the forged
+   record alone, with those two beside it as what the recorder leaves out.
 10. **Read and not edited, with the grounds:** `README.md` (the sealer row
     and the flow line "new? → not measured at the base"), `README.ko.md`
     (the same two), `agents/sealer.md` §*Boundaries* and its report list,
@@ -308,6 +404,9 @@ record, and the word is `new?`.
 | `( … )` and `{ …; }` groups, compound commands, `&` rows | `row_prefixes` retires, so the row's shape no longer matters to the comparison; what `cmd.exe` is handed is `handed_to_shell`'s and unchanged | as those items left them |
 | A record the row's own tests forge or append to | Constructed only, needs a test written against this gate's own key or file (§*The class*) | the repository owner, if it is ever met |
 | Shortening the whole-row base run (`-x`, `--lf`, the failing files appended) | Appending files is what made rows collect beyond them and runners drop arguments; `-x` makes the not-reached row fire. One unchanged run is the price of no inference | decided here |
+| A fallback to `rootdir / fspath` where a report carries no path (reframe) | That is the derivation rounds 1–3 found wrong one branch at a time, back in through a side door; the line is dropped, counted and said instead | decided in the reframe; `plan.md` Alternative S |
+| A word for a test with no file of its own, under its parent's directory (reframe) | The unit of the word is the file (Alternative F), and two such items under one directory would share a word the way two files at one path did; the item is in no list, counted and said | decided in the reframe; Alternative T |
+| Closing round 3's two 🔴 where they point, with its paste-ready fixes (reframe) | A locator that imports nothing and a guard that reads `::` are the fourth and fifth re-derivations of pytest's naming rule; the two rounds before them each closed the branch found and left the next. The class is the derivation | decided in the reframe; Alternative O |
 
 ## User scenarios & acceptance *(mandatory)*
 
@@ -345,14 +444,31 @@ cases, against the module with the hook body deleted.
 | S21 | This repository's own row | `uvx ruff check . && uvx ruff format --check . && bin/test -q` with one test failing at the base and on the branch, through the gate. Then `failing on base too`, one `suite-at-base.txt`, one `records/base-*.jsonl` written under `-n auto` by the controller | executed — a phase-2 probe, not a planted case (the suite does not run `uvx`) |
 | S22 | This plugin's own suite under the sealer | The outer gate's `-p` and `PYTHONPATH` reach every case that spawns the gate; the inner gate's own key is claimed by the fixture's pytest. Then the suite is green under `broad-gate` | executed — the sealer's run is the measurement |
 
+The rows below are the reframe's (2026-10-06, after round 3). "Seen red"
+for them means the case was run against 0c5b9b2c's recorder, where the
+refusal and the guard still stand, and failed there.
+
+| # | Scenario | Given / When / Then | Verifiable how |
+|---|---|---|---|
+| S23 | The path travels with the report | A scratch project, plain and under `-n 2`, with a failing test, a passing test and a file whose collection fails. Then every `test` and `collect` line's `path` equals the node's own absolute path, the controller's one record holds them all, and `unplaced` on the `end` line is 0 | executed; Q-M3 first; seen red with the makereport hookwrapper deleted (every test line unplaced, the record holds no file) |
+| S24 | What rounds 1–3 refused is recorded under its own name | Each layout the refusal cases plant — `pytest tests sub` with `sub/pytest.ini`, `-c` and `--rootdir` elsewhere, a rootdir and an argument spelled through a symlink, a `--pyargs` package and a namespace package outside the rootdir, a plain `--pyargs` module outside that cannot be collected, a collector built at the root for a path no argument holds. Then the record holds each file under its own absolute path (the `--pyargs` ones under the directory Python imported them from, the symlink ones under the lexical path pytest holds), and through the gate each file reads the word its own outcome at the base gives — `sub/test_x.py` and `extpkg/test_a.py` read `new` where the branch broke them | executed; each case flipped from "writes no record" to the line, seen red at 0c5b9b2c where it writes no record |
+| S25 | The recorder imports nothing of the row's | Round 3's 🔴 1 layout: a conftest sets at `pytest_sessionstart` what `pkg/__init__.py` reads at import, run as `--pyargs pkg.test_ready`. Then exit 0 with the recorder as without it, and the record's test lines read `passed` | executed; seen red at 0c5b9b2c (exit 1, the package imported at the refusal) |
+| S26 | A collector built below the root for files outside it | Round 3's 🔴 2 layout: `sub/tests/conftest.py` returns a directory collector for `ext/` from `pytest_collect_directory`, the base cannot collect `ext/test_old.py`, the branch breaks `ext/test_new.py`. Then the records hold `ext/test_old.py` at the base and `ext/test_new.py` at `HEAD`, each under its own path, and `ext/test_new.py` reads `new` | executed; seen red at 0c5b9b2c (`sub/tests  failing on base too`) |
+| S27 | What the recorder leaves out, and says so | A conftest appends an item parented to the session beside a failing `tests/test_a.py`; separately a module removes its own file while it runs. Then the first run's record holds `tests/test_a.py` failing and no line for the item, with `unplaced` 1 on the `end` line, and the gate's failure form says one report was unplaced; the second's lines are written under the module's path, and the file reads the word the base gives | executed; the first seen red with the directory check deleted (a line with a directory path is written and `unplaced` reads 0) |
+| S28 | The texts of the reframe | Rule 3's two sentences, the two reworded reasons, the unplaced sentence, `compare_at_base`'s docstring, the recorder's docstring and the changelog bullet are pinned by their deciding sentence; every retired sentence of Scope 9 is asserted gone | executed; each pin seen red with its sentence deleted |
+
 ## Data & interfaces
 
 - `skills/verify/scripts/pytest_record/specseal_pytest_record.py`: hooks
   `pytest_configure`, `pytest_sessionstart`, `pytest_runtest_logreport`,
-  `pytest_collectreport`, `pytest_sessionfinish`. Reads
+  `pytest_collectreport`, `pytest_sessionfinish` on the `Recorder`, and two
+  module-level hookwrappers, `pytest_runtest_makereport` and (NAME NOT IN TREE)
+  `pytest_make_collect_report`, that set `specseal_path` on the report — (NAME NOT IN TREE)
+  the node's own absolute path as a string (reframed after round 3). Reads
   `SPECSEAL_RECORD_KEY` (taken out at import) and `SPECSEAL_RECORD_DIR`.
   Writes `<dir>/<key>-<pid>.jsonl`, UTF-8, one JSON object per line with a
-  `kind` of `session`, `test`, `collect` or `end`.
+  `kind` of `session`, `test`, `collect` or `end`; the `end` line carries
+  `exitstatus` and `unplaced`. (NAME NOT IN TREE)
 - `broad_gate.py#recording_env(keep, key)` → the environment of Scope 2.
 - `broad_gate.py#read_record(directory, key, worktree)` → the `Record` of
   Scope 3; pure, unit-tested on its own with a table of lines (a failing
@@ -374,7 +490,9 @@ cases, against the module with the hook body deleted.
 
 `questions.md` beside this file. One row is a person's and does not block:
 its default is what this frame builds. Two are measurements for phase 1 and
-three are the work's.
+three are the work's. The reframe adds one measurement, Q-M3, for phase 5's
+first act: that the attribute a worker sets on a report arrives on the
+controller's copy, on each build the recorder was measured on.
 
 <!-- The line below is the framer's mark, and it is the only evidence in the
      TREE that the framing happened — the existing framer mark lives in the
@@ -386,3 +504,4 @@ three are the work's.
      line when the review chain sends the work item back to its framer. -->
 
 Framed 2026-10-06 by framer, before the build.
+Reframed 2026-10-06 by framer, after round 3.
