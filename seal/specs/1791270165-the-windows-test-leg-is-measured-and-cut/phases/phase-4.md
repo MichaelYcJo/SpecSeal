@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 4 (4a written; 4b waits on phase 1's Windows table) |
-| Commit | 597cc5f7 (4a) |
+| Commit | 83801eac (4a; the sampler landed at 597cc5f7, its cover case was tightened here) |
 | Ran by | smith on Opus 5.5 |
 
 ## What this phase was asked

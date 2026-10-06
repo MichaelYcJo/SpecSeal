@@ -17,7 +17,7 @@ minutes in two weeks; this item measures it on Windows and cuts it.
 | 1 | Workflow edit committed (b9435eda); local checks pass. **Open**: the dispatch run and its three tables in `phases/phase-1.md` |
 | 2 | **Blocked on the owner** (`questions.md` Q10): the Defender step was refused by the harness, so there is nothing to measure |
 | 3 | Not started; waits on phase 1's figures |
-| 4a | Closed (597cc5f7) |
+| 4a | Closed (83801eac) |
 | 4b | Not started; waits on phase 1's Windows table |
 | 5 | Not started; waits on phases 2–4 |
 
