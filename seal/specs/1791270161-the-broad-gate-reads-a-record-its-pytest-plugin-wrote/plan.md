@@ -4,7 +4,7 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-10-06 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
 
 <!-- Fill the line above in at the spawn: reading this plan and spawning the
 builder IS the approval. The shape is `templates/sdd-routing.md`'s. -->
