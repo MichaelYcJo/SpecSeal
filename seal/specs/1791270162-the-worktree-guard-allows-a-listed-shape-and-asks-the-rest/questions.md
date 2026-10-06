@@ -1,0 +1,78 @@
+# 1791270162-the-worktree-guard-allows-a-listed-shape-and-asks-the-rest — questions for the planner
+
+<!-- seal/specs/1791270162-the-worktree-guard-allows-a-listed-shape-and-asks-the-rest/questions.md — decisions only a human can make,
+extracted so nothing ships on a silent assumption. Before adding a row,
+check the inheritance rule: if policy is silent but existing behavior
+answers it, inherit and record — only genuinely NEW rules belong here.
+Framed by `specseal:framer` on Fable 5.1. -->
+
+## Judgments the ticket left open that the tree answered
+
+Listed so nobody reopens them. Each one's grounds are in `spec.md` or in
+`plan.md`'s Alternatives table.
+
+1. **What *leaves the tree where it is* means.** HEAD names the same branch
+   when the command ends (`spec.md` Grounding, §*Premise*). Content moved on
+   the same branch is not the guard's subject; `rebase`, `merge`, `pull`,
+   `reset`, `stash` are listed where recorded. The ticket said *leave the
+   tree where it is* without saying which property of the tree; the Premise
+   does.
+2. **Where the list is consulted.** Only where a switch would matter — §A
+   rows 1–4 — and never in a clean single-stream tree (`plan.md` B). The
+   ticket says so itself ("Where a switch would matter"); the tree adds why
+   the other reading is an outage.
+3. **What the stop is under the press.** A `deny` to the model naming the
+   plain spelling, an `ask` otherwise (`plan.md` C versus D). The commit
+   gate settled this shape for its own stops and the reader is shared.
+4. **How `git checkout <name>` is read.** As unrecognised, not as a switch
+   (`plan.md` E): the rewrite to `git switch` or `git checkout -- <path>` is
+   the model's and costs the person nothing.
+5. **Whether candidate C stays for the clean single-stream state.** No
+   (`plan.md` G).
+6. **Whether the 165 s case is deleted or rewritten.** Retired with its
+   subject, after #841's sampled version lands, with a `Corrected ·` row for
+   D1 of 0.18.2 (`plan.md` H, `spec.md` In 7). The ticket's second comment
+   on #841 left this to #826; the ledger rule decides the shape and #841's
+   urgency decides the order.
+7. **Whether the creation arm changes.** No (P6 of 1790815613). A hidden
+   creation in a clean single-stream tree is silent, a named limit, and #734
+   is closed by the stop reading no consent.
+8. **Which measurement is #841's and which is this work's.** `--durations`
+   and the sampling are #841's and are read here, never re-run; the corpus
+   stop count is this work's (`spec.md` In 7).
+9. **Whether `hooks/cmdline_base.py` is reopened.** No (P4 of 1790815613,
+   the byte pin). The allow-list reads the frozen reading's words and
+   nothing more.
+
+| # | Question | Who can answer | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|---|
+| P1 | **Where does the list come from?** The ticket's convergence argument wants a list that grows only by a measured row, which is how `hooks/tokens.py#PLAIN_GIT` was built. But this guard runs in every repository the plugin is installed in, and a git subcommand this repository never recorded — `git stash`, `git submodule update`, `git cherry-pick` in a repository that never ran one — would stop a plugin user's honest command in a dirty tree until a release lists it: one `ask` per such command without the press, and under the press a `deny` the model cannot rewrite its way past, so the person is asked anyway (`plan.md` §*Technical context*, the six-months scenario) | **a person**: the repository owner. It is what a plugin user outside this repository is made to pay for a convergence property, and somebody has to be accountable for the trade | **(a)** the recorded subcommands only, each with its count — the ticket's text, and the construction that converged for the commit gate; the cost above is a named limit and the stop's text names the list. **(b)** seed with every subcommand `git --list-cmds=main,others` prints on git 2.54.0 minus the branch-movers (`switch`, `checkout`, `bisect`, `symbolic-ref`, `update-ref`, `stash branch`, `worktree add`), with phase 1 confirming the corpus lies inside it and a case binding the list to the installed git the way `test_the_option_table_binds_the_installed_git` did; a mover the subtraction forgot reads silent, which is the deny-list failure one level down. **(c)** (a) plus a short hand-picked family of read-only and same-branch verbs the owner names, each marked *unmeasured* in the comment | (a), the ticket's text; taken under the `automation` press if unanswered, and reversible at the pull request by adding the rows | ⬜ |
+| M1 | Per project directory and per cut, how many transcripts, Bash tool uses and distinct (command, directory) pairs are on disk today, how many pairs hold a git segment the frozen reading yields, and what is the frequency table of git subcommands over them? The main transcripts of this repository's own directory fell from 34 (2026-10-03) to 23 (executed `ls` count, 2026-10-06), so cut 1 may read below 25,741 and the record says so if it does | **a measurement**: phase 1, a deleted probe | A table, which is the input to `LEAVES_THE_TREE` and the denominator of the prompt budget. A cut-1 count below 25,741 is reported, not absorbed | the counts as found | ⬜ |
+| M2 | Tree-blind over each cut, how many pairs does the build stop, by shape class (`checkout` without `-- <word>`, unlisted subcommand, string handed to a shell, substitution body, untokenizable, hidden git), how many of those does today's guard not stop, and how many pairs does today's guard stop that the build does not (candidate C's asks in a clean tree cannot be told tree-blind, so this is reported as the pairs C asks about, with the note that row 5 silences them where the tree is clean)? | **a measurement**: phase 1 (before) and phase 3 (after, with the build's own `shape_of`) | The numbers the pull request's prompt budget carries, and the ones `spec.md` S14 pins. The frame's bound: zero person-stops under the press is by construction and is not measured; the tree-blind count is reported whatever it is, and any single shape accounting for ten or more pairs is either listed (where it leaves the branch) or named with its rewrite in the stop's text | the build proceeds; the counts are reported as found | ⬜ |
+| M3 | Of the pairs the build stops, how many hold a shape with no plain rewrite the stop's text can name — a command that IS its own plain spelling (an unlisted subcommand), or a shell string that cannot be un-strung without changing what runs? | **a measurement**: phase 1 | Zero: the stop's text as written in `spec.md` In 3 covers every stopped pair. One or more: each shape becomes a row of this file for the owner before phase 2, because a stop with no way on under the press is a person-stop the frame promised not to add | the count as found; a nonzero count stops phase 2 until the owner has the rows | ⬜ |
+| M4 | What are the `--durations` of `tests/test_guard_resolves_the_tree_it_judges.py` after phase 3, against the 164.87 s, 24.88 s and 203.0 s module figure #841's body carries for the base (read, not re-run here)? | **a measurement**: phase 3, one module run with `--durations=10` | A delta #841's record can carry. Nothing about the rest of the suite is measured here | reported as found | ⬜ |
+| W1 | The exact reason text of the stop, English and Korean (`tr`), naming the shape read and the plain spelling, and how it reads where more than one unrecognised shape is on the line | **the work**: phase 2 | One text, pinned by S3 and S5; the Korean half follows `skills/writing-style` and names the plain spelling in the same words | — | ⬜ |
+| W2 | How `tree_matters` hands `sessions_in_tree`'s and `tracked_changes`'s results on to the ladder so neither runs twice for a command holding both an unrecognised shape and a `git switch` | **the work**: phase 2 | A tuple the ladder consumes; `test_the_repository_lookup_cannot_hang_the_gate`'s standing (one spawn budget) holds | — | ⬜ |
+| W3 | Which `hooks/cmdline.py` readers read a shell string's and a substitution body's words for `spec.md` In 1, and what the fail-closed text test is where the module does not load (`test_a_broken_wider_reader_costs_only_the_question`'s successor: a broken reader costs a stop, never a silence) | **the work**: phase 2 | `command_strings`/`reparsed_texts`/`substitution_bodies`, or a narrower pair; the text test is the bare word `git` in the string, body or untokenizable command | — | ⬜ |
+| W4 | Which commit of #841's branch holds the sampled 165 s case, and does phase 3 rebase over it before retiring the case, or does #841 land in `release/v0.20.0` first so the rebase is onto the release branch? | **the work**: phase 3, with the orchestrator naming the order at the spawn | Either order ends with one `Corrected ·` row for D1 of 0.18.2, written here; what differs is whether the deletion diff shows the sampled case or the original | #841 lands first (`spec.md` In 7); the spawn prompt of phase 3 says if it did not | ⬜ |
+
+**`Who can answer` takes one of three values and nothing else.** They were one
+shape on the page before this, and #84's second comment measured all three
+inside a single run's four rows.
+
+- **a person** — what the product should be, or a value somebody has to be
+  accountable for. This is the file's stated purpose, and the only kind of row
+  that blocks the build.
+- **a measurement** — a probe, a command or a count settles it, so asking a
+  person is the wrong instrument and queueing it behind one wastes a round
+  trip.
+- **the work** — unknowable at framing time. The phase that meets it decides
+  it there and records a divergence row; it does not travel back to the
+  framer.
+
+**The framer opens rows and does not own their answers.** A row is a question
+put to somebody else, so opening one costs little and closes nothing — and the
+`Status` column is ticked by whoever answered, never by whoever asked.
+
+Answered rows feed back into docs/ (policy clause or open-questions section)
+before this directory's work merges.
