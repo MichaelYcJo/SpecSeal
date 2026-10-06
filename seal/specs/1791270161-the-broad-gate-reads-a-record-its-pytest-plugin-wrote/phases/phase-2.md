@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | 1bc4fb42 |
-| Ran by | unknown — the spawn prompt did not name the agent or the model; the orchestrating session fills this row |
+| Ran by | smith on Opus 5.5 (filled by the orchestrating session; the spawn prompt named neither) |
 
 ## What this phase was asked
 
