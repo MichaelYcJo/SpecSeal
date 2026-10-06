@@ -24,8 +24,11 @@
   status does not move. A file holding a table under the new header is read
   from it alone, and an old header beside it is refused (`pact-check` exit
   2, a notice from `chain-check`), because its rows would otherwise go
-  unread: move them into the new table and delete the old one. Rename the
-  header when the file is next edited; no command rewrites a pact.
+  unread: move them into the new table and delete the old one. An old header
+  written directly under the new table, with no blank line, is a row of that
+  table as GitHub renders it; it is refused once, as a line to delete, and
+  never read as a signer (#830). Rename the header when the file is next
+  edited; no command rewrites a pact.
 
 - For a script that calls the plugin's readers: `hooks/config.py`'s
   `pact_signatories` is `pact_signers`, `SIGNATORY_HEADER` is
