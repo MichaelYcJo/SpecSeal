@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #845 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `458ae587c8ddf72b979ddaa1daaa1656831dbcc7..ae88b6265aad24aaa561bda43b02591c6eaaad31`, 2 commits |
+| Contract changes | none |
+| New units | ceiling_from (depth 1); test_an_empty_variable_is_unset_and_a_decimal_is_seconds (depth 1); test_a_ceiling_of_zero_or_less_is_refused_naming_the_variable (depth 1) |
 | Fix of a fix | first — 🟡 2 at tests/conftest.py#CASE_CEILING_S, a unit round-1's fixes changed |
 | Needs a fix | yes — 🟡 1 (the refresh recipe's orphaned commits and missing timeout); 🟡 2 is fix or justify |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,10 +25,10 @@ Round 2, the verifying round for round 1's fixes at `c84ac48e..254130b0`. The re
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The refresh recipe names commits 43326715 and 340dc6fa, which the squash into the release branch orphans, and omits the `timeout` the one unsharded Windows job needs, where the only value to copy is a shard's 20 against a measured 33 m 36 s | `CONTRIBUTING.md:194` | open | read; `docs/the-evidence-ledger.md` records the orphaned-commit failure; `phases/phase-3.md:32` holds the 33 m 36 s; `test.yml:78` reads the matrix's timeout |
-| 🟡 2 | `SPECSEAL_CASE_CEILING_S` is parsed with `int()` at conftest import: an empty or decimal value stops the whole suite at collection, and zero or less fails every case | `tests/conftest.py:851` | open | executed: fresh imports with five values, and a module run under the empty value ending in ImportError while loading conftest |
-| ⬜ 3 | `_stopped_untouched`, `_stopped_touched` and `_named_and_fixed_once` still say built once, which is per worker under xdist; round 1's correction took one instance of the class | `tests/test_a_fix_of_a_fix_is_counted.py:500` | open | executed: local `--durations`, five stopped cases at 15.5 to 16.2 s of setup each and two location cases at about 7 s |
-| ⬜ 4 | The ledger's S7 row claims the variable without the anchor or evidence for it, and nothing pins that CI never sets it | `seal/ledger/1791270165-the-windows-test-leg-is-measured-and-cut.md:19` | open | read; a correction to the run's paperwork |
+| 🟡 1 | The refresh recipe names commits 43326715 and 340dc6fa, which the squash into the release branch orphans, and omits the `timeout` the one unsharded Windows job needs, where the only value to copy is a shard's 20 against a measured 33 m 36 s | `CONTRIBUTING.md:194` | **fixed** `15cbd596` | fixed at 15cbd596; read; `docs/the-evidence-ledger.md` records the orphaned-commit failure; `phases/phase-3.md:32` holds the 33 m 36 s; `test.yml:78` reads the matrix's timeout |
+| 🟡 2 | `SPECSEAL_CASE_CEILING_S` is parsed with `int()` at conftest import: an empty or decimal value stops the whole suite at collection, and zero or less fails every case | `tests/conftest.py:851` | **fixed** `15cbd596` | fixed at 15cbd596; executed: fresh imports with five values, and a module run under the empty value ending in ImportError while loading conftest |
+| ⬜ 3 | `_stopped_untouched`, `_stopped_touched` and `_named_and_fixed_once` still say built once, which is per worker under xdist; round 1's correction took one instance of the class | `tests/test_a_fix_of_a_fix_is_counted.py:500` | **fixed** `15cbd596` | fixed at 15cbd596; executed: local `--durations`, five stopped cases at 15.5 to 16.2 s of setup each and two location cases at about 7 s |
+| ⬜ 4 | The ledger's S7 row claims the variable without the anchor or evidence for it, and nothing pins that CI never sets it | `seal/ledger/1791270165-the-windows-test-leg-is-measured-and-cut.md:19` | **fixed** `ae88b626` | fixed at ae88b626; read; a correction to the run's paperwork |
 | 🟢 | round 1's blocking finding is closed — the survivor is excused with true grounds and `hygiene` is green | `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/survivors.md` | confirmed | executed: the check exits 1 without the file and 0 with it over both ranges; hygiene run 37477813381 succeeded at `068f9fc5` |
 | 🟢 | round 1's finding 2 is closed — the variable raises the ceiling for one run and CI sets nothing | `tests/conftest.py:851` | confirmed | executed: the module run passed, the new case among it; the new defect in the same line is finding 2 of this round |
 | 🟢 | round 1's finding 3 is closed — the stopped templates build in setup | `tests/test_a_fix_of_a_fix_is_counted.py#a_stopped_run` | confirmed | executed: local `--durations`, every stopped case's build in its setup row |
