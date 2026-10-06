@@ -734,7 +734,11 @@ def without_the_policy_span(where, text):
     span: a list item, a block quote, a fence, an HTML block, a footnote
     definition, a thematic break, a setext underline, and a table, whose
     header line GFM takes out of the paragraph, so the cut goes before the
-    line over a delimiter row (#831). A lazy continuation line stays inside,
+    line over a delimiter row (#831). An ordered list interrupts a paragraph
+    only when it starts at 1, and cmark reads a start number of at most nine
+    digits, so `1.`, `01.` and `000000001)` end the span while `02.` and a
+    ten-digit `0000000001.` stay in the paragraph (round 2 of #831). A lazy
+    continuation line stays inside,
     and so does a pipe line over a `---` with no pipe in it, which GFM makes
     part of the statement's setext heading. The delimiter's cell count is not
     matched against the header's, so the end errs toward sweeping more. The
@@ -746,7 +750,7 @@ def without_the_policy_span(where, text):
     end = re.search(
         r"\n[ \t]*\n"  # a blank line
         r"|\n {0,3}(?:#{1,6}[ \t\n]"  # an ATX heading
-        r"|(?:[-*+]|1[.)])[ \t]"  # a list item that can interrupt a paragraph
+        r"|(?:[-*+]|0{0,8}1[.)])[ \t]"  # a list item that can interrupt a paragraph
         r"|>|`{3}|~{3}|<"  # a block quote, a fence, an HTML block
         r"|\[\^[^\]\n]+\]:"  # a footnote definition
         r"|(?:[-*_][ \t]*){3,}\n|=+[ \t]*\n|-+[ \t]*\n)"  # a break or an underline
