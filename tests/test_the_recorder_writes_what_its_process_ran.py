@@ -1,0 +1,237 @@
+"""The broad gate's recorder writes down what its own pytest process ran (#825).
+
+`skills/verify/scripts/pytest_record/specseal_pytest_record.py` is loaded into
+every run the broad gate measures, through `PYTHONPATH` and a `-p` in
+`PYTEST_ADDOPTS`, and keyed by `SPECSEAL_RECORD_KEY`. The gate's permissive
+word rests on one property: a line in a keyed record was written by the pytest
+process that collected the test it names, and by no other. These cases drive
+pytest as a subprocess over a scratch project, the way the gate does, and
+hold that property from both sides -- the claiming process records (S1, S4),
+and a pytest it starts in turn, in a child process or in its own, records
+nothing (S2, S3); with no key or no directory nothing is written (S5).
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+import pytest
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RECORDER_DIR = os.path.join(ROOT, "skills", "verify", "scripts", "pytest_record")
+KEY = "head-0123456789abcdef"
+
+PASSING_AND_FAILING = "def test_ok():\n    pass\n\n\ndef test_bad():\n    assert 0\n"
+
+# A file pytest is handed by name, so its name need not match `test_*.py`
+# and the outer run never collects it.
+INNER_TARGET = "def test_inner():\n    print('INNER-RAN-ITS-TEST')\n"
+
+SPAWNS_A_CHILD = """\
+import os
+import subprocess
+import sys
+
+
+def test_spawns_a_child():
+    here = os.path.dirname(os.path.abspath(__file__))
+    target = os.path.join(here, "inner_target.py")
+    subprocess.run([sys.executable, "-m", "pytest", "-s", "-p", "no:cacheprovider", target])
+    assert 0
+"""
+
+CALLS_PYTEST_MAIN = """\
+import os
+
+import pytest
+
+
+def test_calls_pytest_main():
+    here = os.path.dirname(os.path.abspath(__file__))
+    pytest.main(["-s", "-p", "no:cacheprovider", os.path.join(here, "inner_target.py")])
+    assert 0
+"""
+
+
+def project(tmp_path, files):
+    """A scratch project: `tests/<name>` for each entry, and an empty
+    `records/` beside it. Returns (project root, records directory)."""
+    root = tmp_path / "project"
+    (root / "tests").mkdir(parents=True)
+    for name, body in files.items():
+        (root / "tests" / name).write_text(body, encoding="utf-8")
+    records = tmp_path / "records"
+    records.mkdir()
+    return root, records
+
+
+def recording_env(records, key=KEY, directory=True):
+    """The environment the gate hands a run it measures (`spec.md` Scope 2),
+    built on this process's own with the recorder's variables cleared first,
+    so an outer gate's run of this suite does not leak into the case."""
+    env = dict(os.environ)
+    for name in ("SPECSEAL_RECORD_KEY", "SPECSEAL_RECORD_DIR", "PYTEST_ADDOPTS"):
+        env.pop(name, None)
+    env["PYTHONPATH"] = os.pathsep.join(
+        p for p in (RECORDER_DIR, env.get("PYTHONPATH")) if p
+    )
+    env["PYTEST_ADDOPTS"] = "-p specseal_pytest_record"
+    if key is not None:
+        env["SPECSEAL_RECORD_KEY"] = key
+    if directory:
+        env["SPECSEAL_RECORD_DIR"] = str(records)
+    return env
+
+
+def run_pytest(root, env, *args):
+    return subprocess.run(
+        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *args, "tests"],
+        cwd=str(root),
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=240,
+    )
+
+
+def records_of(records):
+    """`{file name: [parsed lines]}` for every file in `records`."""
+    out = {}
+    for name in sorted(os.listdir(str(records))):
+        with open(os.path.join(str(records), name), encoding="utf-8") as f:
+            out[name] = [json.loads(line) for line in f if line.strip()]
+    return out
+
+
+def the_one_record(records):
+    found = records_of(records)
+    assert len(found) == 1, f"expected exactly one record file, found {sorted(found)}"
+    ((name, lines),) = found.items()
+    return name, lines
+
+
+def test_the_recorder_records_its_own_process(tmp_path):
+    """S1. One `<key>-<pid>.jsonl`: a session line, a test line per phase
+    per test whose path is the test file, and an end line with pytest's
+    exit."""
+    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
+    result = run_pytest(root, recording_env(records), "-q")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    name, lines = the_one_record(records)
+    assert name.startswith(KEY + "-") and name.endswith(".jsonl")
+    assert [line["kind"] for line in lines[:1]] == ["session"]
+    session = lines[0]
+    assert session["key"] == KEY
+    assert os.path.realpath(session["rootdir"]) == os.path.realpath(str(root))
+    assert os.path.realpath(session["invocation_dir"]) == os.path.realpath(str(root))
+    assert lines[-1] == {"kind": "end", "exitstatus": 1}
+
+    tests = [line for line in lines if line["kind"] == "test"]
+    assert sorted((t["nodeid"], t["when"]) for t in tests) == sorted(
+        (f"tests/test_mixed.py::{name}", when)
+        for name in ("test_ok", "test_bad")
+        for when in ("setup", "call", "teardown")
+    )
+    target = os.path.realpath(str(root / "tests" / "test_mixed.py"))
+    assert {os.path.realpath(t["path"]) for t in tests} == {target}
+    assert all(os.path.isabs(t["path"]) for t in tests)
+    failed = [(t["nodeid"], t["when"]) for t in tests if t["outcome"] == "failed"]
+    assert failed == [("tests/test_mixed.py::test_bad", "call")]
+
+
+@pytest.mark.parametrize(
+    "flags", [("-s",), ("-q",), ("-n", "2")], ids=["s", "q", "xdist"]
+)
+def test_a_pytest_the_measured_process_spawns_records_nothing(tmp_path, flags):
+    """S2. A test spawns pytest on a second file in a child process. The
+    child inherits an environment the recorder took the key out of, so
+    exactly one record carries the key and it names the outer file only --
+    while the child's own output still reaches the run's text."""
+    root, records = project(
+        tmp_path, {"test_spawns.py": SPAWNS_A_CHILD, "inner_target.py": INNER_TARGET}
+    )
+    result = run_pytest(root, recording_env(records), *flags)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "INNER-RAN-ITS-TEST" in result.stdout + result.stderr
+
+    _, lines = the_one_record(records)
+    paths = {os.path.realpath(line["path"]) for line in lines if "path" in line}
+    assert paths == {os.path.realpath(str(root / "tests" / "test_spawns.py"))}
+
+
+def test_a_second_session_in_the_measured_process_records_nothing(tmp_path):
+    """S3. A test calls `pytest.main` in the measured process. The first
+    session configured claimed the key, so the second finds none: one
+    record, naming the outer file only."""
+    root, records = project(
+        tmp_path,
+        {"test_calls_main.py": CALLS_PYTEST_MAIN, "inner_target.py": INNER_TARGET},
+    )
+    result = run_pytest(root, recording_env(records), "-s")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "INNER-RAN-ITS-TEST" in result.stdout
+
+    _, lines = the_one_record(records)
+    paths = {os.path.realpath(line["path"]) for line in lines if "path" in line}
+    assert paths == {os.path.realpath(str(root / "tests" / "test_calls_main.py"))}
+    assert [line["kind"] for line in lines].count("session") == 1
+
+
+def test_the_xdist_controller_records_the_whole_run(tmp_path):
+    """S4. Under `-n 2`, one file failing and one that fails to collect: one
+    record file, written by the controller, holding the failing test's lines
+    and the collection error as a `collect` line (Q-M2, measured in phase 1:
+    the controller receives one failed collect report per worker, so the
+    line may repeat)."""
+    root, records = project(
+        tmp_path,
+        {
+            "test_mixed.py": PASSING_AND_FAILING,
+            "test_broken.py": "raise RuntimeError('fails at import')\n",
+        },
+    )
+    result = run_pytest(
+        root, recording_env(records), "-n", "2", "--continue-on-collection-errors"
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    _, lines = the_one_record(records)
+    broken = os.path.realpath(str(root / "tests" / "test_broken.py"))
+    mixed = os.path.realpath(str(root / "tests" / "test_mixed.py"))
+    collects = [line for line in lines if line["kind"] == "collect"]
+    assert collects, lines
+    assert {os.path.realpath(c["path"]) for c in collects} == {broken}
+    assert {c["outcome"] for c in collects} == {"failed"}
+    failing = {
+        os.path.realpath(line["path"])
+        for line in lines
+        if line["kind"] == "test" and line["outcome"] == "failed"
+    }
+    assert failing == {mixed}
+
+
+@pytest.mark.parametrize("missing", ["key", "directory"])
+def test_without_a_key_or_a_directory_nothing_is_written(tmp_path, missing):
+    """S5. With no `SPECSEAL_RECORD_KEY`, or no `SPECSEAL_RECORD_DIR`, the
+    recorder registers nothing: no file anywhere under the scratch tree, and
+    the run's exit is pytest's own."""
+    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
+    env = (
+        recording_env(records, key=None)
+        if missing == "key"
+        else recording_env(records, directory=False)
+    )
+    result = run_pytest(root, env, "-q")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "1 failed, 1 passed" in result.stdout
+    assert records_of(records) == {}
+    written = [
+        os.path.join(d, f)
+        for d, _, fs in os.walk(str(tmp_path))
+        for f in fs
+        if f.endswith(".jsonl")
+    ]
+    assert written == []
