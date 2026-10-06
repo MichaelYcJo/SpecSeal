@@ -1,15 +1,15 @@
-"""`pact-check` reads a signatory's pact changes, and a pact review takes them (#647, D).
+"""`pact-check` reads a signer's pact changes, and a pact review takes them (#647, D).
 
-A signatory's re-read records a pact change in
-`seal/pact-changes/<work-item-id>.md` (`tests/test_a_signatory_records_a_
+A signer's re-read records a pact change in
+`seal/pact-changes/<work-item-id>.md` (`tests/test_a_signer_records_a_
 pact_change.py`). At the pact's repository `pact-check` reads every such
-record, following the signatory's `Pact notify` as read now, and reports a row
+record, following the signer's `Pact notify` as read now, and reports a row
 citing a clause of this pact as `NOT TAKEN` until a row of a pact review,
-`seal/pact-reviews/<work-item-id>.md`, names the signatory and the record at
+`seal/pact-reviews/<work-item-id>.md`, names the signer and the record at
 its current content hash. S12-S17 of the work item's `spec.md`.
 
 The two repositories are `test_pact_check.py`'s `world`; each record here is
-written by the signatory's own `evidence-check --reverify`, so the format read
+written by the signer's own `evidence-check --reverify`, so the format read
 is the format written.
 """
 
@@ -21,7 +21,7 @@ import pytest
 from test_pact_check import (
     LOCATOR,
     PACT_URL,
-    SIGNATORY_URL,
+    SIGNER_URL,
     V1,
     V2,
     checker,
@@ -50,7 +50,7 @@ def unit_hash(repo):
 
 
 def record(world, cites=V2, label="O1", step=1):
-    """Have the signatory's re-read record one pact change, citing the clause
+    """Have the signer's re-read record one pact change, citing the clause
     at CITES' hash (None: no clause), and return (the anchor, the record's
     content hash)."""
     web = world["web"]
@@ -93,12 +93,14 @@ def notify(world, value):
     )
 
 
-def review(world, *rows, name="1791030000-the-pact-review"):
+def review(world, *rows, name="1791030000-the-pact-review", first="Signer"):
+    """A pact review record; FIRST is its first column's header, which a
+    record written in 0.18.x holds as `Signatory` (#822)."""
     body = "".join(f"| {s} | {c} | {v} |\n" for s, c, v in rows)
     write(
         world["api"],
         f"seal/pact-reviews/{name}.md",
-        f"# Pact review\n\n| Signatory | Change | Verdict |\n|---|---|---|\n{body}",
+        f"# Pact review\n\n| {first} | Change | Verdict |\n|---|---|---|\n{body}",
     )
 
 
@@ -106,8 +108,8 @@ RECORD = f"seal/pact-changes/{ITEM}.md"
 
 
 def pact_with(other):
-    """The pact at v2, listing the signatory and OTHER."""
-    return pact(V2, (SIGNATORY_URL, other))
+    """The pact at v2, listing the signer and OTHER."""
+    return pact(V2, (SIGNER_URL, other))
 
 
 @pytest.fixture
@@ -116,15 +118,15 @@ def world(tmp_path):
 
 
 def test_s12_an_untaken_pact_change_is_not_taken(world):
-    """S12. The line names the signatory, the record and line, the clause,
+    """S12. The line names the signer, the record and line, the clause,
     the work item and the record's hash, and the exit is 1."""
     anchor, digest = record(world)
     code, out = run(world)
     assert code == 1, out
     assert (
-        f"NOT TAKEN {SIGNATORY_URL} {RECORD}:7 {anchor} — the pact has not taken "
+        f"NOT TAKEN {SIGNER_URL} {RECORD}:7 {anchor} — the pact has not taken "
         f"work item {ITEM}'s pact change: a pact review here takes it with a row "
-        f"naming the signatory and `{ITEM}@{digest}`"
+        f"naming the signer and `{ITEM}@{digest}`"
     ) in out, out
     assert "1 pact change read, 0 taken" in out, out
     assert "· 1 pact change read · 0 taken" in out, out
@@ -137,14 +139,14 @@ def test_s13_a_row_citing_no_clause_is_noted_under_always(world):
     code, out = run(world)
     assert code == 0, out
     assert (
-        f"NOTED {SIGNATORY_URL} {RECORD}:7 — work item {ITEM} recorded a change to "
+        f"NOTED {SIGNER_URL} {RECORD}:7 — work item {ITEM} recorded a change to "
         "code that cites no clause (`Pact notify`: always); it reads noted until "
         f"a pact review here takes `{ITEM}@{digest}`"
     ) in out, out
 
 
 def test_s13_a_row_citing_no_clause_is_not_read_when_the_pact_is_touched(world):
-    """S13. Recorded under `always`, read after the signatory went back to
+    """S13. Recorded under `always`, read after the signer went back to
     the default: the `—` row is not read."""
     notify(world, "always")
     record(world, cites=None)
@@ -155,7 +157,7 @@ def test_s13_a_row_citing_no_clause_is_not_read_when_the_pact_is_touched(world):
 
 
 def test_s13_under_never_no_row_is_read(world):
-    """S13. Recorded, then the signatory said `never`: nothing is read."""
+    """S13. Recorded, then the signer said `never`: nothing is read."""
     record(world)
     notify(world, "never")
     code, out = run(world)
@@ -164,26 +166,88 @@ def test_s13_under_never_no_row_is_read(world):
 
 
 def test_s14_a_pact_review_at_the_current_hash_takes_it(world):
-    """S14. A row naming the signatory and `<id>@<current hash>`, `holds`."""
+    """S14. A row naming the signer and `<id>@<current hash>`, `holds`."""
     _anchor, digest = record(world)
-    review(world, (SIGNATORY_URL, f"{ITEM}@{digest}", "holds"))
+    review(world, (SIGNER_URL, f"{ITEM}@{digest}", "holds"))
     code, out = run(world)
     assert code == 0, out
     assert "1 pact change read, 1 taken" in out, out
     assert "· 1 pact change read · 1 taken" in out, out
+    assert "heads its table" not in out, out
+
+
+def test_s5_a_review_record_written_in_0_18_still_takes_its_change(world):
+    """S5 of #822. A pact review record is permanent, and 0.18.1 began it
+    `| Signatory | Change | Verdict |`. It still takes the record it names,
+    one line before its own names the rename, and the exit is the one the
+    same record gives under the new header."""
+    _anchor, digest = record(world)
+    review(world, (SIGNER_URL, f"{ITEM}@{digest}", "holds"))
+    new_code, new_out = run(world)
+    review(world, (SIGNER_URL, f"{ITEM}@{digest}", "holds"), first="Signatory")
+    code, out = run(world)
+    assert code == new_code == 0, (out, new_out)
+    assert "1 pact change read, 1 taken" in out, out
+    renamed = (
+        f"pact-check: {REVIEWS} heads its table `| Signatory | Change | Verdict |`, "
+        "the word before 0.19.0 — `| Signer | Change | Verdict |` is the header "
+        "now; rename it when the file is next edited"
+    )
+    assert out.count(renamed) == 1, out
+    assert out.index(renamed) < out.index("READ "), out
+    assert out.replace(renamed + " ", "") == new_out, (out, new_out)
+
+
+def test_s5_an_old_review_row_that_cannot_be_true_names_the_old_header(world):
+    """A row of an old record that cannot be true is refused at exit 2 as
+    under the new header, with the rename line beside it."""
+    _anchor, digest = record(world)
+    review(world, (SIGNER_URL, f"{ITEM}@{digest}", "breaks"), first="Signatory")
+    code, out = run(world)
+    assert code == 2, out
+    assert f"pact-check: {REVIEWS} heads its table" in out, out
+    assert (
+        f"REFUSED {REVIEWS}:5 — the pact review's verdict `breaks` is neither "
+        "`holds` nor `amended`"
+    ) in out, out
+
+
+def test_s5_a_review_record_holding_both_headers_is_refused(world):
+    """Round 1's yellow 1, for a pact review record. An old table above the
+    new one is never read while the new one stands; read silently, a row
+    only it held would be dropped and the record it took would read `NOT
+    TAKEN` again with nothing saying why. It is refused at exit 2 instead,
+    whatever its rows hold, so here both tables hold the same row."""
+    _anchor, digest = record(world)
+    write(
+        world["api"],
+        REVIEWS,
+        "# Pact review\n\n| Signatory | Change | Verdict |\n|---|---|---|\n"
+        f"| {SIGNER_URL} | {ITEM}@{digest} | holds |\n\n## Since 0.19.0\n\n"
+        "| Signer | Change | Verdict |\n|---|---|---|\n"
+        f"| {SIGNER_URL} | {ITEM}@{digest} | holds |\n",
+    )
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        f"REFUSED {REVIEWS} — the record also holds a `| Signatory | Change | "
+        "Verdict |` header, the word before 0.19.0, and nothing under it is read "
+        "while the `| Signer | Change | Verdict |` table stands — move its rows "
+        "into that table and delete it"
+    ) in out, out
 
 
 def test_s15_a_record_grown_after_its_review_is_not_taken_again(world):
     """S15. The record gained a row after the review: `NOT TAKEN` names the
     hash the review took and the hash the record holds now."""
     _anchor, first = record(world)
-    review(world, (SIGNATORY_URL, f"{ITEM}@{first}", "holds"))
+    review(world, (SIGNER_URL, f"{ITEM}@{first}", "holds"))
     anchor, now = record(world, label="O2", step=2)
     assert now != first
     code, out = run(world)
     assert code == 1, out
     assert (
-        f"NOT TAKEN {SIGNATORY_URL} {RECORD}:8 {anchor} — a pact review took work "
+        f"NOT TAKEN {SIGNER_URL} {RECORD}:8 {anchor} — a pact review took work "
         f"item {ITEM}'s record at @{first}, and it holds @{now} now: a pact review "
         f"here takes it again with `{ITEM}@{now}`"
     ) in out, out
@@ -196,7 +260,7 @@ REVIEWS = "seal/pact-reviews/1791030000-the-pact-review.md"
     "case",
     [
         "amended, the clause unmoved",
-        "an unlisted signatory",
+        "an unlisted signer",
         "a record not held",
         "a verdict outside the two",
         "a change not written as one",
@@ -207,27 +271,27 @@ def test_s16_a_pact_review_row_that_cannot_be_true_is_refused(world, case):
     _anchor, digest = record(world)
     row, said = {
         "amended, the clause unmoved": (
-            (SIGNATORY_URL, f"{ITEM}@{digest}", "amended"),
+            (SIGNER_URL, f"{ITEM}@{digest}", "amended"),
             f"the pact review says `amended` for work item {ITEM} from "
-            f"{SIGNATORY_URL}, and the clause pact:orders-api/{LOCATOR}@{clause(V2)} "
+            f"{SIGNER_URL}, and the clause pact:orders-api/{LOCATOR}@{clause(V2)} "
             "still has the hash the record recorded: amend the clause, or say `holds`",
         ),
-        "an unlisted signatory": (
+        "an unlisted signer": (
             ("https://example.com/org/orders-mobile", f"{ITEM}@{digest}", "holds"),
             "the pact review names `https://example.com/org/orders-mobile`, which "
-            "the pact's `Signatory` table does not list",
+            "the pact's `Signer` table does not list",
         ),
         "a record not held": (
-            (SIGNATORY_URL, f"1791099999-another@{digest}", "holds"),
-            f"the pact review takes `1791099999-another` from {SIGNATORY_URL}, "
+            (SIGNER_URL, f"1791099999-another@{digest}", "holds"),
+            f"the pact review takes `1791099999-another` from {SIGNER_URL}, "
             "which holds no seal/pact-changes/1791099999-another.md",
         ),
         "a verdict outside the two": (
-            (SIGNATORY_URL, f"{ITEM}@{digest}", "breaks"),
+            (SIGNER_URL, f"{ITEM}@{digest}", "breaks"),
             "the pact review's verdict `breaks` is neither `holds` nor `amended`",
         ),
         "a change not written as one": (
-            (SIGNATORY_URL, ITEM, "holds"),
+            (SIGNER_URL, ITEM, "holds"),
             f"the pact review's change `{ITEM}` is not written "
             "`<work-item-id>@<content hash>`, as `pact-check` prints it",
         ),
@@ -242,14 +306,14 @@ def test_s16_amended_is_taken_where_the_clause_moved(world):
     """The other side of the `amended` refusal: the record cites v1, the
     pact amended the clause to v2, so `amended` can be true."""
     _anchor, digest = record(world, cites=V1)
-    review(world, (SIGNATORY_URL, f"{ITEM}@{digest}", "amended"))
+    review(world, (SIGNER_URL, f"{ITEM}@{digest}", "amended"))
     _code, out = run(world)
     assert "REFUSED" not in out, out
     assert "1 pact change read, 1 taken" in out, out
 
 
 def test_s17_a_record_that_will_not_read_or_parse_is_exit_2(world):
-    """S17, the signatory's side."""
+    """S17, the signer's side."""
     write(
         world["web"],
         "seal/pact-changes/1791020001-x.md",
@@ -259,15 +323,15 @@ def test_s17_a_record_that_will_not_read_or_parse_is_exit_2(world):
     code, out = run(world)
     assert code == 2, out
     assert (
-        f"REFUSED {SIGNATORY_URL} seal/pact-changes/1791020001-x.md — the record "
+        f"REFUSED {SIGNER_URL} seal/pact-changes/1791020001-x.md — the record "
         "has a row at line 3 whose `Checked` is `soon`, not a date written YYYY-MM-DD"
     ) in out, out
     assert (
-        f"REFUSED {SIGNATORY_URL} seal/pact-changes/1791020001-x.md:3 — the "
+        f"REFUSED {SIGNER_URL} seal/pact-changes/1791020001-x.md:3 — the "
         "record's `Clause` cell"
     ) not in out, out
     assert (
-        f"UNREADABLE {SIGNATORY_URL} seal/pact-changes/1791020002-y.md — the "
+        f"UNREADABLE {SIGNER_URL} seal/pact-changes/1791020002-y.md — the "
         "record of pact changes could not be read"
     ) in out, out
 
@@ -277,14 +341,14 @@ def test_s17_a_review_that_will_not_read_or_parse_is_exit_2(world):
     write(
         world["api"],
         "seal/pact-reviews/1791030001-a.md",
-        "| Signatory | Change |\n|---|---|\n",
+        "| Signer | Change |\n|---|---|\n",
     )
     (world["api"] / "seal" / "pact-reviews" / "1791030002-b.md").mkdir()
     code, out = run(world)
     assert code == 2, out
     assert (
         "REFUSED seal/pact-reviews/1791030001-a.md — the record holds no "
-        "`| Signatory | Change | Verdict |` table"
+        "`| Signer | Change | Verdict |` table"
     ) in out, out
     assert (
         "UNREADABLE seal/pact-reviews/1791030002-b.md — the pact review could not "
@@ -301,22 +365,22 @@ def test_a_clause_cell_that_is_neither_is_refused(world):
     code, out = run(world)
     assert code == 2, out
     assert (
-        f"REFUSED {SIGNATORY_URL} seal/pact-changes/1791020001-x.md:3 — the "
+        f"REFUSED {SIGNER_URL} seal/pact-changes/1791020001-x.md:3 — the "
         "record's `Clause` cell `a clause` is neither a pact anchor nor `—`"
     ) in out, out
 
 
-def test_a_review_of_another_signatory_takes_nothing_here(world):
-    """A pact review row naming another signatory, at this record's very id
-    and hash, does not take this signatory's record."""
+def test_a_review_of_another_signer_takes_nothing_here(world):
+    """A pact review row naming another signer, at this record's very id
+    and hash, does not take this signer's record."""
     _anchor, digest = record(world)
     mobile = "https://example.com/org/orders-mobile"
     write(world["api"], "seal/pact.md", pact_with(mobile))
-    commit(world["api"], "a second signatory")
+    commit(world["api"], "a second signer")
     review(world, (mobile, f"{ITEM}@{digest}", "holds"))
     code, out = run(world)
     assert code == 1, out
-    assert f"NOT TAKEN {SIGNATORY_URL} {RECORD}:7" in out, out
+    assert f"NOT TAKEN {SIGNER_URL} {RECORD}:7" in out, out
     assert "1 pact change read, 0 taken" in out, out
 
 
@@ -329,17 +393,17 @@ def test_a_review_of_another_record_takes_nothing_here(world):
         world["web"] / "seal" / "pact-changes" / f"{later}.md"
     )
     _anchor, _ = record(world, step=2)
-    review(world, (SIGNATORY_URL, f"{later}@{first}", "holds"))
+    review(world, (SIGNER_URL, f"{later}@{first}", "holds"))
     code, out = run(world)
     assert code == 1, out
     assert (
-        f"NOT TAKEN {SIGNATORY_URL} {RECORD}:7 pact:orders-api/{LOCATOR}@"
+        f"NOT TAKEN {SIGNER_URL} {RECORD}:7 pact:orders-api/{LOCATOR}@"
         f"{clause(V2)} — the pact has not taken work item {ITEM}'s pact change"
     ) in out, out
 
 
 def test_a_row_citing_another_pact_is_not_this_pacts(world):
-    """A signatory of two pacts records changes under both; a row citing
+    """A signer of two pacts records changes under both; a row citing
     only the other pact is neither read nor refused here."""
     write(
         world["web"],
@@ -360,8 +424,8 @@ def test_an_amended_review_at_an_older_hash_is_not_judged_again(world):
     _anchor, now = record(world, cites=V2, label="O2", step=2)
     review(
         world,
-        (SIGNATORY_URL, f"{ITEM}@{first}", "amended"),
-        (SIGNATORY_URL, f"{ITEM}@{now}", "holds"),
+        (SIGNER_URL, f"{ITEM}@{first}", "amended"),
+        (SIGNER_URL, f"{ITEM}@{now}", "holds"),
     )
     code, out = run(world)
     assert code == 0, out
@@ -369,13 +433,13 @@ def test_an_amended_review_at_an_older_hash_is_not_judged_again(world):
     assert "2 pact changes read, 2 taken" in out, out
 
 
-def test_a_review_row_naming_a_signatory_since_dropped_stays_refused(world):
-    """A pact review record is permanent, so a row naming a signatory the
-    pact has since taken out of its `Signatory` table is refused at exit 2,
+def test_a_review_row_naming_a_signer_since_dropped_stays_refused(world):
+    """A pact review record is permanent, so a row naming a signer the
+    pact has since taken out of its `Signer` table is refused at exit 2,
     as a typo would be: the two are the same text (round 1, white 7). The
-    policy says to take such rows out with the signatory, in one change."""
+    policy says to take such rows out with the signer, in one change."""
     _anchor, digest = record(world)
-    review(world, (SIGNATORY_URL, f"{ITEM}@{digest}", "holds"))
+    review(world, (SIGNER_URL, f"{ITEM}@{digest}", "holds"))
     code, out = run(world)
     assert code == 0, out
     mobile = "https://example.com/org/orders-mobile"
@@ -384,6 +448,6 @@ def test_a_review_row_naming_a_signatory_since_dropped_stays_refused(world):
     code, out = run(world)
     assert code == 2, out
     assert (
-        f"REFUSED {REVIEWS}:5 — the pact review names `{SIGNATORY_URL}`, which "
-        "the pact's `Signatory` table does not list"
+        f"REFUSED {REVIEWS}:5 — the pact review names `{SIGNER_URL}`, which "
+        "the pact's `Signer` table does not list"
     ) in out, out

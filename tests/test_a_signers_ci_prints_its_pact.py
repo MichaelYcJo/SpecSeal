@@ -1,6 +1,6 @@
-"""A signatory's CI prints its pact and verifies nothing about it (#647, A).
+"""A signer's CI prints its pact and verifies nothing about it (#647, A).
 
-#647's decision 2: there is no CI token, so a signatory's pull request can
+#647's decision 2: there is no CI token, so a signer's pull request can
 read only its own repository. `chain_check.py` therefore prints the
 relationship its `seal/config.md` records -- the pact's repository, the
 notify value, how many pact anchors the declared work item's `spec.md`
@@ -138,9 +138,7 @@ SPEC = f"# spec\n\n| Policy clause | What it fixes |\n|---|---|\n| `{ANCHOR}` | 
 
 
 @pytest.mark.parametrize("passed", [True, False], ids=["passing", "failing"])
-def test_a_signatory_prints_its_pact_and_its_exit_status_does_not_move(
-    tmp_path, passed
-):
+def test_a_signer_prints_its_pact_and_its_exit_status_does_not_move(tmp_path, passed):
     """S5. The printed sentence is pinned (§14), and the exit status is the
     one the same tree has with no `Pact` row, passing or failing."""
     two = SPEC + f"\nAnd again: `{ANCHOR}`.\n"
@@ -233,19 +231,47 @@ def test_an_anchor_naming_an_undeclared_pact_is_a_notice(tmp_path):
     ) in out, out
 
 
-def test_the_pacts_repository_prints_how_many_signatories_it_lists(tmp_path):
+HELD = (
+    "# Pact\n\n| Signer |\n|---|\n"
+    "| git@example.com:org/orders-web.git |\n"
+    "| https://example.com/org/billing |\n\n## Order response shape\n\nx\n"
+)
+RENAMED = (
+    "The pact heads its table `| Signatory |`, the word before 0.19.0 — "
+    "`| Signer |` is the header now; rename it when the file is next edited"
+)
+
+
+def test_the_pacts_repository_prints_how_many_signers_it_lists(tmp_path):
     """Where the repository holds `seal/pact.md`, the count of the pact's
-    `Signatory` table, and still nothing compared."""
-    pact = (
-        "# Pact\n\n| Signatory |\n|---|\n"
-        "| git@example.com:org/orders-web.git |\n"
-        "| https://example.com/org/billing |\n\n## Order response shape\n\nx\n"
-    )
-    held = tree(tmp_path, "held", config(), SPEC, pact=pact)
+    `Signer` table, and still nothing compared. A pact headed `Signer` is
+    read with no word about a rename (#822)."""
+    held = tree(tmp_path, "held", config(), SPEC, pact=HELD)
     code, out = run(held)
     plain_code, _ = run(tree(tmp_path, "plain", config(), SPEC))
     assert code == plain_code == 0, out
     assert (
-        "this repository holds the pact, which lists 2 signatories. This CI "
+        "this repository holds the pact, which lists 2 signers. This CI "
         "reads no other repository, so nothing here compares them with it"
+    ) in out, out
+    assert "Signatory" not in out, out
+
+
+@pytest.mark.parametrize("passed", [True, False], ids=["passing", "failing"])
+def test_a_pact_headed_as_0_18_wrote_it_is_counted_and_the_rename_named(
+    tmp_path, passed
+):
+    """S6 of #822. A pact written in 0.18.x heads its table `| Signatory |`.
+    It is counted as the `Signer` table is, the notice carries the sentence
+    naming the rename, and the exit status is the one the same tree has with
+    the new header, passing or failing."""
+    old = HELD.replace("| Signer |", "| Signatory |")
+    code, out = run(tree(tmp_path, "old", config(), SPEC, passed, pact=old))
+    new_code, new_out = run(tree(tmp_path, "new", config(), SPEC, passed, pact=HELD))
+    assert code == new_code == (0 if passed else 1), (out, new_out)
+    assert (
+        "this repository holds the pact, which lists 2 signers. This CI "
+        "reads no other repository, so nothing here compares them with it: "
+        "`pact-check`, run at the pact's repository, is where the "
+        f"reconciliation runs. {RENAMED}"
     ) in out, out

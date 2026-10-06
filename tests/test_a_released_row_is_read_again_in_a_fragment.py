@@ -2029,7 +2029,7 @@ def test_a_refusal_names_the_newest_of_the_readings_that_outrank_the_row(repo):
             "templates/config.md",
             "`evidence-check --reverify` records a pact change in "
             "`seal/pact-changes/<work-item-id>.md` where `docs/the-pact.md` §*A "
-            "signatory records a pact change* says, and that section's first "
+            "signer records a pact change* says, and that section's first "
             "sentence is the whole trigger.",
         ),
     ],
@@ -2038,8 +2038,8 @@ def test_a_refusal_names_the_newest_of_the_readings_that_outrank_the_row(repo):
         "the home: after today",
         "the usage",
         "the pact's trigger",
-        "the usage: the signatory's record",
-        "the skill: the signatory's record",
+        "the usage: the signer's record",
+        "the skill: the signer's record",
         "the config template: the trigger's home",
     ],
 )
