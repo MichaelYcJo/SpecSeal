@@ -9,6 +9,13 @@ pytest as a subprocess over a scratch project, the way the gate does, and
 hold that property from both sides -- the claiming process records (S1, S4),
 and a pytest it starts in turn, in a child process or in its own, records
 nothing (S2, S3); with no key or no directory nothing is written (S5).
+
+Since the reframe after round 3 a line's path is the node's own, read where
+pytest holds the node and carried on the report to the process that writes,
+never a path made from a node id and a rootdir (S23). So every layout rounds
+1-3 refused is recorded under its own path (S24), the recorder runs none of
+the row's code (S25), and what it cannot place it leaves out and counts on
+the `end` line (S27).
 """
 
 import importlib.util
@@ -128,7 +135,7 @@ def test_the_recorder_records_its_own_process(tmp_path):
     assert session["key"] == KEY
     assert os.path.realpath(session["rootdir"]) == os.path.realpath(str(root))
     assert os.path.realpath(session["invocation_dir"]) == os.path.realpath(str(root))
-    assert lines[-1] == {"kind": "end", "exitstatus": 1}
+    assert lines[-1] == {"kind": "end", "exitstatus": 1, "unplaced": 0}
 
     tests = [line for line in lines if line["kind"] == "test"]
     assert sorted((t["nodeid"], t["when"]) for t in tests) == sorted(
@@ -316,38 +323,6 @@ def test_a_record_it_cannot_write_leaves_pytest_its_own_exit_under_w_error(tmp_p
     assert "no record written" in output, output
 
 
-def test_a_pyargs_module_name_is_not_read_as_a_path_outside_the_rootdir(tmp_path):
-    """#825 rounds 1 and 2. A `--pyargs` module name is located where
-    pytest's `search_pypath` finds it, here `tests/test_mixed.py` under the
-    rootdir, so the run records its tests under the module that collected
-    them. And an argument that names neither a path nor a module pytest can
-    find is passed over, never read as a path outside the rootdir, even
-    where it is spelled outside it (`../no_such_thing`): the session records
-    its session line, and pytest itself stops on the argument with a usage
-    error, exit 4 (round 2's ⬜ 4)."""
-    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
-    env = recording_env(records)
-    env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(root / "tests")])
-    result = pytest_in(root, env, "--pyargs", "test_mixed")
-    assert result.returncode == 1, result.stdout + result.stderr
-    _, lines = the_one_record(records)
-    failed = [
-        os.path.basename(line["path"])
-        for line in lines
-        if line["kind"] == "test" and line["outcome"] == "failed"
-    ]
-    assert failed == ["test_mixed.py"], lines
-
-    nowhere = tmp_path / "nowhere"
-    nowhere.mkdir()
-    result = pytest_in(
-        root, recording_env(nowhere), "tests", os.path.join(os.pardir, "no_such_thing")
-    )
-    assert result.returncode == 4, result.stdout + result.stderr
-    _, lines = the_one_record(nowhere)
-    assert lines[0]["kind"] == "session", lines
-
-
 def pytest_in(root, env, *args):
     return subprocess.run(
         [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-q", *args],
@@ -360,20 +335,80 @@ def pytest_in(root, env, *args):
     )
 
 
-def records_written(records):
-    return [f for f in os.listdir(str(records)) if f.endswith(".jsonl")]
+def failing_paths(lines):
+    """The `realpath` of every file a `test` line records failing or a
+    `collect` line records."""
+    return {
+        os.path.realpath(line["path"])
+        for line in lines
+        if (line["kind"] == "test" and line["outcome"] == "failed")
+        or line["kind"] == "collect"
+    }
 
 
-def test_a_pyargs_module_outside_the_rootdir_writes_no_record(tmp_path):
-    """#825 round 2. pytest finds a `--pyargs` package where Python imports
-    it from, outside the rootdir here, and names its `test_mixed.py` against
-    the package: `test_mixed.py`, the name a file at the rootdir has. The
-    argument is no path, so the refusal used to pass it over and the record
-    named another file."""
+def real(path):
+    return os.path.realpath(str(path))
+
+
+@pytest.mark.parametrize("flags", [(), ("-n", "2")], ids=["plain", "xdist"])
+def test_the_path_each_line_carries_is_the_nodes_own(tmp_path, flags):
+    """S23 (#825's reframe after round 3). A hookwrapper on the hook that
+    makes each report sets the node's own path on it, in the process that
+    holds the node -- an xdist worker under `-n 2` -- and the controller's
+    recorder writes that path. Every `test` and `collect` line names its
+    file exactly, one record holds the whole run, and nothing is unplaced
+    (`questions.md` Q-M3, measured in phase 5)."""
+    if flags and importlib.util.find_spec("xdist") is None:
+        pytest.skip("pytest-xdist is not installed here")
+    root, records = project(
+        tmp_path,
+        {
+            "test_mixed.py": PASSING_AND_FAILING,
+            "test_broken.py": "import no_such_module_here\n",
+        },
+    )
+    result = run_pytest(
+        root, recording_env(records), "-q", "--continue-on-collection-errors", *flags
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    mixed = real(root / "tests" / "test_mixed.py")
+    broken = real(root / "tests" / "test_broken.py")
+    by_kind = {}
+    for line in lines:
+        if "path" in line:
+            by_kind.setdefault(line["kind"], set()).add(real(line["path"]))
+    assert by_kind == {"test": {mixed}, "collect": {broken}}, lines
+    assert failing_paths(lines) == {mixed, broken}, lines
+    assert lines[-1] == {"kind": "end", "exitstatus": 1, "unplaced": 0}, lines
+
+
+def test_a_pyargs_module_inside_the_rootdir_is_recorded_under_its_own_path(
+    tmp_path,
+):
+    """#825 rounds 1 and 2, read again after the reframe. A `--pyargs`
+    module name is no path, and the module pytest imports for it is
+    `tests/test_mixed.py` under the rootdir: its tests are written under
+    that file."""
+    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
+    env = recording_env(records)
+    env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(root / "tests")])
+    result = pytest_in(root, env, "--pyargs", "test_mixed")
+    assert result.returncode == 1, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    assert failing_paths(lines) == {real(root / "tests" / "test_mixed.py")}, lines
+
+
+def test_a_pyargs_package_outside_the_rootdir_is_recorded_where_it_lives(tmp_path):
+    """#825 round 2, flipped by the reframe (S24). pytest finds a `--pyargs`
+    package where Python imports it from, outside the rootdir here, and
+    names its `test_mixed.py` against the package: `test_mixed.py`, the name
+    a file at the rootdir has. Joined to the rootdir that named the other
+    file, so round 2 refused the session. The node's own path is the
+    package's file, and the record says so; the file at the rootdir it
+    shares a name with is in no line."""
     root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
-    # The file the misnamed record would name, so only the refusal stands
-    # between this run and a record under another file's name.
     (root / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
     package = tmp_path / "site" / "extpkg"
     package.mkdir(parents=True)
@@ -383,14 +418,17 @@ def test_a_pyargs_module_outside_the_rootdir_writes_no_record(tmp_path):
     env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(tmp_path / "site")])
     result = pytest_in(root, env, "--pyargs", "extpkg")
     assert result.returncode == 1, result.stdout + result.stderr
-    assert records_written(records) == [], records_of(records)
+    _, lines = the_one_record(records)
+    assert failing_paths(lines) == {real(package / "test_mixed.py")}, lines
 
 
-def test_a_namespace_package_outside_the_rootdir_writes_no_record(tmp_path):
-    """#825 round 2. Under `consider_namespace_packages` pytest's
-    `search_pypath` locates a `--pyargs` namespace package at its first
-    search location, outside the rootdir here, and names its modules against
-    it; `test_mixed.py` is the name a file at the rootdir has."""
+def test_a_namespace_package_outside_the_rootdir_is_recorded_where_it_lives(
+    tmp_path,
+):
+    """#825 round 2, flipped by the reframe (S24). Under
+    `consider_namespace_packages` pytest locates a `--pyargs` namespace
+    package at its first search location, outside the rootdir, and names
+    its modules against it. The record names the module's own file."""
     root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
     (root / "pytest.ini").write_text(
         "[pytest]\nconsider_namespace_packages = true\n", encoding="utf-8"
@@ -403,16 +441,18 @@ def test_a_namespace_package_outside_the_rootdir_writes_no_record(tmp_path):
     env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(tmp_path / "site")])
     result = pytest_in(root, env, "--pyargs", "nspkg")
     assert result.returncode == 1, result.stdout + result.stderr
-    assert records_written(records) == [], records_of(records)
+    _, lines = the_one_record(records)
+    assert failing_paths(lines) == {real(package / "test_mixed.py")}, lines
 
 
-def test_a_pyargs_module_outside_that_cannot_be_collected_writes_no_record(
+def test_a_pyargs_module_outside_that_cannot_be_collected_is_recorded_by_its_file(
     tmp_path,
 ):
-    """#825 round 2. A plain `--pyargs` module outside the rootdir is its
-    own initial path, so pytest gives it an empty node id, and a failed
-    collection of it carries no test line: its `collect` line names the
-    rootdir itself, and that abandons the record."""
+    """#825 round 2, flipped by the reframe (S24). A plain `--pyargs` module
+    outside the rootdir is its own initial path, so pytest gives it an empty
+    node id, which joined to the rootdir named the rootdir itself. Its
+    collector's own path is the module's file, and the failed collection's
+    line names it."""
     root, records = project(tmp_path, {})
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
     site = tmp_path / "site"
@@ -422,37 +462,41 @@ def test_a_pyargs_module_outside_that_cannot_be_collected_writes_no_record(
     env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(site)])
     result = pytest_in(root, env, "--pyargs", "extbroken")
     assert result.returncode == 2, result.stdout + result.stderr
-    assert records_written(records) == [], records_of(records)
+    _, lines = the_one_record(records)
+    collects = [line for line in lines if line["kind"] == "collect"]
+    assert {real(line["path"]) for line in collects} == {real(site / "extbroken.py")}
+    assert failing_paths(lines) == {real(site / "extbroken.py")}, lines
 
 
 @pytest.mark.skipif(os.name == "nt", reason="a symlink needs privileges on Windows")
-def test_a_rootdir_named_through_a_symlink_writes_no_record(tmp_path):
-    """#825 round 2. pytest compares a path with its rootdir lexically, so a
-    `--rootdir` spelled through a symlink puts `tests/` outside it, and
-    `tests/test_mixed.py` is named `test_mixed.py`. A `realpath` comparison
-    called it inside."""
+def test_a_rootdir_named_through_a_symlink_records_the_file_pytest_ran(tmp_path):
+    """#825 round 2, flipped by the reframe (S24). pytest compares a path
+    with its rootdir lexically, so a `--rootdir` spelled through a symlink
+    puts `tests/` outside it and pytest names `tests/test_mixed.py`
+    `test_mixed.py`, the name `test_mixed.py` at the root has. The node's
+    path is the one pytest ran, `tests/test_mixed.py`, and the record names
+    it and never the file at the root."""
     root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
-    # The file the misnamed record would name, so only the refusal stands
-    # between this run and a record under another file's name.
     (root / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
     link = tmp_path / "link"
     link.symlink_to(root, target_is_directory=True)
     result = pytest_in(root, recording_env(records), "--rootdir", str(link), "tests")
     assert result.returncode == 1, result.stdout + result.stderr
-    assert records_written(records) == [], records_of(records)
+    _, lines = the_one_record(records)
+    assert failing_paths(lines) == {real(root / "tests" / "test_mixed.py")}, lines
 
 
 @pytest.mark.skipif(os.name == "nt", reason="a symlink needs privileges on Windows")
-def test_an_argument_named_through_a_symlink_writes_no_record(tmp_path):
-    """#825 round 2, the same branch from the other side. The rootdir is the
-    project, named by `-c` as it is, and the argument reaches `tests/`
-    through a symlink, so pytest finds it outside the rootdir and names
-    `tests/test_mixed.py` `test_mixed.py`."""
+def test_an_argument_named_through_a_symlink_records_the_file_pytest_ran(tmp_path):
+    """#825 round 2, the same branch from the other side, flipped by the
+    reframe (S24). The rootdir is the project, named by `-c` as it is, and
+    the argument reaches `tests/` through a symlink, so pytest names
+    `tests/test_mixed.py` `test_mixed.py`. The node's path is the lexical one
+    pytest holds, under the link, and it resolves to `tests/test_mixed.py`,
+    never to the file at the root."""
     root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
-    # The file the misnamed record would name, so only the refusal stands
-    # between this run and a record under another file's name.
     (root / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
     link = tmp_path / "link"
     link.symlink_to(root, target_is_directory=True)
@@ -464,7 +508,8 @@ def test_an_argument_named_through_a_symlink_writes_no_record(tmp_path):
         str(link / "tests"),
     )
     assert result.returncode == 1, result.stdout + result.stderr
-    assert records_written(records) == [], records_of(records)
+    _, lines = the_one_record(records)
+    assert failing_paths(lines) == {real(root / "tests" / "test_mixed.py")}, lines
 
 
 @pytest.mark.skipif(os.name == "nt", reason="a symlink needs privileges on Windows")
@@ -472,8 +517,8 @@ def test_a_symlinked_directory_under_the_rootdir_is_recorded_by_its_own_name(
     tmp_path,
 ):
     """#825 round 2. A directory under the rootdir that is a symlink to a
-    place outside it is named by pytest under the rootdir, and it was
-    refused only when it was spelled as an argument."""
+    place outside it is named by pytest under the rootdir, and the record
+    names its file under the link."""
     root, records = project(tmp_path, {})
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
     shared = tmp_path / "shared"
@@ -505,13 +550,14 @@ def pytest_collect_directory(path, parent):
 """
 
 
-def test_a_collector_built_for_a_path_no_argument_holds_writes_no_record(tmp_path):
-    """#825 round 2, the branch the arguments cannot show. A conftest builds
-    a collector for a directory outside the rootdir and outside every
+def test_a_collector_built_for_a_path_no_argument_holds_is_recorded_by_its_files(
+    tmp_path,
+):
+    """#825 round 2, flipped by the reframe (S24). A conftest builds a
+    collector for a directory outside the rootdir and outside every
     argument, so pytest gives its tests the parent's node id and a `::`
-    name, `.::outside::test_far.py::test_out`, whose path is the rootdir
-    itself. A test line whose path is no file is not the test's module, so
-    the session's record is abandoned: the strict side."""
+    name, `.::outside::test_far.py::test_out`, whose path is no file. The
+    node's own path is `outside/test_far.py`, and the record names it."""
     root, records = project(tmp_path, {"test_near.py": "def test_in():\n    pass\n"})
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
     (root / "conftest.py").write_text(BUILDS_A_COLLECTOR_ELSEWHERE, encoding="utf-8")
@@ -523,4 +569,132 @@ def test_a_collector_built_for_a_path_no_argument_holds_writes_no_record(tmp_pat
     result = pytest_in(root, recording_env(records))
     assert result.returncode == 1, result.stdout + result.stderr
     assert ".::outside::test_far.py::test_out" in result.stdout, result.stdout
-    assert records_written(records) == [], records_of(records)
+    _, lines = the_one_record(records)
+    assert failing_paths(lines) == {real(outside / "test_far.py")}, lines
+    assert lines[-1]["unplaced"] == 0, lines
+
+
+SETS_AT_SESSIONSTART = """\
+import os
+
+
+def pytest_sessionstart(session):
+    os.environ["RECORDER_PROBE_READY"] = "1"
+"""
+
+
+def test_the_recorder_runs_none_of_the_rows_code(tmp_path):
+    """S25, round 3's 🔴 1. A conftest sets at `pytest_sessionstart` what
+    `pkg/__init__.py` reads at import, and the row runs `--pyargs
+    pkg.test_ready`. Round 2's refusal located the name with `find_spec`,
+    which imported `pkg` before the conftest's hook ran, and a test that
+    passes without the recorder failed with it. The recorder looks nothing
+    up now, so the run exits 0 as it does without it (`spec.md` Scope 1:
+    it never changes an outcome)."""
+    root, records = project(tmp_path, {})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (root / "conftest.py").write_text(SETS_AT_SESSIONSTART, encoding="utf-8")
+    package = root / "pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text(
+        "import os\nREADY = os.environ.get('RECORDER_PROBE_READY')\n",
+        encoding="utf-8",
+    )
+    (package / "test_ready.py").write_text(
+        "import pkg\n\n\ndef test_ready():\n    assert pkg.READY == '1'\n",
+        encoding="utf-8",
+    )
+    env = recording_env(records)
+    env.pop("RECORDER_PROBE_READY", None)
+    env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(root)])
+    result = pytest_in(root, env, "--pyargs", "pkg.test_ready")
+    assert result.returncode == 0, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    tests = [line for line in lines if line["kind"] == "test"]
+    assert {line["outcome"] for line in tests} == {"passed"}, lines
+    assert {real(line["path"]) for line in tests} == {real(package / "test_ready.py")}
+
+
+ADDS_AN_ITEM_TO_THE_SESSION = """\
+import pytest
+
+
+class Status(pytest.Item):
+    def runtest(self):
+        raise AssertionError("the status item fails")
+
+    def reportinfo(self):
+        return self.path, None, "status"
+
+
+def pytest_collection_modifyitems(session, config, items):
+    items.append(Status.from_parent(session, name="status"))
+"""
+
+
+def test_a_test_with_no_file_of_its_own_is_left_out_and_counted(tmp_path):
+    """S27, round 3's ⬜ 4. A conftest parents an item to the session, so
+    the node's path is the rootdir, a directory and no file of its own: its
+    lines are written nowhere and the `end` line counts it once, while the
+    failing `tests/test_a.py` beside it is recorded as before. Round 2's
+    guard abandoned the whole record here, silently."""
+    root, records = project(
+        tmp_path, {"test_a.py": "def test_a():\n    assert False\n"}
+    )
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (root / "conftest.py").write_text(ADDS_AN_ITEM_TO_THE_SESSION, encoding="utf-8")
+    result = pytest_in(root, recording_env(records), "tests")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "::status" in result.stdout, result.stdout
+    _, lines = the_one_record(records)
+    assert failing_paths(lines) == {real(root / "tests" / "test_a.py")}, lines
+    assert all(line.get("nodeid") != "::status" for line in lines), lines
+    assert lines[-1] == {"kind": "end", "exitstatus": 1, "unplaced": 1}, lines
+
+
+REMOVES_ITS_OWN_FILE = """\
+import os
+
+
+def test_gone():
+    os.remove(__file__)
+    assert False
+"""
+
+
+def test_a_module_that_removes_its_own_file_is_still_recorded_under_it(tmp_path):
+    """S27's second layout, `plan.md` Alternative U. A test removes its own
+    module while it runs, so its `call` report names a file that is no
+    longer there. A path that is no FILE is not dropped: only a directory
+    is, so the failing line is written under the module and the base's
+    word can be a failure."""
+    root, records = project(tmp_path, {"test_gone.py": REMOVES_ITS_OWN_FILE})
+    result = pytest_in(root, recording_env(records), "tests")
+    assert result.returncode == 1, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    assert failing_paths(lines) == {real(root / "tests" / "test_gone.py")}, lines
+    assert lines[-1]["unplaced"] == 0, lines
+
+
+RAISES_IN_MAKEREPORT = """\
+import pytest
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_makereport(item, call):
+    if call.when == "call":
+        raise RuntimeError("PLANTED-IN-MAKEREPORT")
+"""
+
+
+def test_a_report_hook_that_raises_is_not_laid_at_the_recorders_door(tmp_path):
+    """#825's reframe. The recorder's hookwrapper reads the report another
+    hook made; where that hook raised there is no report, and the wrapper
+    lets pytest's own error stand rather than raise it a second time from
+    its own frame, which pluggy reports as the recorder's teardown failing."""
+    root, records = project(tmp_path, {"test_ok.py": "def test_ok():\n    pass\n"})
+    (root / "tests" / "conftest.py").write_text(RAISES_IN_MAKEREPORT, encoding="utf-8")
+    result = pytest_in(root, recording_env(records), "tests")
+    output = result.stdout + result.stderr
+    assert "PLANTED-IN-MAKEREPORT" in output, output
+    assert "specseal_pytest_record" not in output, output

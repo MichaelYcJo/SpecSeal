@@ -4499,14 +4499,16 @@ def test_a_row_that_replaces_pythonpath_cannot_load_the_recorder(tmp_path):
     assert "specseal_pytest_record" in suite, suite
 
 
-def test_a_file_pytest_names_outside_its_rootdir_earns_no_word(tmp_path):
-    """#825 round 1, 🔴 1. `pytest tests sub` with `sub/pytest.ini` makes
-    `sub` pytest's rootdir, and pytest names `tests/test_x.py` against the
-    argument that reached it, `test_x.py` — the name `sub/test_x.py` has.
-    Joined to the rootdir, the base's failure in `tests/` was recorded as
-    `sub/test_x.py`'s, and the file the branch broke read `failing on base
-    too`. A session handed a path outside its rootdir writes no record, so
-    the file reads `NO_RECORD_AT_HEAD` and the base is not run."""
+def test_a_file_pytest_names_outside_its_rootdir_reads_its_own_word(tmp_path):
+    """#825 round 1's 🔴 1, flipped by the reframe after round 3 (S24).
+    `pytest tests sub` with `sub/pytest.ini` makes `sub` pytest's rootdir,
+    and pytest names `tests/test_x.py` against the argument that reached it,
+    `test_x.py` — the name `sub/test_x.py` has. Joined to the rootdir, the
+    base's failure in `tests/` was recorded as `sub/test_x.py`'s, and the
+    file the branch broke read `failing on base too`; round 1 then refused
+    the session. Each line now carries the node's own path, so the base's
+    failure is `tests/test_x.py`'s and the file the branch broke reads
+    `new`."""
     repo = base_then_feature(
         tmp_path / "repo",
         f"{FILES_ROW} tests sub",
@@ -4522,20 +4524,25 @@ def test_a_file_pytest_names_outside_its_rootdir_earns_no_word(tmp_path):
             "    assert False, 'planted on the feature'\n"
         },
     )
-    out = run_gate(repo)
+    keep = tmp_path / "out"
+    out = run_gate(repo, keep=keep)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert gate.ON_BASE not in out.stdout, out.stdout
-    assert verdict_of(out.stdout, "sub/test_x.py") == gate.NO_RECORD_AT_HEAD, out.stdout
+    assert verdict_of(out.stdout, "sub/test_x.py") == gate.NEW, out.stdout
+    assert verdict_of(out.stdout, "tests/test_x.py") == gate.ON_BASE, out.stdout
+    assert failing_in_base_record(keep, "tests/test_x.py")
+    assert not failing_in_base_record(keep, "sub/test_x.py")
 
 
-def test_pyargs_modules_outside_the_rootdir_earn_no_word(tmp_path):
-    """#825 round 2. `sub/pytest.ini` makes `sub` the rootdir, and the row's
-    `--pyargs` modules live in `extpkg/`, outside it, so pytest gives each an
-    empty node id and both were recorded as `sub`. The base fails
-    `test_b`, the feature breaks `test_a`, and `sub` read `failing on base
-    too`. A session whose `--pyargs` module lies outside its rootdir writes
-    no record, so the base is not run."""
+def test_pyargs_modules_outside_the_rootdir_read_their_own_words(tmp_path):
+    """#825 round 2, flipped by the reframe after round 3 (S24).
+    `sub/pytest.ini` makes `sub` the rootdir, and the row's `--pyargs`
+    modules live in `extpkg/`, outside it, so pytest gives each an empty
+    node id and both were recorded as `sub`: the feature broke `test_a`, the
+    base fails `test_b`, and `sub` read `failing on base too`; round 2 then
+    refused the session. Each line now carries the module's own path, so
+    `extpkg/test_a.py` reads `new` and `extpkg/test_b.py` `failing on base
+    too`."""
     posix_row_shell_or_skip()
     repo = base_then_feature(
         tmp_path / "repo",
@@ -4552,7 +4559,61 @@ def test_pyargs_modules_outside_the_rootdir_earn_no_word(tmp_path):
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert gate.ON_BASE not in out.stdout, out.stdout
+    assert verdict_of(out.stdout, "extpkg/test_a.py") == gate.NEW, out.stdout
+    assert verdict_of(out.stdout, "extpkg/test_b.py") == gate.ON_BASE, out.stdout
+    assert verdict_of(out.stdout, "sub") is None, out.stdout
+
+
+# A conftest under `sub/tests` that builds a collector for `ext/`, outside
+# the rootdir `sub`, in place of the directory `sub/tests/inner`.
+BUILDS_A_DIR_BELOW_THE_ROOT = """\
+from pathlib import Path
+
+import pytest
+
+OUTSIDE = Path(__file__).resolve().parents[2] / "ext"
+
+
+def pytest_collect_directory(path, parent):
+    if path.name == "inner":
+        return pytest.Dir.from_parent(parent, path=OUTSIDE)
+"""
+
+
+def test_a_collector_built_below_the_root_names_its_files_by_their_own_paths(
+    tmp_path,
+):
+    """S26, round 3's 🔴 2. A conftest in `sub/tests` builds a collector for
+    `ext/`, outside the rootdir `sub`, under `tests`, so pytest names each
+    of its modules `tests::ext::<file>`, and a failed collection's node id
+    path was the directory `sub/tests`: the base's `ext/test_old.py` and the
+    branch's `ext/test_new.py` shared it, and the file the branch broke read
+    `failing on base too`. Each collector's own path is its module's, so the
+    base's record holds `ext/test_old.py` failing and `ext/test_new.py`
+    collected and passing, and the file the branch broke reads `new`."""
+    posix_row_shell_or_skip()
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"cd sub && {FILES_ROW} --continue-on-collection-errors tests",
+        {
+            "sub/pytest.ini": "[pytest]\n",
+            "sub/tests/conftest.py": BUILDS_A_DIR_BELOW_THE_ROOT,
+            "sub/tests/inner/README.txt": "a directory pytest walks\n",
+            "sub/tests/test_near.py": "def test_near():\n    pass\n",
+            "ext/test_old.py": "import no_such_module_on_the_base\n",
+            "ext/test_new.py": "def test_new():\n    pass\n",
+        },
+        {"ext/test_new.py": "import no_such_module_on_the_branch\n"},
+    )
+    keep = tmp_path / "out"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "ext/test_new.py") == gate.NEW, out.stdout
+    assert verdict_of(out.stdout, "ext/test_old.py") == gate.ON_BASE, out.stdout
+    assert verdict_of(out.stdout, "sub/tests") is None, out.stdout
+    assert failing_in_base_record(keep, "ext/test_old.py")
+    assert not failing_in_base_record(keep, "ext/test_new.py")
 
 
 def test_a_part_that_fails_at_the_base_before_the_runner_measures_nothing(tmp_path):
@@ -5340,8 +5401,8 @@ def test_a_cd_rows_file_is_named_from_the_root_wherever_pytests_rootdir_is(
     """S10 of #789, read again for #825. The row runs pytest from `sub`.
     With the ini file in `sub`, pytest's rootdir is that directory; with it
     at the root, the rootdir is the root, and the file read `new?` though
-    the base does fail it, a limit rule 3 named. The record joins the
-    rootdir to the path pytest reports, so the file is the same absolute path
+    the base does fail it, a limit rule 3 named. The record carries the
+    path pytest holds for each test, so the file is the same absolute path
     either way: `sub/tests/test_two.py`, `failing on base too`."""
     repo = base_then_feature(
         tmp_path / "repo",
@@ -6207,9 +6268,11 @@ REGRESSED_WORDS = {
     # collects no test at all there: exit 5.
     ("Q3", "own"): {"a/tests/test_two.py": NOT_REACHED_1},
     ("Q3", "files"): {"a/tests/test_two.py": "not-reached:5"},
-    # `tests` lies outside the rootdir `a/` that `a/pytest.ini` makes, so the
-    # row's pytest writes no record and the base is not run (#825 round 1).
-    ("Q3b", "own"): {"a/b/tests/test_two.py": "no-record-at-head"},
+    # `tests` lies outside the rootdir `a/` that `a/pytest.ini` makes, and each
+    # line carries the node's own path (#825's reframe after round 3), so the
+    # base is compared: its `a/b/tests/test_two.py` holds no test, and its
+    # row fails `a/tests/test_two.py` and exits 1.
+    ("Q3b", "own"): {"a/b/tests/test_two.py": NOT_REACHED_1},
     ("Q3b", "files"): {"a/b/tests/test_two.py": NOT_REACHED_1},
     # The base's failure is `TestThree`'s, collected from `test_three.py`,
     # though the method it inherits is defined in `test_two.py`.
@@ -6269,8 +6332,6 @@ def word_for(gate, spec):
     kind, _, code = spec.partition(":")
     if kind == "not-reached":
         return gate.NOT_REACHED.format(code=int(code))
-    if kind == "no-record-at-head":
-        return gate.NO_RECORD_AT_HEAD
     if kind == "no-record":
         return gate.NO_RECORD
     return {"new": gate.NEW, "on": gate.ON_BASE}[kind]
@@ -6375,21 +6436,22 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "`PYTHONPATH`: pytest cannot import the module the `-p` names and exits "
         "1 before any test runs, so the row fails at the gate.",
         "and pass `PYTHONPATH` on wherever `PYTEST_ADDOPTS` goes.",
-        # #825 rounds 1 and 2.
-        "A pytest that names a file outside its rootdir — one handed a path "
-        "outside it, `-c` or `--rootdir` elsewhere or spelled through a "
-        "symlink, a config file in one of its arguments' directories, or a "
-        "`--pyargs` module Python imports from outside it — names those files "
-        "against the argument rather than the rootdir, so it writes no record, "
-        "and its files are measured as a runner's that did not load the "
-        "recorder; so does one in which a conftest or a plugin builds a "
-        "collector for a path no argument contains,",
+        # #825's reframe after round 3 (S28): what a line names a file by,
+        # and the two kinds of report the record leaves out.
+        "The record names each file by the path pytest itself holds for the "
+        "test or the collector, read in the process that holds it — an xdist "
+        "worker too — and carried on the report, never by a name pytest made "
+        "from that path, so a file outside the rootdir, a `--pyargs` module "
+        "wherever Python imports it from and a collector a conftest builds are "
+        "each named by their own path.",
+        "It leaves two kinds of report out of every list and counts them on the "
+        "record's `end` line: a test with no file of its own, which a conftest "
+        "or a plugin parents to the session or to a directory, and a report "
+        "that reached the recorder without its path, one a plugin built or "
+        "rebuilt itself.",
         "One limit is named rather than closed: a test written to append to the "
         "record file the recorder is writing, or to write a record of its own "
-        "with the gate's key, can put a line into a keyed record. Rounds 1 and 2 "
-        "of #825 found a second way to a wrong `failing on base too`, a pytest "
-        "naming files outside its rootdir, and the refusals above close every "
-        "branch of pytest's naming rule that reaches it; no third way is known",
+        "with the gate's key, can put a line into a keyed record |",
     ):
         assert sentence in text, f"rule 3 does not carry: {sentence}"
     for gone in (
@@ -6419,8 +6481,67 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "elsewhere, or a config file in one of its arguments' directories — "
         "names those files",
         "writes no record and its files read `new?`.",
+        # #825's reframe after round 3: the refusal of a pytest naming files
+        # outside its rootdir, and the limit that called it closed.
+        "A pytest that names a file outside its rootdir",
+        "so it writes no record, and its files are measured as a runner's",
+        "builds a collector for a path no argument contains",
+        "the refusals above close every branch",
+        "no third way is known",
     ):
         assert gone not in text, f"rule 3 still carries: {gone}"
+
+
+def test_what_a_line_names_a_file_by_is_told_where_each_reader_meets_it():
+    """S28 (#825's reframe after round 3, contract §14). A line's path is
+    the node's own, carried on the report, and never a name made from a
+    node id and a rootdir. The comparison's docstring, the recorder's own
+    and the changelog fragment each say so by their deciding sentence, and
+    each sentence of the refusal the reframe retired is asserted gone."""
+    gate = gate_module()
+    docstring = " ".join(gate.compare_at_base.__doc__.split())
+    assert (
+        "Each line names its file by the path pytest holds for the test or the "
+        "collector, carried on the report from the process that held it, and "
+        "never by a name pytest made from that path"
+    ) in docstring
+    recorder = " ".join(
+        read_document(
+            os.path.join(
+                "skills",
+                "verify",
+                "scripts",
+                "pytest_record",
+                "specseal_pytest_record.py",
+            )
+        ).split()
+    )
+    for sentence in (
+        "A line's path is the node's own: `item.path` for a test, the module "
+        "that COLLECTED it, and `collector.path` for a failed collection",
+        "No path is ever made from a node id and a rootdir",
+        "Neither is written; each node is counted once on the `end` line",
+        "it looks no module up and imports nothing but pytest",
+    ):
+        assert sentence in recorder, f"the recorder does not carry: {sentence}"
+    item = "1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote"
+    changelog = " ".join(
+        read_document(os.path.join("seal", "specs", item, "changelog.md")).split()
+    )
+    assert "**Each failing file is named by the path pytest holds for it.**" in (
+        changelog
+    )
+    for gone, text in (
+        ("so it writes no record at all", docstring),
+        ("the recorder's refusals close it", docstring),
+        ("A path is the rootdir joined to `report.fspath`", recorder),
+        ("therefore writes no record at all", recorder),
+        ("an_argument_lies_outside_the_rootdir", recorder),
+        ("find_spec", recorder),
+        ("A pytest that names a file outside its rootdir writes no record", changelog),
+        ("Such a row's files are not measured", changelog),
+    ):
+        assert gone not in text, f"still carried: {gone}"
 
 
 def test_a_plugin_check_that_fails_is_named_and_the_suite_is_not_compared(repo):

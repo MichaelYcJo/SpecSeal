@@ -56,13 +56,16 @@
   environment without either variable, loses only the recorder, and its
   files read `new?`.
 
-- **A pytest that names a file outside its rootdir writes no record.** A
-  path outside the rootdir, `-c` or `--rootdir` elsewhere or spelled through
-  a symlink, a config file in one argument's directory, or a `--pyargs`
-  module installed outside the repository makes pytest name those files
-  against the argument rather than the rootdir, and two of them can share
-  one name. So does a collector a conftest or a plugin builds for a path no
-  argument contains. Such a row's files are not measured.
+- **Each failing file is named by the path pytest holds for it.** The
+  recorder reads a test's own path where pytest holds the test, in an xdist
+  worker too, and carries it on the report to the process that writes the
+  record. A file outside the rootdir, a `--pyargs` module installed outside
+  the repository, and a collector a conftest builds for files elsewhere are
+  each named by their own path and get a measured word, where a name pytest
+  made from the path could give two files one name. A test with no file of
+  its own, which a conftest or a plugin attaches to the session or to a
+  directory, and a report a plugin rebuilt without the path are left out of
+  every list and counted on the record's `end` line.
 
 ### Fixed
 
