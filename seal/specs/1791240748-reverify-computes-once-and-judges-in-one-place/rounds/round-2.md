@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #829 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `96cc3e46949f382f988753980ce22f421aeaf76c..90fb07c44269e2bc835eec6e665619d98f7e4188`, 2 commits |
+| Contract changes | none |
+| New units | test_a_cycle_through_a_row_left_whole_is_no_cycle (depth 1); test_two_citing_rows_sharing_a_citation_are_named_each_in_its_own_verb (depth 1); test_a_coordinate_that_does_not_settle_records_no_pact_change (depth 1) |
 | Needs a fix | yes — 🟡 1 (a loop through a row left whole is taken for a cycle), 🟡 2 (a citation's memo drops the row's verb), 🟡 3 (the unsettled arm's record has no case) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ The verifying round for round 1's fix range `935b3918..bd9f9eb8`: whether `on_a_
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A naming loop through a row --checked leaves whole is taken for a cycle, so a row that settles is left and named does not settle | `skills/evidence-check/scripts/evidence_check.py:3688` | open | Executed: three rows S, K and a four-cell L; the target left K named does not settle, and 63ca12a5, with the guard, re-stamped K and named L left whole; spec D1 says only rows that still move are named |
-| 🟡 2 | The static memo of a citation's reading keys on coordinate, hash and citation, not the row's verb, so a second citing row is named in the first row's verb | `skills/evidence-check/scripts/evidence_check.py:3602` | open | Executed: --strict names Re-read and Corrected, --reverify names Re-read twice; falsifies the 0.4.0 Corrected row at the fragment's line 41 |
-| 🟡 3 | No case holds that a coordinate that does not settle records no pact change | `skills/evidence-check/scripts/evidence_check.py:3174` | open | Executed: the arm restored, 594 passed in the two modules; ca467185 recorded it BROKEN and the target nothing; contract §14 |
-| ⬜ 4 | The record-order case says it was red at ca467185, and it passes there and at the base | `tests/test_a_signatory_records_a_pact_change.py:2358` | open | Executed against both scripts; red only with the sort removed |
-| ⬜ 5 | The docstring, a comment, the E3 Corrected row and the changelog say rewritten again or a second time; the code pins at the first rewrite in a round after the first | `skills/evidence-check/scripts/evidence_check.py:3397` | open | Read: rewrote compares this round's before and after only |
+| 🟡 1 | A naming loop through a row --checked leaves whole is taken for a cycle, so a row that settles is left and named does not settle | `skills/evidence-check/scripts/evidence_check.py:3688` | **fixed** `c5b026d0` | fixed at c5b026d0; Executed: three rows S, K and a four-cell L; the target left K named does not settle, and 63ca12a5, with the guard, re-stamped K and named L left whole; spec D1 says only rows that still move are named |
+| 🟡 2 | The static memo of a citation's reading keys on coordinate, hash and citation, not the row's verb, so a second citing row is named in the first row's verb | `skills/evidence-check/scripts/evidence_check.py:3602` | **fixed** `c5b026d0` | fixed at c5b026d0; Executed: --strict names Re-read and Corrected, --reverify names Re-read twice; falsifies the 0.4.0 Corrected row at the fragment's line 41 |
+| 🟡 3 | No case holds that a coordinate that does not settle records no pact change | `skills/evidence-check/scripts/evidence_check.py:3174` | **fixed** `c5b026d0` | fixed at c5b026d0; Executed: the arm restored, 594 passed in the two modules; ca467185 recorded it BROKEN and the target nothing; contract §14 |
+| ⬜ 4 | The record-order case says it was red at ca467185, and it passes there and at the base | `tests/test_a_signatory_records_a_pact_change.py:2358` | answered | corrected at c5b026d0 — the docstring says the case passes at e6d5a055 and ca467185 and fails with the sort removed; Executed against both scripts; red only with the sort removed |
+| ⬜ 5 | The docstring, a comment, the E3 Corrected row and the changelog say rewritten again or a second time; the code pins at the first rewrite in a round after the first | `skills/evidence-check/scripts/evidence_check.py:3397` | answered | corrected at 90fb07c4 — the sentence now says what the code does: a cycle coordinate is left at its first rewrite from the second round on, which already proves it cannot settle; Read: rewrote compares this round's before and after only |
 | 🟢 | round 1's finding 1 is closed — a row downstream of an alternating cycle is re-stamped whatever the bound's parity | `skills/evidence-check/scripts/evidence_check.py:3314` | confirmed | Executed: cycles of two and three rows, 0 to 3 unrelated coordinates, eight trees, D never named; round 1's case red at ca467185 |
 | 🟢 | round 1's finding 2 is closed — a pass at its bound costs seconds | `skills/evidence-check/scripts/evidence_check.py:3666` | confirmed | Executed: 150 rows 20.4 s at ca467185 and 0.9 s at the target; 300 rows 7.1 to 8.7 s with a cycle |
 | 🟢 | round 1's finding 3 is closed — read_citation is the one reader of a citation for --strict and --reverify | `skills/evidence-check/scripts/evidence_check.py:2271` | confirmed | Read: cited_row and verdict_of; executed: both shapes red at ca467185, green at the target; the verb corner is finding 2 |
