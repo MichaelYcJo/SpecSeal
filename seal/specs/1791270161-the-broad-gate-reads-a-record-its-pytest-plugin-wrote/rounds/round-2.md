@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `daecd5059dadac536ea4bf93500c37c7eaaa99d8..e8d4b77c7c41ec49f1da63223e17d042e30ad8f4`, 5 commits |
+| Contract changes | none |
+| New units | NOT_CHECKED_OUT (depth 1); BASE_NOT_CHECKED_OUT (depth 1); pytest_in (depth 1); records_written (depth 1); test_a_pyargs_module_outside_the_rootdir_writes_no_record (depth 1); test_a_namespace_package_outside_the_rootdir_writes_no_record (depth 1); test_a_pyargs_module_outside_that_cannot_be_collected_writes_no_record (depth 1); test_a_rootdir_named_through_a_symlink_writes_no_record (depth 1); test_an_argument_named_through_a_symlink_writes_no_record (depth 1); test_a_symlinked_directory_under_the_rootdir_is_recorded_by_its_own_name (depth 1); BUILDS_A_COLLECTOR_ELSEWHERE (depth 1); test_a_collector_built_for_a_path_no_argument_holds_writes_no_record (depth 1); test_each_failing_files_heading_says_what_was_compared (depth 1); test_pyargs_modules_outside_the_rootdir_earn_no_word (depth 1) |
 | Fix of a fix | first — 🔴 1 at skills/verify/scripts/pytest_record/specseal_pytest_record.py#Recorder, a unit round-1's fixes changed |
 | Needs a fix | yes — 🔴 1 (a `--pyargs` module outside the rootdir, or a rootdir named through a symlink, still records a file under another file's name, and the gate gives a file the branch broke `failing on base too`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,10 +25,10 @@ Round 2, the verifying round for round 1's fixes at `80e74544..fa1c6044`. The re
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The rootdir refusal reads arguments with `realpath` and as path strings, where pytest resolves `--pyargs` modules and compares lexically: a `--pyargs` module outside the rootdir, or a rootdir named through a symlink, still records a file under another file's name, and the gate gives a file the branch broke `failing on base too`; a symlinked directory under the rootdir that pytest names correctly is refused | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:135` | open | executed: five shapes with the recorder at 2a6762a1 on pytest 9.1.1, and a gate run over `--pyargs extpkg.test_a extpkg.test_b` printing `sub  failing on base too`; the fix below makes all four planted cases go from red to green, and 175 recorder and gate cases pass with it; read: pytest 9.1.1 `nodes.py:593` and `main.py:1134` |
-| ⬜ 2 | Rule 3 says a session refused for a path outside its rootdir has its files read `new?`, but beside a second runner that did record, those files are in no list | `templates/config.md:334` | open | read: `gate` takes the failing files from the head record wherever any session carries the key; strict side, no wrong word; also `skills/verify/scripts/broad_gate.py:2079` and the changelog fragment |
-| ⬜ 3 | The failure form still heads rows "compared at the base" where every row reads that the base could not be checked out | `skills/verify/scripts/broad_gate.py:2947` | open | read: `compare_at_base` returns that word for every file at line 2097, and the heading checks only for `NO_RECORD_AT_HEAD`; each row says it, so behaviour and fact stay right |
-| ⬜ 4 | The planted `--pyargs` case stays green with the `exists` skip deleted, so it does not pin what its docstring says | `tests/test_the_recorder_writes_what_its_process_ran.py:319` | open | executed: the skip deleted in the clone, the case passed |
+| 🔴 1 | The rootdir refusal reads arguments with `realpath` and as path strings, where pytest resolves `--pyargs` modules and compares lexically: a `--pyargs` module outside the rootdir, or a rootdir named through a symlink, still records a file under another file's name, and the gate gives a file the branch broke `failing on base too`; a symlinked directory under the rootdir that pytest names correctly is refused | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:135` | **fixed** `2648f56b` | fixed at 2648f56b — 6c14f4c0; executed: five shapes with the recorder at 2a6762a1 on pytest 9.1.1, and a gate run over `--pyargs extpkg.test_a extpkg.test_b` printing `sub  failing on base too`; the fix below makes all four planted cases go from red to green, and 175 recorder and gate cases pass with it; read: pytest 9.1.1 `nodes.py:593` and `main.py:1134` |
+| ⬜ 2 | Rule 3 says a session refused for a path outside its rootdir has its files read `new?`, but beside a second runner that did record, those files are in no list | `templates/config.md:334` | **fixed** `2648f56b` | fixed at 2648f56b; read: `gate` takes the failing files from the head record wherever any session carries the key; strict side, no wrong word; also `skills/verify/scripts/broad_gate.py:2079` and the changelog fragment |
+| ⬜ 3 | The failure form still heads rows "compared at the base" where every row reads that the base could not be checked out | `skills/verify/scripts/broad_gate.py:2947` | **fixed** `4184e2f0` | fixed at 4184e2f0; read: `compare_at_base` returns that word for every file at line 2097, and the heading checks only for `NO_RECORD_AT_HEAD`; each row says it, so behaviour and fact stay right |
+| ⬜ 4 | The planted `--pyargs` case stays green with the `exists` skip deleted, so it does not pin what its docstring says | `tests/test_the_recorder_writes_what_its_process_ran.py:319` | **fixed** `dcd42e77` | fixed at dcd42e77; executed: the skip deleted in the clone, the case passed |
 | 🟢 | round 1's 🟡 2 is closed — rule 3 names Q2's whole class | `templates/config.md:334` | confirmed | read: the sentence and its pins in the rule-3 case, the retired sentence asserted gone |
 | 🟢 | round 1's 🟡 3 is closed — the recorder's warning is never raised under warnings as errors | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:117` | confirmed | executed: `give_up` reverted to a bare `warnings.warn` turns the planted `-W error` case red, and it is green at the target |
 | 🟢 | round 1's ⬜ 4 is closed — phase 4's correction is fed back into the spec, plan and overview | `seal/specs/1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote/spec.md:79` | confirmed | read: R4, §*The class*, Scope 1, `plan.md`'s scenario and Alternative M, `overview.md` |
