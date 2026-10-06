@@ -16,7 +16,7 @@ minutes in two weeks; this item measures it on Windows and cuts it.
 |---|---|
 | 1 | Closed: the tables of run 37429940700 are in `phases/phase-1.md`, and Q2 is answered |
 | 2 | Dropped by the owner's answer to `questions.md` Q10 (b) |
-| 3 | Not started; it is next, and it needs the next CI run (below) |
+| 3 | First half at 43326715: the Windows leg stores `.test_durations` with `pytest-split` (pinned as `PYTEST_SPLIT` in `run_tests.py`, not in `PACKAGES`) and uploads it as the `test-durations-windows-latest` artifact. No shard yet; the second half reads that run |
 | 4a | Closed (83801eac) |
 | 4b | Built by the second smith from the Windows table: three shared prefixes in two modules, 46 cases; `phases/phase-4.md` says what each keeps and what was left alone |
 | 5 | Not started |
@@ -52,6 +52,7 @@ GitHub's documentation did not hold for this repository.
 | ✅ `evidence-check --strict .` exit 0 (plan 4a): it exits 2 on `spec.md` line 14, whose Grounding row quotes D1's released anchor `@3e34189e`, which this build's rewrite drifts | the framer reworded `spec.md` line 14 at a321fbcb; the last two `NOT-IN-TREE` lines (`windows_defender_off` here and in `phases/phase-1.md`) were marked by the second smith, and the command exited 0, read directly, on 2026-10-06 · NAME NOT IN TREE |
 | Which lookup the twins case spawns git through (194 spawns on the sample) | #826, which rewrites or retires the case; the Windows table does not name it (under 8.15 s), so phase 4b does not owe it |
 | The whole suite | the sealer, once, after the rounds — none were routed |
+| That the Windows leg writes `.test_durations` under xdist on the hosted runner and the artifact uploads (`include-hidden-files`, since the name starts with a dot): seen locally only, on macOS, in a scratch suite of six cases under `-n 2` | the smith's second half of phase 3, from the run at 43326715 or later, by `gh run download` |
 | What 4b's cuts buy on the Windows leg: every figure in `phases/phase-4.md` for after the cuts is from the second smith's loaded macOS machine | phase 3, from the draft pull request's first CI run, whose Windows table is the leg after 4b |
 | Where one sealer gate run's 10-15 s on Windows goes, and so whether a cheaper `Broad gate` row (`plan.md` Alternatives K) is worth reading the remaining sealer cases for | the repository owner, who decides whether that measurement is wanted once phase 3 shows what the sealer module still costs a shard |
 
