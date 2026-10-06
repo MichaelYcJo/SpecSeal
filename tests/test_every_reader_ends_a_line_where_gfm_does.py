@@ -693,6 +693,12 @@ OUT_OF_CLASS.update(
         # records are read through, reading what `unfenced` shows it as
         # `config_rows` does (#647; ⬜ 21 of #735's round 3).
         ("hooks/config.py", "gfm_table"): (1, F),
+        # A glued old header quoted as written, read back by its row number.
+        ("hooks/config.py", "read_table"): (
+            1,
+            "reads back the line `gfm_table` numbered, with the split it "
+            "numbered on (#831)",
+        ),
         # The machine-local map `pact-check` reads, the same walk (#647).
         ("skills/evidence-check/scripts/pact_check.py", "path_map"): (1, F),
         ("hooks/routing.py", "table_rows"): (1, F),
