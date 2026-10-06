@@ -51,9 +51,9 @@ then the fragment, the changelog and the memo.
   3447 passed.
 - `seal/releases/0.19.0.md` lines 22 (`Corrected · P8`), 31 (`R1`) and 36
   (`R6`) are the released rows whose coordinates this work moves:
-  `hooks/config.py#read_table@9a14e9d5` (P8, R1),
-  `tests/test_a_signer_declares_its_pact.py#test_s4_…@c2600db0` (R1),
-  `tests/test_one_word_one_meaning.py#without_the_policy_span@7398e765`
+  `hooks/config.py#read_table` at hash `9a14e9d5` (P8, R1),
+  `tests/test_a_signer_declares_its_pact.py#test_s4_…` at `c2600db0` (R1),
+  `tests/test_one_word_one_meaning.py#without_the_policy_span` at `7398e765`
   (R6). `grep` over `seal/releases/*.md` and `seal/ledger.md` finds no other
   row citing those three units (read, 2026-10-06). `seal/ledger/` does not
   exist on the branch; the fragment's first row creates it.
@@ -98,8 +98,8 @@ Vertical slices — each phase ends with something runnable and verified.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `without_the_policy_span` ends where GFM ends the statement's paragraph (finding 1): the `re.search` from the fence replaces line 737; the docstring stands | each of the six block plants seen red (W1 says how) and the lazy continuation line green, then `bin/test tests/test_one_word_one_meaning.py -q` exit 0 read directly | |
-| 2 | `read_table` quotes a glued old header as written (finding 3); the S4 case's glued loop expects the as-written quote and gains finding 2's shape at its end | red first, twice: the S4 case against `read_table` with the two fence lines reverted (the first glued shape fails on its spaced expectation), and the new assertions with the `rows = […]` filter moved back inside the `if holds_old and not any(…)` branch; then green, and `bin/test` over the six modules in §*Technical context* exit 0 read directly | |
+| 1 | `without_the_policy_span` ends where GFM ends the statement's paragraph (finding 1): the `re.search` from the fence replaces line 737; the docstring stands | each of the six block plants seen red (W1 says how) and the lazy continuation line green, then `bin/test tests/test_one_word_one_meaning.py -q` exit 0 read directly | ee631b6b |
+| 2 | `read_table` quotes a glued old header as written (finding 3); the S4 case's glued loop expects the as-written quote and gains finding 2's shape at its end | red first, twice: the S4 case against `read_table` with the two fence lines reverted (the first glued shape fails on its spaced expectation), and the new assertions with the `rows = […]` filter moved back inside the `if holds_old and not any(…)` branch; then green, and `bin/test` over the six modules in §*Technical context* exit 0 read directly | 94f22603 |
 | 3 | The records: `seal/ledger/1791270163-….md` from `bin/evidence-check --reverify --into seal/ledger/1791270163-the-signer-sweeps-leftovers-from-the-second-check.md --checked 2026-10-06` (M1: three `Re-read ·` rows expected, P8, R1, R6), R1's row turned `Corrected · R1 ·` with ⬜ 4's wording, all of R1's coordinates and the notes fact; `changelog.md` under `### Fixed`; `overview.md` with `## Not verified` naming the broad gate's answerer; `phases/phase-1..3.md` | `bin/evidence-check` exit 0 with `0 drifted · 0 broken`; `git diff --stat origin/release/v0.20.0 -- seal/releases/ seal/ledger.md` empty; `python3 .github/scripts/gather_changelog.py --dry-run --version 0.20.0` exit 0; `unverified-check` shape by reading `overview.md` against `skills/implement/SKILL.md` §4 | |
 
 This table is also where the work records how far it got. There is no separate
