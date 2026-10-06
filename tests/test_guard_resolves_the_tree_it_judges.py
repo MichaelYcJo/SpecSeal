@@ -1043,6 +1043,27 @@ def test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree(
     assert top and os.path.samefile(top, session / "w"), top
 
 
+def test_each_tree_is_placed_once_however_many_shapes_it_holds(
+    monkeypatch, capsys, repo
+):
+    """#826, phase 3. Each unrecognised shape is judged in its own tree, and
+    a tree is looked up once, so three `checkout`s in one clean tree cost one
+    `repo_paths` for the stop, not three. Survived a break dropping the
+    dedupe until this case; red with it dropped."""
+    asked = []
+    real = wg.repo_paths
+
+    def counting(cwd):
+        asked.append(cwd)
+        return real(cwd)
+
+    monkeypatch.setattr(wg, "repo_paths", counting)
+    command = "git checkout a; git checkout b; git checkout c"
+    decision, reason, _ = run(monkeypatch, capsys, command, repo)
+    assert decision == "silent", (decision, reason)
+    assert asked == [str(repo)], asked
+
+
 def _redirections():
     """Every redirection `hooks/cmdline.py`'s `_REDIRECTION` names, as (operator,
     target) pairs, each operator once bare and, where it is not `&`-led, with
