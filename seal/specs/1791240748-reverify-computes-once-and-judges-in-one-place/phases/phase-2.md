@@ -14,7 +14,7 @@ mutations; the walk-order cases removed or rewritten as the spec's table
 says; the `left`-word assertions rewritten (S11). Then the recomputation,
 one write, MOVES from the final plan, the `left` lines from the judge, D4's
 reader of every ledger coordinate in files left out; `cited_first`, the walk
-loop, `first_old`, `still`, `walked_move`, `owed_moves`, `walked_outcome`,
+loop, `first_old`, `still`, `walked_move`, `owed_moves`, `walked_outcome` (NAME NOT IN TREE),
 `left_because`, the `unplaced` copy and `citations_left` removed. `reverify`'s
 docstring and the usage text rewritten. D6's probe 2 for `--reverify`, every
 difference classified. Questions Q1 decided by the work.
@@ -114,7 +114,7 @@ and hash-compared each time):
 
 | Removed item | Where it must land |
 |---|---|
-| `cited_first`, the walk loop, `first_old`, `still`, `walked_move`, `owed_moves`, `walked_outcome` | `reverify`'s recomputation, `plan_ledger` and `on_a_cycle`; released rows citing them take `Corrected ·` rows in phase 4 |
+| `cited_first`, the walk loop, `first_old`, `still`, `walked_move`, `owed_moves`, `walked_outcome` | `reverify`'s recomputation, `plan_ledger` and `on_a_cycle`; released rows citing them take `Corrected ·` rows in phase 4 · NAME NOT IN TREE |
 | `left_because` | `judge`'s detail; `seal/releases/0.18.3.md:6` takes a `Corrected ·` row |
 | `citations_left` | `moved_and_left_out`, which reads every ledger coordinate; `seal/releases/0.18.2.md:86` takes a `Corrected ·` row |
 | the held-coordinate loop's own reading of a place (`unplaced`) | `judge`'s verdict, read by `plan_ledger` |

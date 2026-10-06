@@ -22,7 +22,7 @@ from `release/v0.19.0` at `e6d5a055`). Nothing was executed.
 | Policy clause | What it fixes for this work |
 |---|---|
 | `docs/the-evidence-ledger.md` §*A row is a content anchor, and it names no commit*: *An anchor degrades to `DRIFTED`, never to `BROKEN`. Only the major level can be broken. A stale minor anchor widens to its unit and says re-read* | Decides #809 (D3 below). A claim row whose only place is one the declaration rule is unsure of is a minor-level question, so the check's `DRIFTED` is the ratified verdict and `--reverify` acts on it: it re-stamps the minor region's hash where that region is found, and leaves the row where the region is gone. `tests/test_a_row_points_by_content.py::test_a_stale_claim_on_an_unsure_place_drifts_rather_than_breaking` already pins the check's half (round 8, 🔴 A). |
-| The same section: *A row whose anchor a change removes is `REMOVED`, not re-pointed … Under the freeze a released row is never removed: a `Corrected ·` row retires it, or re-points a moved one* | Decides what this item's records owe for the released rows anchored on the units it removes (`cited_first`, `walked_move`, `owed_moves`, `walked_outcome`, `left_because`, `current_hash`, `citations_left`): each is a `Corrected ·` row in this item's fragment, never an edit to the release file (D7). |
+| The same section: *A row whose anchor a change removes is `REMOVED`, not re-pointed … Under the freeze a released row is never removed: a `Corrected ·` row retires it, or re-points a moved one* | Decides what this item's records owe for the released rows anchored on the units it removes (`cited_first`, `walked_move`, `owed_moves`, `walked_outcome`, `left_because`, `current_hash`, `citations_left`): each is a `Corrected ·` row in this item's fragment, never an edit to the release file (D7). NAME NOT IN TREE |
 | `docs/the-evidence-ledger.md` §*A released row is read again in the branch's fragment*, the family paragraph, the `--into` paragraph and the *Without the row* paragraph | The behaviour contract the rewrite must keep: one `Re-read ·` row per released row, `--checked` dating every row whose hash moves once, a held coordinate left where it stands (#785), a narrowed run naming by its root each family it could not clear and the remedy per coordinate (#792), `--into` refusing a stale `--checked` and still recording the moves (#746). Enumerated under *What must survive*. |
 | The same section, *Five things `--reverify` leaves at exit 0 while `--strict` exits 2*, fifth item: *one run over every ledger re-stamps a released row and every citation of it that it moves, because it walks a cited file before every file citing it (#772). A release file citing a row of itself, which a second fold writes, is walked again until it settles.* | States the mechanism this item removes. The sentence changes to state the new one — every ledger coordinate, citation or not, is hashed against the text the run will write — and its pin in `tests/test_a_released_row_is_read_again_in_a_fragment.py::test_the_home_names_each_thing_no_re_read_clears` follows (§14). The fifth item's *freeze* half and the narrowed-run sentence stay true. |
 | The same paragraph: *A `left` line names why: a path outside the repository or any known checkout, a file the run could not read, no one place holding the unit, or a quoted statement its file no longer has.* | A `left` line now carries the check's own reason (D2), and a ledger coordinate that never settles is a new reason. The sentence gains it and its pin (`test_the_documents_say_each_outcome_is_printed_once`, id *the home: every left reason*) follows. |
@@ -62,8 +62,8 @@ write — is judged once from the tree on disk. A coordinate naming a line of a
 ledger file the run writes, whether it is the row's citation or not, is
 judged against the text the plan holds for that file, and the plan is
 recomputed until no planned text changes. Then the plan is written, once.
-`cited_first`, the once/again split, the walk bound, `first_old`, `still`,
-`walked_move`, `owed_moves` and `walked_outcome` have nothing left to do and
+`cited_first`, the once/again split, the walk bound, `first_old`, `still` (NAME NOT IN TREE),
+`walked_move`, `owed_moves` and `walked_outcome` (NAME NOT IN TREE) have nothing left to do and
 are removed, with the tests that drive them by name (listed under *Tests that
 pin walk-order artefacts*).
 
@@ -211,7 +211,7 @@ All in `tests/test_a_released_row_is_read_again_in_a_fragment.py`.
 | Test | What it pins | Change |
 |---|---|---|
 | `test_the_walk_order_survives_a_self_citation_and_a_cycle` | `cited_first`'s once/again/bound over a six-file tree | Removed with the unit. Its tree is kept as S5: one run leaves `--strict` at 0 and writes the same bytes under every ordering of the six paths. |
-| `test_every_walk_sequence_hands_over_what_the_file_holds` (36 parameters) | the fold `walked_move`/`owed_moves` | Removed with the units. The property it guarded — the record's part is what the file holds — is S7, asserted over the trees the suite already builds rather than over a sequence that no longer exists. |
+| `test_every_walk_sequence_hands_over_what_the_file_holds` (36 parameters) | the fold `walked_move`/`owed_moves` (NAME NOT IN TREE) | Removed with the units. The property it guarded — the record's part is what the file holds — is S7, asserted over the trees the suite already builds rather than over a sequence that no longer exists. |
 | `test_every_walk_sequence_prints_what_the_file_holds` (36 parameters) | `walked_outcome` | Removed with the unit; S7 covers the printed line the same way. |
 | `test_a_restamp_a_later_walk_leaves_is_a_move_and_then_broken` | an intermediate hash written on walk 1 and left on walk 2: MOVES `[(before, held), (held, None)]`, the file holding `held` | The artefact. Rewritten: the file keeps X1's recorded hash, MOVES holds `[(before, None)]`, and the `left` line carries the check's *anchored statement is gone* reason. Red at the base. |
 | `test_a_ledger_coordinate_restamped_on_two_walks_is_one_move` | one move for a coordinate the old design re-stamped twice | Kept; its docstring stops describing walks. |
@@ -318,7 +318,7 @@ the handover says how (§15).
 - **MOVES tuples keep their shape** `(ledger, row number, coordinate, old,
   new-or-None)`.
 - **Removed, with no caller outside this file and the named tests:**
-  `cited_first`, `walked_move`, `owed_moves`, `walked_outcome`,
+  `cited_first`, `walked_move`, `owed_moves`, `walked_outcome` (NAME NOT IN TREE),
   `left_because`, `current_hash`. `citations_left` is replaced by D4's
   reader (its name is the work's). Nothing under `.github/scripts/`,
   `hooks/` or another skill imports any of them (read: the importers call

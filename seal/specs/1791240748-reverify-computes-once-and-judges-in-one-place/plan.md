@@ -41,8 +41,8 @@ Read at `6d763c40`; line numbers are that commit's.
 - **Where the order lives.** `cited_first` (`:3094-3149`) builds its graph
   from `row_citation` alone — #806. `reverify` walks `once` then `again` up
   to `bound` times (`walks()`, `:3280-3294`), and the per-walk bookkeeping
-  (`first_old`, `parts`, `still`, `outcomes`, `walked`; `walked_move`,
-  `owed_moves`, `walked_outcome` at `:3020-3063`) repairs the record and the
+  (NAME NOT IN TREE, removed by phase 2: `first_old`, `parts`, `still`, `outcomes`, `walked`; `walked_move`,
+  `owed_moves`, `walked_outcome` at `:3020-3063`, NAME NOT IN TREE) repairs the record and the
   lines after the fact. `citations_left` (`:3906-3978`) reads citing rows
   only, for the narrowed run.
 - **What the plan mechanism already gives.** `PLANNED`, `read`, `put`,
@@ -80,7 +80,7 @@ Read at `6d763c40`; line numbers are that commit's.
   destination is a value it had and threw away.
 - **The record (D5).** With one plan there is one hash per coordinate after
   the run. `pending`'s `(offset, coord, old, new)` entries, computed once
-  from the final plan, are MOVES; `parts`, `walked_move` and `owed_moves`
+  from the final plan, are MOVES; `parts`, `walked_move` and `owed_moves` (NAME NOT IN TREE)
   go. The citation skip and the `deferred`/`joined` rule for held
   coordinates stay.
 - **The differential (D6).** The base script is
@@ -116,7 +116,7 @@ Read at `6d763c40`; line numbers are that commit's.
 | Recompute by editing the plan in file order and re-walking (Gauss–Seidel) | Converges to the same fixed point where one exists, but a row that oscillates may settle on different text under different orders. If the work chooses it, S4 is the proof it must pass. | The work's (questions Q1) |
 | A judge that returns the check's finding and a second function that says what `reverify` would do | Two readings of one coordinate again, one step removed. | Rejected |
 | Keep `left_because` as a wording layer over the judge | The reason is wording, and wording is where #809's comment found the gap; the check's sentence is the sentence. | Rejected |
-| Record a coordinate moved and then left at the intermediate hash (the old `owed_moves`) | There is no intermediate hash: nothing is written for a coordinate the plan leaves, so the file holds the recorded hash and the part is `(recorded, None)`. Recording a hash no file holds is #791's defect. | Rejected |
+| Record a coordinate moved and then left at the intermediate hash (the old `owed_moves`) | There is no intermediate hash: nothing is written for a coordinate the plan leaves, so the file holds the recorded hash and the part is `(recorded, None)`. Recording a hash no file holds is #791's defect. | Rejected · NAME NOT IN TREE |
 | Leave an unsettled row silently for `--strict`, as `cited_first` did | `--reverify` exits 0 over a row `--strict` refuses; the silence every round of this lineage reported. | Rejected |
 | A permanent differential test reading the base script through `git show` | The base is wrong in the named cells, so the test carries an allowlist of differences that grows with every later fix, and pins an implementation nobody maintains. The suite is the standing differential. | Rejected; a probe with recorded figures instead |
 
@@ -125,7 +125,7 @@ Read at `6d763c40`; line numbers are that commit's.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | **The judge, read by the check (D2, D3).** The judge function with the full verdict; `classify` as its finding; `family_view.grade`, `check_text` and `released_drift` reading it; `reverify_into` reading the judge's hash in place of `current_hash` (removed). S3a's `--into` arm and S3b's check-side wording seen red, then green. D6's probes 1 and 2 run for `--strict` alone: byte-identical. | `bin/test tests/test_a_row_points_by_content.py tests/test_a_released_row_is_read_again_in_a_fragment.py tests/test_evidence_check.py tests/test_a_signatory_records_a_pact_change.py -q`; the probe's figures in `phases/phase-1.md` | 4a7ff227 |
-| 2 | **`reverify` rewritten (D1, D4, D5).** First S2, S3a in place, S3b, S3c, S4, S5, S6, S7, S8, S9 planted and seen red at the base or under their mutations; the walk-order cases removed or rewritten as the spec's table says; the `left`-word assertions rewritten (S11). Then the recomputation, one write, MOVES from the final plan, the `left` lines from the judge, D4's reader of every ledger coordinate in files left out; `cited_first`, the walk loop, `first_old`, `still`, `walked_move`, `owed_moves`, `walked_outcome`, `left_because`, the `unplaced` copy and `citations_left` removed. `reverify`'s docstring and the usage text rewritten (D1, D5). D6's probe 2 for `--reverify`, every difference classified. | the phase 1 modules, `tests/test_two_branches_re_read_one_released_row.py`, `tests/test_a_narrowed_ledger_read_says_what_it_skipped.py`, `tests/test_a_rider_reaches_its_file.py`; `bin/mutation-check` on the judge and the recomputation; the probe's classification in `phases/phase-2.md` | 30bf8be4 |
+| 2 | **`reverify` rewritten (D1, D4, D5).** First S2, S3a in place, S3b, S3c, S4, S5, S6, S7, S8, S9 planted and seen red at the base or under their mutations; the walk-order cases removed or rewritten as the spec's table says; the `left`-word assertions rewritten (S11). Then the recomputation, one write, MOVES from the final plan, the `left` lines from the judge, D4's reader of every ledger coordinate in files left out; `cited_first`, the walk loop, `first_old`, `still`, `walked_move`, `owed_moves`, `walked_outcome`, `left_because`, the `unplaced` copy and `citations_left` removed. `reverify`'s docstring and the usage text rewritten (D1, D5). D6's probe 2 for `--reverify`, every difference classified. | the phase 1 modules, `tests/test_two_branches_re_read_one_released_row.py`, `tests/test_a_narrowed_ledger_read_says_what_it_skipped.py`, `tests/test_a_rider_reaches_its_file.py`; `bin/mutation-check` on the judge and the recomputation; the probe's classification in `phases/phase-2.md` | 30bf8be4 · NAME NOT IN TREE |
 | 3 | **The documents (S12, §14).** `docs/the-evidence-ledger.md`'s fifth item and *left*-reasons sentence; `docs/the-pact.md`'s in-place sentence (one sentence, see *Overlap with #822*); `skills/evidence-check/SKILL.md` §*Re-verifying* re-read and edited only where false; every pin updated and seen red with its sentence deleted or reverted. | `bin/test tests/test_a_released_row_is_read_again_in_a_fragment.py tests/test_a_signatory_records_a_pact_change.py tests/test_the_ledger_rules_have_one_home.py tests/test_a_merge_cannot_silently_drop_a_correction.py tests/test_no_passage_is_pasted_into_a_second_file.py tests/test_docs_line_wrap.py -q` | bd537ba8 |
 | 4 | **The records (D6 probe 3, D7, S13–S15).** `survivor-check --range e6d5a055..HEAD` with a `survivors.md` row per place that stays true. This item's fragment through `bin/evidence-check --reverify --into seal/ledger/<this id>.md --checked <date>`, each cited claim read before the date is typed; the same run through the base script in a scratch copy, the two fragments and outputs diffed and classified. The `Corrected ·` rows of D7. The `changelog.md` fragment. | `bin/evidence-check --strict .` exits 0; `bin/test tests/test_no_real_identifiers.py tests/test_one_word_one_meaning.py tests/test_a_folded_statement_names_what_enforces_it.py tests/test_the_ledger_fragments_fold_at_release.py -q`; the classification in `phases/phase-4.md` | |
 
