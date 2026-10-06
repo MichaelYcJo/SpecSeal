@@ -7,15 +7,16 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #845 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `c84ac48ed82305b55efde9dfd13ed1aa5b904434..254130b0f490913b28066608e3bbd1d685eb664a`, 3 commits |
+| Contract changes | a_stopped_run → round-1-report.md, round-1.md; test_a_call_over_the_ceiling_is_named_with_its_seconds → pytest only; test_a_call_at_or_under_the_ceiling_says_nothing → pytest only |
+| New units | CASE_CEILING_DEFAULT_S (depth 1); CEILING_VARIABLE (depth 1); _stopped_untouched (depth 1); _stopped_touched (depth 1); ceiling_read_by_a_fresh_import (depth 1); test_the_variable_raises_the_ceiling_for_one_run_and_unset_is_ninety (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1 (the hygiene survivor check is red on the branch's own range); 🟡 2 and 🟡 3 are fix or justify |
 | Loses a record or crashes | no |
+<!-- New units: .github/workflows/test.yml read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,16 +26,16 @@ Round 1 of the chain the owner chose (`routing.md`, answered again as `automatio
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The `hygiene` survivor check is red on the branch's own range: 4b removed a comment that still stands beside the move it explains | `tests/test_the_seal_is_taken_once_by_the_sealer.py:2797` | open | executed: hygiene runs 37465328957, 37469595060 and 37473088866 failed on it; `survivor_check.py --range a9d7b0e5...aacad4dd` exits 1 in a clone at `aacad4dd`, and exits 0 with the fenced `survivors.md` |
-| 🟡 2 | The 90 s ceiling binds `bin/test` with a 2.35-times margin over the slowest local case, while the records measured local swings up to four times | `tests/conftest.py:842` | open | read: issue table 38.30 s; `phases/phase-4.md` §*Timing*; `phases/phase-5.md` 32.6 s against 12 s; Q6 is a person's row and still ⬜ |
-| 🟡 3 | The stopped-run template is built inside the first asking case's call, so `--durations` and the ceiling charge the build to that case | `tests/test_a_fix_of_a_fix_is_counted.py:511` | open | executed (CI logs read): 17.31 s and 15.60 s of call in 37469595104 group 1, 15.03 s and 7.49 s in 37465328899; the sibling `_named_and_fixed_once` shows `6.63s setup` |
-| ⬜ 4 | The docstring names 55.13 s where the constant's comment now names 55.77 s | `tests/test_a_slow_case_names_itself.py:40` | open | read; f1ea5d6c re-based the comment |
-| ⬜ 5 | "Nothing is shared between tests" is false since `a_sealed_run` | `.github/workflows/test.yml:105` | open | read |
-| ⬜ 6 | `a_sealed_run`'s docstring states the serial saving, not the per-worker one | `tests/test_the_seal_is_taken_once_by_the_sealer.py:970` | open | read; Windows group 4 `22.70s setup` |
-| ⬜ 7 | The refresh recipe has no switch to use and omits the hidden-file upload flag | `CONTRIBUTING.md:184` | open | read; 43326715's step was removed by 340dc6fa |
-| ⬜ 8 | The ceiling sees only `call`, and 4b moved prefixes into setup | `tests/conftest.py:860` | open | read; matches the spec; a limit to name, not a defect |
-| ⬜ 9 | Phase 5 calls run 37465328899's figures "the last run" | `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/phases/phase-5.md:51` | open | executed (logs read): 37469595104 reads 21.33 s on macOS and 24.13 s on ubuntu; a correction to the record |
-| ⬜ 10 | *What the next phase needs* predates phase 3 | `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/overview.md:24` | open | read; a correction to the record |
+| 🔴 1 | The `hygiene` survivor check is red on the branch's own range: 4b removed a comment that still stands beside the move it explains | `tests/test_the_seal_is_taken_once_by_the_sealer.py:2797` | **fixed** `af688f2e` | fixed at af688f2e; executed: hygiene runs 37465328957, 37469595060 and 37473088866 failed on it; `survivor_check.py --range a9d7b0e5...aacad4dd` exits 1 in a clone at `aacad4dd`, and exits 0 with the fenced `survivors.md` |
+| 🟡 2 | The 90 s ceiling binds `bin/test` with a 2.35-times margin over the slowest local case, while the records measured local swings up to four times | `tests/conftest.py:842` | **fixed** `af688f2e` | fixed at af688f2e; read: issue table 38.30 s; `phases/phase-4.md` §*Timing*; `phases/phase-5.md` 32.6 s against 12 s; Q6 is a person's row and still ⬜ |
+| 🟡 3 | The stopped-run template is built inside the first asking case's call, so `--durations` and the ceiling charge the build to that case | `tests/test_a_fix_of_a_fix_is_counted.py:511` | **fixed** `af688f2e` | fixed at af688f2e; executed (CI logs read): 17.31 s and 15.60 s of call in 37469595104 group 1, 15.03 s and 7.49 s in 37465328899; the sibling `_named_and_fixed_once` shows `6.63s setup` |
+| ⬜ 4 | The docstring names 55.13 s where the constant's comment now names 55.77 s | `tests/test_a_slow_case_names_itself.py:40` | **fixed** `af688f2e` | fixed at af688f2e; read; f1ea5d6c re-based the comment |
+| ⬜ 5 | "Nothing is shared between tests" is false since `a_sealed_run` | `.github/workflows/test.yml:105` | **fixed** `af688f2e` | fixed at af688f2e; read |
+| ⬜ 6 | `a_sealed_run`'s docstring states the serial saving, not the per-worker one | `tests/test_the_seal_is_taken_once_by_the_sealer.py:970` | **fixed** `af688f2e` | fixed at af688f2e; read; Windows group 4 `22.70s setup` |
+| ⬜ 7 | The refresh recipe has no switch to use and omits the hidden-file upload flag | `CONTRIBUTING.md:184` | **fixed** `af688f2e` | fixed at af688f2e; read; 43326715's step was removed by 340dc6fa |
+| ⬜ 8 | The ceiling sees only `call`, and 4b moved prefixes into setup | `tests/conftest.py:860` | answered | the call-only ceiling is what `spec.md` Data & interfaces says; af688f2e names it as a limit in `overview.md`, the changelog fragment and `CONTRIBUTING.md`; read; matches the spec; a limit to name, not a defect |
+| ⬜ 9 | Phase 5 calls run 37465328899's figures "the last run" | `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/phases/phase-5.md:51` | **fixed** `af688f2e` | fixed at af688f2e; executed (logs read): 37469595104 reads 21.33 s on macOS and 24.13 s on ubuntu; a correction to the record |
+| ⬜ 10 | *What the next phase needs* predates phase 3 | `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/overview.md:24` | **fixed** `af688f2e` | fixed at af688f2e; read; a correction to the record |
 | 🟢 | The ceiling and the three timeouts are Q6 (a) applied to the slowest of the four runs | `tests/conftest.py:842`, `.github/workflows/test.yml:61` | confirmed | executed (logs read): every base figure in both comments matches the job times and `--durations` lines |
 | 🟢 | S4: the shards make the whole suite | `.github/workflows/test.yml:75` | confirmed | executed (logs read): 12,838 + 208 = 13,046, ubuntu's at `98b817ad`; 13,051 at `d6587217` |
 | 🟢 | The 4a sample keeps S5's contract, and the 4b cuts keep every assertion | `tests/test_guard_resolves_the_tree_it_judges.py#_sample`, `tests/test_the_seal_is_taken_once_by_the_sealer.py#a_sealed_run` | confirmed | read; the red against `94d7b2e0` is the smith's executed claim and was not re-run |
