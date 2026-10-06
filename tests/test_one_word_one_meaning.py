@@ -729,12 +729,35 @@ def without_the_policy_span(where, text):
     first. The statement is one paragraph, so the exemption ends where the
     statement does, whatever follows it -- a setext heading's own text and an
     underline of one character included (round 1 of #822, white 2; round 2,
-    white 6; round 3, white 13; #830). The cut is made before flattening,
-    which is what would erase the blank line."""
+    white 6; round 3, white 13; #830). GFM ends that paragraph at every block
+    that may begin directly under its last line, so each of them ends the
+    span: a list item, a block quote, a fence, an HTML block, a footnote
+    definition, a thematic break, a setext underline, and a table, whose
+    header line GFM takes out of the paragraph, so the cut goes before the
+    line over a delimiter row (#831). An ordered list interrupts a paragraph
+    only when it starts at 1, and cmark reads a start number of at most nine
+    digits, so `1.`, `01.` and `000000001)` end the span while `02.` and a
+    ten-digit `0000000001.` stay in the paragraph (round 2 of #831). A lazy
+    continuation line stays inside,
+    and so does a pipe line over a `---` with no pipe in it, which GFM makes
+    part of the statement's setext heading. The delimiter's cell count is not
+    matched against the header's, so the end errs toward sweeping more. The
+    cut is made before flattening, which is what would erase the blank
+    line."""
     span = PACT_RENAMED_SPANS["docs/the-pact.md"]
     head, marker, rest = text.partition(span)
     assert marker, f"{where}: the excluded span `{span}` is gone"
-    end = re.search(r"\n[ \t]*\n|\n {0,3}#{1,6}[ \t\n]|<" + "!--", rest)
+    end = re.search(
+        r"\n[ \t]*\n"  # a blank line
+        r"|\n {0,3}(?:#{1,6}[ \t\n]"  # an ATX heading
+        r"|(?:[-*+]|0{0,8}1[.)])[ \t]"  # a list item that can interrupt a paragraph
+        r"|>|`{3}|~{3}|<"  # a block quote, a fence, an HTML block
+        r"|\[\^[^\]\n]+\]:"  # a footnote definition
+        r"|(?:[-*_][ \t]*){3,}\n|=+[ \t]*\n|-+[ \t]*\n)"  # a break or an underline
+        r"|\n(?=[^\n]*\n {0,3}(?=[^\n]*\|)[|:\- \t]*-[|:\- \t]*\n)"  # a table's header
+        r"|<" + "!--",
+        rest,
+    )
     assert end, (
         f"{where}: the excluded span is the last statement in the file, "
         "so this exclusion now removes everything after it"
