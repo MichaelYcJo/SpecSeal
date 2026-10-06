@@ -16,7 +16,7 @@ minutes in two weeks; this item measures it on Windows and cuts it.
 |---|---|
 | 1 | Closed: the tables of run 37429940700 are in `phases/phase-1.md`, and Q2 is answered |
 | 2 | Dropped by the owner's answer to `questions.md` Q10 (b) |
-| 3 | Built, not yet confirmed: four Windows shards (340dc6fa, 65c8ed98), `K` from run 37458654434's durations; the sharded run's counts close it (`phases/phase-3.md`) |
+| 3 | Closed: four Windows shards; run 37465328899 ran the whole suite across them, slowest shard 10 m 03 s (`phases/phase-3.md`) |
 | 4a | Closed (83801eac) |
 | 4b | Built by the second smith from the Windows table: three shared prefixes in two modules, 46 cases; `phases/phase-4.md` says what each keeps and what was left alone |
 | 5 | Not started |
