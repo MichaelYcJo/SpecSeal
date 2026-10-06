@@ -1221,15 +1221,7 @@ def _sample(verbs):
         turn = n % len(verbs)
         holder = next(v for v in verbs[turn:] + verbs[:turn] if key in first[v])
         chosen.add((holder, first[holder][key]))
-    return [
-        (verb, *shapes[verb][i]) for verb, i in sorted(chosen, key=_in_order(verbs))
-    ]
-
-
-def _in_order(verbs):
-    """Sort `(verb, index)` pairs by the verb's place in VERBS, then index."""
-    place = {verb: n for n, verb in enumerate(verbs)}
-    return lambda pair: (place[pair[0]], pair[1])
+    return [(verb, *shapes[verb][i]) for verb, i in sorted(chosen)]
 
 
 def test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands(
@@ -1837,10 +1829,18 @@ def test_the_sample_covers_every_placement_and_every_verb(verbs):
     the sample is a cover rather than a draw: every placement of the product,
     every verb on both sides of a cut, the same on every call, and much
     smaller than what it stands for."""
+    # Where a redirection stands, read off the word count: spaced after
+    # `git checkout` is after the subcommand, glued to it is inside its word.
+    assert _after_the_subcommand(2, False) and _after_the_subcommand(3, True)
+    assert not _after_the_subcommand(2, True) and not _after_the_subcommand(1, False)
     sample = _sample(verbs)
     assert sample == _sample(verbs)
-    product = [(verb, shape) for verb in verbs for shape in _placed(verb)]
-    missing = {_placement(s) for _v, s in product} - {_placement(s[1:]) for s in sample}
+    product = [(verb, *shape) for verb in verbs for shape in _placed(verb)]
+    # The placement is read off each tuple here, not through `_placement`,
+    # so a sampler and a cover check that drop the same axis do not agree.
+    missing = {(op, at, g, sp) for _v, _c, at, g, op, sp in product} - {
+        (op, at, g, sp) for _v, _c, at, g, op, sp in sample
+    }
     assert not missing, sorted(missing)[:10]
     for verb in verbs:
         mine = [(at, glued, op) for v, _c, at, glued, op, _s in sample if v == verb]

@@ -46,6 +46,27 @@ retirement of the case is #826's, by the owner's comment.
 Both files were restored by the tool from its own copy, and
 `git status --short` showed only the intended test edit after each.
 
+**Every unit added, broken one at a time before hand-over.** The first pass
+over the helpers found three that nothing watched: `_after_the_subcommand`
+(`at > 2` alone), `_placement` (the target-spaced axis dropped) and an
+ordering helper, each `SURVIVED`. The cover case measured coverage through
+the same `_placement` the sampler used, so a dropped axis vanished from both
+sides at once. The fix: the cover case reads the placement off each tuple
+directly and states `_after_the_subcommand`'s boundary values, and the
+ordering helper is gone, since order decided nothing a case reads
+(`sorted(chosen)` keeps the sample deterministic). Re-run with
+`-k 'sample_covers or no_twin_is_asked or no_constructed_switch'`:
+
+| Break | Verdict |
+|---|---|
+| `_after_the_subcommand` → `return at > 2` | `red` (6.1 s) |
+| `_placement` → `return op, at, glued, True` | `red` (5.1 s) |
+| `_sample`'s placement loop → `pass` | `red` (3.8 s) |
+
+The module after that edit: `426 passed in 18.53s`, exit 0; ruff check and
+format exit 0. The two rewritten cases' anchors did not move again, so the
+`Re-read · D1` row still holds.
+
 **Q4, `executed` 2026-10-06.** A probe (`tests/test_tmp_twins_spawns.py`,
 run once with `-p no:xdist`, deleted in the same command) subclassed
 `subprocess.Popen` with a counter. The sampled twins case started **194
