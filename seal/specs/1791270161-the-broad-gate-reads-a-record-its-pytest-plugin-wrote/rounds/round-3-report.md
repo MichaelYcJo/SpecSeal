@@ -29,7 +29,7 @@ Read in the worktree's virtualenv:
 The table's rows agree with that source on these points:
 
 - The lexical comparison.
-- The `--pyargs` package location. The recorder's namespace and regular-package branches are `search_pypath`'s branches in the same order.
+- The `--pyargs` package location. The recorder's namespace and regular-package branches are `search_pypath`'s branches in the same order. · NAME NOT IN TREE
 - `testpaths`. pytest reads them only where the invocation directory is `rootpath`, and with `--pyargs` it passes them on as module names.
 - xdist.
 
@@ -45,7 +45,7 @@ The `confcutdir` row says it "touches no node id". That is imprecise, though no 
 - the `exists` skip off;
 - the located path ignored.
 
-**The missing half** is the row *outside `rootpath` and every initial path*. Its case, `test_a_collector_built_for_a_path_no_argument_holds_writes_no_record`, plants a collector whose parent is the root `Dir`, whose node id is `.`. Its tests are named `.::outside::…` and its failed collections are named `.::outside::…` too. Both reach the rootdir, and the guard catches both. Parented one directory lower, a test line still names a directory, which `isfile` catches, but a failed collection names the directory. The guard checks a `collect` line only against the rootdir itself, so that line is written. This is 🔴 2.
+**The missing half** is the row *outside `rootpath` and every initial path*. Its case, `test_a_collector_built_for_a_path_no_argument_holds_writes_no_record`, plants a collector whose parent is the root `Dir`, whose node id is `.`. Its tests are named `.::outside::…` and its failed collections are named `.::outside::…` too. Both reach the rootdir, and the guard catches both. Parented one directory lower, a test line still names a directory, which `isfile` catches, but a failed collection names the directory. The guard checks a `collect` line only against the rootdir itself, so that line is written. This is 🔴 2. · NAME NOT IN TREE
 
 ## 🔴 1 — a dotted `--pyargs` name imports the package at `pytest_sessionstart`, and a passing test fails under the gate
 
@@ -96,7 +96,7 @@ The fix: a `collect` line whose node id carries `::` must name a file, as a test
 
 Every refusal and every abandoned record since round 1 leaves no keyed record, and the gate words that as "no pytest the row ran here loaded the gate's recorder". `EARNS_THE_WORD` follows it and tells the person to add to `PYTHONPATH` and `PYTEST_ADDOPTS` rather than replace them. For a row refused for a rootdir reason, that environment is already right. The person is sent after a problem the row does not have. Rule 3 does say such files "are measured as a runner's that did not load the recorder", but the line the person actually reads at the console states a false cause.
 
-Executed: `test_a_file_pytest_names_outside_its_rootdir_earns_no_word` passes at the target among the 169 and asserts this exact text, for a row whose pytest loads the recorder with the environment intact. The fix only rewords the two strings. Their pins in `tests/test_the_seal_is_taken_once_by_the_sealer.py` follow (§14). Depth 0: both strings date from `d4d1ca3`, and no fix range touched them.
+Executed: `test_a_file_pytest_names_outside_its_rootdir_earns_no_word` passes at the target among the 169 and asserts this exact text, for a row whose pytest loads the recorder with the environment intact. The fix only rewords the two strings. Their pins in `tests/test_the_seal_is_taken_once_by_the_sealer.py` follow (§14). Depth 0: both strings date from `d4d1ca3`, and no fix range touched them. · NAME NOT IN TREE
 
 ## ⬜ 4 — the record-abandoning guard reaches tests that are not misnamed, silently, and rule 3 does not name them
 
@@ -145,7 +145,7 @@ Both still say "a pytest handed a path outside its rootdir writes no line at all
 |---|---|---|---|---|
 | 🔴 1 | The refusal's `find_spec` imports a dotted `--pyargs` name's package at `pytest_sessionstart`, before a conftest's own hook, so the recorder changes an outcome: a passing test fails under the gate (spec Scope 1: it never changes an outcome) | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:192` | open | executed: `--pyargs pkg.test_a` with a conftest setting at sessionstart what the package reads at import, exit 0 without the recorder and exit 1 with it; the locator fix below passes it, 19 recorder and 6 gate cases pass with it; the proposed case red at the target and green with the fix |
 | 🔴 2 | A failed collection of a collector a conftest builds below the root for files outside the rootdir is recorded under the parent directory, and the gate gives a file the branch broke `failing on base too` | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:115` | open | executed: the gate printed `sub/tests  failing on base too` for a branch that broke `ext/test_new.py`, the base failing `ext/test_old.py`; with the fix, the case passes, 19 recorder and 169 gate cases pass; the case red at the target |
-| 🟡 3 | Where the recorder loaded and refused or abandoned its record, the gate says no pytest loaded the recorder and points at the environment | `skills/verify/scripts/broad_gate.py:2015` | open | executed: `test_a_file_pytest_names_outside_its_rootdir_earns_no_word` passes asserting this text for a row whose pytest loads the recorder; read: `NO_RECORD` at line 2021 says the same of the base |
+| 🟡 3 | Where the recorder loaded and refused or abandoned its record, the gate says no pytest loaded the recorder and points at the environment | `skills/verify/scripts/broad_gate.py:2015` | open | executed: `test_a_file_pytest_names_outside_its_rootdir_earns_no_word` passes asserting this text for a row whose pytest loads the recorder; read: `NO_RECORD` at line 2021 says the same of the base · NAME NOT IN TREE |
 | ⬜ 4 | The guard abandons a whole record, silently, for a test with no file of its own or one whose module removes itself, and rule 3 names neither | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:115` | open | executed: a session-parented item and a self-removing module each left no record and no warning; read: pytest-mypy 1.0.1 parents its status item to a file and is not affected; strict side, no wrong word |
 | ⬜ 5 | `spec.md` Scope 1 and §The class still describe round 1's refusal only | `seal/specs/1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote/spec.md:161` | open | read; paperwork correction, not counted in Needs a fix |
 | 🟢 | round 2's blocking finding is closed — a `--pyargs` package outside, a namespace package, a rootdir or argument through a symlink and a collector built at the root no longer record under another file's name, and a symlinked directory under the rootdir is recorded | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:157` | confirmed | executed: eight mutants of the refusal and the guard, each red against its case; 19 recorder cases pass at the target; finding 2 above is a further branch of the same class |
@@ -282,7 +282,7 @@ In `Recorder.write`:
         ):
 ```
 
-The case, for `tests/test_the_seal_is_taken_once_by_the_sealer.py` beside `test_pyargs_modules_outside_the_rootdir_earn_no_word`:
+The case, for `tests/test_the_seal_is_taken_once_by_the_sealer.py` beside `test_pyargs_modules_outside_the_rootdir_earn_no_word` · NAME NOT IN TREE:
 
 ```python
 BUILDS_A_DIR_BELOW_THE_ROOT = """\

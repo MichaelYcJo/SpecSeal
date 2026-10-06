@@ -193,15 +193,15 @@ record, and the word is `new?`.
      key or none** (reframed after round 3). Under xdist the process that
      holds an item is a worker and the process that records is the
      controller (R5, R15), so the path has to be read where the node is and
-     travel with the report. A hookwrapper on `pytest_runtest_makereport` (NAME NOT IN TREE)
+     travel with the report. A hookwrapper on `pytest_runtest_makereport`
      sets the node's own path, `str(item.path)` (`item.fspath` below pytest
      7, through `getattr`), on the report as one string attribute of the
-     recorder's own; a hookwrapper on `pytest_make_collect_report` sets (NAME NOT IN TREE)
+     recorder's own; a hookwrapper on `pytest_make_collect_report` sets
      `str(collector.path)` the same way. Each adds one attribute to a
      report pytest already made, reads nothing else, imports nothing, and
      changes no outcome and no field pytest reads (R14). The old-style
      `hookwrapper=True` spelling is the one every build from the floor up
-     accepts. (NAME NOT IN TREE)
+     accepts.
    - **At `pytest_configure`** the first session configured in the process
      claims the key and the module variable is cleared, so a second session
      in the same process (an in-process `pytest.main` a test calls) finds
@@ -212,7 +212,7 @@ record, and the word is `new?`.
      as absolute strings, and `pytest`'s version. It reads no argument, no
      option and no ini value: the refusal `an_argument_lies_outside_the_rootdir`
      of rounds 1–2 and the guard in `write` retire with the rootdir join
-     (the reframe). (NAME NOT IN TREE)
+     (the reframe).
    - **At `pytest_runtest_logreport`** it appends a `test` line per report:
      `nodeid`, `when`, `outcome`, `wasxfail` where set, and `path`, the
      attribute the makereport hook set — the module that collected the
@@ -237,7 +237,7 @@ record, and the word is `new?`.
    - It never prints, never changes an outcome, never raises out of a hook,
      and imports nothing of the row's — no `find_spec`, no module lookup
      (round 3's 🔴 1): a directory it cannot write is one `warnings.warn`
-     and no record, which the gate then reads as no record (strict). (NAME NOT IN TREE)
+     and no record, which the gate then reads as no record (strict).
 2. **The environment every measured run is handed.** `recording_env(keep, key)`
    in `broad_gate.py`: `os.environ` copied, `PYTHONPATH` with the
    recorder's directory prepended (`os.pathsep`), `PYTEST_ADDOPTS` with
@@ -462,13 +462,13 @@ refusal and the guard still stand, and failed there.
 - `skills/verify/scripts/pytest_record/specseal_pytest_record.py`: hooks
   `pytest_configure`, `pytest_sessionstart`, `pytest_runtest_logreport`,
   `pytest_collectreport`, `pytest_sessionfinish` on the `Recorder`, and two
-  module-level hookwrappers, `pytest_runtest_makereport` and (NAME NOT IN TREE)
-  `pytest_make_collect_report`, that set `specseal_path` on the report — (NAME NOT IN TREE)
+  module-level hookwrappers, `pytest_runtest_makereport` and
+  `pytest_make_collect_report`, that set `specseal_path` on the report —
   the node's own absolute path as a string (reframed after round 3). Reads
   `SPECSEAL_RECORD_KEY` (taken out at import) and `SPECSEAL_RECORD_DIR`.
   Writes `<dir>/<key>-<pid>.jsonl`, UTF-8, one JSON object per line with a
   `kind` of `session`, `test`, `collect` or `end`; the `end` line carries
-  `exitstatus` and `unplaced`. (NAME NOT IN TREE)
+  `exitstatus` and `unplaced`.
 - `broad_gate.py#recording_env(keep, key)` → the environment of Scope 2.
 - `broad_gate.py#read_record(directory, key, worktree)` → the `Record` of
   Scope 3; pure, unit-tested on its own with a table of lines (a failing
