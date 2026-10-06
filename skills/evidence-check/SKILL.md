@@ -559,7 +559,7 @@ pact changes read and taken.
 **A table headed with the word 0.18.x used still reads.** A pact, or a pact
 review record, whose table header predates `Signer` is read exactly as one
 headed `Signer`, and one line before that file's others names the file, both
-headers and 0.19.0. The line moves no exit; it says to rename the header when
+headers and the release that renamed them. The line moves no exit; it says to rename the header when
 the file is next edited (`docs/the-pact.md` §*The words*).
 
 **It is local only.** A signer's pull request can read one repository, so

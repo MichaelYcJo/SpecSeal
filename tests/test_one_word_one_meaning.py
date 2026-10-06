@@ -19,7 +19,7 @@ import os
 import re
 import subprocess
 
-from conftest import review_chain_text
+from conftest import on_disk, review_chain_text
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -826,8 +826,11 @@ def test_no_live_text_says_the_word_0_19_0_renamed():
         assert any(p.startswith(prefix) for p in tracked), (
             f"{prefix} is excepted below and holds no tracked file"
         )
+    # A tracked file the working tree deleted says nothing; `on_disk` keeps
+    # the walk from ending at it (#432).
+    present, _deleted = on_disk(ROOT, tracked)
     said = []
-    for rel in tracked:
+    for rel in present:
         if rel.startswith(RENAMED_RECORDS) or rel == SWEEP_MODULE:
             continue
         path = os.path.join(ROOT, rel)

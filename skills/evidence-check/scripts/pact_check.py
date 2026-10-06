@@ -91,7 +91,7 @@ and the summary says so.
 These mirror `evidence-check`'s classes, where `BROKEN` is exit 2 and drift is
 exit 1. Nothing is ever written.
 
-## A header written before 0.19.0
+## A header written through 0.18.x
 
 A pact whose table, or a pact review record whose table, is headed with the
 word 0.18.x used is read exactly as one headed `Signer`, and one line before
@@ -694,7 +694,7 @@ def check(root, out=sys.stdout, home_dir=None):
 
 def renamed(config, where, header, current, say):
     """Print the line naming the rename where HEADER, the header a file at
-    WHERE was read under, is the one CURRENT was written as before 0.19.0.
+    WHERE was read under, is the one CURRENT was written as through 0.18.x.
     In no exit class: the file reads exactly as under CURRENT (#822)."""
     old, sentence = config.renamed_header(current)
     if header is not None and header == old:
