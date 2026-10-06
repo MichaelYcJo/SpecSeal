@@ -2,8 +2,8 @@
 
 📋 implement applied
 · spec:     this item's routing.md, spec.md, plan.md, questions.md; `CONTRIBUTING.md` and `docs/` read only as cited by them
-· evidence: seal/ledger/1791270165-the-windows-test-leg-is-measured-and-cut.md — one `Re-read · D1` row (0.18.2)
-· verified: executed — the six test.yml-reading modules, the guard module, two mutation reds, the Q4 probe, `evidence-check` lenient and strict; read — the Actions expression and dispatch rules below
+· evidence: seal/ledger/1791270165-the-windows-test-leg-is-measured-and-cut.md — 13 `Re-read ·` rows and one row per scenario (S1, S2, S4 to S9)
+· verified: executed — four CI runs read (37429940700, 37457228586, 37458654434, 37465328899), the modules each phase touched, every new or rewritten case seen red, the Q4 and ceiling probes, `evidence-check --strict`; read — the Actions expression and dispatch rules, hosted runners' cores and one VM per job; unverified — the whole suite (the sealer) and the confirming run of phase 5's push (the orchestrator)
 
 ## Why this work exists
 
@@ -19,7 +19,7 @@ minutes in two weeks; this item measures it on Windows and cuts it.
 | 3 | Closed: four Windows shards; run 37465328899 ran the whole suite across them, slowest shard 10 m 03 s (`phases/phase-3.md`) |
 | 4a | Closed (83801eac) |
 | 4b | Built by the second smith from the Windows table: three shared prefixes in two modules, 46 cases; `phases/phase-4.md` says what each keeps and what was left alone |
-| 5 | Not started |
+| 5 | Built: the 90 s case ceiling and the leg timeouts (a600768e), from the slowest of the three runs after phase 4 (`phases/phase-5.md`); the orchestrator's next push is the confirming run |
 
 **What the next phase needs.** Routing is `automation` now, so the
 orchestrator pushes the branch and opens the draft pull request. That pull
@@ -58,8 +58,9 @@ GitHub's documentation did not hold for this repository.
 
 ## Not done
 
-Phase 2 was dropped by Q10 (b). Phases 3 and 5 were not started, as the
-second smith's spawn ordered.
+Phase 2 was dropped by Q10 (b). macOS, now the longest leg at about 18
+minutes, was not cut: the title names Windows, and its budget is its own
+figure (`phases/phase-5.md`).
 
 Phase 4b left alone the cases `phases/phase-4.md` lists under *Left alone*,
 each with its grounds. The largest of them are the twelve sealer cases that

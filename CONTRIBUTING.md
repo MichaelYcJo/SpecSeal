@@ -174,6 +174,16 @@ interpreter that reads them, #684), the evidence ledger against this
 repository, and the hygiene workflow that guards releases. A change to any
 hook needs a test that fails without it — see the counterfeit rule below.
 
+**A case has a budget, and so does each leg.** A case whose call runs longer
+than `CASE_CEILING_S` in `tests/conftest.py` (90 s) fails with one line
+naming it and its seconds, locally as in CI. Make it cheaper, split it, or
+sample what it walks. Each `pytest` leg in `test.yml` carries a
+`timeout-minutes`, and the comment beside the values says which runs they
+were set from. `.test_durations` goes stale as cases are added, which
+unbalances the Windows shards and drops no case. To refresh it, run the
+Windows leg once unsharded with `--store-durations`, upload the file as an
+artifact, then download it with `gh run download` and commit it.
+
 **The suite runs with `gh` logged out, on your machine as on CI.** CI's
 pytest job has no token, so `tests/conftest.py` makes the same true locally
 when it is imported: it points `GH_CONFIG_DIR` at an empty directory,
