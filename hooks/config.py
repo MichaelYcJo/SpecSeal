@@ -1330,7 +1330,9 @@ def read_table(text, header):
     and an old header it also holds is refused, wherever that table stands:
     its rows would otherwise go unread at exit 0 (round 1 of #822, yellow 1).
     The refusal is not added where the walk's stray-row refusal already names
-    the old header. Where neither is there, the refusal names HEADER and the
+    the old header, compared by the cells the refusal quotes, so a header
+    written without its spaces is named once too (round 2 of #822, white 5).
+    Where neither is there, the refusal names HEADER and the
     header read is None, so a caller tells the old header from the new one
     without reading the text again (#822)."""
     rows, refusals = gfm_table(text, header)
@@ -1341,7 +1343,11 @@ def read_table(text, header):
     )
     if not (refusals and refusals[0].startswith("holds no ")):
         named = f"`| {' | '.join(old)} |`" if old else None
-        if holds_old and not any(named in r for r in refusals):
+        if holds_old and not any(
+            table_cells(quoted) == old
+            for r in refusals
+            for quoted in re.findall(r"`([^`]*)`", r)
+        ):
             refusals = [
                 *refusals,
                 f"also holds a {named} header, the word before {RENAMED_IN}, "

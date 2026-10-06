@@ -1237,6 +1237,12 @@ def test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one():
         "has a `Signer` table that ends above `| Signatory |`, a row the walk "
         "never reaches — it and every signer below it would go unread"
     ], refusals
+    # Written without its spaces, the old header is quoted as written by the
+    # stray-row refusal, and is still named once (round 2 of #822, white 5).
+    _, refusals, _ = config.pact_signers(
+        signer + "\n|Signatory|\n|---|\n|https://example.com/org/billing|\n"
+    )
+    assert len(refusals) == 1 and "ends above `|Signatory|`" in refusals[0], refusals
 
 
 def test_s4_a_broken_signer_table_does_not_fall_back_to_the_old_one():
