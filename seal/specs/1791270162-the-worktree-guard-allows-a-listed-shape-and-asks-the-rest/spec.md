@@ -54,14 +54,27 @@ as a possible switch, in the one place a switch would matter.
    And a segment the frozen reading does NOT read as git is unrecognised
    where it hands a string to a shell that holds the bare word `git`
    (`sh -c '…'`, `bash -c`, `zsh -c`, `eval "…"`, `env -S '…'`, the class
-   #732 names), where its text holds a substitution body (`$( … )`, a
-   backtick pair, `<( … )`) holding the bare word `git`, where the whole
+   #732 names), where the whole
    command could not be tokenized and its text holds the bare word `git`, or
    where a word of it is `git` behind a redirection or a zsh precommand word
    (`2>/dev/null git switch x`, `noglob git switch x`, `git 2>&1 worktree
    add …`), which is the whole class candidate C read. A non-git program
    that runs git from inside itself (`python3 -c "…"`, `make`, a script)
    is not read, as it never was.
+
+   **A substitution body is read through these same shapes, recursively**
+   (the owner's answer P2 (a), 2026-10-06; fed back during phase 2, and it
+   replaces the clause that made any body holding the bare word `git`
+   unrecognised). The body of every `$( … )`, backtick pair and `<( … )` in
+   the command, whether the segment around it is git or not, is read as a
+   command: a body of listed git is listed and says nothing, and a body
+   holding a switch, a creation, a `checkout` without `-- <word>`, an
+   unlisted subcommand or any other unrecognised shape stops with that
+   shape's own plain spelling, run outside the substitution. A body nested
+   deeper than the commit gate reads (32 levels) stops as one it could not
+   finish. A body belongs to no one segment, so it is judged in the
+   session's own tree, the fallback #686 gives a directory the walk cannot
+   place.
 
 2. **The tree decides whether anything is asked.** A listed shape is silent
    in every tree state and spawns no git. A switch takes the §A ladder as
@@ -81,7 +94,13 @@ as a possible switch, in the one place a switch would matter.
    `git switch <branch>` or `git switch --detach <rev>` for a switch,
    `git checkout -- <path>` or `git restore <path>` for a restore,
    `git worktree add …` for a creation, the un-strung command for a string
-   handed to a shell, and `git -C <dir>` for another tree. Where the
+   handed to a shell, and `git -C <dir>` for another tree. An unlisted
+   subcommand is its own plain spelling, and the text names running it with
+   `git -C <scratch clone>` or after the other session ends (the owner's
+   answer P3 (a)); an untokenizable command's text names splitting it and
+   writing a commit message with `git commit -F <file>` (P4 (a)); a
+   redirection read as the subcommand (`git 2>/dev/null status`) is moved
+   to the end. Those three were fed back during phase 2. Where the
    session's person pressed `automation` on the routing question, read by
    `hooks/worktree_consent.py#automation_answered` on the session's own
    clone exactly as `hooks/commit-review-gate.py#automation_pressed` reads
@@ -89,7 +108,14 @@ as a possible switch, in the one place a switch would matter.
    plain spelling, and the retry meets today's rows (a `git switch` in a
    dirty tree still asks the person about the changes; in an ACTIVE tree it
    is still denied and steered to a worktree). Without the press the stop is
-   an **`ask`** with the same text, which is what #678's question is today.
+   an **`ask`** with the same text, which is what #678's question is today,
+   except in a tree another session is ACTIVE in, where it is a `deny`
+   either way: `docs/worktree-guard-spec.md` §A row 1 denies a branch-form
+   `checkout` there with nobody asked, and an `ask` would let one approval
+   take the branch out from under that session (*inferred during
+   implementation*, phase 2; `questions.md` P5 puts it to the owner). On
+   the `ask` path a creation on the same line is judged first, as `choose`
+   judges it, because approving an ask runs every segment of the line.
    The consent *record* (`specseal-worktree-consent/<session>`) is not the
    press and is never read for this stop: a creation having run says nothing
    about whether anybody is at the keyboard.
@@ -240,7 +266,7 @@ as a possible switch, in the one place a switch would matter.
 |---|---|---|
 | S1 a listed shape is silent everywhere | Given each of the five §A tree states (ACTIVE, IDLE, unusable, dirty, clean) and the session with and without the press; when `git status`, `git diff`, `git add -A`, `git commit -m x`, `git log`, `git rev-parse HEAD`, `git fetch`, `git checkout -- README.md`, `git checkout feature/x -- README.md`, `git restore README.md`, `git -C W status` run, with a redirection at a sampled position and glued or spaced; then the guard says nothing and spawns no git | new case in `tests/test_worktree_guard.py`, a sampled product bounded under 5 s, `subprocess.run` monkeypatched to count calls |
 | S2 `git switch` meets today's rows | Given the five states; when `git switch feature/x`, `git switch -c y`, `git switch -`; then verdict and reason are those of today's §A rows, character for character | the existing ladder cases stay green unchanged; one new case diffs the reasons against fixtures taken at the base |
-| S3 an unrecognised shape stops where the tree matters | Given ACTIVE, IDLE, unusable and dirty trees, without the press; when `git checkout feature/x`, `git checkout README.md`, `git checkout -b y`, `git checkout --detach HEAD~1`, `git checkout ':/fix'`, `git bisect start`, `git <unlisted>`, `sh -c 'git switch x'`, `bash -c "git checkout x"`, `eval "git switch x"`, `echo $(git switch x)`, `2>/dev/null git switch x`, `noglob git switch x`, `git 2>&1 worktree add ../wt b`, and `git switch x && echo "unclosed` (untokenizable) run; then the guard answers `ask`, and the reason names the shape and the plain spelling of In 3 | new case; each shape red at `a9d7b0e5` (the base is silent on `git checkout README.md`, `sh -c`, `bisect`, and asks a different question on the hidden gits) |
+| S3 an unrecognised shape stops where the tree matters | Given ACTIVE, IDLE, unusable and dirty trees, without the press; when `git checkout feature/x`, `git checkout README.md`, `git checkout -b y`, `git checkout --detach HEAD~1`, `git checkout ':/fix'`, `git bisect start`, `git <unlisted>`, `sh -c 'git switch x'`, `bash -c "git checkout x"`, `eval "git switch x"`, `echo $(git switch x)`, `2>/dev/null git switch x`, `noglob git switch x`, `git 2>&1 worktree add ../wt b`, and `git switch x && echo "unclosed` (untokenizable) run; then the guard answers `ask` (`deny` in the ACTIVE tree, In 3, fed back during phase 2), and the reason names the shape and the plain spelling of In 3 | new case; each shape red at `a9d7b0e5` (the base is silent on `git checkout README.md`, `sh -c`, `bisect`, and asks a different question on the hidden gits) |
 | S4 the same shapes are silent in a clean single-stream tree | Given a clean tree with no other session and detection reliable; when every S3 shape runs; then the guard says nothing | new case; `git checkout ':/fix'` and `2>/dev/null git switch x` are red at the base, which asks there |
 | S5 under the press the stop is a deny to the model | Given a dirty tree and a transcript holding the harness-written `automation` answer from this clone (`tests/test_the_guard_asks_once_per_session.py#write_transcript`); when an S3 shape runs; then the decision is `deny`, the reason names the plain spelling, and nothing in it asks for `AskUserQuestion` | new case; red at the base (which asks) |
 | S6 the plain retry meets today's rows | Given S5's tree; when the model retries `git switch feature/x`; then the dirty-tree `ask` of today, and in an ACTIVE tree today's `deny` with the worktree steer | existing cases cover the rows; one new case runs the pair |
@@ -258,10 +284,14 @@ as a possible switch, in the one place a switch would matter.
 - `hooks/worktree-guard.py`: `LEAVES_THE_TREE: frozenset[str]` with a
   counted comment; `shape_of(tokens) -> "listed" | "switch" | "creation" |
   "unrecognised" | None` (None for a segment that is not git and holds no
-  string, body or hidden git with `git` in it); `tree_matters(top,
-  session_id, eff_cwd) -> tuple` returning what `main` needs for the ladder
-  so `sessions_in_tree` and `tracked_changes` run once; `stop_unrecognised(
-  shape, rewrite, pressed)`; the press read `worktree_consent.automation_
+  string or hidden git with `git` in it; a substitution body is read at the
+  command's level, `_command_findings`, where the quoting the segment's
+  tokens lost is still there); `tree_matters(top,
+  session_id, eff_cwd, seen=None) -> tuple` returning what `main` needs for
+  the ladder so `sessions_in_tree` and `tracked_changes` run once;
+  `stop_unrecognised(findings, state, pressed, before_ask=None)`, every
+  unrecognised shape on the line listed with its own plain spelling; the
+  press read `worktree_consent.automation_
   answered(top_of_session, session_id, transcript_path)` wrapped as the
   commit gate wraps it, every failure False. `main` keeps its two silent
   exits and its ladder.
