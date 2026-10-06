@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | the commit that adds this file; `plan.md`'s Status cell for phase 1 carries its hash |
+| Commit | 1d28e9a9 |
 | Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked

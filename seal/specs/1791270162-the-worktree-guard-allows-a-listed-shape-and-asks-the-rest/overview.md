@@ -45,7 +45,7 @@ Phases 2–4 run in the next session on another machine.
 
 | Item | Who must answer |
 |---|---|
-| Why cut 1 reads 31,193 pairs where 1791119071's phase 1 read 25,741 over more transcripts; that probe was deleted, so its definition cannot be re-run | nobody can re-run it; phase 3 re-reads the corpus with this phase's definition so that before and after compare on one count |
+| Why cut 1 reads 31,193 pairs where 1791119071's phase 1 read 25,741 over more transcripts; that probe was deleted, so its definition cannot be re-run | phase 3's builder, which re-reads the corpus with this phase's definition so that before and after compare on one count; the old count itself cannot be reproduced |
 | Which recorded subcommands leave HEAD's branch where it was, beyond the ones `spec.md` In 5 names (`clone`, `init`, `config`, `archive`, `apply`, `gc`, `update-index`, `format-patch`, `count-objects`, `help`): judged by reading what each does, not run against git | phase 2, when `LEAVES_THE_TREE` is written with its counts |
 | Every count is tree-blind, so each is an upper bound on stops where the tree matters | phase 3's re-read, and the pull request's prompt budget, which says so |
 
