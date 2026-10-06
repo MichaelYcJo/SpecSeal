@@ -158,8 +158,11 @@ row or refuses it. That can be a later `Re-read ·` row's hash rather than the
 released row's, so code that went back to the released hash records the move
 back. A re-stamp in place records each row's move from that row's own hash
 to the hash the run writes, one move per coordinate, and BROKEN at the row's
-own hash where the run leaves it: nothing is written for a coordinate it
-leaves, so no hash between the two is recorded (#791, #824).
+own hash where the run leaves it because no one place holds it: nothing is
+written for a coordinate it leaves, so no hash between the two is recorded
+(#791, #824). A coordinate in a checkout the run was not given, one whose path
+escapes the repository, and one whose text never settles are left with
+nothing recorded, because nothing is known gone.
 A move whose two hashes agree is no move and is not recorded (#774). `Pact
 notify` decides what is recorded: `when the pact is touched` records rows
 citing a clause of a declared pact, `always` also records every other row

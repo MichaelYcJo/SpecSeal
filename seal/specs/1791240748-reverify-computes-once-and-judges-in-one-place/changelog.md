@@ -12,6 +12,10 @@
   moves again, its own line or a row naming it back, is left at the hash it
   recorded and named on a `LEFT` line saying it does not settle, and the run
   exits 1; it used to be re-stamped once, to a hash that drifted at once.
+  The run leaves such a coordinate the round it rewrites its own row a
+  second time, so one self-quoting row beside hundreds of citations costs
+  seconds rather than minutes, and a row that only names the cycle is still
+  re-stamped in the same run.
 
 - `--reverify` reads a coordinate the way `--strict` does (#809, #824). A
   claim on a place the declaration rule is unsure of, which the check calls
@@ -20,12 +24,19 @@
   left, or named *no one place to hash*, and recorded BROKEN. Every `left`
   line now carries the check's own sentence for that coordinate followed by
   ` — left`, so a tie among places the rule is unsure of reads `locator is
-  ambiguous — 3 places: …` from both commands.
+  ambiguous — 3 places: …` from both commands. A citing row's citation is
+  read by the same reader in both commands, so a citation whose literal is
+  on two lines of its section, or whose section is there twice, is named
+  `left` with the sentence `--strict` prints rather than re-stamped or passed
+  over in silence, and a citation naming a fragment row is left with its
+  repair rather than re-stamped.
 
 - A pact change recorded by an in-place re-stamp is the hash before the run
-  and the hash after it (#824). A coordinate the run leaves is recorded
-  BROKEN at its row's own hash, never after a hash on the way that no file
-  ended up holding.
+  and the hash after it (#824). A coordinate the run leaves because its
+  unit, file or quoted statement is gone is recorded BROKEN at its row's own
+  hash, never after a hash on the way that no file ended up holding. A
+  coordinate in a checkout the run was not given, one whose path escapes the
+  repository, and one that does not settle are named and record nothing.
 
 - A run narrowed with `--ledger` names a row in a file it left out whenever
   it re-stamps a ledger line that any coordinate of the row names, not only

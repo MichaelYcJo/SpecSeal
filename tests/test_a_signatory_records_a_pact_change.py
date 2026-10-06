@@ -1333,10 +1333,13 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
             "docs/the-pact.md",
             "A re-stamp in place records each row's move from that row's own "
             "hash to the hash the run writes, one move per coordinate, and "
-            "BROKEN at the row's own hash where the run leaves it: nothing is "
-            "written for a coordinate it leaves, so no hash between the two is "
-            "recorded (#791, #824). A move whose two hashes agree is no move and "
-            "is not recorded (#774).",
+            "BROKEN at the row's own hash where the run leaves it because no one "
+            "place holds it: nothing is written for a coordinate it leaves, so no "
+            "hash between the two is recorded (#791, #824). A coordinate in a "
+            "checkout the run was not given, one whose path escapes the "
+            "repository, and one whose text never settles are left with nothing "
+            "recorded, because nothing is known gone. A move whose two hashes "
+            "agree is no move and is not recorded (#774).",
         ),
         (
             "docs/the-pact.md",
@@ -2303,3 +2306,65 @@ def test_a_claim_whose_statement_is_gone_from_an_unsure_place_is_recorded_broken
         f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | `{coord}@0000beef` BROKEN "
         "| 2026-09-04 |"
     ], out
+
+
+# --- round 1 of #824's review ------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "coord", ["legacy/src/x.py#f@0000beef", "../outside.py#f@0000beef"]
+)
+def test_a_coordinate_no_checkout_places_records_no_pact_change(repo, coord):
+    """Round 1, yellow 4. A row citing a clause beside a coordinate in another
+    checkout the run was not given, or one escaping the repository: the run
+    names it `left` and records nothing, because no unit, file or quoted
+    statement is known gone, which is all the pact's BROKEN says. Red at
+    ca467185, which recorded it BROKEN; e6d5a055 recorded nothing."""
+    (repo / "seal" / "parity.md").write_text(
+        "| Item | Value |\n|---|---|\n", encoding="utf-8"
+    )
+    cite(repo, [row("O1", f"`{CLAUSE}`, ", coord)])
+    _code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert f"  {coord.rsplit('@', 1)[0]}  " in out, out
+    assert record_rows(repo) == [], out
+
+
+def _two_moved_fragments(top):
+    """A signatory at TOP with two fragments, each a row citing the clause
+    over `serialize`, which then moves. Returns the two fragments."""
+    (top / "src").mkdir(parents=True)
+    (top / "src" / "orders.py").write_text(SOURCE, encoding="utf-8")
+    (top / "seal").mkdir()
+    (top / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), ("Pact", PACT_URL)), encoding="utf-8"
+    )
+    old = unit_hash(top, "src/orders.py", "serialize")
+    paths = []
+    for name, label in (("2000000001-a", "A1"), ("2000000002-b", "B1")):
+        where = f"seal/ledger/{name}.md"
+        cite(
+            top,
+            [row(label, f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")],
+            where,
+        )
+        paths.append(where)
+    move_serialize(top)
+    return paths
+
+
+def test_the_record_is_the_same_bytes_in_any_ledger_order(tmp_path):
+    """Round 1, white 5, and S4: the pact-change record is a file the run
+    writes, so its bytes do not depend on the order `--ledger` names the
+    ledgers in. Red at ca467185, which wrote its rows in that order."""
+    records = []
+    for n, flip in enumerate((False, True)):
+        top = tmp_path / f"run{n}"
+        a, b = _two_moved_fragments(top)
+        order = [b, a] if flip else [a, b]
+        args = ["--into", FRAGMENT, "--checked", "2026-09-04"]
+        for path in order:
+            args += ["--ledger", path]
+        code, out = run(top, *args)
+        assert code == 0, out
+        records.append((top / RECORD).read_bytes())
+    assert records[0] == records[1], records

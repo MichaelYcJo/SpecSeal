@@ -2254,7 +2254,8 @@ def citation_target(root, maps, default_repo, raw_path):
 
 
 def cited_row(cite, verb, root, maps, default_repo, load):
-    """`(status, detail, (file identity, line) or None)` for one citation.
+    """`(status, detail, (file identity, line) or None)` for one citation:
+    `read_citation`'s finding, as the family reader takes it.
 
     LOAD is the caller's reader: a path in, `(identity, (path, body, lines,
     rows) or None)` out, where LINES is the body through `unquoted` and ROWS
@@ -2263,71 +2264,90 @@ def cited_row(cite, verb, root, maps, default_repo, load):
     because the released file changed under it -- and is None where nothing
     was: a refusal, or a row that is gone.
     """
+    verdict, at = read_citation(cite, verb, root, maps, default_repo, load)
+    return verdict.status, verdict.detail, at
+
+
+def read_citation(cite, verb, root, maps, default_repo, load):
+    """`(Verdict, (file identity, line) or None)`: the one reading of a citing
+    row's citation, which `--strict` grades the row's family by and
+    `--reverify` re-stamps the citation by (round 1 of #824, yellow 3).
+
+    A citation is read here and never by `judge`: it names a row of a
+    released file, so where the file lives (`citation_target`), which kind of
+    ledger it is, and whether its literal names one row of its section are
+    questions only this reader asks. Two readers of one citation described
+    one row two ways, which is #809's class. NOW and REGION are the hash and
+    the lines the citation would be re-stamped at, where the row is found.
+    """
     want = cite.group("hash")
+    coord = coordinate_of(cite)
+
+    def found(status, detail, now=None, region=None, at=None):
+        return Verdict(status, coord, detail, now, region, None), at
+
     target, rel = citation_target(root, maps, default_repo, cite.group("path"))
     kind = ledger_kind(root, target) if target else None
     if kind == "fragment":
-        return (
+        return found(
             "MALFORMED",
             "a citation names a row in a fragment, which is not released and "
             "moves at the fold, so the citation would break at the next release "
             "— re-stamp that row in place in its own fragment (`evidence-check "
             "--reverify`) instead",
-            None,
         )
     if kind != "released":
-        return (
+        return found(
             "MALFORMED",
             f"a `{verb} ·` row's first coordinate names a row of a released "
             "ledger file — seal/ledger.md or a seal/releases/<X.Y.Z>.md — and "
             "this one names neither",
-            None,
         )
     claim = cite.group("claim")
     if not claim:
-        return (
+        return found(
             "MALFORMED",
             "the citation names a section, not a row — add "
             '`>"<the start of the row\'s first cell>"` before its hash',
-            None,
         )
     ident, entry = load(target)
     if entry is None:
-        return "BROKEN", "the released file it names is not there", None
+        return found("BROKEN", "the released file it names is not there")
     _, body, lines, rows = entry
     places, _ = resolve_unit(rel, cite.group("locator"), body)
     if len(places) != 1:
-        return (
+        return found(
             "BROKEN",
             "the section it names is gone"
             if not places
             else f"the section it names is there {len(places)} times",
-            None,
         )
     hits = literal_statements(lines, places[0], unescape(claim[1:-1]))
     if len(hits) != 1:
-        return (
+        return found(
             "BROKEN",
             "the row it cites is gone from its section"
             if not hits
             else f"the literal is on {len(hits)} lines of its section, so it "
             "names no one row — lengthen it",
-            None,
         )
     number = hits[0][0]
     if number not in rows:
-        return "BROKEN", "the line it cites is not a ledger row", None
+        return found("BROKEN", "the line it cites is not a ledger row")
     inside = minor_region(rel, body, places[0], claim)
     start, end = inside[0] if inside else (number, number)
-    if content_hash(gfm_lines(body)[start - 1 : end]) != want:
-        return (
+    got = content_hash(gfm_lines(body)[start - 1 : end])
+    if got != want:
+        return found(
             "DRIFTED",
             f"the released file changed under the row it cites, at {start}-{end} "
             "— a released file is not edited after its release; re-read the row "
             "and re-stamp this citation",
+            got,
+            (start, end),
             (ident, number),
         )
-    return "OK", f"{start}-{end}", (ident, number)
+    return found("OK", f"{start}-{end}", got, (start, end), (ident, number))
 
 
 # How short a citation's literal may be, in characters, while a longer one
@@ -3109,6 +3129,15 @@ def repointed(spot, dest, text):
     )
 
 
+def known_gone(spot, verdict):
+    """Whether a coordinate the run leaves is the pact's BROKEN: its unit, its
+    file or its quoted statement gone (`docs/the-pact.md`). A coordinate in
+    another checkout the run was not given, or whose path escapes the
+    repository, is none of those -- nothing is known gone -- so it hands
+    MOVES no part (round 1 of #824, yellow 4)."""
+    return verdict.status != "EXTERNAL" and spot.target is not None
+
+
 def plan_ledger(ledger, verdicts, checked, root):
     """What `reverify` writes into one LEDGER, given VERDICTS, `{spot key:
     Verdict}` for every coordinate it carries and None for one that does not
@@ -3144,8 +3173,9 @@ def plan_ledger(ledger, verdicts, checked, root):
         old = m.group("hash")
         if verdict is None:
             # It does not settle: left at the hash its row recorded, and named
-            # by `reverify` on a `LEFT` line of its own.
-            pending.append((spot, None))
+            # by `reverify` on a `LEFT` line of its own. One place holds what
+            # it names, so it is not the pact's BROKEN and hands MOVES nothing
+            # (round 1 of #824, yellow 4); the run exits 1 over it.
             continue
         if spot.holds and verdict.now is None:
             # A newest reading resolves it, so this reading of it is history,
@@ -3179,7 +3209,8 @@ def plan_ledger(ledger, verdicts, checked, root):
         # command and getting nothing back reads as a heal that happened
         # (round 6, 🟢). The reason is the check's own sentence (#809).
         left.append((spot, verdict.detail))
-        pending.append((spot, None))
+        if known_gone(spot, verdict):
+            pending.append((spot, None))
     dated, undated, undatable = [], [], []
     by_row, riders = {}, {}
     for edit in edits:
@@ -3242,7 +3273,8 @@ def plan_ledger(ledger, verdicts, checked, root):
             kept.append(edit[:4])
             continue
         left.append((spot, verdict.detail))
-        pending.append((spot, None))
+        if known_gone(spot, verdict):
+            pending.append((spot, None))
     moves, whole = [], []
     for spot, new in pending:
         if new is not None and spot.number in left_whole:
@@ -3279,30 +3311,44 @@ def plan_ledger(ledger, verdicts, checked, root):
     )
 
 
-def on_a_cycle(moving, spots, verdicts):
+def on_a_cycle(moving, spots, verdicts, among=None):
     """The keys of MOVING whose coordinate reaches itself (S6).
 
-    MOVING is the coordinates whose verdict changed on the last round the
-    bound allowed; SPOTS maps a key to its `Spot`, VERDICTS to the verdict
-    that round gave it. A coordinate names the rows its verdict's region
-    spans in its target file, and one whose naming leads back to its own row
-    -- a row quoting its own line, or rows quoting each other -- has no
-    hash the run can write that the write does not move again. A coordinate
-    downstream of such a cycle is not on it, and settles once the cycle is
-    left where it stands."""
+    MOVING is the coordinates whose verdict changed on the last round read;
+    SPOTS maps a key to its `Spot`, VERDICTS to the verdict that round gave
+    it. A coordinate names the rows its verdict's region spans in its target
+    file, and one whose naming leads back to its own row -- a row quoting its
+    own line, or rows quoting each other -- has no hash the run can write
+    that the write does not move again. A coordinate downstream of such a
+    cycle is not on it, and settles once the cycle is left where it stands.
+    AMONG, where given, is the keys the naming may pass through; else every
+    key of SPOTS.
+
+    The naming is read over every coordinate still judged, never over MOVING
+    alone: the members of a cycle one stale row starts move on alternate
+    rounds, so no one round's MOVING holds the whole cycle, and reading it
+    alone left a row downstream of the cycle by the parity of the bound
+    (round 1 of #824, yellow 1)."""
+    live = [
+        key
+        for key in (spots if among is None else among)
+        if verdicts.get(key) is not None
+    ]
+    rows = {}
+    for key in live:
+        rows.setdefault(spots[key].home, []).append(key)
     names = {}
-    for key in moving:
-        verdict = verdicts.get(key)
-        region = verdict.region if verdict is not None else None
+    for key in live:
+        region = verdicts[key].region
         names[key] = [
             other
-            for other in moving
-            if region is not None
-            and spots[other].home == spots[key].target
-            and region[0] <= spots[other].number <= region[1]
+            for other in rows.get(spots[key].target, [])
+            if region is not None and region[0] <= spots[other].number <= region[1]
         ]
     found = set()
     for key in moving:
+        if key not in names:
+            continue
         stack, seen = list(names[key]), set()
         while stack:
             other = stack.pop()
@@ -3332,8 +3378,10 @@ def reverify(
     re-read the code. It is deliberately a separate command: a check that
     silently refreshed what it was checking would report OK forever.
 
-    **Every coordinate is judged once, by `judge`, against the text the run
-    writes** (#824). Code does not change during a run, so a coordinate
+    **Every coordinate is judged once, against the text the run writes, by
+    the reader `--strict` grades it by** (#824): a citing row's citation by
+    `read_citation`, every other coordinate by `judge`. Code does not change
+    during a run, so a coordinate
     naming code, a document or a ledger this run does not write is judged
     once, from the tree on disk. One naming a line of a ledger this run
     writes, its row's citation or not, is judged against the text the plan
@@ -3345,13 +3393,15 @@ def reverify(
 
     **A coordinate that does not settle is left at the hash its row
     recorded**: a row quoting its own line, or rows quoting each other, so
-    that every re-stamp moves the text it names again. After as many rounds
-    as there are coordinates naming a ledger line, plus two, each one still
-    moving on such a cycle is left, the rest are recomputed, and each one
-    left is named on a `LEFT` line saying it does not settle. The run then
-    exits 1, because `--strict` will refuse that row.
+    that every re-stamp moves the text it names again. One whose own row a
+    round rewrites again, on a cycle of rows each of which a re-stamp
+    rewrites, is left from the second round of a pass; any other still
+    moving after as many rounds as there are coordinates naming a ledger
+    line, plus two, is left where it is on a cycle. The rest are recomputed,
+    and each one left is named on a `LEFT` line saying it does not settle.
+    The run then exits 1, because `--strict` will refuse that row.
 
-    The run acts on `judge`'s verdict: `OK` writes nothing, `DRIFTED` with a
+    The run acts on the verdict: `OK` writes nothing, `DRIFTED` with a
     hash re-stamps the coordinate, `BROKEN` with one provable destination
     re-points the row, and every other verdict is left, named `<coordinate>
     <the check's sentence> — left`. **Every `left` line carries the check's
@@ -3381,9 +3431,12 @@ def reverify(
     `(ledger, row number, coordinate, recorded hash, new hash or None)` per
     coordinate, the hash before the run and the hash after it -- the hash the
     file holds once the plan is written, where the run re-stamps it, and None
-    where it leaves it, a BROKEN a re-read cannot clear. Nothing is written
-    for a coordinate the run leaves, so there is no hash between the two to
-    record. A row left whole under `--checked` moved nothing and appends
+    where it leaves it because its unit, its file or its quoted statement is
+    gone, a BROKEN a re-read cannot clear. Nothing is written for a
+    coordinate the run leaves, so there is no hash between the two to
+    record. A coordinate in no checkout the run was given, one whose path
+    escapes the repository, and one that does not settle are left with no
+    part: nothing is known gone (`known_gone`). A row left whole under `--checked` moved nothing and appends
     nothing, and a citing row's citation, re-stamped, appends no move: it is
     a ledger line, not code under the row (D3). It is what
     `record_pact_changes` writes a signatory's pact changes from, before the
@@ -3468,6 +3521,11 @@ def reverify(
                 continue
             repo, rel = place(root, maps, default_repo, m.group("path"))
             target = None if repo is None else planned_key(os.path.join(repo, rel))
+            if citation:
+                # Where `read_citation` reads it: a `seal/` path is re-rooted
+                # under the root's own home, as the family reader re-roots it.
+                named, _ = citation_target(root, maps, default_repo, m.group("path"))
+                target = None if named is None else planned_key(named)
             holds = (
                 not citation
                 and target not in writes
@@ -3496,22 +3554,59 @@ def reverify(
                 spots=spots,
             )
         )
+
+    def loader():
+        """A reader of released files for `read_citation`, through `read`, so
+        it answers from whatever plan is open while it is used. One per
+        reading of the plan, so a file is parsed once per reading."""
+        files = {}
+
+        def load(path):
+            ident = file_identity(path)
+            if ident not in files:
+                body = read(path)
+                files[ident] = (
+                    None
+                    if body is None
+                    else (
+                        path,
+                        body,
+                        gfm_lines(unquoted(body)),
+                        {n: (h, c) for n, h, c in ledger_table_rows(body)},
+                    )
+                )
+            return ident, files[ident]
+
+        return load
+
+    def verdict_of(spot, load):
+        """The one reading of SPOT: `read_citation`'s for a citing row's
+        citation, the reader `--strict` grades it by, and `judge`'s for every
+        other coordinate (round 1 of #824, yellow 3)."""
+        if not spot.citation:
+            return judge(spot.m, root, maps, default_repo, scan_cache)
+        _header, cells = parsed[spot.key[0]].rows.get(spot.number, (None, []))
+        return read_citation(
+            spot.m, citing_verb(cells), root, maps, default_repo, load
+        )[0]
+
     # Every coordinate naming a file the run does not write, judged once.
     outer = PLANNED
     static, memo, dynamic = {}, {}, []
+    on_disk = loader()
     for ledger in parsed:
         for spot in ledger.spots:
             if spot.target in writes:
                 dynamic.append(spot)
                 continue
-            index = (coordinate_of(spot.m), spot.m.group("hash"))
+            index = (coordinate_of(spot.m), spot.m.group("hash"), spot.citation)
             if index not in memo:
-                memo[index] = judge(spot.m, root, maps, default_repo, scan_cache)
+                memo[index] = verdict_of(spot, on_disk)
             static[spot.key] = memo[index]
     by_key = {spot.key: spot for spot in dynamic}
 
     def judged_against(texts, keys, earlier, changed):
-        """`judge`'s verdict for each key of KEYS against TEXTS, the text each
+        """The verdict for each key of KEYS against TEXTS, the text each
         ledger of the plan holds. A verdict of EARLIER is kept where the file
         its coordinate names is not among CHANGED, the ledgers whose text
         moved since: it was read from the same text. A BROKEN one is read
@@ -3520,6 +3615,7 @@ def reverify(
         PLANNED = dict(outer or {})
         for ledger in parsed:
             PLANNED[ledger.home] = (ledger.path, texts[ledger.home])
+        load = loader()
         try:
             found = {}
             for key in keys:
@@ -3531,9 +3627,7 @@ def reverify(
                 ):
                     found[key] = was
                 else:
-                    found[key] = judge(
-                        by_key[key].m, root, maps, default_repo, scan_cache
-                    )
+                    found[key] = verdict_of(by_key[key], load)
             return found
         finally:
             PLANNED = outer
@@ -3544,14 +3638,24 @@ def reverify(
             for ledger in parsed
         }
 
+    def rewrites(key):
+        """Whether a re-stamp of KEY rewrites its row: not where `--checked`
+        leaves the row whole for want of a date cell."""
+        spot = by_key[key]
+        header, cells = parsed[spot.key[0]].rows.get(spot.number, (None, []))
+        return checked is None or (
+            bool(cells) and date_column(header, cells) is not None
+        )
+
+    propagating = {key for key in by_key if rewrites(key)}
     texts = {ledger.home: ledger.text for ledger in parsed}
     pinned, earlier, changed = set(), {}, set(texts)
     while True:
         # Each pass is bounded, and a pass that reaches its bound leaves the
         # coordinates still moving on a cycle (`on_a_cycle`) and runs again
         # over the rest. A key once left stays left, so the passes end.
-        moving, settled = set(), False
-        for _ in range(len(dynamic) - len(pinned) + 2):
+        moving, settled, looping = set(), False, set()
+        for step in range(len(dynamic) - len(pinned) + 2):
             verdicts = judged_against(
                 texts, [key for key in by_key if key not in pinned], earlier, changed
             )
@@ -3565,13 +3669,40 @@ def reverify(
                 key for key, found in verdicts.items() if found != earlier.get(key)
             }
             changed = {home for home in texts if following[home] != texts[home]}
-            earlier, texts = verdicts, following
+            before, earlier, texts = texts, verdicts, following
             if not changed:
                 settled = True
                 break
+            if step:
+                # From a pass's second round on, a coordinate whose own row
+                # this round rewrote again, on a cycle of rows each of which a
+                # re-stamp rewrites, cannot settle: each move of one moves the
+                # next, back to itself. Waiting for the bound would judge
+                # every coordinate of its file once per coordinate the run
+                # carries (round 1 of #824, yellow 2). A member with no hash
+                # to write, a statement gone, rewrites nothing and breaks the
+                # cycle, so the naming passes only through ones that do.
+                old = {home: gfm_lines(before[home]) for home in changed}
+                new = {home: gfm_lines(texts[home]) for home in changed}
+                rewrote = {
+                    key
+                    for key in (moving & propagating) - pinned
+                    if by_key[key].home in changed
+                    and old[by_key[key].home][by_key[key].number - 1]
+                    != new[by_key[key].home][by_key[key].number - 1]
+                }
+                if rewrote:
+                    through = {
+                        key
+                        for key in propagating - pinned
+                        if verdicts[key] is not None and verdicts[key].now is not None
+                    }
+                    looping = on_a_cycle(rewrote, by_key, verdicts, through)
+                if looping:
+                    break
         if settled:
             break
-        pinned |= on_a_cycle(moving, by_key, verdicts) or moving
+        pinned |= looping or on_a_cycle(moving, by_key, verdicts) or moving
     # A coordinate left on a cycle may read OK against what the run writes,
     # once the others on its cycle are left too: then there is nothing to
     # say about it. Every other one left is named, and does not settle.

@@ -3640,8 +3640,20 @@ def test_a_family_no_remedy_clears_is_named_without_one(repo):
         ),
         (
             "skills/evidence-check/scripts/evidence_check.py",
-            "**Every coordinate is judged once, by `judge`, against the text the "
-            "run writes** (#824).",
+            "**Every coordinate is judged once, against the text the run writes, "
+            "by the reader `--strict` grades it by** (#824): a citing row's "
+            "citation by `read_citation`, every other coordinate by `judge`.",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "One whose own row a round rewrites again, on a cycle of rows each of "
+            "which a re-stamp rewrites, is left from the second round of a pass;",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "A coordinate in no checkout the run was given, one whose path escapes "
+            "the repository, and one that does not settle are left with no part: "
+            "nothing is known gone (`known_gone`).",
         ),
         (
             "skills/evidence-check/scripts/evidence_check.py",
@@ -3674,6 +3686,8 @@ def test_a_family_no_remedy_clears_is_named_without_one(repo):
         "the home: neither",
         "reverify's docstring: the check's sentence",
         "reverify's docstring: judged once",
+        "reverify's docstring: a cycle left the round it rewrites its row",
+        "reverify's docstring: nothing known gone, no part",
         "reverify's docstring: no order",
         "reverify's docstring: a coordinate that does not settle",
         "reverify's docstring: before and after",
@@ -4309,3 +4323,133 @@ def test_the_record_and_the_lines_are_what_the_file_holds(repo, capsys, tree):
         m = HASH_LINE.match(said)
         if m:
             assert f"@{m.group(3)}`" in texts, (said, out)
+
+
+# --- round 1 of #824's review ------------------------------------------------
+
+
+@pytest.mark.parametrize("unrelated", [0, 1, 2], ids=["none", "one", "two"])
+def test_a_row_downstream_of_a_cycle_one_stale_row_starts_is_restamped(repo, unrelated):
+    """Round 1, yellow 1. A quotes B's line and holds it; B quotes A's at a
+    stale hash; D names B's line. Only B moves in the first round, so A and B
+    move on alternate rounds and no one round's moving set holds both. One of
+    A and B is left and named, and D, on no cycle, is re-stamped, however
+    many unrelated coordinates name a written ledger. Red at ca467185 with
+    one, where the parity of the bound pinned D."""
+
+    def names(label):
+        return f'{R_FILE}#"{SECTION}">"\\| {label}"'
+
+    b = f"| B · quotes A | `{names('A · quotes')}@0000beef` | read | 2026-01-01 | |"
+    a = f"| A · quotes B | `{names('B · quotes')}@{line_hash(b)}` | read | 2026-01-01 | |"
+    d = f"| D · names B | `{names('B · quotes')}@{line_hash(b)}` | read | 2026-01-01 | |"
+    released(repo, [a, b, d])
+    o = unit_hash(repo, "src/service.py", "other")
+    rows = []
+    for i in range(unrelated):
+        z = f"| Z{i} · plain | `src/service.py#other@{o}` | read | 2026-01-01 | |"
+        rows += [
+            z,
+            f'| E{i} · names Z | `seal/releases/0.2.0.md#"{SECTION}">"\\| Z{i} · '
+            f'plain"@{line_hash(z)}` | read | 2026-01-01 | |',
+        ]
+    if rows:
+        released(repo, rows, version="0.2.0")
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    named = [line for line in fix.stdout.splitlines() if "does not settle" in line]
+    assert len(named) == 1 and "D · names B" not in named[0], fix.stdout
+    check = run(["--strict", "."], repo)
+    drifted = [line for line in check.stdout.splitlines() if "DRIFTED" in line]
+    assert len(drifted) == 1, check.stdout
+
+
+def test_a_row_that_never_settles_costs_no_round_per_coordinate(repo, monkeypatch):
+    """Round 1, yellow 2. S6 beside forty citations of its file. The run
+    leaves the self-quoting row once a round rewrites its row again on its
+    own cycle, rather than judging every citation of the file once per
+    coordinate the run carries. Red at ca467185, which called `judge` 1,846
+    times here."""
+    n = 40
+    h = unit_hash(repo, "src/service.py", "handler")
+    rows = [
+        f"| R{i:02d} · handler adds one | `src/service.py#handler@{h}` | read "
+        "| 2026-01-01 | |"
+        for i in range(n)
+    ]
+    rows.append(
+        f'| X · quotes itself | `{R_FILE}#"{SECTION}">"\\| X · quotes"@0000beef` '
+        "| read | 2026-01-01 | |"
+    )
+    released(repo, rows)
+    fragment(
+        repo,
+        [
+            f"| Re-read · R{i:02d} | `{citation(rows[i], f'R{i:02d} · handler adds one')}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+            for i in range(n)
+        ],
+    )
+    edit_handler(repo)
+    calls = []
+    real = ec.judge
+    monkeypatch.setattr(ec, "judge", lambda *a: calls.append(a) or real(*a))
+    # A citation is read by `read_citation` (round 1, yellow 3), and is counted
+    # the same way; `raising=False` keeps the case runnable where it is not.
+    real_cited = getattr(ec, "read_citation", None)
+    monkeypatch.setattr(
+        ec,
+        "read_citation",
+        lambda *a: calls.append(a) or real_cited(*a),
+        raising=False,
+    )
+    paths = sorted(str(p) for p in (repo / "seal").rglob("*.md"))
+    ec.reverify(paths, str(repo), {}, None, "2026-03-01")
+    assert len(calls) < 10 * n, len(calls)
+
+
+@pytest.mark.parametrize("shape", ["literal twice", "section twice"])
+def test_reverify_names_a_citation_in_the_family_readers_words(repo, shape):
+    """Round 1, yellow 3. A citation `--strict` reads BROKEN through the
+    family reader -- its literal on two lines of its section, or its section
+    there twice -- is named by `--reverify` with that sentence: one reading
+    of a citation, for both commands. Red at ca467185, which said the
+    anchored statement is gone, or nothing, at exit 0."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+    released(repo, [r1])
+    fragment(
+        repo,
+        [
+            f"| Re-read · R1 | `{citation(r1, 'R1 · handler adds one')}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+    )
+    path = repo / R_FILE
+    body = path.read_text(encoding="utf-8")
+    if shape == "literal twice":
+        body += r1.replace("2026-01-01", "2026-01-02") + "\n"
+    else:
+        body += (
+            f"\n{SECTION}\n\n"
+            "| R2 · other | `src/service.py#other@00000000` | read | 2026-01-01 | |\n"
+        )
+    path.write_text(body, encoding="utf-8")
+    check = run(["--strict", "."], repo)
+    (said,) = [
+        line
+        for line in check.stdout.splitlines()
+        if "BROKEN" in line and "0.1.0.md#" in line
+    ]
+    detail = said.split('"R1 · handler adds one"', 1)[1].strip()
+    fix = run(
+        [
+            "--reverify",
+            "--checked",
+            "2026-03-01",
+            "--ledger",
+            "seal/ledger/2000000001-a-later-item.md",
+            ".",
+        ],
+        repo,
+    )
+    assert f'"R1 · handler adds one"  {detail} — left' in fix.stdout, fix.stdout
