@@ -1624,6 +1624,41 @@ def test_a_cut_group_is_judged_in_the_tree_its_own_c_names(
             assert decision == want and STOP in reason, (state, command, reason)
 
 
+@pytest.mark.parametrize("broken", ["missing", "raising"])
+def test_a_broken_reader_judges_a_cut_in_the_tree_before_it(
+    monkeypatch, capsys, repo, tmp_path, broken
+):
+    """Round 2 of work item 1791270162, yellow 3. Where the reader that glues
+    an `&` cut back is missing or raises, the cut is placed by the part
+    before it, where the frozen reading finds a `-C`: `git -C W worktree
+    2>&1 add ../wt b` asks with `W` dirty and the session's tree clean,
+    silent at `3c9a1161`, which placed it by the part after. A `-C` after
+    the cut (`2>&1 git -C W switch x`) only the broken reader could read, so
+    that group is judged in the tree it was typed from: the limit
+    `docs/worktree-guard-spec.md` §*Known limits* names."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    (w / "f.txt").write_text("changed\n", encoding="utf-8")
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": ([], [], True))
+    if broken == "missing":
+        monkeypatch.setattr(wg, "wide", None)
+    else:
+
+        def boom(*_a, **_k):
+            raise RuntimeError("broken reader")
+
+        monkeypatch.setattr(wg.wide, "merged_view", boom)
+    for group in CUT_GROUPS:
+        command = group.format(w=w)
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        if group.startswith("2>&1 git -C"):
+            assert decision == "silent", (command, decision, reason)
+        else:
+            assert decision == "ask" and "could not run" in reason, (command, reason)
+
+
 # Phase 1 of work item 1791270162, `phases/phase-1.md` §M1: every git
 # subcommand the frozen reading yields over the recorded runs, as pairs
 # holding it in cut 1 / cut 2. Phase 3 re-read cut 1 on the same definition

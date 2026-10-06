@@ -2405,13 +2405,21 @@ def _cut_unread(items):
     stop where the tree matters and never a silence
     (`docs/worktree-guard-spec.md` §*Which tree*; round 1 of work item
     1791270162, yellow 4). A background `&` beside a git command stops too
-    while the reader is broken, which is the cheaper mistake."""
+    while the reader is broken, which is the cheaper mistake.
+
+    Each cut is placed by the part before it, which is where it runs and
+    where the frozen reading finds a `-C` (`git -C W worktree 2>&1 add …` is
+    judged in `W`). A `-C` after the cut (`2>&1 git -C W switch x`) only the
+    broken reader could read, so that cut is judged in the tree it was typed
+    from: a named limit (§*Known limits*; round 2 of work item 1791270162,
+    yellow 3)."""
     out = []
     for index, (sep, tokens) in enumerate(items):
         if index and sep == "&":
-            text = " ".join([*items[index - 1][1], "&", *tokens])
+            before = items[index - 1][1]
+            text = " ".join([*before, "&", *tokens])
             if _holds_git(text):
-                out.append((index, Finding("unread", text), tokens))
+                out.append((index - 1, Finding("unread", text), before))
     return out
 
 

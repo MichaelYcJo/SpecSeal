@@ -725,8 +725,10 @@ branch where it is?*. Where `hooks/cmdline.py` fails to load, or a reader in
 it raises, the bare word `git` in a string, a body, a hidden position, a
 command that would not split or either side of an `&` the splitter cut is
 the finding, so a broken reader costs a stop where the tree matters and
-never a silence.
-Enforced by: tests/test_worktree_guard.py::test_a_broken_wider_reader_costs_a_stop_never_a_silence, tests/test_worktree_guard.py::test_a_broken_reader_leaves_no_cut_group_silent, tests/test_guard_resolves_the_tree_it_judges.py::test_a_git_only_the_wider_reading_finds_stops_where_its_tree_matters, tests/test_guard_resolves_the_tree_it_judges.py::test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer
+never a silence. Such a cut is judged in the tree the part before it names,
+which is where it runs; a `-C` written after the cut is not read
+(§*Known limits*).
+Enforced by: tests/test_worktree_guard.py::test_a_broken_wider_reader_costs_a_stop_never_a_silence, tests/test_worktree_guard.py::test_a_broken_reader_leaves_no_cut_group_silent, tests/test_worktree_guard.py::test_a_broken_reader_judges_a_cut_in_the_tree_before_it, tests/test_guard_resolves_the_tree_it_judges.py::test_a_git_only_the_wider_reading_finds_stops_where_its_tree_matters, tests/test_guard_resolves_the_tree_it_judges.py::test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer
 
 #692, the redesign of how the gates learn where a command acts, decided this
 reading on the owner's answers of 2026-10-01, and it stays. No git refuses a
@@ -824,6 +826,12 @@ at one prompt against a wrong allow breaking another session's tree.
   are not read. `sh -c 'git -C W switch x'` with `W` dirty and the
   session's tree clean says nothing, as it did before #826. Only a git the
   wider reading reads as a segment of its own has its `-C` composed.
+- Where `hooks/cmdline.py` did not load, or the reader that glues an `&`
+  cut back raises, a git the cut split is judged in the tree the part before
+  the cut names: `git -C W worktree 2>&1 add …` is judged in `W`, and `2>&1
+  git -C W switch x`, whose `-C` comes after the cut, in the tree it was
+  typed from. With `W` dirty and the session's tree clean the second says
+  nothing; with the reader loaded both are judged in `W`.
 - The frozen splitter has taken the quotes off before a word is read, so a
   quoted `<` or `>` reads as a redirection: a path written `"> f"` after a
   `checkout`'s `--` is no path, and the command is unrecognised. The same
