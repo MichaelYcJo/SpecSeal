@@ -183,8 +183,8 @@ above that paragraph says so. This is a correction to the record.
   skipped (13,046), which equals ubuntu's total at the same SHA. That is
   13,042 plus the four cases `98b817ad`'s range added. In 37469595104 they
   sum to 13,051.
-- **The 4a sample keeps S5's contract.** `_sample`'s cover is asserted by
-  `test_the_sample_covers_every_placement_and_every_verb`, which reads
+- **The 4a sample keeps S5's contract.** `_sample`'s cover is asserted by · NAME NOT IN TREE
+  `test_the_sample_covers_every_placement_and_every_verb`, which reads · NAME NOT IN TREE
   placements off the tuples rather than through the sampler's helper, so a
   dropped axis cannot hide on both sides. The per-verb two-sided pick is
   there. What left, per verb and per placement, is named in
@@ -239,7 +239,7 @@ The existing `[True]` assertion that only the touched copy carries
 | ⬜ 10 | *What the next phase needs* predates phase 3 | `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/overview.md:24` | open | read; a correction to the record |
 | 🟢 | The ceiling and the three timeouts are Q6 (a) applied to the slowest of the four runs | `tests/conftest.py:842`, `.github/workflows/test.yml:61` | confirmed | executed (logs read): every base figure in both comments matches the job times and `--durations` lines |
 | 🟢 | S4: the shards make the whole suite | `.github/workflows/test.yml:75` | confirmed | executed (logs read): 12,838 + 208 = 13,046, ubuntu's at `98b817ad`; 13,051 at `d6587217` |
-| 🟢 | The 4a sample keeps S5's contract, and the 4b cuts keep every assertion | `tests/test_guard_resolves_the_tree_it_judges.py#_sample`, `tests/test_the_seal_is_taken_once_by_the_sealer.py#a_sealed_run` | confirmed | read; the red against `94d7b2e0` is the smith's executed claim and was not re-run |
+| 🟢 | The 4a sample keeps S5's contract, and the 4b cuts keep every assertion | `tests/test_guard_resolves_the_tree_it_judges.py#_sample`, `tests/test_the_seal_is_taken_once_by_the_sealer.py#a_sealed_run` | confirmed | read; the red against `94d7b2e0` is the smith's executed claim and was not re-run · NAME NOT IN TREE |
 | 🟢 | The ceiling reaches nested pytest only in its own module, and fails a case correctly under xdist | `tests/conftest.py:854` | confirmed | read (fixture repositories carry no copy of the conftest) and executed (xdist probe) |
 
 ## Executed probes
