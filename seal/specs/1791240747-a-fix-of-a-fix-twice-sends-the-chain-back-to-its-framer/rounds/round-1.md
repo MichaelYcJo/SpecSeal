@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #828 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `e66d04c03b65e33ac61d641f69fa6f1ccc07f441..16fbe3264fc19820a04852f788eadc1eac27e68b`, 5 commits |
 | Contract changes | none |
 | New units | NAMES_A_FILE_RE (depth 1); test_a_bare_name_two_files_of_the_range_carry_does_not_land (depth 1); foreign_range (depth 1); test_a_foreign_range_with_no_open_row_reads_no (depth 1); test_an_orphan_second_is_no_stop_to_the_generator (depth 1); test_the_depth_restarts_at_a_stop (depth 1); ORPHAN (depth 1); FIRST_OF_A_RUN (depth 1); test_a_second_with_no_earlier_landing_fails_and_does_not_cut_the_run (depth 1); test_a_landing_on_round_one_fails (depth 1); test_a_landing_on_the_first_record_after_a_stop_fails (depth 1); test_a_foot_that_does_not_end_with_the_mark_says_what_the_foot_may_end_on (depth 1) |
