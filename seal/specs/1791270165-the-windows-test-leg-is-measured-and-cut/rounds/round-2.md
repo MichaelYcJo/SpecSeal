@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #845 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `458ae587c8ddf72b979ddaa1daaa1656831dbcc7..ae88b6265aad24aaa561bda43b02591c6eaaad31`, 2 commits |
 | Contract changes | none |
 | New units | ceiling_from (depth 1); test_an_empty_variable_is_unset_and_a_decimal_is_seconds (depth 1); test_a_ceiling_of_zero_or_less_is_refused_naming_the_variable (depth 1) |
