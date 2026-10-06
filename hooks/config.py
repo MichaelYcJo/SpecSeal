@@ -1334,7 +1334,8 @@ def read_table(text, header):
     written without its spaces is named once too (round 2 of #822, white 5).
     An old header with no blank line above it is one of the HEADER table's
     rows as GFM renders it; that row is not read, so it is named as the old
-    header and not also as an entry (#830).
+    header and not also as an entry (#830), quoted as the line is written so
+    a person searching the file for it finds it (#831).
     Where neither is there, the refusal names HEADER and the
     header read is None, so a caller tells the old header from the new one
     without reading the text again (#822)."""
@@ -1346,7 +1347,11 @@ def read_table(text, header):
     )
     if not (refusals and refusals[0].startswith("holds no ")):
         named = f"`| {' | '.join(old)} |`" if old else None
-        glued = holds_old and any(cells == old for _line, cells in rows)
+        glued = [
+            text.splitlines()[line - 1].strip()
+            for line, cells in rows
+            if holds_old and cells == old
+        ]
         if holds_old:
             # An old header with no blank line above it is one of this
             # table's rows to GFM; it is the old header, named below or by
@@ -1361,7 +1366,7 @@ def read_table(text, header):
             refusals = [
                 *refusals,
                 (
-                    f"holds a {named} line inside its {new} table, the word "
+                    f"holds a `{glued[0]}` line inside its {new} table, the word "
                     f"before {RENAMED_IN}, which GFM reads as one of that "
                     "table's rows — delete the line"
                 )

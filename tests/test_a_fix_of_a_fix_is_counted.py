@@ -120,13 +120,19 @@ def deferred_to_the_frame(repo, n, start, numbers):
     return record
 
 
-def two_rounds(repo, second_location):
-    """Round 1 opens a finding in `u`, its fix changes `u`, adds `w` and
-    re-comments `v`, and round 2 opens one finding at `second_location`."""
+def round_one_fixed(repo):
+    """Round 1 opens a finding in `u`, and its fix changes `u`, adds `w` and
+    re-comments `v`."""
     declared(repo)
     code, out, _text, a = a_round(repo, 1, ROUND_1)
     assert code != 2, out
     fixed(repo, 1, a, MOD_FIXED, [1])
+
+
+def two_rounds(repo, second_location):
+    """Round 1 and its fix, then round 2 opens one finding at
+    `second_location`."""
+    round_one_fixed(repo)
     return a_round(repo, 2, finding(second_location))
 
 
@@ -268,6 +274,33 @@ def with_named_files(repo):
     commit(repo, "the files the cells name")
 
 
+@pytest.fixture(scope="session")
+def _named_and_fixed_once(tmp_path_factory):
+    """The named files, and round 1 with its fix closed, built once per
+    session: once in a serial run, and once in each xdist worker that draws
+    one of the cases below.
+
+    The 35 location cases below differ only in round 2's `Location`, and
+    each used to rebuild everything before it: two generator runs and five
+    commits ahead of the one run that is the case. The one case the Windows
+    leg of run 37429940700 put in its top 50 took 9 s (#841). Each claim is
+    about how round 2's record reads its finding, so a copy of the state
+    before round 2 keeps it."""
+    d = tmp_path_factory.mktemp("fix-of-a-fix-named-and-fixed") / "repo"
+    _build(d)
+    with_named_files(d)
+    round_one_fixed(d)
+    return d
+
+
+@pytest.fixture
+def named_and_fixed(tmp_path, _named_and_fixed_once):
+    """A copy of that state in this case's own directory."""
+    d = tmp_path / "repo"
+    shutil.copytree(_named_and_fixed_once, d)
+    return d
+
+
 @pytest.mark.parametrize(
     "location",
     [
@@ -317,12 +350,11 @@ def with_named_files(repo):
         "`my mod.py:5`",
     ],
 )
-def test_a_location_that_lands_in_no_written_unit_reads_no(repo, location):
+def test_a_location_that_lands_in_no_written_unit_reads_no(named_and_fixed, location):
     """S5. Since the reframe after round 3 a finding lands only through a
     `.py` path its own `Location` carries, so every shape the three rounds
     met with a name and no such path reads `no`, whatever stands beside it."""
-    with_named_files(repo)
-    code, out, text, _ = two_rounds(repo, location)
+    code, out, text, _ = a_round(named_and_fixed, 2, finding(location))
     assert code != 2, out
     assert row(text) == "no", (location, row(text))
 
@@ -344,11 +376,10 @@ def test_a_location_that_lands_in_no_written_unit_reads_no(repo, location):
         "the return value (mod.py:5).",
     ],
 )
-def test_a_location_carrying_its_py_path_still_lands(repo, location):
+def test_a_location_carrying_its_py_path_still_lands(named_and_fixed, location):
     """S5b. A `.py` path in the `Location` is the reading that stays, with or
     without a tracked file of another kind named in the same cell."""
-    with_named_files(repo)
-    code, out, text, _ = two_rounds(repo, location)
+    code, out, text, _ = a_round(named_and_fixed, 2, finding(location))
     assert code != 2, out
     assert row(text).startswith("first — 🟡 1 at mod.py#u"), (location, row(text))
 
@@ -468,12 +499,55 @@ def stopped(repo, touched=False):
     commit(repo, "close round 3")
 
 
+@pytest.fixture(scope="session")
+def _stopped_untouched(tmp_path_factory):
+    """The stopped run, built through `new` and `close` exactly as
+    `stopped` drives them and kept as a template (#841): once per session,
+    which under xdist is once in each worker that draws one of its cases.
+
+    Five cases start from the same stop and differ only in what comes after
+    it. Building the stop is six generator runs and a dozen commits, which
+    measured 15-21 s a case on the Windows leg of run 37429940700; the claim
+    of each case is about the record after the stop, so the copy keeps it
+    and only the repetition leaves."""
+    d = tmp_path_factory.mktemp("fix-of-a-fix-stopped") / "repo"
+    _build(d)
+    stopped(d, False)
+    return d
+
+
+@pytest.fixture(scope="session")
+def _stopped_touched(tmp_path_factory):
+    """The same with a code commit inside the stop's range, and built the
+    same way: once per session, once in each xdist worker that needs it."""
+    d = tmp_path_factory.mktemp("fix-of-a-fix-stopped-touched") / "repo"
+    _build(d)
+    stopped(d, True)
+    return d
+
+
+@pytest.fixture
+def a_stopped_run(request, tmp_path):
+    """A copy of the stopped run in this case's own directory: the touched
+    one where the case is parametrized `touched=True`. The template is
+    requested here, in setup, so its build is charged to setup and never
+    to the call of whichever case asks first."""
+    callspec = getattr(request.node, "callspec", None)
+    touched = bool(callspec and callspec.params.get("touched"))
+    template = request.getfixturevalue(
+        "_stopped_touched" if touched else "_stopped_untouched"
+    )
+    d = tmp_path / "repo"
+    shutil.copytree(template, d)
+    return d
+
+
 FRAMED = "Framed 2026-10-06 by framer, before the build.\n"
 REFRAMED = "Reframed 2026-10-07 by framer, after round 3.\n"
 
 
-def test_a_record_after_an_unreframed_second_is_refused(repo):
-    stopped(repo)
+def test_a_record_after_an_unreframed_second_is_refused(a_stopped_run):
+    repo = a_stopped_run
     write(repo, f"{ITEM}/spec.md", "# a spec\n\n" + FRAMED)
     commit(repo, "the frame")
     code, out, text = generate(repo, n=4, report_text=round_report(finding("`u`")))
@@ -487,8 +561,8 @@ def test_a_record_after_an_unreframed_second_is_refused(repo):
         assert part in out, (part, out)
 
 
-def test_a_reframe_naming_another_round_does_not_permit_the_record(repo):
-    stopped(repo)
+def test_a_reframe_naming_another_round_does_not_permit_the_record(a_stopped_run):
+    repo = a_stopped_run
     write(
         repo,
         f"{ITEM}/spec.md",
@@ -522,13 +596,13 @@ def test_an_orphan_second_is_no_stop_to_the_generator(repo):
     assert text is not None, out
 
 
-def test_the_depth_restarts_at_a_stop(repo):
+def test_the_depth_restarts_at_a_stop(a_stopped_run):
     """Round 1's ❓, decided by the orchestrator: a redesign is a new run, so
     a unit the stopped run's fixes added (`w`, round 1) does not make a unit
     the redesign's fix adds depth 2. Round 4's finding sits in `w`, and its
     fix adds `helper` to the same file; the depth walk reads the current run
     only, so `close` writes the record."""
-    stopped(repo)
+    repo = a_stopped_run
     write(repo, f"{ITEM}/spec.md", "# a spec\n\n" + FRAMED + REFRAMED)
     commit(repo, "the frame, redrawn")
     code, out, _text, d = a_round(repo, 4, finding("`mod.py#w`"))
@@ -543,7 +617,9 @@ def test_the_depth_restarts_at_a_stop(repo):
 
 
 @pytest.mark.parametrize("touched", [False, True])
-def test_a_reframed_record_is_written_and_starts_the_count_at_no(repo, touched):
+def test_a_reframed_record_is_written_and_starts_the_count_at_no(
+    a_stopped_run, touched
+):
     """S7's other arm: with the line, the record is written, and a finding in
     `u` — the unit round 2's fixes wrote — reads `no`, because round 3 wrote
     no fixes for it to land in. `touched` is the same with a code commit in
@@ -553,7 +629,9 @@ def test_a_reframed_record_is_written_and_starts_the_count_at_no(repo, touched):
     The finding is located by its path, `mod.py#u`, which is a landing
     `landings` would accept: located by a bare `u` since the reframe after
     round 3, it landed nowhere anyway and pinned no guard (round 4's 🟡 3)."""
-    stopped(repo, touched)
+    repo = a_stopped_run
+    # The copy is the run asked for: only the touched stop changed `u` again.
+    assert ("return 1000" in (repo / "mod.py").read_text(encoding="utf-8")) is touched
     write(repo, f"{ITEM}/spec.md", "# a spec\n\n" + FRAMED + REFRAMED)
     commit(repo, "the frame, redrawn")
     code, out, text = generate(
