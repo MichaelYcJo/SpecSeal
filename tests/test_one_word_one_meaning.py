@@ -17,8 +17,9 @@ half-edited; the rows naming it are in this work item's overview.
 import ast
 import os
 import re
+import subprocess
 
-from conftest import review_chain_text
+from conftest import on_disk, review_chain_text
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -558,13 +559,15 @@ def test_flat_is_what_folds_the_seam_and_it_folds_python_only():
     )
 
 
-# --- "pact" and "signatory" — the owner's two words (#647) ------------------
+# --- "pact" and "signer" — the owner's two words (#647, #822) ---------------
 #
 # Named by the owner on 2026-10-03: the PACT is the one copy of what several
 # repositories keep together, every repository of such a work item is a
-# SIGNATORY, the one holding the pact included, and that one has no noun of
-# its own -- it is "the pact's repository". The thread that designed it used
-# three working words for the same things, and none of them ships.
+# SIGNER, the one holding the pact included, and that one has no noun of its
+# own -- it is "the pact's repository". The thread that designed it used three
+# working words for the same things, and none of them ships. The second word
+# was renamed on 2026-10-06 (#822), and the word it replaced ships nowhere but
+# in the two spans `PACT_RENAMED_SPANS` names.
 
 PACT_SWEPT = (
     ("templates", "pact.md"),
@@ -580,7 +583,7 @@ PACT_SECTIONS = (
     ),
     (
         ("skills", "evidence-check", "SKILL.md"),
-        "## `pact-check` — the signatories against the pact",
+        "## `pact-check` — the signers against the pact",
     ),
     # Round 1's white 11: the words ship here too.
     (("templates", "config.md"), "## Pact"),
@@ -608,12 +611,12 @@ PACT_PRINTED = (
     # (round 2 of #647, white 15).
     (("hooks", "config.py"), "pact_declaration"),
     (("hooks", "config.py"), "remote_entries"),
-    (("hooks", "config.py"), "pact_signatories"),
+    (("hooks", "config.py"), "pact_signers"),
     (("hooks", "config.py"), "_stops_at"),
     # The walker every pact table is read through, and the words the
-    # `Signatory` table's refusals are put in (#647, steps C and D).
+    # `Signer` table's refusals are put in (#647, steps C and D).
     (("hooks", "config.py"), "gfm_table"),
-    # The two records' readers, and what the signatory's re-read prints when
+    # The two records' readers, and what the signer's re-read prints when
     # it records a pact change (#647, steps C and D).
     (("hooks", "config.py"), "pact_changes"),
     (("hooks", "config.py"), "pact_reviews"),
@@ -626,7 +629,12 @@ PACT_PRINTED = (
         ("skills", "evidence-check", "scripts", "evidence_check.py"),
         "PACT_CHANGE_REPAIR",
     ),
-    (("hooks", "config.py"), "_signatory"),
+    (("hooks", "config.py"), "_signer"),
+    # The sentence both commands print where a file is headed the old way
+    # (#822); one of `PACT_RENAMED_SPANS` below.
+    (("hooks", "config.py"), "renamed_header"),
+    # The refusal of a file holding both headers (round 1 of #822, yellow 1).
+    (("hooks", "config.py"), "read_table"),
 )
 # The thread's working words, and the noun the owner withheld from the
 # repository holding the pact: each would give one thing a second name. The
@@ -682,10 +690,173 @@ def test_the_pacts_words_keep_one_meaning():
     policy = flat("docs", "the-pact.md")
     assert (
         "**The pact is the one copy of what two or more repositories keep "
-        "together, and every repository of such a work item is a signatory, "
+        "together, and every repository of such a work item is a signer, "
         "the one holding the pact included.**"
     ) in policy
     assert "it is the pact's repository" in policy
     for where, text in pact_texts():
         loose = PACT_LOOSE.findall(text)
         assert not loose, f"{where} names the pact's things a second way: {loose}"
+
+
+# The word #822 renamed. It is a second name for a signer only where it is
+# used as one, so it is held apart from `PACT_LOOSE`: the two spans below say
+# it in order to keep a 0.18.x header reading, and excluding them from
+# `PACT_LOOSE` as well would leave the working words unswept there.
+# No leading `\b`: an identifier such as `pact_signatories` holds the word
+# after an underscore, which is a word character.
+PACT_RENAMED = re.compile(r"signator(?:y|ies)", re.IGNORECASE)
+# The two places that DISCUSS the old word rather than use it, each named by
+# the span it removes, on the `SEAL_EXCLUDED` precedent: the policy's
+# statement about the old header, from its fold marker to the end of that
+# statement, and the one unit of `hooks/config.py` that writes the old tuple
+# and the rename sentence (a `PACT_PRINTED` member, read alone).
+PACT_RENAMED_SPANS = {
+    "docs/the-pact.md": "<!-- specs/1791239490-a-repository-that-keeps-a-pact-is-a-signer -->",
+    "hooks/config.py renamed_header": None,
+}
+# A fold marker names the work item a statement came from, and a released
+# work item's id keeps the word it was minted with
+# (`1790993137-a-signatory-declares-…`). It is a process record's name, not
+# a use of the word, so markers are blanked before the sweep.
+FOLD_MARKER = re.compile(r"<!-- specs/[^ ]+ -->")
+
+
+def without_the_policy_span(where, text):
+    """TEXT, as written, flattened with the policy's statement about the old
+    header taken out: from its fold marker to the end of its paragraph, a
+    heading at the start of a line, or the next fold marker, whichever comes
+    first. The statement is one paragraph, so the exemption ends where the
+    statement does, whatever follows it -- a setext heading's own text and an
+    underline of one character included (round 1 of #822, white 2; round 2,
+    white 6; round 3, white 13; #830). The cut is made before flattening,
+    which is what would erase the blank line."""
+    span = PACT_RENAMED_SPANS["docs/the-pact.md"]
+    head, marker, rest = text.partition(span)
+    assert marker, f"{where}: the excluded span `{span}` is gone"
+    end = re.search(r"\n[ \t]*\n|\n {0,3}#{1,6}[ \t\n]|<" + "!--", rest)
+    assert end, (
+        f"{where}: the excluded span is the last statement in the file, "
+        "so this exclusion now removes everything after it"
+    )
+    return " ".join((head + " " + rest[end.start() :]).split())
+
+
+def test_no_pact_text_names_a_signer_the_way_0_18_did():
+    """The absence half of #822's rename, swept over every text
+    `pact_texts()` reads, with the two spans that say the old word to keep it
+    reading taken out first. A test file named with it is refused too: the
+    four that were are renamed, and a fifth would be live text again."""
+    seen = set()
+    for where, text in pact_texts():
+        if where in PACT_RENAMED_SPANS:
+            seen.add(where)
+            if PACT_RENAMED_SPANS[where] is None:
+                continue
+            text = without_the_policy_span(where, read("docs", "the-pact.md"))
+        text = FOLD_MARKER.sub("", text)
+        said = PACT_RENAMED.findall(text)
+        assert not said, (
+            f"{where} names a signer the way 0.18.x did: {said} — the word is "
+            "`signer` since 0.19.0 (#822)"
+        )
+    assert seen == set(PACT_RENAMED_SPANS), (
+        "an excluded span is no longer swept at all, so excluding it says "
+        f"nothing: {sorted(set(PACT_RENAMED_SPANS) - seen)}"
+    )
+    named = [
+        name
+        for name in os.listdir(os.path.join(ROOT, "tests"))
+        if PACT_RENAMED.search(name)
+    ]
+    assert not named, f"a test file is named with the word 0.19.0 renamed: {named}"
+
+
+# S11 of #822, held rather than measured once (round 1 of #822, white 3). The
+# case above reads the texts that carry the pact's words; this one reads every
+# tracked file, so a file the rename touched outside that set cannot take the
+# word back. What it leaves alone, and why:
+#
+# - records, which keep the word they were written with: the released
+#   changelogs and ledgers, the work items' directories, and the ledger
+#   fragments, whose rows quote released claims;
+# - the compatibility cases, which spell the old header because a case taking
+#   it from `hooks/config.py#renamed_header` would pass with that constant
+#   changed while every 0.18.x pact stopped reading; and this module, whose
+#   pattern and comments name the word in order to refuse it;
+# - the two spans `PACT_RENAMED_SPANS` names, and fold markers.
+RENAMED_RECORDS = (
+    "changelog/",
+    "seal/ledger.md",
+    "seal/ledger/",
+    "seal/releases/",
+    "seal/specs/",
+)
+RENAMED_COMPAT = (
+    "tests/test_a_pact_review_takes_a_pact_change.py",
+    "tests/test_a_signer_declares_its_pact.py",
+    "tests/test_a_signers_ci_prints_its_pact.py",
+    "tests/test_one_table_walker_reads_what_gfm_renders.py",
+    "tests/test_pact_check.py",
+)
+# The compatibility cases need the old word only as the header cell, which is
+# capitalised and singular; their prose is still swept for every other
+# spelling, upper case included (round 2 of #822, white 7; round 3, white 12;
+# #830). The sweep's own module stays exempt whole: its pattern, a retired
+# identifier and a work item's id name the word.
+PACT_HEADER_WORD = re.compile(r"(?!Signatory\b)(?i:signator(?:y|ies))")
+SWEEP_MODULE = "tests/test_one_word_one_meaning.py"
+
+
+def test_no_live_text_says_the_word_0_19_0_renamed():
+    """No tracked file outside the records says the old word, the two spans
+    that keep a 0.18.x header reading taken out first; the compatibility
+    cases may say it only as the capitalised header cell. Each exception is
+    asserted to exist, the record prefixes included, so one that moves is
+    named rather than left exempting nothing."""
+    done = subprocess.run(
+        ["git", "-C", ROOT, "ls-files", "-z"],
+        capture_output=True,
+        check=True,
+    )
+    tracked = [p for p in done.stdout.decode("utf-8").split("\0") if p]
+    for rel in (*RENAMED_COMPAT, SWEEP_MODULE, "docs/the-pact.md", "hooks/config.py"):
+        assert rel in tracked, f"{rel} is excepted below and no longer tracked"
+    for prefix in RENAMED_RECORDS:
+        # `seal/ledger/` holds the unreleased fragments, and the release's
+        # fold empties it on purpose: an empty fragment directory is the tree
+        # just after a release, not an exception that stopped applying.
+        if prefix == "seal/ledger/":
+            continue
+        assert any(p.startswith(prefix) for p in tracked), (
+            f"{prefix} is excepted below and holds no tracked file"
+        )
+    # A tracked file the working tree deleted says nothing; `on_disk` keeps
+    # the walk from ending at it (#432).
+    present, _deleted = on_disk(ROOT, tracked)
+    said = []
+    for rel in present:
+        if rel.startswith(RENAMED_RECORDS) or rel == SWEEP_MODULE:
+            continue
+        path = os.path.join(ROOT, rel)
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            text = handle.read()
+        if rel == "docs/the-pact.md":
+            text = without_the_policy_span(rel, text)
+        elif rel == "hooks/config.py":
+            unit = next(
+                node
+                for node in ast.walk(ast.parse(text))
+                if getattr(node, "name", None) == "renamed_header"
+            )
+            lines = text.splitlines()
+            text = "\n".join(lines[: unit.lineno - 1] + lines[unit.end_lineno :])
+        text = FOLD_MARKER.sub("", text)
+        pattern = PACT_HEADER_WORD if rel in RENAMED_COMPAT else PACT_RENAMED
+        said.extend(f"{rel}: {m.group(0)}" for m in pattern.finditer(text))
+    assert not said, (
+        "the word 0.19.0 renamed is live text again — it is `signer` since "
+        f"0.19.0 (#822): {said}"
+    )

@@ -186,10 +186,11 @@ The line names a remedy per coordinate, by why the family is still owed one
 write does it say to run without `--ledger`. Where the run left the
 coordinate itself, on a `left` line or by leaving its row whole for want of a
 date cell, the line says so and points at the line naming why, and a run over
-every ledger names such a family too. A `left` line names why: a path outside
-the repository or any known checkout, a file the run could not read, no one
-place holding the unit, or a quoted statement its file no longer has. Where
-neither is found it names no remedy.
+every ledger names such a family too. A `left` line names why in the sentence
+`--strict` prints for that coordinate (#824): a path outside the repository or
+any known checkout, a file not found, no one place holding the unit, or a
+quoted statement its file no longer has. Where neither is found it names no
+remedy.
 
 **Five things `--reverify` leaves at exit 0 while `--strict` exits 2.** This
 holds without the freeze, under it, and under it with `--into`, over every
@@ -212,14 +213,19 @@ correction, which a person makes.
   folded citing row whose cited release file was edited, which
   `correction-check` refuses at the pull request. Without the freeze it is
   not among them: one run over every ledger re-stamps a released row and every
-  citation of it that it moves, because it walks a cited file before every
-  file citing it (#772). A release file citing a row of itself, which a
-  second fold writes, is walked again until it settles. A run narrowed with
-  `--ledger` that moves a line cited from a file it left out names the citing
-  row on a `LEFT` line and exits 1.
+  citation of it that it moves, because it hashes each coordinate naming a
+  ledger line, a citation or any other, against the text the run will write
+  there (#772, #824). A release file citing a row of itself, which a second
+  fold writes, settles in that same run. A run narrowed with `--ledger` that
+  moves a line cited from a file it left out names the citing row on a `LEFT`
+  line and exits 1, and so does one moving a line that any other coordinate
+  of a row in such a file names.
 
 A `Re-read ·` row with a `--checked` older than the newest reading is not
-among them: `--into` names it and exits 1, as its paragraph above says.
+among them: `--into` names it and exits 1, as its paragraph above says. Nor
+is a coordinate naming text that every re-stamp of it moves again, its own
+row's line or a row that names it back: the run leaves it at the hash its row
+recorded, says on a `LEFT` line that it does not settle, and exits 1.
 
 ## What the checker refuses, and what it says while refusing
 

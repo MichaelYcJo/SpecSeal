@@ -59,6 +59,10 @@ branch with a known open blocker and no question for anyone to answer.
 | up to five | **only while a 🔴 is open**, and only to close it |
 | stop regardless | a round opens a new 🔴 at the same site as the one it was closing — that is the structure signal, whatever the count |
 
+That row is counted since #823, at any severity, in the unit the last fix
+pass wrote: `skills/code-review/orchestration.md` §*A fix of a fix twice
+sends the work item back to its framer* owns that rule and its exit.
+
 **Five is a ceiling, not a target.** The moment the last 🔴 closes, the run
 ends; unused rounds are not spent on 🟡 findings. Those go to
 `seal/follow-up.md` or the tracker with an answerer named, exactly as
@@ -387,7 +391,8 @@ every finding still open takes the ladder in §*Where a leftover goes — the
 ladder, and why a new issue is not the default*, its verdict reads `deferred
 <home>` wherever a home was found — `deferred #N` where that home is an
 issue — the record's `Fixes checked by` reads `no fixes to check`, and the
-pull request says `chain: capped`.
+pull request says `chain: capped`. A `Fix of a fix` reading `second` ends a run
+too, and no bound here reaches the records after it (#823).
 
 **This is the reopening bound, and it is not the round cap.** Both exits end a
 run `capped`, and the one word is why the two get read as one rule. What

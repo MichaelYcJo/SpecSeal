@@ -148,6 +148,12 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   keys its depth refusal on a finding's `Location` and names the finding
   whose fix added the unit, which is the one to split (#366).
 
+  A finding inside a unit the previous round's fixes wrote is reported at the
+  severity you find it, with a `Location` that carries its `.py` path
+  (`path:line`, `path#unit`); the generator counts only that, and
+  `skills/code-review/orchestration.md` §*A fix of a fix twice sends the work
+  item back to its framer* owns that rule.
+
   A finding whose `Location` is under `seal/specs/`, `seal/ledger/`,
   `seal/releases/` or `seal/ledger.md` is about the run's paperwork, not the
   tool: report it as a correction — ⬜, with the coordinate — and leave it out

@@ -45,6 +45,9 @@ questions buried in prose read as decided.
      guessed at.
      The shape — verb, date, who, the moment — is the one `routing.md` and
      `plan.md` already end with, which is what keeps three feet-lines from
-     becoming three conventions. -->
+     becoming three conventions.
+     A reframe adds `Reframed <date> by <who>, after round <N>.` UNDER this
+     line when the review chain sends the work item back to its framer. It is
+     never in this template; only a reframe writes it. -->
 
 Framed <date> by <who>, before the build.

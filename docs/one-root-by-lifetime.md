@@ -102,7 +102,7 @@ round records must reach CI and other clones.
 │   ├── follow-up.md               permanent
 │   ├── parity.md                  migration projects only. Permanent
 │   ├── pact.md                    only in the repository that holds the pact. Permanent
-│   ├── pact-changes/<id>.md       a signatory's pact changes, written by --reverify. Permanent
+│   ├── pact-changes/<id>.md       a signer's pact changes, written by --reverify. Permanent
 │   ├── pact-reviews/<id>.md       the pact's repository's pact reviews. Permanent
 │   └── specs/<epoch>-<slug>/      the whole work item. Lives until settle folds it; 0.4.0 keeps it
 │       ├── spec.md plan.md questions.md overview.md      the SDD set: what was decided and why

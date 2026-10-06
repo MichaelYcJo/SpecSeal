@@ -150,6 +150,8 @@ def record(sha, ran_by=RUNNER):
         "| Fix range | none |\n"
         "| Contract changes | none |\n"
         "| New units | none |\n"
+        # Above `chain_check.REFRAME_FROM` too, so this row is owed as well.
+        "| Fix of a fix | no |\n"
         "| Needs a fix | no |\n"
         "| Loses a record or crashes | no |\n"
     )

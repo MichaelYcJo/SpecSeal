@@ -516,7 +516,7 @@ repository. The id is what every share is keyed by: its ledger fragment, its
 changelog fragment and the `<!-- specs/<work-item-id> -->` marker a fold
 writes. A directory named differently in each repository would have to be
 renamed later, and the rename moves all three. Nothing checks this, because
-nothing can tell an id minted twice from a signatory's own work item that
+nothing can tell an id minted twice from a signer's own work item that
 cites the pact without changing it, and that second case is legitimate and
 common.
 
@@ -529,15 +529,15 @@ repository's code would be wrong if it changed. Where both hold:
 - the one copy of the contract is `seal/pact.md` in one of the repositories,
   begun from `templates/pact.md` and written by the build there, framed by
   that repository's own spec. That repository is the pact's repository;
-- every other repository of the work item is a signatory too, and this step
+- every other repository of the work item is a signer too, and this step
   writes two rows into its `seal/config.md` where they are absent: `Pact`,
   the origin remote URL of the pact's repository, and `Pact notify`, written
   as `when the pact is touched`. `templates/config.md` §*Pact* documents
   both. The pact's repository needs no row, because it is identified by
   holding `seal/pact.md`;
-- each signatory cites the clauses it was built against as pact anchors, in
+- each signer cites the clauses it was built against as pact anchors, in
   its spec's Grounding and in its ledger rows, and `pact-check`, run at the
-  pact's repository, reads every signatory and says where they disagree.
+  pact's repository, reads every signer and says where they disagree.
 
 Where only the first condition holds, the repositories get their
 declarations and nothing else: no pact, and no `Pact` row.
@@ -545,24 +545,24 @@ declarations and nothing else: no pact, and no `Pact` row.
 ### A pact review at the pact's repository
 
 When `pact-check` at the pact's repository reports `NOT TAKEN` from a pact
-change — a row of a signatory's `seal/pact-changes/<work-item-id>.md`, which
-that signatory's `evidence-check --reverify` wrote when its code moved under a
+change — a row of a signer's `seal/pact-changes/<work-item-id>.md`, which
+that signer's `evidence-check --reverify` wrote when its code moved under a
 clause it cites — open a pact review: an ordinary work item at the pact's
 repository, routed like any other, with this section's routing question asked
 once for it. `docs/the-pact.md` §*A pact review takes a pact change* holds the
 model.
 
 **What the build does.** It judges each change against the clause it cites,
-reading the change in the signatory's checkout at the paths `pact-check`
+reading the change in the signer's checkout at the paths `pact-check`
 printed, and writes `seal/pact-reviews/<work-item-id>.md` from
 `templates/pact-review.md`: one row per record it takes, naming the
-signatory, the record as `<work-item-id>@<content hash>` exactly as the
+signer, the record as `<work-item-id>@<content hash>` exactly as the
 `NOT TAKEN` line printed it, and `holds` (the clause stands, and the change
 keeps it) or `amended` (this work item amends the clause to take the change,
 in `seal/pact.md`, in the same build).
 
 **What the review chain does.** Where the routing answer runs it, the warden
-verifies those judgments by reading each change in the signatory's checkout,
+verifies those judgments by reading each change in the signer's checkout,
 so the spawn prompt carries the paths and the hashes `pact-check` printed.
 Where the answer skips the review chain, the builder's judgment is the whole
 pact review, as it is for any other work item.
@@ -570,12 +570,12 @@ pact review, as it is for any other work item.
 **What closes it is `pact-check`.** Run it again after the record is written:
 each taken record reads as taken, a record that gained rows since reads
 `NOT TAKEN` again with both hashes, and a row that cannot be true — a
-signatory the pact does not list, a record it does not hold, another verdict,
+signer the pact does not list, a record it does not hold, another verdict,
 or `amended`, at the record's current hash, for a clause that did not move
 — is refused at exit 2.
 
 A clause the pact's repository changes owes no pact review: `SUPERSEDED`
-already sends each citing signatory to re-read it against its own code.
+already sends each citing signer to re-read it against its own code.
 
 ## Orchestrator: which of these acts runs itself
 
@@ -642,12 +642,13 @@ not a closed-looking one.
 | Question 1 — single-select | `skills/implement/orchestration.md` | part of its parent's act | The three options of the one `AskUserQuestion` call its parent describes. It names no act of its own |
 | Question 2 — `multiSelect`, meaningful only under *per axis* | `skills/implement/orchestration.md` | part of its parent's act | The four boxes of the same call, and the ceiling on how many there may be. It names no act of its own |
 | What the answer writes | `skills/implement/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It refuses a `Review` or `Destination` value outside the vocabulary at the pull request, and `hooks/routing.py` parses the same rows at every commit. The three optional rows are read by nothing that refuses: `hooks/implementer-notice.py` says one line after a commit where a declared agent left no mark, and blocks nothing |
-| A work item that commits in more than one repository | `skills/implement/orchestration.md` | check: `hooks/commit-review-gate.py` | In each gated repository the review arm asks at every commit until a declaration naming that repository's branch stands there, so a repository the step skipped is noticed at its first commit. What it does not reach: an id minted twice is legitimate in a signatory's own work item and nothing tells the two apart, and a missing `Pact` row is noticed only when somebody runs `bin/pact-check` at the pact's repository, which refuses a relationship recorded on one side |
+| A work item that commits in more than one repository | `skills/implement/orchestration.md` | check: `hooks/commit-review-gate.py` | In each gated repository the review arm asks at every commit until a declaration naming that repository's branch stands there, so a repository the step skipped is noticed at its first commit. What it does not reach: an id minted twice is legitimate in a signer's own work item and nothing tells the two apart, and a missing `Pact` row is noticed only when somebody runs `bin/pact-check` at the pact's repository, which refuses a relationship recorded on one side |
 | A pact review at the pact's repository | `skills/implement/orchestration.md` | command: `bin/pact-check` | The act opens on the command's `NOT TAKEN` line and closes when the same command reads every record as taken, refusing at exit 2 a review row that cannot be true. What it does not reach is the judgment itself: whether a change keeps its clause is the builder's and the warden's, and a `holds` written without reading the change parses exactly like one written after it |
 | Orchestrator: which of these acts runs itself | `skills/implement/orchestration.md` | check: `tests/test_every_orchestrator_act_names_its_delivery.py` | The test holds this table against both files from both sides, which is the condition #330 set for enumerating the class at all: unless something reads it. It reads the marker and not the meaning, so an act written under a heading with no prefix is in neither the table nor the test |
 | Orchestrator: a fix pass resumes the implementer | `skills/code-review/orchestration.md` | still a sentence | A resumed fix pass and a fresh spawn leave identical trees, so nothing at the pull request can tell them apart, and the measured difference between them is 282 calls against 30. The steps inside the section are commands, `bin/round-record` for the fix table and `bin/survivor-check` for the sweep that follows, and the choice of session is not one of them |
 | Orchestrator: the run ends with a verifying round | `skills/code-review/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It fails a ready pull request when the run's last record carries `nobody` beside a checked `Pass`, which is the run whose own last fixes nobody opened; on a draft that pair prints and names the verifying round. Work items begun before its cutoff print instead of failing |
 | The cap is a ceiling, and this is the floor it never had | `skills/code-review/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It reads `Loses a record or crashes` on every record and refuses a run whose count of records passes the bound that row sets. What it cannot read is whether the reviewer's answer was true |
+| A fix of a fix twice sends the work item back to its framer | `skills/code-review/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | `round_record.py new` writes the `Fix of a fix` row, prints the stop at a `second` and refuses the next record until `spec.md`'s foot carries the `Reframed` line; the check refuses a run that counted past the stop, wrote a fix under it, or resumed without that line. What neither can see is whether a landing was real: the row is the generator's declaration, and a squash takes the fix commits that would re-derive it |
 | A fix pass adds the unit that pins it, and that unit ships unreviewed | `skills/code-review/orchestration.md` | command: `bin/round-record` | `close` derives `New units` from the fix range with a depth per entry, and refuses depth 2 before any cell is written. It does not reach the level above: a fix pass that adds mechanism, a rule or a checker or a template section or a walk, leaves a unit at depth 1 and nothing refuses it |
 | Then say who checked them, in the record | `skills/code-review/orchestration.md` | command: `bin/round-record` | `new` sets the previous record's cell when it writes the next round's, so the act is no longer a last step to remember, and it was forgotten five times on the branch before it existed. `skills/code-review/scripts/chain_check.py` refuses any value outside the three |
 | And name the fix surface, in the same record | `skills/code-review/orchestration.md` | command: `bin/round-record` | `close` writes `Contract changes` and `New units` from the fix range, so the rows cost no question to anybody. Before it did, one record sat at its starting values for two rounds and the six units its fix pass created reached the next round only because a reviewer went and looked. What the derivation does not reach is a surface with no unit in it: `New units` reads top-level defs, classes and module constants, and for a file the AST cannot read the `+` lines for five keywords, so a fix pass that adds a template section, a skill rule or a walk names an empty surface and nothing refuses it |

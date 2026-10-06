@@ -1673,6 +1673,8 @@ def record(sha, passed=True, verdict="answered", finding="🟢 1"):
         # is owed here the way `Broad gate` is above.
         "| Fix range | none |\n"
         "| Contract changes | none |\n| New units | none |\n"
+        # `chain_check.REFRAME_FROM` reaches this fixture's id as well.
+        "| Fix of a fix | no |\n"
         "| Needs a fix | no |\n| Loses a record or crashes | no |\n\n"
         f"- [{box}] Pass\n\n"
         "## Verdicts\n\n"

@@ -42,7 +42,7 @@ What it reads, for every routing declaration this pull request adds or changes:
                              work item that skipped its review
   a pact (#647)              PRINTED, never refused, and the exit status is
                              the one the tree has without it: the pact a
-                             `Pact` row names, or the signatories
+                             `Pact` row names, or the signers
                              `seal/pact.md` lists (`pact_notices`). This CI
                              reads one repository; `pact-check` reads them all
   a changelog fragment left  PRINTED, never refused, for a chain item: every
@@ -803,6 +803,45 @@ CAPPED_EXIT = (
     f"the run is `capped` — every finding still open becomes an issue, its "
     f"verdict reads `{DEFERRED} #N`, the record's `{CHECKED_BY}` reads "
     f"`{NO_FIXES}`, and the pull request says `chain: capped`"
+)
+# A fix of a fix (#823): an open finding of round K that lands inside a
+# top-level unit round K-1's fixes added or changed. WRITTEN by
+# `round_record.py new`, which derives it from round K-1's `Fix range` and
+# `New units` and the report's open `Location`s; READ by `fix_of_a_fix` below,
+# which counts the rows as declared and never re-derives a landing -- after a
+# squash the fix commits are gone and nothing at the pull request could.
+#
+# Three values. `no` is every round 1 and every record after a `second`;
+# `first — <where>` is the first landing of a run; `second — <where>; …` is
+# the second, and it stops the fix passes: the work item goes back to its
+# framer. `skills/code-review/orchestration.md` §*A fix of a fix twice sends
+# the work item back to its framer* owns the rule and why the count is two
+# against the 3+ Fix Rule's three.
+FIX_OF_A_FIX = "Fix of a fix"
+FOF_NO = "no"
+FOF_FIRST = "first"
+FOF_SECOND = "second"
+# The sentence a `second` row carries after its landings, in one spelling for
+# the writer and the reader.
+FOF_STOPS = "the fix passes stop here and the work item goes back to its framer"
+# Where the row becomes required, as the unix second in a work item's directory
+# name -- the id of the work item that added it, so the first records held to
+# it are the ones written under it. The reasoning is `STRICT_FROM`'s and is not
+# written an eleventh time.
+REFRAME_FROM = 1791240747
+# The line a reframe adds at the foot of `spec.md`, under the `Framed` line:
+# who redrew the frame, and after which round's `second`. It is the permit for
+# the records after that `second`, and it lives where the `Framed` line already
+# proves a framer ran (`plan.md` Alternatives E of #823).
+REFRAME_RE = re.compile(r"^Reframed\s+(.+?)\s+by\s+(.+?),\s+after round\s+(\d+)\.$")
+# The exit a stop names, in one spelling, the way `CAPPED_EXIT` is one.
+REFRAME_EXIT = (
+    f"the work item goes back to its framer — no fix pass runs for this "
+    f"record: every finding still open closes `{DEFERRED} the frame`, the "
+    f"record's `{CHECKED_BY}` reads `{NO_FIXES}`, the pull request says "
+    f"`chain: reframed`, and the framer is spawned with the run's round "
+    f"records. A `Reframed <date> by <who>, after round <N>.` line at the "
+    f"foot of `spec.md` is what lets the records after this one be written"
 )
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
@@ -2559,6 +2598,71 @@ def says_reopened(value):
     return None
 
 
+def fix_of_a_fix_count(value):
+    """0, 1 or 2 for a `Fix of a fix` cell, or None when it reads as none of
+    the three (#823).
+
+    ONE reader of the row, for the arm below, the generator's count and the
+    generator's refusal, so the gate and the writer cannot disagree about a
+    cell -- #218's class.
+
+      `no`, `no — <why>`        0
+      `first — <where>`         1
+      `second — <where>`        2
+      `first` or `second`       None. The landing is the whole of what makes
+      alone, an empty cell, a   the row readable: it names the finding and
+      word outside the three    the unit a reader opens, and a bare count
+                                says something happened and not where
+
+    Emphasis is stripped from the ENDS only. The tail names units, and a unit
+    name carries underscores that a whole-cell strip would eat -- the defect
+    `round_record.py#units_named_earlier`'s rider records about `New units`.
+    """
+    s = value.strip().strip("*_`").strip().rstrip(".").strip()
+    low = s.lower()
+    if low == FOF_NO:
+        return 0
+    for word, count in ((FOF_NO, 0), (FOF_FIRST, 1), (FOF_SECOND, 2)):
+        if not low.startswith(word) or len(low) == len(word):
+            continue
+        if low[len(word)] not in SEPARATORS:
+            continue
+        rest = s[len(word) :].strip(SEPARATORS)
+        if count == 0 or rest:
+            return count
+    return None
+
+
+def frame_foot(reader, text):
+    """(the `Framed` mark or None, [(when, who, round) per `Reframed` line]).
+
+    The foot of `spec.md` is a BLOCK since #823: the `Framed` line, then zero
+    or more `Reframed <date> by <who>, after round <N>.` lines under it, each
+    written by a reframe. Read from the last non-empty line up: every
+    `Reframed` line is collected, and the first line that is not one has to
+    be the `Framed` mark. The FOOT and not anywhere in the file, for the
+    reason `frame_mark` gives -- a spec that documents the lines quotes them.
+
+    A `Reframed` line standing ABOVE the `Framed` line is not in the foot and
+    is not read: the foot ends at the mark, so such a line permits nothing.
+    `templates/sdd-spec.md` still ends with the `Framed` line; the `Reframed`
+    line is never in the template.
+    """
+    reframes = []
+    for line in reversed(reader.gfm_lines(text or "")):
+        line = line.strip()
+        if not line:
+            continue
+        r = REFRAME_RE.match(line)
+        if r:
+            reframes.append((r.group(1).strip(), r.group(2).strip(), int(r.group(3))))
+            continue
+        m = MARK_RE.match(line)
+        mark = (m.group(1).strip(), m.group(2).strip()) if m else None
+        return mark, list(reversed(reframes))
+    return None, list(reversed(reframes))
+
+
 def depth_problems(value):
     """(no depth, crowded, too deep, below the first level) among the entries.
 
@@ -3701,6 +3805,205 @@ def stopping_floor(reader, root, rel, later):
     return errors, notices
 
 
+def fof_of(reader, root, rel):
+    """(the `Fix of a fix` cell or None, its count or None) for one record."""
+    text = read_record(root, rel)
+    if text is None:
+        return None, None
+    cell = field(table_rows(reader, reader.readable(text)), FIX_OF_A_FIX)
+    if cell is None:
+        return None, None
+    return cell, fix_of_a_fix_count(reader.visible(cell))
+
+
+def runs_of(reader, root, records):
+    """`records`, in round order, cut after every record whose `Fix of a fix`
+    reads `second` (#823).
+
+    A run is the records from round 1, or from the record after a `second`,
+    up to and including the next `second`. The floor's two walks and the
+    fix-of-a-fix count read a run and never the whole directory: a record
+    after a `second` is the redesign's, and it is not a LATER record of
+    anything at or before the stop. Without the cut, the redesign's own
+    finding round and its verifying round would be the second and third
+    records after the stopped run's floor, and `stopping_floor` would refuse
+    the redesign for existing.
+
+    **Only a `second` its run counted cuts it** (round 1's ⬜ 2). One with no
+    earlier landing in its run disagrees with its run, `fix_of_a_fix` refuses
+    it, and letting it cut would restart the floor's walks on a stop that
+    never happened. `round_record.py#current_run` cuts by the same rule.
+    """
+    runs, current, landed = [], [], False
+    for rel in records:
+        current.append(rel)
+        count = fof_of(reader, root, rel)[1] or 0
+        if count == 2 and landed:
+            runs.append(current)
+            current, landed = [], False
+        elif count:
+            landed = True
+    if current:
+        runs.append(current)
+    return runs
+
+
+ROUND_RE = re.compile(r"round-(\d+)\.md$")
+
+
+def fix_of_a_fix(reader, root, rel, earlier, stopped=None):
+    """(errors, notices) for one record's `Fix of a fix` row (#823).
+
+    `earlier` is the records of this record's RUN before it, in round order;
+    `stopped` is the `second` the run began after, or None for the first run.
+    The row is a declaration the generator wrote, and this counts the
+    declarations as written -- the way the depth is read -- because after a
+    squash the fix commits are gone and nothing here could re-derive a
+    landing.
+
+      no row, work item begun on or after `REFRAME_FROM`   fails
+      no row, begun before it or with no timestamp prefix  prints
+      a row that is none of the three values               fails, any age
+      a second landing of the run reading `first`          fails
+      a `second` with no earlier landing in its run        fails
+      a landing on the first record of a run               fails
+      a third landing in one run                           fails
+      a `second` whose verdicts closed on a fix            fails
+      the first record after a `second`, and `spec.md`'s   fails
+      foot carries no `Reframed … after round <N>.`
+
+    The `Reframed` line's `<who>` is `frame`'s to hold to `Planning`, with
+    the `Framed` line's.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return [], []
+    lines = reader.readable(text)
+    errors, notices = [], []
+    item = os.path.dirname(os.path.dirname(rel))
+
+    if stopped is not None and not earlier:
+        m = ROUND_RE.search(stopped)
+        s = int(m.group(1)) if m else None
+        _mark, reframes = frame_foot(reader, read_record(root, f"{item}/spec.md"))
+        if s is None or not any(n == s for _when, _who, n in reframes):
+            errors.append(
+                (
+                    rel,
+                    0,
+                    f"{os.path.basename(stopped)} reads `{FOF_SECOND}`, and "
+                    f"this record comes after it while {item}/spec.md's foot "
+                    f"carries no `Reframed <date> by <who>, after round {s}.` "
+                    "under the `Framed` line. A `second` sends the work item "
+                    "back to its framer; the run resumed on the frame it had "
+                    "just shown does not hold. The redraw writes that line, "
+                    "and it is what permits this record",
+                )
+            )
+
+    cell = field(table_rows(reader, lines), FIX_OF_A_FIX)
+    if cell is None:
+        message = (
+            f"no `| {FIX_OF_A_FIX} | … |` row: whether an open finding of "
+            "this round landed inside a unit the previous round's fixes "
+            "wrote, counted per run. Two in a run stop the fix passes and "
+            "send the work item back to its framer, and without the row "
+            "nothing counts them. `round_record.py new` writes it"
+        )
+        began = item_began(rel)
+        if began is None or began < REFRAME_FROM:
+            notices.append(
+                (
+                    rel,
+                    0,
+                    message + ". This work item began before the rule landed, "
+                    "so this prints instead of failing — the grandfathering "
+                    f"`{CHECKED_BY}` already uses",
+                )
+            )
+        else:
+            errors.append((rel, 0, message))
+        return errors, notices
+
+    count = fix_of_a_fix_count(reader.visible(cell))
+    if count is None:
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FIX_OF_A_FIX}` is `{cell.strip()}`, which is none of its "
+                f"three values: `{FOF_NO}`, `{FOF_FIRST} — <where>`, or "
+                f"`{FOF_SECOND} — <where>; {FOF_STOPS}`. The landing is what "
+                "makes the row readable — the finding and the unit a reader "
+                "opens — so a bare count is refused with an empty cell",
+            )
+        )
+        return errors, notices
+
+    landed = [p for p in earlier if fof_of(reader, root, p)[1]]
+    # The other direction (round 1's ⬜ 2). The first record of a run follows
+    # no fix pass of that run — round 1 follows none, and the record after a
+    # `second` follows one that closed on deferrals — so nothing of it can
+    # land; and a `second` with no landing before it in its run is a `first`.
+    if count and not earlier:
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FIX_OF_A_FIX}` reads `{cell.strip()}` on the first record "
+                "of its run, which follows no fix pass of the run: round 1 "
+                f"follows none, and the record after a `{FOF_SECOND}` follows "
+                f"one that closed on deferrals. It reads `{FOF_NO}`",
+            )
+        )
+    elif count == 2 and not landed:
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FIX_OF_A_FIX}` reads `{FOF_SECOND}`, and no earlier record "
+                f"of this run landed, so the count says `{FOF_FIRST}`. A "
+                f"`{FOF_SECOND}` ends the run and sends the work item back to "
+                "its framer, and one the run did not count would stop it on a "
+                "landing that never happened",
+            )
+        )
+    if count == 1 and landed:
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FIX_OF_A_FIX}` reads `{FOF_FIRST}`, and "
+                f"{os.path.basename(landed[0])} already landed in this run, "
+                f"so the count says `{FOF_SECOND}`. A record that disagrees "
+                "with its own run keeps the fix passes going past the stop. "
+                f"{REFRAME_EXIT}",
+            )
+        )
+    if count and len(landed) >= 2:
+        errors.append(
+            (
+                rel,
+                0,
+                f"this is the third fix of a fix in one run, after "
+                f"{os.path.basename(landed[0])} and "
+                f"{os.path.basename(landed[1])} — the fix passes went past "
+                f"the stop at {os.path.basename(landed[1])}. {REFRAME_EXIT}",
+            )
+        )
+    if count == 2 and closed_with_a_fix(reader, lines, rel):
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FIX_OF_A_FIX}` reads `{FOF_SECOND}` and this record's "
+                "verdicts closed on a fix: a fix pass ran after the stop. "
+                f"{REFRAME_EXIT}",
+            )
+        )
+    return errors, notices
+
+
 def says_gate_not_yet(value):
     """True when a `Broad gate` cell says the one full-suite run has not run.
 
@@ -3986,9 +4289,9 @@ def pact_notices(routing, root, declarations):
     """[(rel, 0, message)] for what this tree says about a pact (#647).
 
     **Notices and nothing else, and no exit status moves on any of them.**
-    That is #647's decision 2: a signatory's CI prints the relationship and
+    That is #647's decision 2: a signer's CI prints the relationship and
     does not verify it. The strict reading of the same rows is `pact-check`'s,
-    run locally at the pact's repository, which can open every signatory;
+    run locally at the pact's repository, which can open every signer;
     this check can open one. So a `Pact` row that will not parse, a notify
     value outside the vocabulary, and an anchor naming a pact no row declares
     are printed here exactly as a well-formed relationship is.
@@ -3996,9 +4299,10 @@ def pact_notices(routing, root, declarations):
     - Where `seal/config.md` names a pact held elsewhere: one notice per pact,
       naming the pact's repository, the notify value, and how many pact
       anchors naming it the declared work item's `spec.md` carries.
-    - Where this repository holds `seal/pact.md`: how many signatories the
-      pact lists.
-    - A refusal `hooks/config.py#pact_declaration` or `#pact_signatories`
+    - Where this repository holds `seal/pact.md`: how many signers the
+      pact lists, and, where its table is headed as 0.18.x wrote it, the
+      sentence naming the rename (`hooks/config.py#renamed_header`, #822).
+    - A refusal `hooks/config.py#pact_declaration` or `#pact_signers`
       writes, and an anchor naming no declared pact: one notice each.
 
     Read from HEAD, as every record here is (`read_record`), so a local-mode
@@ -4063,7 +4367,7 @@ def pact_notices(routing, root, declarations):
                 config_rel,
                 0,
                 f"a `{config.PACT_ROW}` row this CI does not verify: {refusal}. "
-                "Printed rather than refused, because a signatory's CI prints "
+                "Printed rather than refused, because a signer's CI prints "
                 "and does not verify; `pact-check` at the pact's repository "
                 "exits 2 on it",
             )
@@ -4077,18 +4381,20 @@ def pact_notices(routing, root, declarations):
                     0,
                     f"cites `pact:{name}/…`, and no `{config.PACT_ROW}` row in "
                     f"{config_rel} names a pact called `{name}`. Printed rather "
-                    "than refused: a signatory's CI prints and does not verify",
+                    "than refused: a signer's CI prints and does not verify",
                 )
             )
     if pact_text is not None:
-        signatories, refused = config.pact_signatories(pact_text)
+        signers, refused, header = config.pact_signers(pact_text)
+        old, sentence = config.renamed_header(config.SIGNER_HEADER)
         notices.append(
             (
                 pact_rel,
                 0,
                 f"this repository holds the pact, which lists "
-                f"{plural(len(signatories), 'signatory', 'signatories')}. "
-                + PACT_NOT_HERE.replace("verifies it", "compares them with it"),
+                f"{plural(len(signers), 'signer', 'signers')}. "
+                + PACT_NOT_HERE.replace("verifies it", "compares them with it")
+                + (f". The pact {sentence}" if header == old else ""),
             )
         )
         for refusal in refused:
@@ -4368,14 +4674,13 @@ def frame_mark(reader, text):
     `gfm_lines` (#664). With `str.splitlines`, a mark standing after a
     U+2028 or a form feed on the file's last line read as a line of its own,
     which no renderer shows it as.
+
+    **Since #823 the foot is a block**: the mark, then any `Reframed … after
+    round <N>.` lines a reframe wrote under it. `frame_foot` reads the block
+    and this returns its mark, so the rule reads the last non-empty line that
+    is not a `Reframed` line.
     """
-    for line in reversed(reader.gfm_lines(text or "")):
-        line = line.strip()
-        if not line:
-            continue
-        m = MARK_RE.match(line)
-        return (m.group(1).strip(), m.group(2).strip()) if m else None
-    return None
+    return frame_foot(reader, text)[0]
 
 
 def frame(reader, routing, root, item, rel, declared):
@@ -4448,8 +4753,10 @@ def frame(reader, routing, root, item, rel, declared):
         if mark is None:
             problems.append(
                 f"{item}/spec.md does not END with the framer's mark. The "
-                "last non-empty line has to read `Framed <date> by <who>, "
-                "before the build.` — `templates/sdd-spec.md` ships it, and "
+                "last non-empty line that is not a `Reframed <date> by <who>, "
+                "after round <N>.` line — a reframe writes those UNDER the "
+                "mark, with a round number — has to read `Framed <date> by "
+                "<who>, before the build.` — `templates/sdd-spec.md` ships it, and "
                 "it is the only evidence in the tree that the framing "
                 "happened, because the other framer mark lives in the git "
                 "dir and a git dir does not travel here"
@@ -4469,6 +4776,26 @@ def frame(reader, routing, root, item, rel, declared):
                 "who drew this frame, and which of the two is true is not "
                 "this check's to guess"
             )
+        # The reframe's line is held to the declaration the way the mark is
+        # (#823): it is the permit for the records after a `second`, and a
+        # placeholder or a party the declaration does not name permits
+        # nothing anybody can check.
+        for when, who, n in frame_foot(reader, spec)[1]:
+            line = f"`Reframed {when} by {who}, after round {n}.`"
+            if when.startswith("<") or who.startswith("<"):
+                problems.append(
+                    f"{item}/spec.md's foot carries the UNFILLED reframe line "
+                    f"{line} — a placeholder, which reads to a person as a "
+                    "redrawn frame and says nothing"
+                )
+            elif who != routing.BY_FRAMER:
+                problems.append(
+                    f"{item}/routing.md says `{routing.PLANNING} | "
+                    f"{routing.BY_FRAMER}` and {item}/spec.md's foot says "
+                    f"{line}. The declaration and the reframe disagree about "
+                    "who redrew this frame, and which of the two is true is "
+                    "not this check's to guess"
+                )
 
     notices = []
     plan = read_record(root, f"{item}/plan.md")
@@ -5035,7 +5362,19 @@ def main(argv=None):
         # already fixed by `round_records`. The path is the value, so the
         # named record can be opened and its `Target SHA` compared.
         siblings = {os.path.basename(p): p for p in records}
-        for index, record in enumerate(records):
+        # Where each record sits in its RUN (#823): the records of its run
+        # before and after it, and the `second` the run began after.
+        placed = {}
+        runs = runs_of(reader, root, records)
+        for r, run in enumerate(runs):
+            for j, rel_in_run in enumerate(run):
+                placed[rel_in_run] = (
+                    run[:j],
+                    run[j + 1 :],
+                    runs[r - 1][-1] if r else None,
+                )
+        for record in records:
+            run_before, run_after, stopped_at = placed[record]
             who_errors, who_notices = checked_by(
                 reader,
                 routing,
@@ -5055,12 +5394,22 @@ def main(argv=None):
             # round number, so this is the later ROUNDS in order and not the
             # files that happen to sort after it — and the order is what the
             # bound reads, since it stops at the first one that reopened the
-            # run.
+            # run. The later records of its RUN and no further (#823): a
+            # record after a `second` is the redesign's, not a later round of
+            # the stopped run.
             floor_errors, floor_notices = stopping_floor(
-                reader, root, record, records[index + 1 :]
+                reader, root, record, run_after
             )
             errors.extend(floor_errors)
             notices.extend(floor_notices)
+            # EVERY record too: whether a round's open findings landed in the
+            # previous round's fixes is that round's own declaration, and the
+            # count is the run's.
+            fof_errors, fof_notices = fix_of_a_fix(
+                reader, root, record, run_before, stopped_at
+            )
+            errors.extend(fof_errors)
+            notices.extend(fof_notices)
             # EVERY record too, and for the reason the other three are: every
             # round was run by something, and a work item whose rounds ran
             # under different runners is the comparison the row exists for.

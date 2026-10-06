@@ -100,7 +100,7 @@ GitHub 의 것인 것과 같습니다. 기본 모드에서는 커밋합니다. �
 │   ├── follow-up.md               영구
 │   ├── parity.md                  이관 프로젝트에만. 영구
 │   ├── pact.md                    pact 를 가진 저장소에만. 영구
-│   ├── pact-changes/<id>.md       signatory 의 pact change, --reverify 가 쓴다. 영구
+│   ├── pact-changes/<id>.md       signer 의 pact change, --reverify 가 쓴다. 영구
 │   ├── pact-reviews/<id>.md       pact 를 가진 저장소의 pact review. 영구
 │   └── specs/<epoch>-<slug>/      작업 항목 전체. settle 이 접을 때까지 산다. 0.4.0 은 그대로 둔다
 │       ├── spec.md plan.md questions.md overview.md      작업의 기록: 무엇을 왜 만들기로 했는가

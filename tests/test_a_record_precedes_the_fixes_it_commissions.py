@@ -200,6 +200,8 @@ def record(
         "| Fix range | none |\n"
         f"| Contract changes | {contract} |\n"
         f"| New units | {units} |\n"
+        # Above `chain_check.REFRAME_FROM` too, so this row is owed as well.
+        "| Fix of a fix | no |\n"
         "| Needs a fix | no |\n"
         "| Loses a record or crashes | no |\n\n"
         "- [x] Pass\n\n"

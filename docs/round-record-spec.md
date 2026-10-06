@@ -682,6 +682,55 @@ other way opens the pull request red.
 Parsing code spans to tell any of the three apart is the same enumeration over
 an unbounded domain the arrow's limit declines.
 
+## A fix of a fix — `Fix of a fix`
+
+`round_record.py new` writes this row on every record, between `New units` and
+`Needs a fix`. An open finding of round K **lands** when its `Location`
+carries a `.py` path — `path:line`, `path#unit`, `path::unit` — that resolves,
+at round K's `Target SHA`, to a top-level unit round K-1's `Fix range` added or
+changed: present at both ends with a different `ast.dump`, so a re-commented
+unit has not changed. The form is a whole token, a code span or a word: a path
+that is the tail of a longer token, and a `#name` apart from its path, are no
+form. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and nor do a name
+with no `.py` path, whatever stands beside it, a module-level line, a
+`Location` nothing places, a file only the diff-line heuristic reads, and a
+range of no commits. A range whose ends this tree cannot resolve refuses
+`new` at exit 2 while any row owing a fix is open, wherever it points.
+
+| The value | When |
+|---|---|
+| `no` | nothing lands — every round 1, and the record after a `second` |
+| `first — <finding> at <path#unit>, a unit round-<K>'s fixes <added or changed>` | something lands, and no earlier record of the run reads other than `no` |
+| `second — <the same>; the fix passes stop here and the work item goes back to its framer` | something lands, and an earlier record of the run reads `first` |
+
+A **run** is the records from round 1, or from the record after the last
+`second`, up to and including the next `second`; the depth walk reads one too.
+At `second`, `new` prints the
+stop and no fix pass runs: the open findings close `deferred the frame`, and
+`new` refuses the next record until `spec.md`'s foot carries `Reframed <date>
+by <who>, after round <N>.` under the `Framed` line.
+`skills/code-review/orchestration.md` §*A fix of a fix twice sends the work
+item back to its framer* owns that rule and its exit.
+
+`chain_check.fix_of_a_fix` counts the rows as declared, on every record, behind
+`REFRAME_FROM`; after a squash nothing could re-derive a landing.
+
+| The record | The check |
+|---|---|
+| no row, work item begun on or after `REFRAME_FROM` | **fails** |
+| no row, begun before it or with no timestamp prefix | prints |
+| empty, a bare `first` or `second`, or any other word | **fails**, at any age |
+| the second landing of a run reading `first` | **fails** — the count says `second` |
+| a `second` with no landing before it in its run, which cuts nothing | **fails** — the count says `first` |
+| `first` or `second` on a run's first record — round 1, or after a stop | **fails** — no fix pass of the run precedes it |
+| a third landing in one run | **fails**, naming the record it went past |
+| a `second` whose verdicts closed on a fix | **fails** — a fix pass ran after the stop |
+| the first record after a `second`, with no `Reframed … after round <N>.` naming it | **fails** |
+| a `Reframed` line whose `<who>` is a placeholder or disagrees with `Planning` | **fails**, as the `Framed` line's does |
+
+The floor's two walks, the printed bound and the depth walk read the same run,
+so the redesign's rounds are not later records of the run that stopped.
+
 ## What ran the round — `Ran by`
 
 A record says what the round was asked, what it found, and which commit it
