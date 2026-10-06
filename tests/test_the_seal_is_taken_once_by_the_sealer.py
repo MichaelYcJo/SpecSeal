@@ -4277,30 +4277,32 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "gate hands it rather than replacing them, and runs pytest in that "
         "environment rather than one it builds, through any wrapper"
     )
-    # #825 round 3's 🟡 3, closed by the reframe: both causes of a missing
-    # record, never one of them as the only one.
+    # #825 round 3's 🟡 3 and round 4's 🟡 3: every cause of a missing
+    # record the records cannot tell apart, never one of them as the only one.
+    causes = (
+        "the row started no pytest, because a part before its runner failed "
+        "or it has none; none it started loaded the recorder; or the one that "
+        "did could not write its record and warned 'specseal_pytest_record: no "
+        "record written' in "
+    )
     assert (
         "new? not measured: no pytest the row ran here left a record of the "
-        "gate's recorder (none loaded it, or the one that did could not write "
-        "its record and warned 'specseal_pytest_record: no record written' in "
-        "suite.txt), so this file is named only by a FAILED line of suite.txt "
-        f"and the base was not run. {earns}"
+        f"gate's recorder ({causes}suite.txt), so this file is named only by a "
+        f"FAILED line of suite.txt and the base was not run. {earns}"
     ) == gate.NO_RECORD_AT_HEAD
     assert (
         "new? not measured: the row ran once at the base, and no pytest it ran "
-        "there left a record of the gate's recorder (none loaded it, or the one "
-        "that did could not write its record and warned 'specseal_pytest_record: "
-        "no record written' in suite-at-base.txt; records/ is beside it). "
-        f"{earns}"
+        f"there left a record of the gate's recorder ({causes}suite-at-base.txt; "
+        f"records/ is beside it). {earns}"
     ) == gate.NO_RECORD
     # The reframe's S27: what the record at `HEAD` left out is counted, and
     # the failure form says how many.
     assert gate.UNPLACED.format(count=1) == (
         "1 of the tests and collections the row's pytest reported had no file "
         "of their own and are in no list: a test a conftest or a plugin parents "
-        "to the session or to a directory, or a report a plugin built without "
-        "its path (counted as unplaced on the end line of each record under "
-        "records/)"
+        "to the session or to a directory, a failed collection of the whole "
+        "session, or a report a plugin built without its path (counted as "
+        "unplaced on the end line of each record under records/)"
     )
     with open(RECORDER_SOURCE, encoding="utf-8") as handle:
         assert "specseal_pytest_record: no record written" in handle.read()
@@ -4342,15 +4344,17 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     ) as handle:
         bullet = " ".join(handle.read().split())
     for phrase in (
-        # #825's reframe after round 3: both causes of a missing record.
-        "no pytest the `Broad gate` row ran left a record, because none loaded "
-        "the gate's recorder or the one that did could not write its record and "
-        "warned in `suite.txt`, so the file is named only by a `FAILED` line and "
-        "the base was not run",
-        "no pytest the row ran at the base left a record, for either of those causes",
-        "A test with no file of its own is in no list at all, nor is a report a "
-        "plugin built without its path; the failure form says how many there "
-        "were.",
+        # #825's reframe after round 3 and round 4's 🟡 3: every cause of a
+        # missing record.
+        "no pytest the `Broad gate` row ran left a record, because the row "
+        "started no pytest, none it started loaded the gate's recorder, or the "
+        "one that did could not write its record and warned in `suite.txt`, so "
+        "the file is named only by a `FAILED` line and the base was not run",
+        "no pytest the row ran at the base left a record, for any of those three "
+        "causes, a part before the runner failing at the base among them",
+        "A test with no file of its own is in no list at all, nor is a failed "
+        "collection of the whole session or a report a plugin built without its "
+        "path; the failure form says how many there were.",
         "the row's run at the base exited non-zero before any pytest collected "
         "the file, which is also how a file the branch added reads where the "
         "base's row already fails",
@@ -4365,6 +4369,8 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         # One cause of a missing record named as the only one (#825 round 3).
         "row ran loaded the gate's recorder, so the file is named only",
         "no pytest the row ran at the base loaded the recorder",
+        # Two causes named as though they were every one (#825 round 4).
+        "for either of those causes",
     ):
         assert gone not in bullet, f"the **New?** bullet still carries: {gone}"
     with open(GATE, encoding="utf-8") as handle:
@@ -4768,8 +4774,10 @@ def test_a_module_that_removes_its_own_file_reads_the_word_its_base_gives(tmp_pa
 
 def test_a_part_that_fails_at_the_base_before_the_runner_measures_nothing(tmp_path):
     """A5 (#747). The lint stand-in fails at the base only, so `&&` stops the
-    row there before pytest runs, and no pytest at the base loads the
-    recorder: the file reads `NO_RECORD` (#825)."""
+    row there before pytest starts: the file reads `NO_RECORD` (#825), and
+    the reason names that cause first (#825 round 4's 🟡 3), where it used
+    to send the person after a recorder and an environment the row had
+    right."""
     repo = base_then_feature(
         tmp_path / "repo",
         LINT_FIRST_ROW,
@@ -4779,7 +4787,11 @@ def test_a_part_that_fails_at_the_base_before_the_runner_measures_nothing(tmp_pa
     out = run_gate(repo)
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     gate = gate_module()
-    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RECORD, out.stdout
+    word = verdict_of(out.stdout, "tests/test_two.py")
+    assert word == gate.NO_RECORD, out.stdout
+    assert "the row started no pytest, because a part before its runner failed" in (
+        word
+    ), word
 
 
 @pytest.mark.parametrize(
@@ -4868,6 +4880,82 @@ def suite_row(xdist):
 def files_row(xdist):
     """`FILES_ROW`, or the same row with `-n 2`."""
     return FILES_ROW + " -n 2" if xdist else FILES_ROW
+
+
+CRASHES_ITS_WORKER = """\
+import os
+
+
+def test_ok():
+    pass
+
+
+def test_crash():
+    os._exit(1)
+"""
+
+
+@pytest.mark.skipif(not XDIST, reason=NO_XDIST)
+def test_a_test_whose_worker_crashed_at_the_base_fails_there(tmp_path):
+    """#825 round 4's 🟡 2. xdist builds the report for a test whose worker
+    crashed itself, on the controller and outside the hook that carries the
+    node's path, so the recorder wrote it as no line; the file's passing test
+    was written, and the base's record held the file collected and passing:
+    `new` for a file the base's own run fails (`plan.md` Alternative U's
+    shape). The crashed test's `setup` report carried its path, and the
+    crash report takes it."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        files_row(True) + " tests",
+        {"tests/test_two.py": CRASHES_ITS_WORKER},
+        {
+            "tests/test_two.py": CRASHES_ITS_WORKER.replace(
+                "os._exit(1)", "assert False"
+            )
+        },
+    )
+    keep = tmp_path / "keep"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.ON_BASE, out.stdout
+    assert failing_in_base_record(keep, "tests/test_two.py")
+
+
+# A plugin whose directory hook fails while the session itself walks its
+# arguments, so pytest lays the failure on the session, whose path is the
+# rootdir -- where pytest 7 lays a conftest's import error anywhere below it.
+SESSION_WALK_FAILS = """\
+def pytest_collect_directory(path, parent):
+    if parent is parent.session:
+        raise RuntimeError("the session's own walk fails")
+"""
+
+
+def test_a_failed_collection_of_the_session_reads_no_word_of_the_root(tmp_path):
+    """#825 round 4's 🔴 1, through the gate. The session's own collection
+    fails at the base and on the branch. Its report carried the rootdir as
+    its path, so both records named `.` failing and the gate printed `.
+    failing on base too` -- on pytest 7.4 for two different conftests the
+    base and the branch broke. The session is no file of the tree's: its
+    failed collection is in no list, and the failure form says one report
+    was left out."""
+    posix_row_shell_or_skip()
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"PYTHONPATH=.:$PYTHONPATH {FILES_ROW} -p session_walk tests",
+        {
+            "session_walk.py": SESSION_WALK_FAILS,
+            "tests/test_two.py": PASSING_TWO,
+        },
+        {"session_walk.py": SESSION_WALK_FAILS.replace("own walk", "walk")},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, ".") is None, out.stdout
+    assert gate.ON_BASE not in out.stdout, out.stdout
+    assert gate.UNPLACED.format(count=1) in out.stdout, out.stdout
 
 
 def kept_at_base(keep):
@@ -6551,7 +6639,8 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "nothing, so nothing a test prints or runs changes a word.",
         "**Then the row runs once more, unchanged, at the base** — nothing "
         "appended, no part cut, every part run as written —",
-        "where no pytest at the base left a record — none loaded the recorder, "
+        "where no pytest at the base left a record — the row ended before it "
+        "started one, none loaded the recorder, "
         "or the one that did could not write its record and warned in "
         "`suite-at-base.txt` — `new?`; where the "
         "base's record holds a failing test or a failed collection of the file, "
@@ -6562,7 +6651,7 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "`new?` naming the exit, because the run may have ended before reaching "
         "it — so a file the branch added reads `new?` wherever the base's row "
         "already fails.",
-        "Where no pytest the row ran at `HEAD` left a record, for either of "
+        "Where no pytest the row ran at `HEAD` left a record, for any of "
         "those causes, the files "
         "come from its `FAILED` lines, each file reads `new?` with the reason, "
         "and the base is not run; where one runner loaded it and another did "
@@ -6597,12 +6686,20 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "from that path, so a file outside the rootdir, a `--pyargs` module "
         "wherever Python imports it from and a collector a conftest builds are "
         "each named by their own path.",
-        "It leaves two kinds of report out of every list, counts them on the "
+        # #825 round 4: the session's failed collection, a crashed worker's
+        # test, and the attribute a whole-report log carries.
+        "It leaves three kinds of report out of every list, counts them on the "
         "record's `end` line, and the gate says how many under the failing "
         "files: a test with no file of its own, which a conftest "
-        "or a plugin parents to the session or to a directory, and a report "
+        "or a plugin parents to the session or to a directory; a failed "
+        "collection of the whole session, which is where pytest 7 lays a "
+        "conftest's import error anywhere below the root; and a report "
         "that reached the recorder without its path, one a plugin built or "
-        "rebuilt itself.",
+        "rebuilt itself, unless an earlier report of the same test carried it, "
+        "as a test whose xdist worker crashed has.",
+        "so a plugin that writes reports whole, pytest-reportlog's "
+        "`--report-log` among them, writes it into the row's own log while the "
+        "gate measures the row.",
         "One limit is named rather than closed: a test written to append to the "
         "record file the recorder is writing, or to write a record of its own "
         "with the gate's key, can put a line into a keyed record |",
@@ -6645,6 +6742,9 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         # #825 round 3's 🟡 3: one cause of a missing record named as the only.
         "where no pytest at the base loaded the recorder, `new?`",
         "Where no pytest the row ran at `HEAD` loaded the recorder",
+        # #825 round 4: two causes and two kinds named as though every one.
+        "for either of those causes",
+        "It leaves two kinds of report",
     ):
         assert gone not in text, f"rule 3 still carries: {gone}"
 
@@ -6677,8 +6777,14 @@ def test_what_a_line_names_a_file_by_is_told_where_each_reader_meets_it():
         "A line's path is the node's own: `item.path` for a test, the module "
         "that COLLECTED it, and `collector.path` for a failed collection",
         "No path is ever made from a node id and a rootdir",
-        "Neither is written; each node is counted once on the `end` line, and "
-        "the gate says the count under its list of failing files.",
+        "None of the three is written; each node is counted once on the `end` "
+        "line, and the gate says the count under its list of failing files.",
+        # #825 round 4: the session's failed collection, and the path an
+        # earlier report of a node carried, reused for a crash report.
+        "a failed collection of the session itself -- where pytest 7 lays a "
+        "conftest's import error anywhere below the root",
+        "unless an earlier report of the same node in the session carried it",
+        "`--report-log` writes what `pytest_report_to_serializable` returns",
         "it looks no module up and imports nothing but pytest",
     ):
         assert sentence in recorder, f"the recorder does not carry: {sentence}"
@@ -6690,7 +6796,13 @@ def test_what_a_line_names_a_file_by_is_told_where_each_reader_meets_it():
         "**Each failing file is named by the path pytest holds for it.**",
         "counted on the record's `end` line, and the gate says how many under "
         "the failing files.",
-        "The reason printed beside each such file names both causes.",
+        "names every cause the gate cannot tell apart: the row started no "
+        "pytest, none it started loaded the recorder, or the one that did could "
+        "not write its record.",
+        "A test whose xdist worker crashed keeps the path its earlier reports "
+        "carried, so its failure counts.",
+        "a row that writes `--report-log` finds it in that log while the gate "
+        "measures it.",
     ):
         assert sentence in changelog, f"the changelog does not carry: {sentence}"
     for gone, text in (
@@ -6704,6 +6816,7 @@ def test_what_a_line_names_a_file_by_is_told_where_each_reader_meets_it():
         ("Such a row's files are not measured", changelog),
         ("where no pytest at the base loaded the recorder", changelog),
         ("Where no pytest of the row loaded the recorder at all", changelog),
+        ("names both causes", changelog),
     ):
         assert gone not in text, f"still carried: {gone}"
 

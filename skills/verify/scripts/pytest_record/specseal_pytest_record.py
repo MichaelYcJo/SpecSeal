@@ -47,11 +47,17 @@ crash leaves what ran.
 
 What it leaves out, and counts. A test whose node's path is a directory --
 an item a conftest or a plugin parents to the session or to a directory --
-has no file of its own, and a report that reaches the recorder without the
-path -- one a plugin built or rebuilt itself -- names none. Neither is
-written; each node is counted once on the `end` line, and the gate says the
-count under its list of failing files. A file that is gone is still named: a module that removes its own
-file while it runs keeps its failing line.
+has no file of its own; a failed collection of the session itself -- where
+pytest 7 lays a conftest's import error anywhere below the root, and where a
+plugin's hook can on any build -- names the rootdir, which is no file of the
+tree's; and a report that reaches the recorder without the path -- one a
+plugin built or rebuilt itself -- names none, unless an earlier report of
+the same node in the session carried it, as the `setup` report of a test
+whose xdist worker then crashed did. None of the
+three is written; each node is counted once on the `end` line, and the gate
+says the count under its list of failing files. A file that is gone is
+still named: a module that removes its own file while it runs keeps its
+failing line.
 
 It never changes an outcome, never raises out of a hook, and runs none of
 the row's code: it looks no module up and imports nothing but pytest. A
@@ -81,6 +87,9 @@ KEY_VARIABLE = "SPECSEAL_RECORD_KEY"
 DIR_VARIABLE = "SPECSEAL_RECORD_DIR"
 # The attribute the two hookwrappers set on a report: the node's own path.
 # The recorder's own name, so no field pytest or another plugin reads moves.
+# A plugin that writes a report whole writes it too: pytest-reportlog's
+# `--report-log` writes what `pytest_report_to_serializable` returns, so a
+# row's report log gains this key while the gate measures it (#825 round 4).
 PATH_ATTRIBUTE = "specseal_path"
 
 # Taken out at import, before any test of this process can read it, and
@@ -134,6 +143,13 @@ def pytest_runtest_makereport(item, call):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_make_collect_report(collector):
     outcome = yield
+    # The session's own collection is no file's and no directory's: pytest 7
+    # lays a conftest's import error anywhere below the root there, and a
+    # plugin's hook can on any build, so two different breakages would share
+    # the rootdir's word (#825 round 4). Its report carries no path, and a
+    # failed one is counted on the `end` line, never written.
+    if collector is getattr(collector, "session", None):
+        return
     _carry_the_path(outcome, collector)
 
 
@@ -148,12 +164,24 @@ class Recorder:
         self.stream = None
         self.file = None
         self.unplaced = set()
+        self.paths = {}
 
     def path_of(self, report, kind):
         """The path the report carries, or None where it carries none, or
         where a test's is a directory: neither is a file of its own, and the
-        node is counted rather than written."""
+        node is counted rather than written.
+
+        A report built outside the two hooks carries no path -- xdist builds
+        one for a test whose worker crashed (`DSession.handle_crashitem`) --
+        and where an earlier report of the same node in this session carried
+        one, that is the node's own path, so it is used: a lookup of what
+        pytest held for this node, never a path made from its id (#825
+        round 4)."""
         path = getattr(report, PATH_ATTRIBUTE, None)
+        if isinstance(path, str):
+            self.paths.setdefault((kind, report.nodeid), path)
+        else:
+            path = self.paths.get((kind, report.nodeid))
         if not isinstance(path, str) or (kind == "test" and os.path.isdir(path)):
             self.unplaced.add((kind, report.nodeid))
             return None

@@ -503,18 +503,20 @@ about to run it a second time after the change.
 - **New** — this work broke it. Back to the implement/review loop, and the
   broad gate runs again afterwards.
 - **New?**, with a reason — nothing at the base measured it: no pytest the
-  `Broad gate` row ran left a record, because none loaded the gate's
-  recorder or the one that did could not write its record and warned in
-  `suite.txt`, so the file is named only by a `FAILED` line and the base
-  was not run; no pytest the row ran at the base left a record, for either
-  of those causes; or the row's run at the base exited non-zero before any
-  pytest collected the file, which is also how a file the branch added
-  reads where the base's row already fails. It is a question about the
+  `Broad gate` row ran left a record, because the row started no pytest,
+  none it started loaded the gate's recorder, or the one that did could not
+  write its record and warned in `suite.txt`, so the file is named only by
+  a `FAILED` line and the base was not run; no pytest the row ran at the
+  base left a record, for any of those three causes, a part before the
+  runner failing at the base among them; or the row's run at the base
+  exited non-zero before any pytest collected the file, which is also how a
+  file the branch added reads where the base's row already fails. It is a question about the
   file, not a finding either way; open the kept `suite-at-base.txt` and the
   `records/` beside it, and run the file at the base by hand before calling
   it either of the two above.
-  A test with no file of its own is in no list at all, nor is a report a
-  plugin built without its path; the failure form says how many there were.
+  A test with no file of its own is in no list at all, nor is a failed
+  collection of the whole session or a report a plugin built without its
+  path; the failure form says how many there were.
   `templates/config.md` §*Choosing a value — the criterion*, rule 3, says
   which rows the gate cannot measure and how a row earns the measured word.
 

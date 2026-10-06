@@ -20,16 +20,19 @@
     cannot collect it;
   - `new` where the base's run collects the file and passes it, or runs to
     exit 0 without collecting it;
-  - `new?` where no pytest at the base left a record, because none loaded
-    the recorder or the one that did could not write its record, or where
-    the base's row exited non-zero before any of its pytest sessions
-    collected the file. The second is also how a file the branch added reads on a base
-    whose row already fails.
+  - `new?` where no pytest at the base left a record, because the row
+    ended there before it started one, none loaded the recorder, or the one
+    that did could not write its record; or where the base's row exited
+    non-zero before any of its pytest sessions collected the file. The last
+    is also how a file the branch added reads on a base whose row already
+    fails.
 
   Where no pytest of the row left a record at all, the `FAILED` lines name
   the files, each reads `new?`, and the base is not run. The reason printed
-  beside each such file names both causes. The kept output
-  holds `suite-at-base.txt` and the records under `records/`.
+  beside each such file names every cause the gate cannot tell apart: the
+  row started no pytest, none it started loaded the recorder, or the one
+  that did could not write its record. The kept output holds
+  `suite-at-base.txt` and the records under `records/`.
 
 - **Rows 0.18.3 refused to measure now get a measured word.** A row that runs
   pytest twice, a runner inside `sh -c '…'`, a runner given
@@ -66,9 +69,13 @@
   each named by their own path and get a measured word, where a name pytest
   made from the path could give two files one name. A test with no file of
   its own, which a conftest or a plugin attaches to the session or to a
-  directory, and a report a plugin rebuilt without the path are left out of
-  every list and counted on the record's `end` line, and the gate says how
-  many under the failing files.
+  directory, a failed collection of the whole session, which is where
+  pytest 7 reports a conftest's import error, and a report a plugin rebuilt
+  without the path are left out of every list and counted on the record's
+  `end` line, and the gate says how many under the failing files. A test
+  whose xdist worker crashed keeps the path its earlier reports carried, so
+  its failure counts. The path travels as a report attribute, so a row that
+  writes `--report-log` finds it in that log while the gate measures it.
 
 ### Fixed
 

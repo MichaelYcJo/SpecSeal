@@ -757,3 +757,71 @@ def test_a_report_hook_that_raises_is_not_laid_at_the_recorders_door(tmp_path):
     output = result.stdout + result.stderr
     assert "PLANTED-IN-MAKEREPORT" in output, output
     assert "specseal_pytest_record" not in output, output
+
+
+SESSION_WALK_FAILS = """\
+def pytest_collect_directory(path, parent):
+    if parent is parent.session:
+        raise RuntimeError("the session's own walk fails")
+"""
+
+
+def test_a_failed_collection_of_the_session_itself_is_left_out_and_counted(
+    tmp_path,
+):
+    """#825 round 4's 🔴 1. pytest lays a failure it meets while the session
+    walks its arguments on the session itself, whose path is the rootdir:
+    pytest 7 does so for a conftest's import error anywhere below the root,
+    and a plugin's hook can on every build, as here. Written, two different
+    breakages shared the rootdir's word and the branch's own read `failing on
+    base too`. The session is no file of the tree's, so its failed collection
+    is written as no line and counted."""
+    root, records = project(tmp_path, {"test_ok.py": "def test_ok():\n    pass\n"})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (root / "session_walk.py").write_text(SESSION_WALK_FAILS, encoding="utf-8")
+    env = recording_env(records)
+    env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(root)])
+    result = pytest_in(root, env, "-p", "session_walk", "tests")
+    assert result.returncode == 2, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    assert [line for line in lines if line["kind"] == "collect"] == [], lines
+    assert lines[-1]["unplaced"] == 1, lines
+
+
+CRASHES_ITS_WORKER = """\
+import os
+
+
+def test_ok():
+    pass
+
+
+def test_crash():
+    os._exit(1)
+"""
+
+
+def test_a_test_whose_worker_crashed_is_recorded_failing_under_its_file(tmp_path):
+    """#825 round 4's 🟡 2. xdist builds the report for a test whose worker
+    crashed on the controller itself (`DSession.handle_crashitem`), outside
+    the hook that carries the node's path, so the recorder wrote it as no
+    line and the file read collected and passing. The crashed test's `setup`
+    report carried the node's path, and the crash report of the same node in
+    the same session takes it."""
+    if importlib.util.find_spec("xdist") is None:
+        pytest.skip("pytest-xdist is not installed here")
+    root, records = project(tmp_path, {"test_two.py": CRASHES_ITS_WORKER})
+    result = run_pytest(root, recording_env(records), "-q", "-n", "2")
+    assert result.returncode == 1, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    crashed = [
+        line
+        for line in lines
+        if line.get("nodeid") == "tests/test_two.py::test_crash"
+        and line["outcome"] == "failed"
+    ]
+    assert crashed, lines
+    assert {real(line["path"]) for line in crashed} == {
+        real(root / "tests" / "test_two.py")
+    }, lines
+    assert lines[-1]["unplaced"] == 0, lines

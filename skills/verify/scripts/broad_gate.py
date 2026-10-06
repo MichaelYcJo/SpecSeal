@@ -2017,12 +2017,18 @@ EARNS_THE_WORD = (
     "hands it rather than replacing them, and runs pytest in that "
     "environment rather than one it builds, through any wrapper"
 )
-# What a missing record means, said by both reasons: either cause, never one
-# of them as the only one (#825 round 3's 🟡 3). The recorder's warning is
-# `specseal_pytest_record: no record written: <error>`.
+# What a missing record means, said by both reasons: every cause, never one
+# of them as the only one (#825 round 3's 🟡 3 and round 4's 🟡 3). The
+# records alone cannot tell the three apart, so the sentence names each and
+# where it shows: a row that started no pytest -- a part before its runner
+# failed, the module's case A5, or a row with no runner at all -- prints no
+# pytest output; a pytest that loaded no recorder prints its own; and the
+# recorder's warning is `specseal_pytest_record: no record written: <error>`.
 NO_RECORD_CAUSES = (
-    "none loaded it, or the one that did could not write its record and "
-    "warned 'specseal_pytest_record: no record written' in {kept}"
+    "the row started no pytest, because a part before its runner failed or "
+    "it has none; none it started loaded the recorder; or the one that did "
+    "could not write its record and warned 'specseal_pytest_record: no record "
+    "written' in {kept}"
 )
 # Where the row's run at `HEAD` left no record carrying its key: the files
 # come from the `FAILED` lines of `suite.txt`, and the base is not run.
@@ -3004,9 +3010,9 @@ BASE_NOT_CHECKED_OUT = (
 UNPLACED = (
     "{count} of the tests and collections the row's pytest reported had no "
     "file of their own and are in no list: a test a conftest or a plugin "
-    "parents to the session or to a directory, or a report a plugin built "
-    "without its path (counted as unplaced on the end line of each record "
-    "under records/)"
+    "parents to the session or to a directory, a failed collection of the "
+    "whole session, or a report a plugin built without its path (counted as "
+    "unplaced on the end line of each record under records/)"
 )
 
 # The line a failing `suite` gets where its output carries no pytest summary.
