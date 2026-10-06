@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | 88070eac |
-| Ran by | smith on Opus 5.5 for the segment that stopped at `de5f8fcb`, as `handoff.md` records it; unknown for the closing segment — its spawn prompt named neither the agent nor the model, so the orchestrator fills that half |
+| Ran by | smith on Opus 5.5 for the segment that stopped at `de5f8fcb`, as `handoff.md` records it; smith on Opus 5.5 for the closing segment, on the next machine (filled by the orchestrating session; the spawn prompt named neither) |
 
 ## What this phase was asked
 

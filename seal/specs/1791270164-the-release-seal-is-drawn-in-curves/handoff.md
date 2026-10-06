@@ -4,7 +4,7 @@ Written 2026-10-06 by the orchestrating session (Opus 5.5) when the 0.20.0 run m
 
 ## Where it stands
 
-- `framer` on Fable 5.1 framed this item (fce42e0d) after the owner reopened the emblem mid-frame. `smith` on Opus 5.5 started phase 1 and left it **unfinished and not green**, committed as `wip` (de5f8fcb) so the work survives the move.
+- `framer` on Fable 5.1 framed this item (fce42e0d) after the owner reopened the emblem mid-frame. `smith` on Opus 5.5 started phase 1 and left it **unfinished and not green**, committed as `wip` (de5f8fcb) so the work survives the move. On the next machine a fresh `smith` on Opus 5.5 brought it to green and closed it at 88070eac (`phases/phase-1.md`); the emblem (Q1) is still with the owner.
 - The vector source, the cell-centre sampler and `build(scale, r0_cells=…)` are in. `EMBLEM_D` holds an INTERIM ring.
 - `bin/test` over the two phase-1 modules with `-x` exited 1: 1 failed, 487 passed. The failure is `test_several_files_come_out_as_one_message_oldest_first`. The smith suspects the 0.90 disc narrowed from (40, 40) to (39, 40) and the hook now picks a different rung. That is unconfirmed.
 - The branch is pushed so the other machine can fetch it. No pull request is open.
