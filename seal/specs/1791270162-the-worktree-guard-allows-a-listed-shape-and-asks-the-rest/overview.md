@@ -63,6 +63,15 @@ carry. The changelog fragment names #732 and #734 as closed, S1–S12 each
 have a ledger row, and K7 and I9 took `Corrected ·` rows for the policy
 sentences they rested on, which makes 20 in all.
 
+**Round 1's fix pass** answered the warden's three 🔴 and two 🟡. A
+`git switch` beside the stop, or a shape in a second tree another session
+is ACTIVE in, makes the stop a `deny`, because approving an `ask` runs
+every segment. A redirection word now takes the next word only where it
+ends in the operator itself, so `2>&-`, `>-`, `<<<-` and `<>-` hide no
+`add` or `branch`. A `rebase` naming a branch is unrecognised, and one
+form of every list row runs against git. A broken reader on an `&` cut
+costs a stop. The string's `-C` is named as a limit rather than read.
+
 ## Where spec and implementation diverged
 
 | Divergence | Spec says / code did | Chosen | Grounds |
@@ -79,17 +88,22 @@ sentences they rested on, which makes 20 in all.
 | S2's case | `spec.md` S2: "one new case diffs the reasons against fixtures taken at the base" / not planted | the ladder's existing pins, and `main`'s rows read against `a9d7b0e5`'s line by line | the ladder's code and texts are unchanged but for reading the tree once (W2), and the existing reason pins pass unchanged; a fixture of each reason would pin text no line of this work touches |
 | S13 and S14 in the ledger | `spec.md` In 6: "one row per acceptance scenario" / S1–S12 have rows, S13 and S14 none | no row | a row needs a coordinate the checker can resolve: a citation into a fragment is refused, a record under `seal/specs/` leaves at `settle`, and the pull request body is no file. S13 is held by `evidence-check` in the sealer's run, S14 by the warden reading the body |
 | The policy's §*Creation consent* | `spec.md` In 6 names §A, §*Which tree* and §*Known limits* / phase 4 also corrected §*Creation consent*'s #678 and #790 sentences | corrected | each said what candidate C and #790's slot rule did, and survivor-check named the second; I9's correction followed from the first |
+| A switch beside the stop | `spec.md` In 2: "the unrecognised stop taken first where the tree matters, since a stop there stops the whole line" / the stop was an `ask` there, and approving it ran the switch with the ladder never read | a `deny`, and every tree on the line read before the stop (round 1, red 1); `spec.md` In 2 and S9 fed back | a `deny` stops the whole line and an `ask` does not. At `4de95fa7` `git checkout f.txt && git -C W switch feature/x` asked about the session tree's changes with `W` ACTIVE, where the base denied; `git checkout f.txt && git -C W checkout feature/x` did the same through a second unrecognised shape, the same cause one tree over |
+| `rebase` on the list | `spec.md` In 5: "`rebase` … leave it" / git 2.50.1 left HEAD on `feature/x` after `git rebase main feature/x` (round 1, red 3) | a `rebase` naming a branch is unrecognised, `rebase` stays listed otherwise | In 5's own definition is HEAD naming the same branch when the command ends, and the branch-naming form fails it; the plain `rebase <upstream>` passes it, as the `stash branch` exception already does for `stash` |
+| `<&` and `>&` in `_OPERATORS` | the fix the warden proposed kept every operator ending a word / a break dropping `>&` survived `bin/mutation-check` | left out, with the reason in the comment | the splitter cuts a word at its `&` and `merged_view` glues the next word on, so a spaced `>& 1` arrives as `>&1`; `_redirections` places it, so a change to that gluing goes red there |
 
 ## Not verified
 
 | Item | Who must answer |
 |---|---|
 | ✅ Why cut 1 reads 31,193 pairs where 1791119071's phase 1 read 25,741 over more transcripts | phase 3 reproduced phase 1's own definition, (command, the entry's `cwd`), at 31,193 exactly, so before and after compare on one count (`phases/phase-3.md`); 1791119071's 25,741 cannot be re-run and stays unreconciled, and no figure here rests on it |
-| Which recorded subcommands leave HEAD's branch where it was, beyond the ones `spec.md` In 5 names (`clone`, `init`, `config`, `archive`, `apply`, `gc`, `update-index`, `format-patch`, `count-objects`, `help`): judged by reading what each does, not run against git | the warden's first round, reading `LEAVES_THE_TREE`'s 49 rows against what each subcommand does; phase 2 wrote the list with its counts and did not run the judgment either |
+| ✅ Which recorded subcommands leave HEAD's branch where it was, beyond the ones `spec.md` In 5 names (`clone`, `init`, `config`, `archive`, `apply`, `gc`, `update-index`, `format-patch`, `count-objects`, `help`): judged by reading what each does, not run against git | the warden's round 1 ran the rebase forms and found `rebase <upstream> <branch>` switches; round 1's fix pass made that form unrecognised and runs one form of every row against git (`test_no_listed_form_moves_head_under_git`). A form no case runs is still a reading, as §*Known limits* says |
 | Every count is tree-blind, so each is an upper bound on stops where the tree matters | the pull request's prompt budget, which says so (`phases/phase-4.md`) |
-| A substitution body and an untokenizable command are judged in the session's own tree, so `cd W && F=$(git checkout x)` with `W` dirty and the session's tree clean is silent; named in §*Known limits* since phase 4 | the warden's first round: whether the named limit stands, or a body takes the tree of the segment it sits in |
+| ✅ A substitution body and an untokenizable command are judged in the session's own tree, so `cd W && F=$(git checkout x)` with `W` dirty and the session's tree clean is silent; named in §*Known limits* since phase 4 | the warden's round 1 confirmed the limit stands, executed at `edd35c56` and at the base (`rounds/round-1.md`) |
 | Windows: every tree state there reads *detection unusable*, so every unrecognised shape stops there; read, not executed, as for every Windows claim in this guard | the repository owner, at the pull request |
-| `_finding_tree` reads one thing past the frozen walk, the wider reading's `-C` for a git only that reading reads | the warden's first round, against #689's containment in §*Which tree* |
+| ✅ `_finding_tree` reads one thing past the frozen walk, the wider reading's `-C` for a git only that reading reads | the warden's round 1 confirmed it by reading: no slot is shared, so #689's ordering failure cannot arise (`rounds/round-1.md`); a string's `-C` is not read, named in §*Known limits* by round 1's fix pass |
+| The tree-blind counts (315 and 333, 55 and 57) were not taken again after round 1's fixes. A grep of the transcripts finds two recorded `rebase` forms, `git rebase main` and `git rebase -q origin/release/v0.15.7`, each naming one word and so still listed | the orchestrator, if the pull request's prompt budget is to be re-run on phase 1's definition |
+| `test_no_listed_form_moves_head_under_git` starts about 55 git processes; 3.4 s on macOS under xdist, not measured on the Windows shards | #850's pytest workflows, read by the orchestrator before the next round |
 | `.test_durations` still holds the durations of the cases phase 3 retired; the guide says stale entries drop no case, and a refresh takes a CI run | the orchestrator: refresh it by `CONTRIBUTING.md` §*Running the checks*, or leave it to the next refresh |
 | #841's fragment row S5 cites two cases phase 3 retired (BROKEN under `evidence-check --strict`), and #841's records name the retired sampler (NOT-IN-TREE); neither is this work item's to write, and a `Corrected ·` row cannot cite a fragment row | the orchestrator: correct S5 and the records in place, as #841's owner, before the sealer's run |
 
@@ -121,3 +135,8 @@ is open with the owner.
 - `spec.md` In 4: every unrecognised shape is judged in its own segment's
   tree, and a git only the wider reading reads in the tree its own `-C`
   names. *Inferred during implementation*, phase 3.
+- `spec.md` In 2 and S9: the stop beside a `git switch` is a `deny`, and
+  every tree on the line is read before the stop is taken. *Inferred during
+  implementation*, round 1's fix pass (red 1).
+- `spec.md` In 1 and In 5: a `rebase` naming a branch is unrecognised.
+  *Inferred during implementation*, round 1's fix pass (red 3).

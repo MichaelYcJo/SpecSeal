@@ -47,7 +47,10 @@ as a possible switch, in the one place a switch would matter.
      git after them is not `add` or `branch`, so a redirection in front of,
      glued to or cut away from that word hides nothing (*inferred during
      implementation*, phase 3: `git worktree 2>/dev/null add ../wt b` was
-     listed at `9c03ae85`);
+     listed at `9c03ae85`). `rebase` is listed only where it has fewer than
+     two words that are not options, and none beside `--root`: `git rebase
+     <upstream> <branch>` switches to `<branch>` before it rebases
+     (*inferred during implementation*, round 1 of the review, red 3);
    - **a switch** — the subcommand is `switch`, whatever its words;
    - **a creation** — `cmdline.adds_a_worktree(tokens)`, judged by §B as
      today and untouched here;
@@ -91,7 +94,11 @@ as a possible switch, in the one place a switch would matter.
    switch today and what the base said of every shape. A command holding
    both a switch and an unrecognised shape is judged by the ladder for the
    switch, with the unrecognised stop taken first where the tree matters,
-   since a stop there stops the whole line.
+   since a stop there stops the whole line. That stop is a `deny`, because
+   approving an `ask` would run the switch past the ladder, and every tree on
+   the line is read before the stop is taken, so a shape in a tree another
+   session is ACTIVE in makes it a `deny` too (*inferred during
+   implementation*, round 1 of the review, red 1).
 
 3. **The stop for an unrecognised shape, and its two readers.** Where the
    tree matters, the guard stops BEFORE the ladder, with one reason text
@@ -159,7 +166,10 @@ as a possible switch, in the one place a switch would matter.
    `reset`, `stash` (not `stash branch`), `restore`, `rm`, `mv`, `clean`,
    `fetch`, `push`, `branch`, `tag`, `worktree` other than `add`, and every
    read-only subcommand leave it; `switch`, `checkout`, `bisect`,
-   `symbolic-ref`, `update-ref`, `stash branch` and `worktree add` do not.
+   `symbolic-ref`, `update-ref`, `stash branch`, `worktree add` and a
+   `rebase` naming a branch do not (the last *inferred during
+   implementation*, round 1 of the review, red 3, where git 2.50.1 left HEAD
+   on the named branch).
    A `rebase` detaches HEAD while it runs and comes back; that window is a
    known limit, named.
 
@@ -282,7 +292,7 @@ as a possible switch, in the one place a switch would matter.
 | S6 the plain retry meets today's rows | Given S5's tree; when the model retries `git switch feature/x`; then the dirty-tree `ask` of today, and in an ACTIVE tree today's `deny` with the worktree steer | existing cases cover the rows; one new case runs the pair |
 | S7 the record is not the press | Given a consent record on disk and no `automation` answer; when an S3 shape runs in a dirty tree; then `ask`, not `deny` | new case; red with the stop reading `worktree_consent.consent` instead of `automation_answered` (mutation) |
 | S8 the segment's tree is the one that matters | Given the session's tree clean and a second clone `W` dirty; when `git -C W checkout x` or `cd W && git checkout x` runs; then the stop; and with `W` clean and the session dirty, silence. Given `cd "$W" && git checkout x` with `W` unset, the session's tree decides (#686, unchanged) | new case over `judgeable`'s two directories |
-| S9 both kinds on one line | Given a dirty tree; when `git checkout README.md && git switch feature/x` runs; then the unrecognised stop comes first (it stops the whole line); when `git status && git switch feature/x` runs; then today's dirty-tree ask alone | new case |
+| S9 both kinds on one line | Given a dirty tree; when `git checkout README.md && git switch feature/x` runs; then the unrecognised stop comes first (it stops the whole line) as a `deny` (round 1, red 1); when `git status && git switch feature/x` runs; then today's dirty-tree ask alone | new case |
 | S10 the list carries its counts and nothing unmeasured | Given `LEAVES_THE_TREE`; then every entry's comment carries a count from phase 1, every recorded branch-leaving subcommand is present, and `switch`, `checkout`, `bisect`, `symbolic-ref`, `update-ref`, `worktree` are absent | new case reading the module beside phase 1's table, the way `test_the_option_table_binds_the_installed_git` read git's `-h`; and a reader's check of the comment against `phases/phase-1.md` |
 | S11 the readings are gone | Given `hooks/worktree-guard.py` after phase 3; then none of In 4's symbols is defined, `grep -c "rev-parse"` in the switch arm is 0, and `tests/test_the_frozen_reading_never_grows.py` is green | `test_a_rider_reaches_its_file.py` and a one-line case asserting the symbols are absent; `ruff` for unused imports |
 | S12 the policy says what the code does | Given `docs/worktree-guard-spec.md`; then §A names the three shapes and the two readers of the stop, §*Which tree* holds no option table, no lookup rule and no candidate C, §*Known limits* holds the three new bullets and none of the four removed, every `Enforced by:` resolves | `tests/test_a_folded_statement_names_what_enforces_it.py`, `tests/test_docs_line_wrap.py`, and the existing `test_the_guard_policy_says_*` cases rewritten to the new sentences |

@@ -17,13 +17,16 @@
   switch <branch>`, `git checkout -- <path>`, the command run on its own).
   Where the person pressed `automation` it is a `deny` to the model, which
   rewrites and retries, and nobody is asked; otherwise it is an `ask`,
-  except in a tree another session is actively working in, where it is a
-  `deny` either way.
+  except in a tree another session is actively working in, or on a line
+  that also holds a `git switch`, where it is a `deny` either way, because
+  approving would run the whole line.
 
   What a person meets: `git checkout <branch>` in a dirty tree now stops
   with *write `git switch <branch>`* instead of asking about the changes,
   and `git checkout README.md` stops the same way where it used to pass as
-  a restore. A git subcommand this repository never ran — `git submodule
+  a restore. `git rebase <upstream> <branch>` stops too, because git
+  switches to `<branch>` before it rebases. A git subcommand this
+  repository never ran — `git submodule
   update`, `git notes` — stops in such a tree until a release adds it to the
   list. On Windows, where the guard can never count the other sessions,
   every unrecognised shape stops in every tree. Over the 31,193 distinct
