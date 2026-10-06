@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #828 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `01b1f966a7a582d77296e8a678e5045bd2d25701..34e899c031a360273ccdd6486612beef3954a64f`, 4 commits |
 | Contract changes | none |
 | New units | CELL_WORD_RE (depth 1); PATH_TAIL_RE (depth 1); names_a_file (depth 1); range_carriers (depth 1); test_a_bare_name_a_touched_file_carries_unchanged_does_not_land (depth 1); TRACKED_FILES (depth 1); test_a_name_beside_a_tracked_file_of_any_kind_does_not_land (depth 1); test_a_name_beside_a_tracked_py_file_lands_only_through_it (depth 1) |
