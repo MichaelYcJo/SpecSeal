@@ -652,6 +652,65 @@ def test_a_test_with_no_file_of_its_own_is_left_out_and_counted(tmp_path):
     assert lines[-1] == {"kind": "end", "exitstatus": 1, "unplaced": 1}, lines
 
 
+LOGS_REPORTS_OF_ITS_OWN = """\
+import pytest
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    yield
+    built = pytest.TestReport(
+        item.nodeid + "::built", item.location, {}, "failed", "built", "call"
+    )
+    item.ihook.pytest_runtest_logreport(report=built)
+    collected = pytest.CollectReport("built::collector", "failed", "built", None)
+    item.ihook.pytest_collectreport(report=collected)
+"""
+
+
+def test_a_report_a_plugin_built_without_the_path_is_left_out_and_counted(
+    tmp_path,
+):
+    """S27's other half, `plan.md` Alternative S. A conftest logs a failed
+    test report and a failed collect report it built itself, so neither
+    passed through the hooks that set the node's path. Each is written as no
+    line -- no path is guessed for it -- and each node is counted once on the
+    `end` line, while the passing test beside them is recorded."""
+    root, records = project(tmp_path, {"test_ok.py": "def test_ok():\n    pass\n"})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (root / "conftest.py").write_text(LOGS_REPORTS_OF_ITS_OWN, encoding="utf-8")
+    pytest_in(root, recording_env(records), "tests")
+    _, lines = the_one_record(records)
+    named = [line for line in lines if "path" in line]
+    assert {real(line["path"]) for line in named} == {
+        real(root / "tests" / "test_ok.py")
+    }, lines
+    assert {line["outcome"] for line in named} == {"passed"}, lines
+    assert lines[-1]["unplaced"] == 2, lines
+
+
+def test_a_directory_that_cannot_be_collected_is_recorded_by_its_own_path(
+    tmp_path,
+):
+    """A failed collection's path is the collector's own, and a directory's
+    is the directory: the thing that failed. Here its `conftest.py` fails at
+    import, and pytest fails `tests/sub`'s collection. Only a TEST whose path
+    is a directory is left out; a failed collection of one is written."""
+    root, records = project(tmp_path, {})
+    sub = root / "tests" / "sub"
+    sub.mkdir()
+    (sub / "conftest.py").write_text(
+        "raise RuntimeError('the conftest fails at import')\n", encoding="utf-8"
+    )
+    (sub / "test_in.py").write_text("def test_in():\n    pass\n", encoding="utf-8")
+    result = pytest_in(root, recording_env(records), "tests")
+    assert result.returncode == 2, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    collects = [line for line in lines if line["kind"] == "collect"]
+    assert {real(line["path"]) for line in collects} == {real(sub)}, lines
+    assert lines[-1]["unplaced"] == 0, lines
+
+
 REMOVES_ITS_OWN_FILE = """\
 import os
 
