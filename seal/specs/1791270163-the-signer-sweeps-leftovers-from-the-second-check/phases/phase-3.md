@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | the commit that adds this record (its hash is in `plan.md`'s Status cell for phase 3) |
+| Commit | 944ad173 |
 | Ran by | specseal:smith on Opus 5.5 |
 
 ## What this phase was asked

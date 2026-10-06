@@ -22,7 +22,7 @@ The second post-review check of #830 left four leftovers open; after this work a
 | Item | Who must answer |
 |---|---|
 | The broad gate: the full suite, the repository-wide lint and the typecheck | the session that opens the pull request (CI at the pull request); this segment is routed `straight to the PR` and `stop before the pull request`, and no sealer ran |
-| `correction-check` over the range, which reads the `Corrected · R1` row against the released row it supersedes | CI at the pull request (`.github/workflows/hygiene.yml`) |
+| ✅ `correction-check` over the range: no correction marker dropped at a merge, and no released ledger file changed under `Ledger frozen from` | executed 2026-10-06 by smith over `a9d7b0e..944ad17`, exit 0 (no merge commit in the range; no released ledger file changed); CI runs it again at the pull request |
 | `survivor-check` over the range | the session that opens the pull request; no review round ran, so no fix range exists for this segment to check |
 
 ## Not done
