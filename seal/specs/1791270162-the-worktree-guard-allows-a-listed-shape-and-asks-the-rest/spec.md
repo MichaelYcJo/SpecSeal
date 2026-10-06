@@ -123,11 +123,11 @@ as a possible switch, in the one place a switch would matter.
 4. **The readings go.** Removed from `hooks/worktree-guard.py`: candidate C
    (`wider_only_kinds`, `_bare_words`,
    `ask_what_only_the_wider_reading_finds`); `switch_kind`; the option table
-   and its reader (`SWITCH_OPTIONS`, `_Options`, `_long_option`,
+   and its reader (`SWITCH_OPTIONS`, `_Options`, `_long_option`, · NAME NOT IN TREE
    `read_switch_words`, `handed_words`, `_redirection_width`,
    `_REDIRECTION`); `classify`'s name lookups and guesses (`is_ref`,
    `_verified`, `_commit_named`, `_object_named`, `_one_merge_base`,
-   `_OBJECT_NAME`, `tracked_in_any_remote`, `_refs`, `_fetched_as`,
+   `_OBJECT_NAME`, `tracked_in_any_remote`, `_refs`, `_fetched_as`, · NAME NOT IN TREE
    `_the_bases_lookup`, `_no_guess`, `base_only`), with `classify` itself
    reduced to the three shapes of In 1 or replaced by a function that names
    them. `main`'s walk keeps the first switch and the first creation in

@@ -165,12 +165,12 @@ session's tree, where the hidden git sits),
 `test_a_switch_wherever_its_redirection_stands_meets_the_dirty_tree_row` (5),
 `test_a_restore_wherever_its_redirection_stands_stays_silent` (3, a
 `checkout` restore without `--`),
-`test_a_restore_before_a_hidden_switch_does_not_silence_the_question` (2),
+`test_a_restore_before_a_hidden_switch_does_not_silence_the_question` (2), · NAME NOT IN TREE
 `test_a_newly_read_checkout_in_front_takes_no_question_away` (2), and one
 each of `test_a_segment_only_the_reading_past_redirections_finds_is_not_git_to_the_guard`,
 `test_a_creation_only_the_wider_reading_finds_is_silent_under_consent`,
-`test_the_question_names_both_kinds_and_says_it_in_korean`,
-`test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it` and
+`test_the_question_names_both_kinds_and_says_it_in_korean`, · NAME NOT IN TREE
+`test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it` and · NAME NOT IN TREE
 `test_a_message_search_over_a_dirty_tree_is_asked`. They were left alone:
 #841 changes that module, and phase 3 rebases onto it before retiring them.
 The other nine modules that load the guard passed (888 passed, 1 skipped,
@@ -187,4 +187,4 @@ written once (W4). Phase 2 neither ran that case nor touched it.
 | Removed item | Where it must land |
 |---|---|
 | candidate C's call sites in `main` (`quiet()`, which asked `wider_only_kinds` and `ask_what_only_the_wider_reading_finds` at each silent exit) | the unrecognised stop (`stop_unrecognised`); the two functions stay defined until phase 3 deletes them |
-| `main`'s reach into `classify` (both readings, `base_only` and #790's) and its `newly_read`/`past_the_base` slot rule | `shape_of` and `_segment_finding`; `classify` stays defined until phase 3 |
+| `main`'s reach into `classify` (both readings, `base_only` and #790's) and its `newly_read`/`past_the_base` slot rule | `shape_of` and `_segment_finding`; `classify` stays defined until phase 3 · NAME NOT IN TREE |

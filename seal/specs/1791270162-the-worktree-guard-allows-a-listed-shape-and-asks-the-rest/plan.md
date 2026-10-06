@@ -43,10 +43,10 @@ says which half of that measurement belongs to #841.
   so a listed shape costs no spawn where today a `checkout` costs
   `git rev-parse` through `is_ref`.
 - The option reading to remove: `_REDIRECTION` (322), `_redirection_width`
-  (328), `handed_words` (349), `_Options` (396), `SWITCH_OPTIONS` (410),
+  (328), `handed_words` (349), `_Options` (396), `SWITCH_OPTIONS` (410), · NAME NOT IN TREE
   `_long_option` (482), `read_switch_words` (501), `switch_kind` (545). The
   lookups to remove: `_verified` (1026), `_commit_named` (1044),
-  `_OBJECT_NAME`/`_object_named` (1069–1072), `_one_merge_base` (1095),
+  `_OBJECT_NAME`/`_object_named` (1069–1072), `_one_merge_base` (1095), · NAME NOT IN TREE
   `is_ref` (1117), `tracked_in_any_remote` (1134), `_refs` (1157),
   `_fetched_as` (1176), `_the_bases_lookup` (1311), `_no_guess` (1317).
 - The press reader: `hooks/worktree_consent.py#automation_answered`
