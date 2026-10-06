@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `2240347308d44d366442b4f0b9d5a086c07e7ad9..2240347308d44d366442b4f0b9d5a086c07e7ad9`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | second — 🔴 1 at skills/verify/scripts/pytest_record/specseal_pytest_record.py#Recorder, a unit round-2's fixes changed; 🔴 2 at skills/verify/scripts/pytest_record/specseal_pytest_record.py#Recorder, a unit round-2's fixes changed; the fix passes stop here and the work item goes back to its framer |
 | Needs a fix | yes — 🔴 1 (a dotted `--pyargs` name is imported at `pytest_sessionstart` and the recorder changes an outcome), 🔴 2 (a failed collection named after a parent below the root records two files under one directory and the gate gives a file the branch broke `failing on base too`), 🟡 3 (the gate says no pytest loaded the recorder where one loaded it and refused) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,11 +25,11 @@ Round 3, the verifying round for round 2's fixes at `daecd505..e8d4b77c`, which 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The refusal's `find_spec` imports a dotted `--pyargs` name's package at `pytest_sessionstart`, before a conftest's own hook, so the recorder changes an outcome: a passing test fails under the gate (spec Scope 1: it never changes an outcome) | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:192` | open | executed: `--pyargs pkg.test_a` with a conftest setting at sessionstart what the package reads at import, exit 0 without the recorder and exit 1 with it; the locator fix below passes it, 19 recorder and 6 gate cases pass with it; the proposed case red at the target and green with the fix |
-| 🔴 2 | A failed collection of a collector a conftest builds below the root for files outside the rootdir is recorded under the parent directory, and the gate gives a file the branch broke `failing on base too` | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:115` | open | executed: the gate printed `sub/tests  failing on base too` for a branch that broke `ext/test_new.py`, the base failing `ext/test_old.py`; with the fix, the case passes, 19 recorder and 169 gate cases pass; the case red at the target |
-| 🟡 3 | Where the recorder loaded and refused or abandoned its record, the gate says no pytest loaded the recorder and points at the environment | `skills/verify/scripts/broad_gate.py:2015` | open | executed: `test_a_file_pytest_names_outside_its_rootdir_earns_no_word` passes asserting this text for a row whose pytest loads the recorder; read: `NO_RECORD` at line 2021 says the same of the base |
-| ⬜ 4 | The guard abandons a whole record, silently, for a test with no file of its own or one whose module removes itself, and rule 3 names neither | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:115` | open | executed: a session-parented item and a self-removing module each left no record and no warning; read: pytest-mypy 1.0.1 parents its status item to a file and is not affected; strict side, no wrong word |
-| ⬜ 5 | `spec.md` Scope 1 and §The class still describe round 1's refusal only | `seal/specs/1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote/spec.md:161` | open | read; paperwork correction, not counted in Needs a fix |
+| 🔴 1 | The refusal's `find_spec` imports a dotted `--pyargs` name's package at `pytest_sessionstart`, before a conftest's own hook, so the recorder changes an outcome: a passing test fails under the gate (spec Scope 1: it never changes an outcome) | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:192` | deferred the frame | the frame — the second fix of a fix in the run; executed: `--pyargs pkg.test_a` with a conftest setting at sessionstart what the package reads at import, exit 0 without the recorder and exit 1 with it; the locator fix below passes it, 19 recorder and 6 gate cases pass with it; the proposed case red at the target and green with the fix |
+| 🔴 2 | A failed collection of a collector a conftest builds below the root for files outside the rootdir is recorded under the parent directory, and the gate gives a file the branch broke `failing on base too` | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:115` | deferred the frame | the frame — the second fix of a fix in the run; executed: the gate printed `sub/tests  failing on base too` for a branch that broke `ext/test_new.py`, the base failing `ext/test_old.py`; with the fix, the case passes, 19 recorder and 169 gate cases pass; the case red at the target |
+| 🟡 3 | Where the recorder loaded and refused or abandoned its record, the gate says no pytest loaded the recorder and points at the environment | `skills/verify/scripts/broad_gate.py:2015` | deferred the frame | the frame — the second fix of a fix in the run; executed: `test_a_file_pytest_names_outside_its_rootdir_earns_no_word` passes asserting this text for a row whose pytest loads the recorder; read: `NO_RECORD` at line 2021 says the same of the base |
+| ⬜ 4 | The guard abandons a whole record, silently, for a test with no file of its own or one whose module removes itself, and rule 3 names neither | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:115` | deferred the frame | the frame — the second fix of a fix in the run; executed: a session-parented item and a self-removing module each left no record and no warning; read: pytest-mypy 1.0.1 parents its status item to a file and is not affected; strict side, no wrong word |
+| ⬜ 5 | `spec.md` Scope 1 and §The class still describe round 1's refusal only | `seal/specs/1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote/spec.md:161` | deferred the frame | the frame — the second fix of a fix in the run; read; paperwork correction, not counted in Needs a fix |
 | 🟢 | round 2's blocking finding is closed — a `--pyargs` package outside, a namespace package, a rootdir or argument through a symlink and a collector built at the root no longer record under another file's name, and a symlinked directory under the rootdir is recorded | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:157` | confirmed | executed: eight mutants of the refusal and the guard, each red against its case; 19 recorder cases pass at the target; finding 2 above is a further branch of the same class |
 | 🟢 | round 2's ⬜ 2 is closed — rule 3 says the refused files are measured as a runner's that did not load the recorder | `templates/config.md:334` | confirmed | read: rule 3 and the `compare_at_base` docstring |
 | 🟢 | round 2's ⬜ 3 is closed — a base that could not be checked out gets its own heading | `skills/verify/scripts/broad_gate.py:2951` | confirmed | read: `failure_lines` and `compare_at_base`, which gives the word to every file or none; the new case pins the three headings |
