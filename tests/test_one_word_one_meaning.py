@@ -734,7 +734,15 @@ def without_the_policy_span(where, text):
     span = PACT_RENAMED_SPANS["docs/the-pact.md"]
     head, marker, rest = text.partition(span)
     assert marker, f"{where}: the excluded span `{span}` is gone"
-    end = re.search(r"\n[ \t]*\n|\n {0,3}#{1,6}[ \t\n]|<" + "!--", rest)
+    end = re.search(
+        r"\n[ \t]*\n"  # a blank line
+        r"|\n {0,3}(?:#{1,6}[ \t\n]"  # an ATX heading
+        r"|(?:[-*+]|1[.)])[ \t]"  # a list item that can interrupt a paragraph
+        r"|>|`{3}|~{3}|<"  # a block quote, a fence, an HTML block
+        r"|(?:[-*_][ \t]*){3,}\n|=+[ \t]*\n|-+[ \t]*\n)"  # a break or an underline
+        r"|<" + "!--",
+        rest,
+    )
     assert end, (
         f"{where}: the excluded span is the last statement in the file, "
         "so this exclusion now removes everything after it"
