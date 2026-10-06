@@ -2732,9 +2732,18 @@ def _item(finding):
 STOP_ITEMS = 5
 
 
-def stop_unrecognised(findings, state, pressed, before_ask=None, switch_on_line=False):
-    """Stop on FINDINGS -- the unrecognised shapes, first one first -- in a
-    tree whose STATE, `(active, idle, reliable, entries)`, matters.
+def stop_unrecognised(findings, trees, pressed, before_ask=None, switch_on_line=False):
+    """Stop on FINDINGS -- the unrecognised shapes, first one first -- where
+    TREES, `[(top, (active, idle, reliable, entries))]`, are the trees on the
+    line that matter, each once, first one first.
+
+    The reason describes each of them, because approving the `ask` runs the
+    line in every one: a second tree's IDLE sessions or unusable detection
+    is shown beside the first tree's changes, not hidden behind them (round
+    2 of work item 1791270162, yellow 4). Where one is ACTIVE the stop is a
+    `deny` that nobody approves, and the reason describes the ACTIVE trees
+    alone. Where one tree is described, the reason calls it "this tree" and
+    reads as it did before.
 
     One reason text with two readers (`spec.md` In 3): a `deny` to the model
     where the person pressed `automation`, which rewrites in the plain
@@ -2753,42 +2762,59 @@ def stop_unrecognised(findings, state, pressed, before_ask=None, switch_on_line=
     the same reason: approving would run the switch past §A's rows, in a
     tree this reason does not describe (round 1 of work item 1791270162,
     red 1), and the reason says to run the switch on its own."""
-    active, idle, reliable, entries = state
-    if active:
-        why = (
-            tr(
-                "another Claude session is actively working here.\n",
-                "다른 Claude 세션이 이 트리에서 작업 중입니다.\n",
+    held = [tree for tree in trees if tree[1][0]]
+    described = held or trees
+    active = bool(held)
+    whys = []
+    for top, (busy, idle, reliable, entries) in described:
+        if busy:
+            why = (
+                tr(
+                    "another Claude session is actively working here.\n",
+                    "다른 Claude 세션이 이 트리에서 작업 중입니다.\n",
+                )
+                + fmt_sessions(busy)
+                + "\n"
             )
-            + fmt_sessions(active)
-            + "\n"
-        )
-    elif idle:
-        why = (
-            tr(
-                "other Claude sessions may be here, and none of them can be shown "
-                "to be working.\n",
-                "이 트리에 다른 Claude 세션이 있을 수 있고, 작업 중인지 확인되지 "
-                "않습니다.\n",
+        elif idle:
+            why = (
+                tr(
+                    "other Claude sessions may be here, and none of them can be "
+                    "shown to be working.\n",
+                    "이 트리에 다른 Claude 세션이 있을 수 있고, 작업 중인지 확인되지 "
+                    "않습니다.\n",
+                )
+                + fmt_sessions(idle)
+                + "\n"
             )
-            + fmt_sessions(idle)
-            + "\n"
+        elif not reliable:
+            why = tr(
+                "whether another session works here cannot be told in this "
+                "environment (process inspection is unavailable).\n",
+                "이 환경에서는 프로세스를 조회할 수 없어, 다른 세션이 이 트리에서 "
+                "작업 중인지 확인할 수 없습니다.\n",
+            )
+        else:
+            n = len(entries or ())
+            why = tr(
+                f"it has {n} uncommitted tracked changes, which a switch would "
+                f"carry onto the other branch.\n",
+                f"커밋되지 않은 추적 파일 변경이 {n}건 있고, 전환하면 이 변경이 "
+                f"다른 브랜치로 따라갑니다.\n",
+            )
+        whys.append((top, why))
+    if len(whys) == 1:
+        where = tr(
+            "in this tree a branch switch would matter: ",
+            "이 트리에서는 브랜치 전환이 문제가 됩니다. ",
         )
-    elif not reliable:
-        why = tr(
-            "whether another session works here cannot be told in this "
-            "environment (process inspection is unavailable).\n",
-            "이 환경에서는 프로세스를 조회할 수 없어, 다른 세션이 이 트리에서 "
-            "작업 중인지 확인할 수 없습니다.\n",
-        )
+        why = whys[0][1]
     else:
-        n = len(entries or ())
-        why = tr(
-            f"it has {n} uncommitted tracked changes, which a switch would carry "
-            f"onto the other branch.\n",
-            f"커밋되지 않은 추적 파일 변경이 {n}건 있고, 전환하면 이 변경이 다른 "
-            f"브랜치로 따라갑니다.\n",
+        where = tr(
+            "in each of these trees a branch switch would matter:\n",
+            "아래 트리마다 브랜치 전환이 문제가 됩니다.\n",
         )
+        why = "".join(f"  `{top}`: {why}" for top, why in whys)
     lines, listed = [], set()
     for finding in findings:
         line = _item(finding)
@@ -2829,11 +2855,11 @@ def stop_unrecognised(findings, state, pressed, before_ask=None, switch_on_line=
         decision,
         tr(
             "This command holds a git command this guard does not know to leave "
-            "the branch where it is, and in this tree a branch switch would "
-            "matter: ",
+            "the branch where it is, and ",
             "이 명령에는 브랜치를 그대로 둔다고 이 guard 가 확인하지 못한 git "
-            "명령이 있고, 이 트리에서는 브랜치 전환이 문제가 됩니다. ",
+            "명령이 있고, ",
         )
+        + where
         + why
         + "\n"
         + "\n".join(shown)
@@ -2992,27 +3018,28 @@ def main():
     # Every tree is read before the stop is taken, not only the first that
     # matters: approving an `ask` runs every shape on the line, so a shape in
     # a tree another session is ACTIVE in makes the stop a `deny`, as it
-    # would be alone (round 1 of work item 1791270162, red 1). The ACTIVE
-    # tree is the one the reason describes.
+    # would be alone (round 1 of work item 1791270162, red 1). Each tree that
+    # matters is kept once, and the reason describes every one of them, or
+    # the ACTIVE ones where there are any (round 2, yellow 4).
     seen = {}
     placed = set()
-    state = None
+    trees = []
     for _index, _found, tokens, where in unrecognised:
         at = _finding_tree(tokens, where, cwd)
         if at in placed:
             continue
         placed.add(at)
         at_top = repo_paths(at)[0]
-        if at_top:
+        if at_top and at_top not in [top for top, _state in trees]:
             matters, active, idle, reliable, entries = tree_matters(
                 at_top, session_id, at, seen
             )
-            if matters and (state is None or (active and not state[0])):
-                state = (active, idle, reliable, entries)
-    if state is not None:
+            if matters:
+                trees.append((at_top, (active, idle, reliable, entries)))
+    if trees:
         stop_unrecognised(
             [found[1] for found in unrecognised],
-            state,
+            trees,
             automation_pressed(repo_paths(cwd)[0], session_id, transcript_path),
             before_ask=(
                 (

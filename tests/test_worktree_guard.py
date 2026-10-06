@@ -1402,15 +1402,21 @@ def test_no_approval_runs_a_line_past_an_active_tree(
     unrecognised shape in a second tree another session is ACTIVE in, put
     §A row 1's deny one approval away: each of these was an `ask` about the
     session tree's changes at `4de95fa7`, and the base denied the switches.
-    The other direction holds too: with the second tree IDLE and no switch
-    on the line, the stop is still the person's `ask`."""
+    The other direction holds too: with the second tree IDLE or its
+    detection unusable and no switch on the line, the stop is still the
+    person's `ask`, and its reason names each tree that matters (round 2,
+    yellow 4)."""
     import shutil
 
     w = tmp_path / "W"
     shutil.copytree(repo, w)
     in_state(monkeypatch, repo, "dirty")
-    for held in (ACTIVE, IDLE):
-        sessions = (held, [], True) if held is ACTIVE else ([], held, True)
+    # None is W with detection unusable.
+    for held, sessions in (
+        (ACTIVE, (ACTIVE, [], True)),
+        (IDLE, ([], IDLE, True)),
+        (None, ([], [], False)),
+    ):
         monkeypatch.setattr(
             wg,
             "sessions_in_tree",
@@ -1432,9 +1438,19 @@ def test_no_approval_runs_a_line_past_an_active_tree(
             if held is ACTIVE:
                 assert decision == "deny", (command, decision, reason)
                 assert "another Claude session is actively working here" in reason
+                assert "uncommitted tracked changes" not in reason, reason
+                continue
+            # Round 2, yellow 4: the reason names both trees, the session's
+            # for its changes and W for its sessions or its detection. At
+            # `3c9a1161` it named the session tree's changes alone.
+            assert decision == "ask", (command, decision, reason)
+            assert "uncommitted tracked changes" in reason, reason
+            assert f"`{repo}`" in reason and f"`{w}`" in reason, reason
+            if held is IDLE:
+                assert "none of them can be shown to be working" in reason, reason
+                assert "pid 222" in reason, reason
             else:
-                assert decision == "ask", (command, decision, reason)
-                assert "uncommitted tracked changes" in reason, reason
+                assert "cannot be told in this environment" in reason, reason
 
 
 def test_the_tree_is_read_once_for_both_kinds(monkeypatch, capsys, repo):
@@ -1521,6 +1537,64 @@ def test_the_stop_says_one_text_with_two_endings_in_both_languages(
                 monkeypatch, capsys, repo, "git checkout feature/x", module=module
             )
             assert got == (decision, text + ENDINGS[lang, decision]), (lang, got)
+
+
+# Round 2 of work item 1791270162, yellow 4: where more than one tree on the
+# line matters and none is ACTIVE, the reason names each, first one first.
+TREES_EN = (
+    "This command holds a git command this guard does not know to leave the "
+    "branch where it is, and in each of these trees a branch switch would "
+    "matter:\n"
+    "  `{repo}`: it has 1 uncommitted tracked changes, which a switch would "
+    "carry onto the other branch.\n"
+    "  `{w}`: whether another session works here cannot be told in this "
+    "environment (process inspection is unavailable).\n"
+    "\n"
+)
+TREES_KO = (
+    "이 명령에는 브랜치를 그대로 둔다고 이 guard 가 확인하지 못한 git 명령이 "
+    "있고, 아래 트리마다 브랜치 전환이 문제가 됩니다.\n"
+    "  `{repo}`: 커밋되지 않은 추적 파일 변경이 1건 있고, 전환하면 이 변경이 "
+    "다른 브랜치로 따라갑니다.\n"
+    "  `{w}`: 이 환경에서는 프로세스를 조회할 수 없어, 다른 세션이 이 트리에서 "
+    "작업 중인지 확인할 수 없습니다.\n"
+    "\n"
+)
+
+
+def test_the_stop_names_each_tree_that_matters_in_both_languages(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 2 of work item 1791270162, yellow 4. Approving the `ask` runs
+    the line in every tree it names, so the person is shown each tree that
+    matters and why, not only the first: at `3c9a1161` this reason named the
+    session tree's changes alone."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    monkeypatch.setenv("SPECSEAL_LANG", "ko")
+    wko = load_hook_module("worktree-guard.py", "wg_ko_trees")
+    command = f"git checkout f.txt && git -C {w} checkout feature/x"
+    for lang, module, text in (("en", wg, TREES_EN), ("ko", wko, TREES_KO)):
+        in_state(monkeypatch, repo, "dirty", module=module)
+        monkeypatch.setattr(
+            module,
+            "sessions_in_tree",
+            lambda top, own="": (
+                ([], [], False) if top.endswith("W") else ([], [], True)
+            ),
+        )
+        decision, reason = verdict(monkeypatch, capsys, repo, command, module=module)
+        assert decision == "ask", (lang, decision, reason)
+        assert reason.startswith(text.format(repo=repo, w=w)), (lang, reason)
+    # Two directories of one tree are one tree, and its reason reads as it
+    # always did.
+    (repo / "sub").mkdir()
+    one_tree = "git checkout f.txt && cd sub && git checkout feature/x"
+    decision, reason = verdict(monkeypatch, capsys, repo, one_tree)
+    assert decision == "ask", (decision, reason)
+    assert reason.startswith(STOP_EN.split("\n")[0]), reason
 
 
 def test_a_broken_wider_reader_costs_a_stop_never_a_silence(monkeypatch, capsys, repo):

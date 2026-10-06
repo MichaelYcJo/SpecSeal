@@ -92,7 +92,10 @@ one first, and each tree is looked up once, so a shape in a clean tree takes
 no stop away from one behind it in a dirty tree. Every tree on the line is
 read before the stop is taken, so a shape in a tree another session is
 ACTIVE in makes it a `deny` even where an earlier tree only matters for its
-changes. A git the commit gate's wider reading reads as a segment of its
+changes. The stop's reason names each tree that matters and why, its
+changes, its IDLE sessions or its detection unusable, because approving the
+`ask` runs the line in every one of them; where one is ACTIVE, the reason
+describes the ACTIVE trees alone. A git the commit gate's wider reading reads as a segment of its
 own (behind a redirection or a zsh precommand word) is judged in the tree
 its own `-C` names; a string handed to a shell is not read for one. A body
 and a command that would not split belong to no one segment and are judged
@@ -107,7 +110,7 @@ stops ask no person anything; without it each is one `ask`. Over the
 before 2026-10-03, the shapes stop 315 tree-blind, 55 of them pairs the
 guard before #826 did not stop at its most cautious, and they let through
 none it stopped (work item 1791270162, `phases/phase-3.md`).
-Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git
+Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git, tests/test_worktree_guard.py::test_the_stop_names_each_tree_that_matters_in_both_languages
 
 ### B. Worktree creation (`git worktree add`, or Agent/Task `isolation: "worktree"`)
 
