@@ -21,10 +21,12 @@ phase 5 the recorder that carries each node's own path on its report, after
 gate naming the causes of a missing record it then knew of and saying how
 many tests the record left out; phase 7 these records. Round 4's fixes left
 the session's own failed collection out and counted, gave a crashed xdist
-worker's test the path its earlier report carried, gave `new?` naming the
-count in place of `new` wherever the base's record left anything out, and
-named a third cause of a missing record, a row that started no pytest
-(`rounds/round-4.md`).
+worker's test the path its worker's last report carried, gave `new?`
+naming the count in place of `new` wherever a base session that ended
+non-zero left anything out, and named a third cause of a missing record, a
+row that started no pytest (`rounds/round-4.md`, narrowed by
+`rounds/round-5.md`: the crash is placed by its worker, never by a node id
+two tests can share, and a session that exited 0 demotes nothing).
 
 Next is the round that reads round 4's fixes, then `broad-gate --preflight`
 and the sealer. `questions.md`
