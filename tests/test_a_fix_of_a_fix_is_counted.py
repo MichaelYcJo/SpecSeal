@@ -468,12 +468,48 @@ def stopped(repo, touched=False):
     commit(repo, "close round 3")
 
 
+@pytest.fixture(scope="session")
+def _stopped_runs(tmp_path_factory):
+    """Each stopped run built once, through `new` and `close` exactly as
+    `stopped` drives them, and kept as a template.
+
+    Five cases start from the same stop and differ only in what comes after
+    it. Building the stop is six generator runs and a dozen commits, which
+    measured 15-21 s a case on the Windows leg of run 37429940700 (#841); the
+    claim of each case is about the record after the stop, so the copy keeps
+    it and only the repetition leaves."""
+    built = {}
+
+    def template(touched):
+        if touched not in built:
+            d = tmp_path_factory.mktemp("fix-of-a-fix-stopped") / "repo"
+            _build(d)
+            stopped(d, touched)
+            built[touched] = d
+        return built[touched]
+
+    return template
+
+
+@pytest.fixture
+def a_stopped_run(tmp_path, _stopped_runs):
+    """A copy of the stopped run, `touched` or not, in this case's own
+    directory."""
+
+    def copy(touched=False):
+        d = tmp_path / "repo"
+        shutil.copytree(_stopped_runs(touched), d)
+        return d
+
+    return copy
+
+
 FRAMED = "Framed 2026-10-06 by framer, before the build.\n"
 REFRAMED = "Reframed 2026-10-07 by framer, after round 3.\n"
 
 
-def test_a_record_after_an_unreframed_second_is_refused(repo):
-    stopped(repo)
+def test_a_record_after_an_unreframed_second_is_refused(a_stopped_run):
+    repo = a_stopped_run()
     write(repo, f"{ITEM}/spec.md", "# a spec\n\n" + FRAMED)
     commit(repo, "the frame")
     code, out, text = generate(repo, n=4, report_text=round_report(finding("`u`")))
@@ -487,8 +523,8 @@ def test_a_record_after_an_unreframed_second_is_refused(repo):
         assert part in out, (part, out)
 
 
-def test_a_reframe_naming_another_round_does_not_permit_the_record(repo):
-    stopped(repo)
+def test_a_reframe_naming_another_round_does_not_permit_the_record(a_stopped_run):
+    repo = a_stopped_run()
     write(
         repo,
         f"{ITEM}/spec.md",
@@ -522,13 +558,13 @@ def test_an_orphan_second_is_no_stop_to_the_generator(repo):
     assert text is not None, out
 
 
-def test_the_depth_restarts_at_a_stop(repo):
+def test_the_depth_restarts_at_a_stop(a_stopped_run):
     """Round 1's ❓, decided by the orchestrator: a redesign is a new run, so
     a unit the stopped run's fixes added (`w`, round 1) does not make a unit
     the redesign's fix adds depth 2. Round 4's finding sits in `w`, and its
     fix adds `helper` to the same file; the depth walk reads the current run
     only, so `close` writes the record."""
-    stopped(repo)
+    repo = a_stopped_run()
     write(repo, f"{ITEM}/spec.md", "# a spec\n\n" + FRAMED + REFRAMED)
     commit(repo, "the frame, redrawn")
     code, out, _text, d = a_round(repo, 4, finding("`mod.py#w`"))
@@ -543,7 +579,9 @@ def test_the_depth_restarts_at_a_stop(repo):
 
 
 @pytest.mark.parametrize("touched", [False, True])
-def test_a_reframed_record_is_written_and_starts_the_count_at_no(repo, touched):
+def test_a_reframed_record_is_written_and_starts_the_count_at_no(
+    a_stopped_run, touched
+):
     """S7's other arm: with the line, the record is written, and a finding in
     `u` — the unit round 2's fixes wrote — reads `no`, because round 3 wrote
     no fixes for it to land in. `touched` is the same with a code commit in
@@ -553,7 +591,9 @@ def test_a_reframed_record_is_written_and_starts_the_count_at_no(repo, touched):
     The finding is located by its path, `mod.py#u`, which is a landing
     `landings` would accept: located by a bare `u` since the reframe after
     round 3, it landed nowhere anyway and pinned no guard (round 4's 🟡 3)."""
-    stopped(repo, touched)
+    repo = a_stopped_run(touched)
+    # The copy is the run asked for: only the touched stop changed `u` again.
+    assert ("return 1000" in (repo / "mod.py").read_text(encoding="utf-8")) is touched
     write(repo, f"{ITEM}/spec.md", "# a spec\n\n" + FRAMED + REFRAMED)
     commit(repo, "the frame, redrawn")
     code, out, text = generate(
