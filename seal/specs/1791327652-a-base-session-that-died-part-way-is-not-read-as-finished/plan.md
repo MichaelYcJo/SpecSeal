@@ -28,7 +28,7 @@ Apply round 6's paste-ready fixes for 🟡 1 and ⬜ 2, plant the cases that sho
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | 🟡 1 and ⬜ 2 fixed, rule 3's sentence and its pin, S1–S6 cases, the 1791270161 overview row, the changelog fragment and ledger rows | each new case red at 6de64c19 and green after; `bin/mutation-check` red on each new unit; the gate and recorder modules; `bin/evidence-check --strict .`; `survivor-check --range origin/release/v0.20.0...HEAD` | |
+| 1 | 🟡 1 and ⬜ 2 fixed, rule 3's sentence and its pin, S1–S6 cases, the 1791270161 overview row, the changelog fragment and ledger rows | each new case red at 6de64c19 and green after; `bin/mutation-check` red on each new unit; the gate and recorder modules; `bin/evidence-check --strict .`; `survivor-check --range origin/release/v0.20.0...HEAD` | 57eb5307 |
 
 ## Operational impact
 
