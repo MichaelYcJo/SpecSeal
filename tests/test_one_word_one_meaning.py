@@ -726,11 +726,12 @@ def without_the_policy_span(where, text):
     """TEXT, flattened, with the policy's statement about the old header
     taken out: from its fold marker to the next heading of any level or the
     next fold marker, whichever comes first, so the exemption ends where the
-    statement does (round 1 of #822, white 2; round 2, white 6)."""
+    statement does (round 1 of #822, white 2; round 2, white 6). A setext
+    heading's underline ends it too (round 3, white 13; #830)."""
     span = PACT_RENAMED_SPANS["docs/the-pact.md"]
     head, marker, rest = text.partition(span)
     assert marker, f"{where}: the excluded span `{span}` is gone"
-    heading = re.search(r" #{1,6} ", rest)
+    heading = re.search(r" (?:#{1,6}|={2,}|-{2,}) ", rest)
     stops = [
         i
         for i in (rest.find("<" + "!--"), heading.start() if heading else -1)
@@ -802,9 +803,10 @@ RENAMED_COMPAT = (
 )
 # The compatibility cases need the old word only as the header cell, which is
 # capitalised and singular; their prose is still swept for every other
-# spelling (round 2 of #822, white 7). The sweep's own module stays exempt
-# whole: its pattern, a retired identifier and a work item's id name the word.
-PACT_HEADER_WORD = re.compile(r"signator(?:y|ies)|Signatories")
+# spelling, upper case included (round 2 of #822, white 7; round 3, white 12;
+# #830). The sweep's own module stays exempt whole: its pattern, a retired
+# identifier and a work item's id name the word.
+PACT_HEADER_WORD = re.compile(r"(?!Signatory\b)(?i:signator(?:y|ies))")
 SWEEP_MODULE = "tests/test_one_word_one_meaning.py"
 
 

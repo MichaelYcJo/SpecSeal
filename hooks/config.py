@@ -1332,6 +1332,9 @@ def read_table(text, header):
     The refusal is not added where the walk's stray-row refusal already names
     the old header, compared by the cells the refusal quotes, so a header
     written without its spaces is named once too (round 2 of #822, white 5).
+    An old header with no blank line above it is one of the HEADER table's
+    rows as GFM renders it; that row is not read, so it is named as the old
+    header and not also as an entry (#830).
     Where neither is there, the refusal names HEADER and the
     header read is None, so a caller tells the old header from the new one
     without reading the text again (#822)."""
@@ -1348,6 +1351,7 @@ def read_table(text, header):
             for r in refusals
             for quoted in re.findall(r"`([^`]*)`", r)
         ):
+            rows = [(line, cells) for line, cells in rows if cells != old]
             refusals = [
                 *refusals,
                 f"also holds a {named} header, the word before {RENAMED_IN}, "

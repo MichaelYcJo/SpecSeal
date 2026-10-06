@@ -1219,8 +1219,10 @@ def test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one():
     left unread: below it under a heading, above it under a heading, or
     above it with only a blank line between. Its rows hold signers, and a
     signer nobody reads at exit 0 is what the table walker exists to end.
-    Directly below with no heading, the walk's stray-row refusal already
-    names it, and it is not named twice."""
+    Directly below after a blank line, the walk's stray-row refusal already
+    names it; with no blank line GFM reads it as one of the `Signer` rows,
+    and it is named as the old header rather than as an entry. It is never
+    named twice."""
     signer = "# Pact\n\n| Signer |\n|---|\n| https://example.com/org/orders-web |\n"
     old = "| Signatory |\n|---|\n| https://example.com/org/billing |\n"
     for text in (
@@ -1243,6 +1245,17 @@ def test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one():
         signer + "\n|Signatory|\n|---|\n|https://example.com/org/billing|\n"
     )
     assert len(refusals) == 1 and "ends above `|Signatory|`" in refusals[0], refusals
+    # With no blank line above it, GFM reads the old header as a row of the
+    # `Signer` table; it is named once, as the old header, and not also as an
+    # entry that is not a remote URL (round 3 of #822, white 11; #830).
+    for under in (
+        "|Signatory|\n|---|\n|https://example.com/org/billing|\n",
+        "| Signatory |\n",
+    ):
+        signers, refusals, _ = config.pact_signers(signer + under)
+        assert [s[2] for s in signers] == ["orders-web"], signers
+        assert sum("Signatory" in r for r in refusals) == 1, refusals
+        assert BOTH in refusals, refusals
 
 
 def test_s4_a_broken_signer_table_does_not_fall_back_to_the_old_one():
