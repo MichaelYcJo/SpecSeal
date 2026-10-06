@@ -513,7 +513,10 @@ about to run it a second time after the change.
   file the branch added reads where the base's row already fails; or a
   session of the base that ended non-zero left tests or collections out of
   every list, a test whose xdist worker died in its setup among them, so
-  the record cannot say the file passed. It is a question about the
+  the record cannot say the file passed. A session of the base that wrote
+  no `end` line to its record reads the same way: it stopped part-way,
+  because its process died, as plain pytest does on a test that calls
+  `os._exit`, or its recorder stopped writing. It is a question about the
   file, not a finding either way; open the kept `suite-at-base.txt` and the
   `records/` beside it, and run the file at the base by hand before calling
   it either of the two above.

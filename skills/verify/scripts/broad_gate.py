@@ -1879,7 +1879,9 @@ class RunRecord:
     no line, for want of a file of their own (#825's reframe after round 3);
     `unplaced_red` sums only those of sessions whose `end` line shows a
     non-zero exit, because a session that exited 0 failed nothing, counted
-    or not (#825 round 5).
+    or not (#825 round 5). `unended` counts the sessions whose record holds
+    no `end` line: each stopped part-way, because its process died or its
+    recorder stopped writing (#849).
 
     Named apart from `Record`, which is a round record's home (#666)."""
 
@@ -1888,13 +1890,14 @@ class RunRecord:
         "failing",
         "sessions",
         "skipped",
+        "unended",
         "unplaced",
         "unplaced_red",
     )
 
     def __init__(self):
         self.sessions, self.skipped, self.unplaced = 0, 0, 0
-        self.unplaced_red = 0
+        self.unplaced_red, self.unended = 0, 0
         self.failing, self.collected = {}, set()
 
 
@@ -1936,7 +1939,8 @@ def read_record(directory, key, worktree):
     twice the first runner's files come first. A directory that cannot be
     listed, or a file that cannot be read, holds no record. An `end` line's
     `unplaced`, where it is an integer, is added to the record's, and to its
-    `unplaced_red` too where that line's `exitstatus` is not 0."""
+    `unplaced_red` too where that line's `exitstatus` is not 0. A keyed file
+    with no `end` line adds one to `unended`."""
     record = RunRecord()
     try:
         names = os.listdir(directory)
@@ -1969,6 +1973,10 @@ def read_record(directory, key, worktree):
         if not parsed or parsed[0].get("key") != key:
             continue
         record.sessions += 1
+        # A session with no `end` line stopped part-way: its process died,
+        # or its recorder stopped writing (#849, #825 round 6).
+        if not any(value.get("kind") == "end" for value in parsed[1:]):
+            record.unended += 1
         for value in parsed[1:]:
             unplaced = value.get("unplaced")
             if value.get("kind") == "end" and type(unplaced) is int:
@@ -2090,6 +2098,21 @@ UNPLACED_AT_BASE = (
 )
 
 
+# Formatted with how many of the base's sessions wrote no `end` line, where a
+# file would read `new`: such a session stopped part-way. Its process died, as
+# plain pytest does on a test that calls `os._exit` or segfaults, or its
+# recorder stopped writing, so what it held passing may not have finished
+# (#849, #825 round 6's 🟡 1: round 4's 🟡 2 without xdist). Checked after
+# `UNPLACED_AT_BASE`, whose count is the one a red session can give.
+UNENDED_AT_BASE = (
+    f"{NOT_MEASURED}: the row ran once at the base, and {{count}} of its pytest "
+    "sessions wrote no end to their record, because the process died or the "
+    "recorder stopped writing part-way through, so this file's tests there may "
+    "not have finished and whether the base fails it was not measured (kept "
+    "as suite-at-base.txt, with records/ beside it)"
+)
+
+
 # Where the scratch worktree at the base could not be added.
 NOT_CHECKED_OUT = f"{NEW}? the base could not be checked out for comparison"
 
@@ -2105,6 +2128,8 @@ def base_word(record, code, path):
     if path in record.collected or code == 0:
         if record.unplaced_red:
             return UNPLACED_AT_BASE.format(count=record.unplaced_red)
+        if record.unended:
+            return UNENDED_AT_BASE.format(count=record.unended)
         return NEW
     return NOT_REACHED.format(code=code)
 
@@ -2139,8 +2164,11 @@ def compare_at_base(root, base, command, files, keep):
     of every list: one of them may be the file's failure — an xdist worker
     that died in a test's setup, before any report of it reached the
     controller, is one — so the record cannot say the file passed. A session
-    that exited 0 failed nothing, so what it left out cannot be. `failing on
-    base too` is not affected.
+    that exited 0 failed nothing, so what it left out cannot be. Where no
+    such count is given, either `new` reads `UNENDED_AT_BASE` instead where a
+    session of the base wrote no `end` line: it stopped part-way, as plain
+    pytest does on a test that calls `os._exit` (#849). `failing on base
+    too` is not affected.
 
     The process that collected a test is the process that wrote its line,
     so there is no `whose` to decide: a test that runs pytest itself starts
