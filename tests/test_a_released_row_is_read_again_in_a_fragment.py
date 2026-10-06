@@ -2843,12 +2843,19 @@ def test_one_unfrozen_run_names_a_citing_row_it_left_whole_once(repo):
         "A citation whose released line changed under it.",
         "Without the freeze it is not among them: one run over every ledger "
         "re-stamps a released row and every citation of it that it moves, "
-        "because it walks a cited file before every file citing it (#772).",
-        "A release file citing a row of itself, which a second fold writes, is "
-        "walked again until it settles.",
+        "because it hashes each coordinate naming a ledger line, a citation or "
+        "any other, against the text the run will write there (#772, #824).",
+        "A release file citing a row of itself, which a second fold writes, "
+        "settles in that same run.",
         "A run narrowed with `--ledger` that moves a line cited from a file it "
-        "left out names the citing row on a `LEFT` line and exits 1.",
+        "left out names the citing row on a `LEFT` line and exits 1, and so does "
+        "one moving a line that any other coordinate of a row in such a file "
+        "names.",
         "Each repair is an edit or a correction, which a person makes.",
+        "Nor is a coordinate naming text that every re-stamp of it moves again, "
+        "its own row's line or a row that names it back: the run leaves it at "
+        "the hash its row recorded, says on a `LEFT` line that it does not "
+        "settle, and exits 1.",
     ],
     ids=[
         "the five",
@@ -2861,6 +2868,7 @@ def test_one_unfrozen_run_names_a_citing_row_it_left_whole_once(repo):
         "a file citing itself",
         "a narrowed unfrozen run",
         "the lead: a person repairs each",
+        "not among them: a coordinate that does not settle",
     ],
 )
 def test_the_home_names_each_thing_no_re_read_clears(sentence):
@@ -3619,9 +3627,10 @@ def test_a_family_no_remedy_clears_is_named_without_one(repo):
         ),
         (
             "docs/the-evidence-ledger.md",
-            "A `left` line names why: a path outside the repository or any known "
-            "checkout, a file the run could not read, no one place holding the "
-            "unit, or a quoted statement its file no longer has.",
+            "A `left` line names why in the sentence `--strict` prints for that "
+            "coordinate (#824): a path outside the repository or any known "
+            "checkout, a file not found, no one place holding the unit, or a "
+            "quoted statement its file no longer has.",
         ),
         ("docs/the-evidence-ledger.md", "Where neither is found it names no remedy."),
         (

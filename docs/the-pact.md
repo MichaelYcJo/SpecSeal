@@ -156,9 +156,10 @@ re-read reaches (#746). **A move `--into` records starts at the hash the
 coordinate's newest reading holds**, whether it writes the row's `Re-read ·`
 row or refuses it. That can be a later `Re-read ·` row's hash rather than the
 released row's, so code that went back to the released hash records the move
-back. A re-stamp in place records each row's move from that row's own hash,
-one move per coordinate however many walks re-stamp it, and BROKEN after it
-at the hash it holds where a later walk leaves it (#791).
+back. A re-stamp in place records each row's move from that row's own hash
+to the hash the run writes, one move per coordinate, and BROKEN at the row's
+own hash where the run leaves it: nothing is written for a coordinate it
+leaves, so no hash between the two is recorded (#791, #824).
 A move whose two hashes agree is no move and is not recorded (#774). `Pact
 notify` decides what is recorded: `when the pact is touched` records rows
 citing a clause of a declared pact, `always` also records every other row
