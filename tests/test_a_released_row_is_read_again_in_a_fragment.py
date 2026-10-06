@@ -3646,8 +3646,8 @@ def test_a_family_no_remedy_clears_is_named_without_one(repo):
         ),
         (
             "skills/evidence-check/scripts/evidence_check.py",
-            "One whose own row a round rewrites again, on a cycle of rows each of "
-            "which a re-stamp rewrites, is left from the second round of a pass;",
+            "One whose own row a round rewrites again, on a cycle of coordinates "
+            "each with a hash to write, is left from the second round of a pass;",
         ),
         (
             "skills/evidence-check/scripts/evidence_check.py",
@@ -4453,3 +4453,30 @@ def test_reverify_names_a_citation_in_the_family_readers_words(repo, shape):
         repo,
     )
     assert f'"R1 · handler adds one"  {detail} — left' in fix.stdout, fix.stdout
+
+
+def test_a_coordinate_whose_statement_is_gone_breaks_a_cycle(repo):
+    """Round 1, yellow 2's fence. B carries `handler` and a claim on its own
+    section whose statement is gone, so it is left and rewrites nothing; A
+    names B's line. B's row moves once, by `handler` and its date, so A moves
+    on the second round and its own row is rewritten then. B's claim names
+    the section A sits in, but it has no hash to write, so the naming is no
+    cycle: A is re-stamped against B's new line and nothing is named `does not
+    settle`. Red with a member that has no hash to write counted on the
+    cycle, which left A at the stale hash."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    # The quoted statement holds a pipe, which the row writes escaped, so the
+    # row's own text never holds the statement and nothing in the section does.
+    b = (
+        f"| B · names its section | `src/service.py#handler@{h}`, "
+        f'`{R_FILE}#"{SECTION}">"gone \\| here"@0000beef` '
+        "| read | 2026-01-01 | |"
+    )
+    a_names = f'{R_FILE}#"{SECTION}">"\\| B · names its"'
+    a = f"| A · names B | `{a_names}@{line_hash(b)}` | read | 2026-01-01 | |"
+    released(repo, [a, b])
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert "does not settle" not in fix.stdout, fix.stdout
+    lines = (repo / R_FILE).read_text(encoding="utf-8").splitlines()
+    assert f"`{a_names}@{line_hash(lines[5])}`" in lines[4], (lines, fix.stdout)
