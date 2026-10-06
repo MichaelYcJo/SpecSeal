@@ -1135,8 +1135,8 @@ RESTORES = (
 def _placed(verb):
     """`git <verb>` with every redirection `_redirections` gives, at every
     position, glued to the word before it and spaced, its target glued and
-    spaced -- as `(command, at, glued, operator)`, where `at` is the index of
-    the word of `git <verb>` the redirection stands before.
+    spaced -- as `(command, at, glued, operator, spaced_target)`, where `at`
+    is the index of the word of `git <verb>` the redirection stands before.
 
     A number or a `{fd}` is a descriptor only as a word of its own, so those
     are spaced: glued, bash hands it to git inside the word before
@@ -1155,13 +1155,81 @@ def _placed(verb):
                     command = (command + " " + tail).rstrip()
                     if target == "EOF":
                         command += "\nEOF"
-                    yield command, at, glued, op
+                    yield command, at, glued, op, spaced_target
 
 
 def _shapes(verb):
     """The commands `_placed` builds, without where each redirection stands."""
-    for command, _at, _glued, _op in _placed(verb):
+    for command, *_where in _placed(verb):
         yield command
+
+
+def _after_the_subcommand(at, glued):
+    """Whether a redirection placed at word AT stands after `git <sub>`: a
+    redirection glued to the subcommand is inside its word."""
+    return at > 2 or (at == 2 and not glued)
+
+
+def _placement(shape):
+    """What `_sample` covers in one `_placed` shape: the operator, the word it
+    stands before, and whether it and its target are glued."""
+    _command, at, glued, op, spaced_target = shape
+    return op, at, glued, spaced_target
+
+
+def _sample(verbs):
+    """A covering sample of `_placed` over VERBS, as `(verb, *shape)` (#841).
+
+    The whole product -- about 500 shapes a verb, sixty verbs -- took 165 s in
+    one case on macOS and is the largest single cost the Windows leg carries.
+    What the cases hold is a property of each shape, so each placement need
+    only be read once, and each verb read where a placement says something
+    about it. The sample keeps:
+
+    - every `(operator, position, glued, target spaced)` placement the product
+      holds, at least once, its verb taken in rotation so no one verb carries
+      the axis;
+    - for every verb, its first shape with a redirection after the subcommand
+      holding no `&` or `|`, and its first one with an operator that does --
+      the two halves of the twins case.
+
+    Nothing in it is random: the same VERBS give the same sample on every run
+    and every platform, so a red reproduces by name.
+    `test_the_sample_covers_every_placement_and_every_verb` holds all three."""
+    verbs = list(dict.fromkeys(verbs))
+    shapes = {verb: list(_placed(verb)) for verb in verbs}
+    first = {
+        verb: {
+            key: i
+            for i, key in reversed(list(enumerate(map(_placement, shapes[verb]))))
+        }
+        for verb in verbs
+    }
+    chosen = set()
+    for verb in verbs:
+        for cut in (False, True):
+            chosen.add(
+                next(
+                    (verb, i)
+                    for i, (_c, at, glued, op, _s) in enumerate(shapes[verb])
+                    if any(c in op for c in "&|") == cut
+                    and (cut or _after_the_subcommand(at, glued))
+                )
+            )
+    keys = sorted({key for verb in verbs for key in first[verb]})
+    for n, key in enumerate(keys):
+        turn = n % len(verbs)
+        holder = next(v for v in verbs[turn:] + verbs[:turn] if key in first[v])
+        chosen.add((holder, first[holder][key]))
+    return [
+        (verb, *shapes[verb][i]) for verb, i in sorted(chosen, key=_in_order(verbs))
+    ]
+
+
+def _in_order(verbs):
+    """Sort `(verb, index)` pairs by the verb's place in VERBS, then index."""
+    place = {verb: n for n, verb in enumerate(verbs)}
+    return lambda pair: (place[pair[0]], pair[1])
 
 
 def test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands(
@@ -1721,11 +1789,13 @@ def test_no_constructed_switch_is_silent(a_branch_and_a_file):
     `|`-led operator cut the segment, by candidate C. Red at `94d7b2e0`, where
     phase 1 counted 7,025 silent shapes of 20,729. Since round 1's fix pass
     the verbs carry the `--` axis too (`_dashed`), and the shapes with a bare
-    `--` after a `checkout`'s name were silent at `a7ab2a4e`."""
+    `--` after a `checkout`'s name were silent at `a7ab2a4e`.
+
+    It walks `_sample` rather than the whole product (#841): every placement
+    once and every verb on both sides of a cut."""
     silent = [
         command
-        for verb in DASHED_SWITCHES
-        for command in _shapes(verb)
+        for _verb, command, *_where in _sample(DASHED_SWITCHES)
         if "switch" not in _kinds_read(command, a_branch_and_a_file)
     ]
     assert not silent, (len(silent), silent[:10])
@@ -1741,19 +1811,47 @@ def test_no_twin_is_asked_unless_an_operator_cuts_the_segment(a_branch_and_a_fil
     Where an `&`- or `|`-led operator cuts the segment, the frozen loop reads
     the words before the cut alone, so `git checkout feature/x <&1 --
     README.md` is judged a switch to `feature/x`, as at `94d7b2e0`
-    (§*Known limits*); only C's half is held to the rule there."""
+    (§*Known limits*); only C's half is held to the rule there.
+
+    It walks `_sample` rather than the whole product (#841), which took 165 s
+    on macOS: every placement once, and every verb on both sides of a cut."""
     wrong = []
-    for verb in (*TWINS, *DASHED_TWINS):
+    for verb, command, at, glued, op, _spaced in _sample((*TWINS, *DASHED_TWINS)):
         own = {wg.switch_kind(wg.parse_git(["git", *verb.split()]))} - {None}
-        for command, at, glued, op in _placed(verb):
-            judged, wider = _read_apart(command, a_branch_and_a_file)
-            after_the_subcommand = at > 2 or (at == 2 and not glued)
-            if after_the_subcommand and not any(c in op for c in "&|"):
-                if judged | wider:
-                    wrong.append((command, sorted(judged | wider)))
-            elif not wider <= own:
-                wrong.append((command, sorted(wider), sorted(own)))
+        judged, wider = _read_apart(command, a_branch_and_a_file)
+        if _after_the_subcommand(at, glued) and not any(c in op for c in "&|"):
+            if judged | wider:
+                wrong.append((command, sorted(judged | wider)))
+        elif not wider <= own:
+            wrong.append((command, sorted(wider), sorted(own)))
     assert not wrong, (len(wrong), wrong[:10])
+
+
+@pytest.mark.parametrize(
+    "verbs",
+    [(*TWINS, *DASHED_TWINS), DASHED_SWITCHES],
+    ids=["twins", "switches"],
+)
+def test_the_sample_covers_every_placement_and_every_verb(verbs):
+    """S5 of #841. The two cases above read `_sample`, not the product, and
+    the sample is a cover rather than a draw: every placement of the product,
+    every verb on both sides of a cut, the same on every call, and much
+    smaller than what it stands for."""
+    sample = _sample(verbs)
+    assert sample == _sample(verbs)
+    product = [(verb, shape) for verb in verbs for shape in _placed(verb)]
+    missing = {_placement(s) for _v, s in product} - {_placement(s[1:]) for s in sample}
+    assert not missing, sorted(missing)[:10]
+    for verb in verbs:
+        mine = [(at, glued, op) for v, _c, at, glued, op, _s in sample if v == verb]
+        cut = [op for _at, _glued, op in mine if any(c in op for c in "&|")]
+        quiet = [
+            op
+            for at, glued, op in mine
+            if _after_the_subcommand(at, glued) and not any(c in op for c in "&|")
+        ]
+        assert cut and quiet, (verb, mine)
+    assert len(sample) * 5 < len(product), (len(sample), len(product))
 
 
 # One shape per position of Axis 3, through `main()`, over the dirty `w`.
