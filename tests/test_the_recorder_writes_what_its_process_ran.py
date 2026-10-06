@@ -317,31 +317,18 @@ def test_a_record_it_cannot_write_leaves_pytest_its_own_exit_under_w_error(tmp_p
 
 
 def test_a_pyargs_module_name_is_not_read_as_a_path_outside_the_rootdir(tmp_path):
-    """#825 round 1. The recorder refuses a session handed a path outside its
-    rootdir, and an argument that is no path here -- a `--pyargs` module
-    name -- is passed over rather than read as one, so such a run still
-    records its tests under the module that collected them."""
+    """#825 rounds 1 and 2. A `--pyargs` module name is located where
+    pytest's `search_pypath` finds it, here `tests/test_mixed.py` under the
+    rootdir, so the run records its tests under the module that collected
+    them. And an argument that names neither a path nor a module pytest can
+    find is passed over, never read as a path outside the rootdir, even
+    where it is spelled outside it (`../no_such_thing`): the session records
+    its session line, and pytest itself stops on the argument with a usage
+    error, exit 4 (round 2's ⬜ 4)."""
     root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
     env = recording_env(records)
     env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(root / "tests")])
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-p",
-            "no:cacheprovider",
-            "-q",
-            "--pyargs",
-            "test_mixed",
-        ],
-        cwd=str(root),
-        env=env,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=240,
-    )
+    result = pytest_in(root, env, "--pyargs", "test_mixed")
     assert result.returncode == 1, result.stdout + result.stderr
     _, lines = the_one_record(records)
     failed = [
@@ -350,6 +337,15 @@ def test_a_pyargs_module_name_is_not_read_as_a_path_outside_the_rootdir(tmp_path
         if line["kind"] == "test" and line["outcome"] == "failed"
     ]
     assert failed == ["test_mixed.py"], lines
+
+    nowhere = tmp_path / "nowhere"
+    nowhere.mkdir()
+    result = pytest_in(
+        root, recording_env(nowhere), "tests", os.path.join(os.pardir, "no_such_thing")
+    )
+    assert result.returncode == 4, result.stdout + result.stderr
+    _, lines = the_one_record(nowhere)
+    assert lines[0]["kind"] == "session", lines
 
 
 def pytest_in(root, env, *args):
