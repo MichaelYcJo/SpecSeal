@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #845 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `8fa8b07051e8c45c0b82191dad31a5262106cdb9..8fa8b07051e8c45c0b82191dad31a5262106cdb9`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | yes — 🟡 1 (the refresh recipe's upload step needs `if: always() && matrix.store != ''`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,7 +25,7 @@ Round 3, the verifying round for round 2's fixes at `458ae587..ae88b626`, which 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The refresh recipe's upload step carries no `if: always() && matrix.store != ''`: the shard cases fail on the refresh branch by construction, so the step is skipped and no file is uploaded, and with `always()` alone ubuntu uploads the stale committed file first | `CONTRIBUTING.md:194` | open | executed: the recipe applied in a clone, two shard cases red; a probe showed `pytest-split` writes the file on a red session; the name conflict is read from the action's documented behaviour |
+| 🟡 1 | The refresh recipe's upload step carries no `if: always() && matrix.store != ''`: the shard cases fail on the refresh branch by construction, so the step is skipped and no file is uploaded, and with `always()` alone ubuntu uploads the stale committed file first | `CONTRIBUTING.md:194` | deferred #847 | #847 — the run is capped; fixed on this branch after the rounds, before the seal; executed: the recipe applied in a clone, two shard cases red; a probe showed `pytest-split` writes the file on a red session; the name conflict is read from the action's documented behaviour |
 | 🟢 | round 2's finding 1 is closed at both instances — no commit named, and the unsharded entry's timeout of 55 | `CONTRIBUTING.md:191` | confirmed | read; 1.5 times 33 m 36 s is 50.4, rounded up to 55; the class is open as 🟡 1 |
 | 🟢 | round 2's finding 2 is closed with its class — the variable's empty, decimal, zero, negative, word and nan values | `tests/conftest.py#ceiling_from` | confirmed | executed: fresh imports with eight values beside the cases' own, a pytest run under `abc`, and the empty-value case red with the old line put back |
 | 🟢 | round 2's ⬜ 3 is closed — the three templates say per worker | `tests/test_a_fix_of_a_fix_is_counted.py#_stopped_untouched` | confirmed | read; every session or module fixture the branch adds was checked |
