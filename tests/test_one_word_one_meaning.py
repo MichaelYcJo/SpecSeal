@@ -723,25 +723,23 @@ FOLD_MARKER = re.compile(r"<!-- specs/[^ ]+ -->")
 
 
 def without_the_policy_span(where, text):
-    """TEXT, flattened, with the policy's statement about the old header
-    taken out: from its fold marker to the next heading of any level or the
-    next fold marker, whichever comes first, so the exemption ends where the
-    statement does (round 1 of #822, white 2; round 2, white 6). A setext
-    heading's underline ends it too (round 3, white 13; #830)."""
+    """TEXT, as written, flattened with the policy's statement about the old
+    header taken out: from its fold marker to the end of its paragraph, a
+    heading at the start of a line, or the next fold marker, whichever comes
+    first. The statement is one paragraph, so the exemption ends where the
+    statement does, whatever follows it -- a setext heading's own text and an
+    underline of one character included (round 1 of #822, white 2; round 2,
+    white 6; round 3, white 13; #830). The cut is made before flattening,
+    which is what would erase the blank line."""
     span = PACT_RENAMED_SPANS["docs/the-pact.md"]
     head, marker, rest = text.partition(span)
     assert marker, f"{where}: the excluded span `{span}` is gone"
-    heading = re.search(r" (?:#{1,6}|={2,}|-{2,}) ", rest)
-    stops = [
-        i
-        for i in (rest.find("<" + "!--"), heading.start() if heading else -1)
-        if i != -1
-    ]
-    assert stops, (
+    end = re.search(r"\n[ \t]*\n|\n {0,3}#{1,6}[ \t\n]|<" + "!--", rest)
+    assert end, (
         f"{where}: the excluded span is the last statement in the file, "
         "so this exclusion now removes everything after it"
     )
-    return head + rest[min(stops) :]
+    return " ".join((head + " " + rest[end.start() :]).split())
 
 
 def test_no_pact_text_names_a_signer_the_way_0_18_did():
@@ -755,7 +753,7 @@ def test_no_pact_text_names_a_signer_the_way_0_18_did():
             seen.add(where)
             if PACT_RENAMED_SPANS[where] is None:
                 continue
-            text = without_the_policy_span(where, text)
+            text = without_the_policy_span(where, read("docs", "the-pact.md"))
         text = FOLD_MARKER.sub("", text)
         said = PACT_RENAMED.findall(text)
         assert not said, (
@@ -838,7 +836,7 @@ def test_no_live_text_says_the_word_0_19_0_renamed():
         with open(path, encoding="utf-8", errors="replace") as handle:
             text = handle.read()
         if rel == "docs/the-pact.md":
-            text = without_the_policy_span(rel, " ".join(text.split()))
+            text = without_the_policy_span(rel, text)
         elif rel == "hooks/config.py":
             unit = next(
                 node

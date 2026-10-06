@@ -1246,16 +1246,31 @@ def test_s4_a_pact_holding_both_tables_reads_signer_and_refuses_the_old_one():
     )
     assert len(refusals) == 1 and "ends above `|Signatory|`" in refusals[0], refusals
     # With no blank line above it, GFM reads the old header as a row of the
-    # `Signer` table; it is named once, as the old header, and not also as an
-    # entry that is not a remote URL (round 3 of #822, white 11; #830).
+    # `Signer` table; it is named once, as a line inside that table, and not
+    # also as an entry that is not a remote URL (round 3 of #822, white 11;
+    # #830). A second old table further down does not name it twice.
+    glued = (
+        "holds a `| Signatory |` line inside its `| Signer |` table, the word "
+        "before 0.19.0, which GFM reads as one of that table's rows — delete "
+        "the line"
+    )
     for under in (
         "|Signatory|\n|---|\n|https://example.com/org/billing|\n",
         "| Signatory |\n",
+        "| Signatory |\n\n## X\n\n| Signatory |\n|---|\n| https://example.com/org/b |\n",
     ):
         signers, refusals, _ = config.pact_signers(signer + under)
         assert [s[2] for s in signers] == ["orders-web"], signers
         assert sum("Signatory" in r for r in refusals) == 1, refusals
-        assert BOTH in refusals, refusals
+        assert glued in refusals, refusals
+    # Rows under a glued old header with no delimiter row are rows of the
+    # `Signer` table to GFM, and they are read as signers; the refusal says
+    # so rather than "nothing under it is read" (post-review check of #830).
+    signers, refusals, _ = config.pact_signers(
+        signer + "| Signatory |\n| https://example.com/org/billing |\n"
+    )
+    assert [s[2] for s in signers] == ["orders-web", "billing"], signers
+    assert refusals == [glued], refusals
 
 
 def test_s4_a_broken_signer_table_does_not_fall_back_to_the_old_one():

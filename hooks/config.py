@@ -1346,17 +1346,31 @@ def read_table(text, header):
     )
     if not (refusals and refusals[0].startswith("holds no ")):
         named = f"`| {' | '.join(old)} |`" if old else None
+        glued = holds_old and any(cells == old for _line, cells in rows)
+        if holds_old:
+            # An old header with no blank line above it is one of this
+            # table's rows to GFM; it is the old header, named below or by
+            # the walk's stray-row refusal, never an entry (#830).
+            rows = [(line, cells) for line, cells in rows if cells != old]
         if holds_old and not any(
             table_cells(quoted) == old
             for r in refusals
             for quoted in re.findall(r"`([^`]*)`", r)
         ):
-            rows = [(line, cells) for line, cells in rows if cells != old]
+            new = f"`| {' | '.join(header)} |`"
             refusals = [
                 *refusals,
-                f"also holds a {named} header, the word before {RENAMED_IN}, "
-                f"and nothing under it is read while the `| {' | '.join(header)} |` "
-                "table stands — move its rows into that table and delete it",
+                (
+                    f"holds a {named} line inside its {new} table, the word "
+                    f"before {RENAMED_IN}, which GFM reads as one of that "
+                    "table's rows — delete the line"
+                )
+                if glued
+                else (
+                    f"also holds a {named} header, the word before {RENAMED_IN}, "
+                    f"and nothing under it is read while the {new} table "
+                    "stands — move its rows into that table and delete it"
+                ),
             ]
         return rows, refusals, header
     if holds_old:
