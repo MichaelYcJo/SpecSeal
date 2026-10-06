@@ -182,24 +182,22 @@ class Recorder:
         rootdir from the argument it came from -- and round 4's lookup by id
         wrote the crash under the other node's file (#825 round 5).
 
-        The map is keyed on the worker itself and holds it. Keyed on its
-        `id()`, a worker xdist made to replace a crashed one could take the
-        freed one's address and its last report with it (#849). A `node` no
-        map can key is no worker of xdist's, and is read as no sender."""
+        The map is keyed on the worker's `id()` and holds the worker in the
+        value, so a worker xdist makes to replace a crashed one cannot take
+        the freed one's address and its last report with it (#849). Nothing
+        is asked of the worker but its identity -- no hash and no equality,
+        either of which a `node` could raise from or share with another --
+        so any `node` is a sender and nothing raises (#849 round 1)."""
         path = getattr(report, PATH_ATTRIBUTE, None)
         sender = getattr(report, "node", None)
-        try:
-            hash(sender)
-        except TypeError:
-            sender = None
         if isinstance(path, str):
             if sender is not None:
                 when = getattr(report, "when", None)
-                self.last_sent[sender] = (report.nodeid, when, path)
+                self.last_sent[id(sender)] = (sender, report.nodeid, when, path)
         elif sender is not None:
-            last = self.last_sent.get(sender, (None, None, None))
-            if last[0] == report.nodeid and last[1] != "teardown":
-                path = last[2]
+            last = self.last_sent.get(id(sender), (None, None, None, None))
+            if last[1] == report.nodeid and last[2] != "teardown":
+                path = last[3]
         if not isinstance(path, str) or (kind == "test" and os.path.isdir(path)):
             self.unplaced.add((kind, report.nodeid))
             return None

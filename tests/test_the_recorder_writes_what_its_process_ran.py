@@ -926,8 +926,11 @@ def test_a_worker_made_after_another_is_freed_inherits_none_of_its_reports():
     a crashed worker with a new controller object, and CPython hands a new
     object the address of one it freed. Keyed on `id()` of a worker it did
     not hold, the map gave a replacement the freed worker's last report, so
-    a crash on the new worker took the old node's path. Keyed on the worker
-    itself, it holds the old one and no later object can be mistaken for it.
+    a crash on the new worker took the old node's path. Keyed on `id()` with
+    the worker held in the value, the old one is never freed, so no later
+    object can take its address (#849 round 1's 🟡 3: keyed on the worker
+    itself, a `node` whose hash raised escaped the hook, and two that compared
+    equal shared one entry).
 
     A replacement inside a live xdist run cannot be provoked on demand --
     the terminal reporter keeps the crash report, which holds the old worker
@@ -965,11 +968,30 @@ def test_a_worker_made_after_another_is_freed_inherits_none_of_its_reports():
     for worker in made[: index + 1]:
         assert recorder.path_of(Report("t::x", "???", worker), "test") is None
     assert recorder.unplaced == {("test", "t::x")}
-    # Keyed on the object, a `node` no dict can key is read as no sender:
-    # its report keeps its own path, or is counted, and nothing raises.
-    unkeyable = []
-    assert recorder.path_of(Report("t::z", "call", unkeyable, "/r/z.py"), "test") == (
-        "/r/z.py"
-    )
-    assert recorder.path_of(Report("t::z", "???", unkeyable), "test") is None
-    assert recorder.unplaced == {("test", "t::x"), ("test", "t::z")}
+
+    # Keyed on identity, a `node` no dict could key, or one whose `__hash__`
+    # raises, is a sender like any other, and nothing raises.
+    class Unhashable:
+        def __hash__(self):
+            raise ValueError("no hash")
+
+    for unkeyable in ([], Unhashable()):
+        assert recorder.path_of(
+            Report("t::z", "call", unkeyable, "/r/z.py"), "test"
+        ) == ("/r/z.py")
+        assert recorder.path_of(Report("t::z", "???", unkeyable), "test") == "/r/z.py"
+
+    # Two distinct workers that compare equal are two senders: the second
+    # inherits nothing the first sent.
+    class Equal:
+        def __eq__(self, other):
+            return isinstance(other, Equal)
+
+        def __hash__(self):
+            return 0
+
+    first, second = Equal(), Equal()
+    recorder.path_of(Report("t::e", "setup", first, "/r/e.py"), "test")
+    assert recorder.path_of(Report("t::e", "???", second), "test") is None
+    assert recorder.path_of(Report("t::e", "???", first), "test") == "/r/e.py"
+    assert recorder.unplaced == {("test", "t::x"), ("test", "t::e")}
