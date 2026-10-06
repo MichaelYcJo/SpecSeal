@@ -2034,7 +2034,8 @@ def judge_creation(
 #
 # Not here, on purpose: `switch` (the ladder's), `checkout` (listed only with
 # a path after `--`, `_restores`), `worktree` (listed unless it adds one,
-# which is a creation), `update-ref` 13/13 and `symbolic-ref` 1/1 (both can
+# which is a creation, or a redirection hides its `add`, `_hidden_mover`),
+# `update-ref` 13/13 and `symbolic-ref` 1/1 (both can
 # move HEAD, owner's answer P3 (a)), and `bisect` and `stash branch`, which
 # were recorded 0 times. Content moved on the same branch -- `reset`,
 # `stash`, `rebase`, `merge`, `pull` -- is not the guard's subject (§Premise).
@@ -2144,13 +2145,14 @@ def _plain_words(words):
     the word (a target written apart), and text glued in front of the
     operator stays as a word of its own (`add>/dev/null` hands git `add`). A
     number or a `{name}` there is the operator's descriptor and an `&` is
-    `&>`'s, so neither stays. A word holding whitespace was quoted, so its
-    `<` or `>` is the word's own."""
+    `&>`'s, so neither stays. The frozen splitter has taken the quotes off,
+    so a quoted `>` reads as an operator too, and the cost is a stop: a
+    path quoted as `"> f"` after `--` is no path here."""
     out, skip = [], False
     for word in words:
         if skip:
             skip = False
-        elif ("<" in word or ">" in word) and not any(c.isspace() for c in word):
+        elif "<" in word or ">" in word:
             head = word[: min(word.find(c) for c in "<>" if c in word)]
             head = head[:-1] if head.endswith("&") else head
             if head and not head.isdigit() and not head.startswith("{"):
@@ -2324,10 +2326,11 @@ def _merged_findings(items):
             if frozen:
                 if any(_git_finding(items[p][1], f)[0] != "listed" for p, f in frozen):
                     continue
+                # The group's subcommand is the listed part's own, so the
+                # whole can only differ by the word the cut took: a switch or
+                # a creation would have been one before the cut too.
                 parsed = wide.parse_git(toks)
-                shape, finding = _git_finding(toks, parsed) if parsed else (None, None)
-                if shape in ("switch", "creation"):
-                    finding = Finding(shape, _spoken(toks))
+                finding = _git_finding(toks, parsed)[1] if parsed else None
                 if finding is not None:
                     out.append((parts[-1], finding))
                 continue

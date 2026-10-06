@@ -1135,10 +1135,10 @@ def test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands():
     position, glued to the word before it and spaced, its target glued and
     spaced, a verb that can move a branch or add a worktree is never read as
     listed: it is a switch, a creation, or an unrecognised shape the stop
-    names. Red at `9c03ae85` on 166 of the shapes, every one a `worktree add`
-    or a `stash branch` whose deciding word a redirection stood in front of,
-    glued to, or cut away with an `&`: `worktree` and `stash` were listed by
-    their subcommand alone."""
+    names. Red at `9c03ae85` on 208 of the 2,356 shapes, 104 each of `worktree
+    add` and `stash branch`, whose deciding word a redirection stood in front
+    of, was glued to, or cut away with an `&`: `worktree` and `stash` were
+    listed by their subcommand alone (a deleted probe, phase 3)."""
     silent = [
         command
         for verb in MOVING
@@ -1156,7 +1156,10 @@ def test_a_redirection_after_a_listed_verbs_words_keeps_it_listed():
     One placement is left out, a redirection glued to the subcommand itself
     (`git status>/dev/null`): the frozen reading takes that word for the
     subcommand, and phase 2 made it a shape of its own whose rewrite moves
-    the redirection (`questions.md` W3)."""
+    the redirection (`questions.md` W3). Red at `9c03ae85` on 24 shapes, a
+    path glued to its redirection after `--` read as no path, and on 96
+    against this phase's first draft, which read `git worktree list>/dev/null`
+    as hiding a word (a deleted probe and a run, phase 3)."""
     stopped = [
         (command, _read_by_the_guard(command))
         for verb in LISTED
