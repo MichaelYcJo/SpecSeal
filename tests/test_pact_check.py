@@ -265,7 +265,7 @@ def test_s4_a_pact_holding_both_tables_is_exit_2_naming_the_old_one(world):
         1,
     )
     write(world["api"], "seal/pact.md", text)
-    commit(world["api"], "a new table above an old one")
+    commit(world["api"], "an old table above a new one")
     cite(world, clause(V2))
     code, out = run(world)
     assert code == 2, out

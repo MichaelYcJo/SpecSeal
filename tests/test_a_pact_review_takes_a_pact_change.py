@@ -214,9 +214,10 @@ def test_s5_an_old_review_row_that_cannot_be_true_names_the_old_header(world):
 
 def test_s5_a_review_record_holding_both_headers_is_refused(world):
     """Round 1's yellow 1, for a pact review record. An old table above the
-    new one holds a row the new table does not; read silently, that row
-    would be dropped and the record it took would read `NOT TAKEN` again with
-    nothing saying why. It is refused at exit 2 instead."""
+    new one is never read while the new one stands; read silently, a row
+    only it held would be dropped and the record it took would read `NOT
+    TAKEN` again with nothing saying why. It is refused at exit 2 instead,
+    whatever its rows hold, so here both tables hold the same row."""
     _anchor, digest = record(world)
     write(
         world["api"],
