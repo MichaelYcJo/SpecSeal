@@ -7,27 +7,29 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `475a3875d632cf79a9b011b033e3a56788d0e3d9..475a3875d632cf79a9b011b033e3a56788d0e3d9`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | second — 🟡 1 at skills/verify/scripts/broad_gate.py#read_record, a unit round-5's fixes changed; the fix passes stop here and the work item goes back to its framer |
 | Needs a fix | yes — 🟡 1 (a test that kills plain pytest at the base leaves a session with no `end` line, and the file reads `new`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
 Round 6, the verifying round for round 5's fixes at `4e3b41e0..0fc26b5e` and the review run's last record: round 5 was the redesign run's first fix of a fix, and the reopening is spent. The reviewer was asked to open `path_of` keyed on the sending worker and `unplaced_red` and judge whether each closes its class or only round 5's instance, inherit rounds 1–5, judge the pytest 7.4 probe held in ledger W1's executed cell, and read every workflow of `gh pr checks 846`, without running the full suite. The release branch had moved (#831 at 275a7ce0, #841 at 86cbd9a2) and was not merged in; the round reviewed the branch's own range at 475a3875, the PR head.
 
+`round-record new` gave this record two exits at once. The reopening is spent, so the run ends `capped`. 🟡 1 is the run's second fix of a fix, so the work item goes back to its framer. Both forbid a fix pass inside this run. The work item was already reframed once after round 3. The owner chose `capped` on 2026-10-07: the three findings are deferred to #849, which is fixed in 0.20.0 as its own work item. No second `Reframed` line is written, and the pull request is labelled `chain: capped`.
+
 ## Verdicts
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | Without xdist a test that kills pytest at the base leaves a session with no `end` line, which the demotion never reads, so the file reads `new` though the base crashed in it: round 4's 🟡 2 without xdist | `skills/verify/scripts/broad_gate.py:1974` | open | executed: the gate on `FILES_ROW tests`, base `CRASHES_ITS_WORKER` and `CRASHES_ITS_WORKER_IN_SETUP`, branch `assert False`, reads `new` both times with a base record that has no `end` line; with the fix applied both read `new?`, the gate module 431 passed |
-| ⬜ 2 | The worker map is keyed on `id()` of a worker it does not hold, so a replacement worker could inherit a freed worker's entry | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:189` | open | read: the terminal reporter keeps the crash report, which holds the old worker, so an ordinary run reuses no id |
-| ⬜ 3 | The overview's divergence table has no row for the strict `new`, which spec Scope 1 and Scope 5 do not describe | `seal/specs/1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote/overview.md:37` | open | read: `spec.md:235` says nothing in the table depends on the `end` line; a correction to the run's paperwork |
+| 🟡 1 | Without xdist a test that kills pytest at the base leaves a session with no `end` line, which the demotion never reads, so the file reads `new` though the base crashed in it: round 4's 🟡 2 without xdist | `skills/verify/scripts/broad_gate.py:1974` | deferred #849 — the run is capped and this is its second fix of a fix; the owner chose to close capped and fix it in 0.20.0 as its own work item | #849 — the run is capped and this is its second fix of a fix; the owner chose to close capped and fix it in 0.20.0 as its own work item; executed: the gate on `FILES_ROW tests`, base `CRASHES_ITS_WORKER` and `CRASHES_ITS_WORKER_IN_SETUP`, branch `assert False`, reads `new` both times with a base record that has no `end` line; with the fix applied both read `new?`, the gate module 431 passed |
+| ⬜ 2 | The worker map is keyed on `id()` of a worker it does not hold, so a replacement worker could inherit a freed worker's entry | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:189` | deferred #849 — the run is capped; read only, an ordinary run reuses no id | #849 — the run is capped; read only, an ordinary run reuses no id; read: the terminal reporter keeps the crash report, which holds the old worker, so an ordinary run reuses no id |
+| ⬜ 3 | The overview's divergence table has no row for the strict `new`, which spec Scope 1 and Scope 5 do not describe | `seal/specs/1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote/overview.md:37` | deferred #849 — a correction to this item's overview, made when #849's first item lands | #849 — a correction to this item's overview, made when #849's first item lands; read: `spec.md:235` says nothing in the table depends on the `end` line; a correction to the run's paperwork |
 | 🟢 | round 5's blocking finding 1 is closed — a crash is placed only by its own worker's last report | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:184` | confirmed | executed: the three new cases are red with `4e3b41e0`'s recorder and pass at the target; the W1 probe on pytest 7.4.4 reproduces in all four layouts |
 | 🟢 | round 5's finding 2 is closed — a session that exited 0 demotes nothing | `skills/verify/scripts/broad_gate.py:1977` | confirmed | executed: the exit test mutated to always count turns two cases red; both pass at the target |
 | 🟢 | round 5's question is answered — the macOS and Windows `pytest` legs pass | PR #846 | confirmed | read: `gh pr checks 846`, every job of both workflows passes at `475a3875` |
