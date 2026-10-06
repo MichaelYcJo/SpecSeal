@@ -839,15 +839,29 @@ def repo(tmp_path, _repo_template):
 # 37458654434, 29.91 s in 37465328899). The same case ran 36.44 s in run
 # 37429940700 on the same code: the runner alone moves a case by 1.5 times
 # between runs, which is why the base is the slowest run and not the last one.
-CASE_CEILING_S = 90
+#
+# A run on a machine busier than the runners it was set from may raise it for
+# that run alone, through `CEILING_VARIABLE`. Phase 4 of work item 1791270165
+# measured a case at up to four times its figure on a laptop running other
+# sessions' suites, which is past this constant's margin over the slowest
+# local case (38.30 s). CI sets nothing, so CI and the gate read 90 unless a
+# person sets the variable on purpose.
+CASE_CEILING_DEFAULT_S = 90
+CEILING_VARIABLE = "SPECSEAL_CASE_CEILING_S"
+CASE_CEILING_S = int(os.environ.get(CEILING_VARIABLE, str(CASE_CEILING_DEFAULT_S)))
 
 
 def over_the_ceiling(nodeid, seconds):
     """The sentence a call of `seconds` fails with, or None at or under
-    `CASE_CEILING_S`, read when the call ends."""
+    `CASE_CEILING_S`, read when the call ends. It names the variable, for
+    the person whose machine was busy rather than whose case grew."""
     if seconds <= CASE_CEILING_S:
         return None
-    return f"{nodeid} ran {seconds:.1f} s, over the {CASE_CEILING_S} s ceiling (#841)"
+    return (
+        f"{nodeid} ran {seconds:.1f} s, over the {CASE_CEILING_S} s ceiling "
+        f"(#841). On a machine running other suites, {CEILING_VARIABLE}="
+        "<seconds> raises it for one run; CI never sets it"
+    )
 
 
 @pytest.hookimpl(hookwrapper=True)

@@ -48,8 +48,9 @@ seen by half again fails.
 
 **One value per ceiling, on every platform.** `spec.md` Data & interfaces
 introduces no platform factor until a measured case needs one. The case
-with the highest call on macOS and ubuntu in the last run is 18.76 s and
-13.90 s, so the ceiling binds on Windows first.
+with the highest call on macOS and ubuntu is 18.76 s and 13.90 s in run
+37465328899, and 21.33 s and 24.13 s in the confirming run 37469595104, so
+the ceiling binds on Windows first.
 
 **The ceiling also binds `bin/test`.** A case under 90 s on a CI runner can
 pass that on a loaded laptop: on the second smith's machine, while other

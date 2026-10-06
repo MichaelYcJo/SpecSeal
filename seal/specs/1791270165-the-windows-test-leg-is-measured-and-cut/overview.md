@@ -21,10 +21,17 @@ minutes in two weeks; this item measures it on Windows and cuts it.
 | 4b | Built by the second smith from the Windows table: three shared prefixes in two modules, 46 cases; `phases/phase-4.md` says what each keeps and what was left alone |
 | 5 | Closed: the 90 s case ceiling and the leg timeouts (ubuntu 15, macOS 35, each Windows shard 20), confirmed by run 37469595104, with macOS's timeout re-based on it (`phases/phase-5.md`) |
 
-**What the next phase needs.** Routing is `automation` now, so the
-orchestrator pushes the branch and opens the draft pull request. That pull
-request's CI run is the measurement phase 3 starts from: the Windows leg
-after 4b, which is "the last run before the shards" of S4.
+**What is left after the build.** Every phase is closed, and the review
+chain reads the branch on draft pull request #845. Phase 3's baseline was
+that pull request's first run, 37457228586, and phase 5's confirming run is
+37469595104.
+
+**The ceiling has a named limit.** It reads a case's `call` phase only, as
+`spec.md` Data & interfaces says. Phase 4b moved three prefixes into session
+and module fixtures, whose build runs in `setup`; the largest,
+`a_sealed_run`, took 22.70 s of setup on a Windows shard. A fixture that
+grows past 90 s will not be named by the ceiling; the shard's `--durations`
+table and the leg's timeout are what see it.
 
 **The dispatch worked where the first smith expected a refusal.** It wrote
 here that `gh workflow run` might answer HTTP 422 because `main`'s copy of
@@ -43,6 +50,7 @@ GitHub's documentation did not hold for this repository.
 | What 4b can buy | plan.md Summary puts 4b before the shards because "`K` is divided from the leg that is left"; the issue reads "a minority of cases carry most of the growth" | 4b built, and its yield stated as bounded | the Windows table's top 50 are 9 to 12% of the leg's worker time, so 4b can take at most about 2.7 of its 30 minutes (`phases/phase-1.md`) |
 | The two guard cases | plan.md 4b: "the two guard cases at 31 s and 38 s locally" are cut targets | left alone | each walks a list of distinct measured rows, and asks each twice by design, so no cut keeps the claim except dropping rows; the guard's premise is #826's (`phases/phase-4.md`) |
 | The location cases | plan.md 4b cuts what the Windows table confirms per case | 35 cases cut, one of them in the table | the module is in the table with 8 cases, and the 35 share one prefix with the case the table names at 8.97 s; the others sit below the table's 8.15 s floor, so their Windows figure is inferred, not read |
+| The ceiling's sentence | spec.md Data & interfaces: `"<nodeid> ran <s> s, over the <CASE_CEILING_S> s ceiling (#841)"` | that sentence, then `On a machine running other suites, SPECSEAL_CASE_CEILING_S=<seconds> raises it for one run; CI never sets it` | round 1's 🟡 2: the ceiling binds `bin/test` on machines the records measured at up to four times a case's figure, so a person meeting it on load alone needs the way to raise it; CI reads 90 because nothing sets the variable there |
 
 ## Not verified
 

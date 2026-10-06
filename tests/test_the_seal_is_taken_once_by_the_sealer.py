@@ -967,7 +967,9 @@ def a_sealed_run(tmp_path_factory, _template):
     Six cases each ran this same gate, end to end, to read a different line
     or row of its output: 10-12 s a case on the Windows leg of run
     37429940700 (#841). Every claim among them is about one sealed run, so
-    one run keeps them all; what left is five identical runs. A case that
+    one run keeps them all. Serially that leaves one run where there were
+    six; under xdist the fixture is built once per worker that draws one of
+    the six, so up to one run per worker. A case that
     changes the tree, the record or the values directory before the run
     keeps its own `repo`, and no case given this one writes to it.
 

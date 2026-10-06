@@ -177,12 +177,23 @@ hook needs a test that fails without it — see the counterfeit rule below.
 **A case has a budget, and so does each leg.** A case whose call runs longer
 than `CASE_CEILING_S` in `tests/conftest.py` (90 s) fails with one line
 naming it and its seconds, locally as in CI. Make it cheaper, split it, or
-sample what it walks. Each `pytest` leg in `test.yml` carries a
-`timeout-minutes`, and the comment beside the values says which runs they
-were set from. `.test_durations` goes stale as cases are added, which
-unbalances the Windows shards and drops no case. To refresh it, run the
-Windows leg once unsharded with `--store-durations`, upload the file as an
-artifact, then download it with `gh run download` and commit it.
+sample what it walks. On a machine running other suites at the same time, a
+case can pass that ceiling on load alone; `SPECSEAL_CASE_CEILING_S=<seconds>`
+raises it for one run, and CI never sets it. The ceiling reads a case's call
+only: time spent building a fixture in setup is not held to it. Each
+`pytest` leg in `test.yml` carries a `timeout-minutes`, and the comment
+beside the values says which runs they were set from.
+
+`.test_durations` goes stale as cases are added, which unbalances the
+Windows shards and drops no case. To refresh it, push a branch on which
+`test.yml` runs the Windows leg as one job again for a single run: the
+Windows entry with `store: "--store-durations"` in place of the four shard
+entries, `${{ matrix.store }}` on the pytest line, and an
+`actions/upload-artifact@v4` step with `path: .test_durations` and
+`include-hidden-files: true` (the name starts with a dot, which the action
+skips by default). Commit 43326715 is that change, and 340dc6fa took it back
+out. Download the artifact with `gh run download <run> -n <artifact>`, make
+its line ends LF, commit it, and restore the shards.
 
 **The suite runs with `gh` logged out, on your machine as on CI.** CI's
 pytest job has no token, so `tests/conftest.py` makes the same true locally

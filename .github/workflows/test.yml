@@ -102,10 +102,11 @@ jobs:
       # current per-case figures are each leg's own `--durations` table below,
       # recorded with their run ids in
       # `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/phases/phase-1.md`.
-      # Nothing is shared between tests -- each
-      # builds its own repository under `tmp_path` -- so the spawns can be run
-      # several at a time, and the workers scale with whatever cores the runner
-      # has rather than with a number written here.
+      # Each test builds its own repository under `tmp_path`, or copies one a
+      # session or module fixture built once in its own worker and only reads
+      # (#841), so no test writes where another reads, the spawns can be run
+      # several at a time, and the workers scale with whatever cores the
+      # runner has rather than with a number written here.
       # markdown-it-py is the parser the suite's CommonMark oracle reads
       # (#667), pinned: `.github/scripts/run_tests.py#MARKDOWN_IT` is the one
       # place the version is chosen, and a case holds this line to it.

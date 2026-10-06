@@ -82,7 +82,7 @@ fix is the owner answering Q6 for the local half.
 
 ### 🟡 3 — the stopped-run template is built inside a case's call, so `--durations` and the ceiling charge the build to whichever case asks first
 
-*Executed* (CI durations read). `_stopped_runs`
+*Executed* (CI durations read). `_stopped_runs` · NAME NOT IN TREE
 (`tests/test_a_fix_of_a_fix_is_counted.py:500`) returns a closure, and the
 template is built when a case calls `a_stopped_run()` in its body, which is
 the call phase. The Windows tables show the effect. In group 1 of run

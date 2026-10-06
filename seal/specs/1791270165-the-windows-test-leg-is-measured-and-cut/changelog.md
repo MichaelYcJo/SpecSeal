@@ -13,12 +13,19 @@
 
 - **A case whose call runs longer than 90 seconds now fails, under
   `bin/test` as in CI.** The report is one line,
-  `<case> ran <seconds> s, over the 90 s ceiling (#841)`, so a case that
-  grows names itself instead of hiding in a leg's total. The ceiling is
-  `CASE_CEILING_S` in `tests/conftest.py`, 1.5 times the slowest case
-  measured on Windows. A case that meets it is made cheaper, split, or
-  sampled. Raising the constant is a decision for the repository owner, and
-  its comment says what it was set from.
+  `<case> ran <seconds> s, over the 90 s ceiling (#841)`, followed by how
+  to raise it on a busy machine, so a case that grows names itself instead
+  of hiding in a leg's total. The ceiling is `CASE_CEILING_S` in
+  `tests/conftest.py`, 1.5 times the slowest case measured on Windows. A
+  case that meets it is made cheaper, split, or sampled. On a machine
+  running other suites at the same time, `SPECSEAL_CASE_CEILING_S=<seconds>`
+  raises it for one run; CI never sets it. Changing the 90 is a decision for
+  the repository owner, and its comment says what it was set from.
+
+  The ceiling reads a case's call only. Time a fixture spends in setup,
+  where this change moved three shared builds, is not held to it; the
+  `--durations` table and the leg's timeout are what see a fixture that
+  grows.
 
 - **Each `pytest` leg has a timeout**: 15 minutes on ubuntu, 35 on macOS and
   20 for each Windows shard, each 1.5 times the slowest run of that leg

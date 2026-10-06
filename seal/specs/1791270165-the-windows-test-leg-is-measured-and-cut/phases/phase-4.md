@@ -124,9 +124,11 @@ figures below.
 
 ### Q5, case by case
 
+Round 1's 🟡 3 later replaced `_stopped_runs` (a cache built inside the first asking case's call) with two session fixtures, `_stopped_untouched` and `_stopped_touched`, which `a_stopped_run` requests in setup. The rows below name the unit as 4b built it. · NAME NOT IN TREE
+
 | Cases | Windows figure, run 37429940700 | Cut | What the case still holds | What left |
 |---|---|---|---|---|
-| `test_a_fix_of_a_fix_is_counted.py`: `test_a_record_after_an_unreframed_second_is_refused`, `test_a_reframe_naming_another_round_does_not_permit_the_record`, `test_the_depth_restarts_at_a_stop`, `test_a_reframed_record_is_written_and_starts_the_count_at_no[False]` and `[True]` | 16.9, 15.5, 20.9, 16.4, 16.5 s (86.2 s) | `_stopped_runs` builds each stopped run (touched or not) once through `stopped`, as before; `a_stopped_run` copies it into the case's directory | each case's own step after the stop: the frame written, `new` or `close` run, and the record read. The stop's own assertions (round 3 reads `second`, each `close` below exit 2) run once, at the build | the three-round stop rebuilt five times |
+| `test_a_fix_of_a_fix_is_counted.py`: `test_a_record_after_an_unreframed_second_is_refused`, `test_a_reframe_naming_another_round_does_not_permit_the_record`, `test_the_depth_restarts_at_a_stop`, `test_a_reframed_record_is_written_and_starts_the_count_at_no[False]` and `[True]` | 16.9, 15.5, 20.9, 16.4, 16.5 s (86.2 s) | `_stopped_runs` builds each stopped run (touched or not) once through `stopped`, as before; `a_stopped_run` copies it into the case's directory | each case's own step after the stop: the frame written, `new` or `close` run, and the record read. The stop's own assertions (round 3 reads `second`, each `close` below exit 2) run once, at the build | the three-round stop rebuilt five times · NAME NOT IN TREE |
 | the same module: the 35 cases of `test_a_location_that_lands_in_no_written_unit_reads_no` and `test_a_location_carrying_its_py_path_still_lands` | 8.97 s for the one in the table, the parameter ending `; see #w`; the other 34 sit under the table's 8.15 s floor, so their figure is inferred, not read | `_named_and_fixed_once` builds the named files, the declaration, round 1 and its closed fix once; `named_and_fixed` copies it. `two_rounds` became `round_one_fixed` plus round 2, so the other cases read as before | round 2's record, generated per case from that case's `Location`, which is the whole claim | two generator runs and five commits per case |
 | `test_the_seal_is_taken_once_by_the_sealer.py`: `test_a_repository_shipping_no_gate_runs_the_invoked_copy`, `test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing`, `test_the_values_file_holds_this_runs_panel`, `test_a_recorded_seal_says_the_cell_is_written_and_not_committed`, `test_the_gate_with_record_seals_the_item_and_counts_its_rounds`, `test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter` | 12.4, 11.7, 11.7, 11.9, 12.2, 12.0 s (71.8 s) | `a_sealed_run`, module-scoped: one settled item sealed through `--record` with session `s-1`, under a directory whose name holds a space, as the pipe case's own run was | every assertion each case made, read off the one run's stdout, stderr, values file and tree; the real gate and the real pytest row, so `suite 1 passed` is still pytest's own count | five identical gate runs; the space in the path, once the pipe case's alone, is now under all six, which none of the other five reads |
 
@@ -164,9 +166,9 @@ Then each unit this phase added:
 
 | Unit and break | Verdict |
 |---|---|
-| `_stopped_runs`: `stopped(d, touched)` built untouched | `red`: `[True]` fails on the new assertion that only the touched copy carries `return 1000` |
+| `_stopped_runs`: `stopped(d, touched)` built untouched | `red`: `[True]` fails on the new assertion that only the touched copy carries `return 1000` · NAME NOT IN TREE |
 | `a_stopped_run`: copies the untouched template whatever is asked | `red`, the same assertion |
-| `_stopped_runs`: `if touched not in built:` → `if True:` | `SURVIVED`, and it should: the cache changes what the build costs and nothing a case reads. A dropped cache shows as time in the `--durations` table |
+| `_stopped_runs`: `if touched not in built:` → `if True:` | `SURVIVED`, and it should: the cache changes what the build costs and nothing a case reads. A dropped cache shows as time in the `--durations` table · NAME NOT IN TREE |
 | `a_sealed_run`: built with no space in the path | `red`, the pipe case |
 | `a_sealed_run`: built under session `s-2` | `red`, the pipe and values-file cases |
 | `_named_and_fixed_once`: `round_one_fixed(d)` → `declared(d)` | `red`, all 10 py-path cases |
@@ -214,5 +216,5 @@ does, and each case still asserts it, shown by the reds above.
 | Removed item | Where it must land |
 |---|---|
 | The twins and switch cases' walk over every shape of `_placed` | `_sample`'s cover, held by `test_the_sample_covers_every_placement_and_every_verb`; the full walk is #826's to rewrite or retire |
-| 4b: the stop rebuilt by five cases, round 1 and its fix rebuilt by 35, and one sealed gate run made six times | `_stopped_runs` and `_named_and_fixed_once` in `tests/test_a_fix_of_a_fix_is_counted.py`, `a_sealed_run` in `tests/test_the_seal_is_taken_once_by_the_sealer.py`; each case's own step still runs per case |
+| 4b: the stop rebuilt by five cases, round 1 and its fix rebuilt by 35, and one sealed gate run made six times | `_stopped_runs` and `_named_and_fixed_once` in `tests/test_a_fix_of_a_fix_is_counted.py`, `a_sealed_run` in `tests/test_the_seal_is_taken_once_by_the_sealer.py`; each case's own step still runs per case · NAME NOT IN TREE |
 | 4b: the pipe case's own move of its repository under a spaced directory | `a_sealed_run`, which is built there |
