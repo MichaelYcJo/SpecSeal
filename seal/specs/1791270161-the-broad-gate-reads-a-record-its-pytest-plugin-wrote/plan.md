@@ -71,7 +71,7 @@ this frame* holds the pytest and xdist readings R1–R8.
 - **The test module** `tests/test_the_seal_is_taken_once_by_the_sealer.py`:
   `run_gate` (line 881) spawns the gate with `env_without_a_pull_request()`
   plus extras; `base_then_feature` (3990), `verdict_of` (3962, normalises
-  `\` to `/`), `collected_at_base` (4020, retires), `REPORTS`/`PROOFS`
+  `\` to `/`), `collected_at_base` (4020, retires), `REPORTS`/`PROOFS` (NAME NOT IN TREE)
   tables (4041, 4163, retire), the end-to-end cases from 3687 to 5700, the
   corpus `REGRESSED` (5806), `REGRESSED_WORDS` (6056), `word_for` (6143),
   the rule-3 pin (6203). The planted-case helpers are reused as they are.
@@ -83,7 +83,7 @@ this frame* holds the pytest and xdist readings R1–R8.
   the sealer the outer gate's `PYTEST_ADDOPTS` already carries `-p
   specseal_pytest_record` and the outer key was taken by the outer pytest,
   so a case's inner gate adds its own key and a repeated `-p` is skipped by
-  `import_plugin` (R2). `tests/conftest.py` pops no `PYTEST_*` variable
+  `import_plugin` (R2). `tests/conftest.py` pops no `PYTEST_*` variable (NAME NOT IN TREE)
   (read, line 473 pops named `GH_*`/`GIT_*` only). S22 is the measurement.
 - **The failure scenario of this design, six months on.** pytest renames
   `report.location` or stops forwarding collect reports to the xdist
@@ -101,7 +101,7 @@ not re-argued here. These are the choices inside it.
 | Approach | Failure scenario | Verdict |
 |---|---|---|
 | **A. `-p specseal_pytest_record` appended to `PYTEST_ADDOPTS`, the module reached through `PYTHONPATH`** | A row that sets `PYTEST_ADDOPTS` or `PYTHONPATH` itself drops the recorder: no record, `new?` (strict, named in rule 3) | **chosen**; the owner's wording, and R1 reads `-p` as honoured from the variable |
-| B. `PYTEST_PLUGINS=specseal_pytest_record` instead of `-p` | The same `PYTHONPATH` dependence; trades a row that sets `PYTEST_ADDOPTS` for one that sets `PYTEST_PLUGINS` | not taken; nothing in the records names a row of either kind, so the owner's spelling wins |
+| B. `PYTEST_PLUGINS=specseal_pytest_record` instead of `-p` | The same `PYTHONPATH` dependence; trades a row that sets `PYTEST_ADDOPTS` for one that sets `PYTEST_PLUGINS` | not taken; nothing in the records names a row of either kind, so the owner's spelling wins (NAME NOT IN TREE) |
 | **C. The claiming process takes the key out of its environment at import; the first session configured in a process claims it** | A test that reads the environment for the key cannot forge a record; a child pytest and an xdist worker inherit no key and record nothing. Costs: a row whose runner `exec`s a second pytest after reading the environment into a copy (constructed only) | **chosen** |
 | D. Every process records, keyed; the gate unions them | An inner pytest a test spawns writes a record with the gate's key, which is #789's inner-run class with a new spelling | rejected |
 | E. Record on xdist workers too | A second session about the same tests, which the reader would have to merge or refuse | rejected; R5 reads the controller as receiving every report |

@@ -96,7 +96,7 @@ collection in the base's record; *collected* — collected, nothing failed;
 | `test_a_runner_without_the_environment_beside_one_with_it_adds_no_file` (new, S12) | `COMPANY` both | two `on`; the box's file not listed, its `FAILED` line in `suite.txt` | failing |
 | `test_a_count_another_file_makes_up_does_not_earn_the_word` | b `COMPANY` | b `new`, a and c `on` | collected; failing |
 | `test_a_runner_whose_output_goes_to_a_file_is_still_recorded` (was `test_a_measuring_runner_whose_output_the_gate_never_sees_earns_no_word`) | i `MULTI_RUNNER`; u not listed | i `new`, u `on` | collected; failing |
-| `test_a_runner_that_collects_nothing_at_the_base_ends_the_row_otherwise` ×2 (was `test_a_silent_measuring_runner_beside_an_empty_session_earns_no_word`) | i `MULTI_RUNNER` | i `NOT_REACHED` exit 5, u `on` | absent, exit 5; failing |
+| `test_a_runner_that_collects_nothing_at_the_base_ends_the_row_otherwise` ×2 (was `test_a_silent_measuring_runner_beside_an_empty_session_earns_no_word`) | i `MULTI_RUNNER` | i `NOT_REACHED` exit 5, u `on` | absent, exit 5; failing (NAME NOT IN TREE) |
 | `test_a_record_an_earlier_run_left_settles_nothing` (was `test_a_report_an_earlier_run_left_settles_nothing`) | `new` | `new`; the stale record's file not listed | collected |
 | `test_a_relative_kept_directory_still_receives_the_record_under_a_cd` (was `…_the_report_…`) | `tests/test_two.py` `on`, `.xml` kept | `sub/tests/test_two.py` `on`, `records/` holds both runs | failing |
 | `test_every_layout_the_first_build_reopened_reads_the_word_the_base_gives` | the corpus words | skipped, phase 4 named | phase 4 |
@@ -169,9 +169,9 @@ made here.
 
 | Removed item | Where it must land |
 |---|---|
-| `row_prefixes`, `POSIX_CUTS`, `CMD_CUTS`, `JUNIT_REPORT`, `NOTHING_COLLECTED_EXITS`, `COLLECT_ONLY`, `OWN_LISTING`, `COLLECTED_RE`, `LISTED_RE`, `NODE_RE`, `ERROR_LINE_RE`, `COLOUR_RE`, `RAN_RE`, `report_counts`, `written_report`, `proof_refused`, the `ElementTree` import | nowhere: the mechanism they served retired (`spec.md` Scope 7) |
+| `row_prefixes`, `POSIX_CUTS`, `CMD_CUTS`, `JUNIT_REPORT`, `NOTHING_COLLECTED_EXITS`, `COLLECT_ONLY`, `OWN_LISTING`, `COLLECTED_RE`, `LISTED_RE`, `NODE_RE`, `ERROR_LINE_RE`, `COLOUR_RE`, `RAN_RE`, `report_counts`, `written_report`, `proof_refused`, the `ElementTree` import | nowhere: the mechanism they served retired (`spec.md` Scope 7) (NAME NOT IN TREE) |
 | the reasons `NO_RUNNER`, `NOT_ENDED`, `COLLECTED_BEYOND`, `MULTI_RUNNER`, `COMPANY` | replaced by `NO_RECORD_AT_HEAD`, `NO_RECORD`, `NOT_REACHED`; `test_the_unmeasured_word_says_so_and_every_reader_is_told_it` asserts the five gone |
-| the cases `test_a_row_is_cut_where_sh_cuts_it`, `test_a_row_is_cut_where_cmd_exe_cuts_it`, `test_the_report_is_read_for_two_counts_and_nothing_else`, `test_the_proof_needs_one_session_listing_the_file_alone`, the tables `REPORTS` and `PROOFS`, the helper `collected_at_base` | nowhere: the units they held retired |
+| the cases `test_a_row_is_cut_where_sh_cuts_it`, `test_a_row_is_cut_where_cmd_exe_cuts_it`, `test_the_report_is_read_for_two_counts_and_nothing_else`, `test_the_proof_needs_one_session_listing_the_file_alone`, the tables `REPORTS` and `PROOFS`, the helper `collected_at_base` | nowhere: the units they held retired (NAME NOT IN TREE) |
 | the kept names `suite-at-base-<k>[-<n>].txt`, `.xml`, `collected-at-base-<n>.txt` | `suite-at-base.txt` and `records/` |
 | the release-hygiene exemptions `(broad_gate.py, 9.1.1)` and `(broad_gate.py, 3.8.0)` | nowhere (Q-W2, `overview.md`) |
 | the regression corpus case, running | phase 4: re-derive `REGRESSED_WORDS`, reduce `word_for`, remove the `skip` |

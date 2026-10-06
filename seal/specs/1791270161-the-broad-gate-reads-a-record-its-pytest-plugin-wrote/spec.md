@@ -73,11 +73,11 @@ the smith's phase 1 and are rows of `questions.md`.
 
 | # | What was read | What it settles |
 |---|---|---|
-| R1 | `_pytest/config/__init__.py#_preparse`: `PYTEST_ADDOPTS` is split and prepended to the arguments, then `consider_preparse(args, exclude_only=False)` reads every `-p`, then `consider_env()` reads `PYTEST_PLUGINS`; `PYTEST_DISABLE_PLUGIN_AUTOLOAD` gates only setuptools entry points | A `-p <module>` carried in `PYTEST_ADDOPTS` loads the recorder before any conftest, and a row that disables autoload does not stop it. Confirmed on 9.1.1 by reading; 7.4, 8.0 and 8.1 are a *measurement* (Q-M1) |
+| R1 | `_pytest/config/__init__.py#_preparse`: `PYTEST_ADDOPTS` is split and prepended to the arguments, then `consider_preparse(args, exclude_only=False)` reads every `-p`, then `consider_env()` reads `PYTEST_PLUGINS`; `PYTEST_DISABLE_PLUGIN_AUTOLOAD` gates only setuptools entry points | A `-p <module>` carried in `PYTEST_ADDOPTS` loads the recorder before any conftest, and a row that disables autoload does not stop it. Confirmed on 9.1.1 by reading; 7.4, 8.0 and 8.1 are a *measurement* (Q-M1) (NAME NOT IN TREE) |
 | R2 | `#import_plugin`: `importlib.import_module(importspec)`, and a module already registered under that name is skipped (`get_plugin(modname) is not None`) | The recorder is reached through `sys.path`, so `PYTHONPATH` is the carrier, and a `-p` repeated by an outer gate run (this repository's own suite spawning the gate) is harmless |
 | R3 | `_pytest/pytester.py:707`: `mp.delenv("PYTEST_ADDOPTS", raising=False)` | A `pytester`-driven inner run never loads the recorder at all; the key rule below covers the subprocess kind |
 | R4 | `_pytest/nodes.py#Item.location`: `(relfspath, lineno, name)` with `relfspath` relative to `config.rootpath` through `bestrelpath`; `_pytest/reports.py#BaseReport.fspath`: the nodeid up to `::` | A report carries a path relative to the rootdir, so `rootdir / location[0]` is the test's absolute path on the controller as well as in a plain run; a `CollectReport` names its file through `fspath`. Neither needs `item.path`, so the recorder reads reports only |
-| R5 | `xdist/remote.py` `__channelexec__`: a worker is a child process that inherits `os.environ` and prepends its import path to `PYTHONPATH`; `xdist` forwards every worker's test and collect reports to the controller's `pytest_runtest_logreport` and `pytest_collectreport` | The controller alone records a whole `-n auto` run; workers find no key (the controller took it) and record nothing. That the controller sees every collect report under `-n 2` is a *measurement* (Q-M2) |
+| R5 | `xdist/remote.py` `__channelexec__`: a worker is a child process that inherits `os.environ` and prepends its import path to `PYTHONPATH`; `xdist` forwards every worker's test and collect reports to the controller's `pytest_runtest_logreport` and `pytest_collectreport` | The controller alone records a whole `-n auto` run; workers find no key (the controller took it) and record nothing. That the controller sees every collect report under `-n 2` is a *measurement* (Q-M2) (NAME NOT IN TREE) |
 | R6 | `_pytest/main.py#Session.shouldstop`, `shouldfail` | Available to the recorder, and not needed: the base run's exit code decides the not-reached rule below |
 | R7 | `.github/scripts/run_tests.py#main`: `subprocess.run(command, cwd=str(root))` with no `env` | `bin/test` hands the gate's environment through to pytest unchanged, so this repository's own row records |
 | R8 | `skills/verify/scripts/broad_gate.py#run`: `subprocess.run(handed, cwd=root, shell=shell, env=env)`; `#gate`: `checks[SUITE] = run(SUITE, command, root, keep, shell=True)` with no `env`; `#draft_env` builds an environment for the chain arm from `os.environ` | The suite run gains an environment the same way the chain arm has one. One `run` keeps one shell site |
@@ -218,7 +218,7 @@ record, and the word is `new?`.
    or new reason is pinned whole in
    `test_the_unmeasured_word_says_so_and_every_reader_is_told_it`.
 7. **What retires from `broad_gate.py`**, and the cases over it:
-   `row_prefixes`, `POSIX_CUTS`, `CMD_CUTS` and the two row-cut
+   `row_prefixes`, `POSIX_CUTS`, `CMD_CUTS` and the two row-cut (NAME NOT IN TREE)
    parametrized cases and the shell-selection case over them; `JUNIT_REPORT`,
    `NOTHING_COLLECTED_EXITS`, `COLLECT_ONLY`, `OWN_LISTING`, `COLLECTED_RE`,
    `LISTED_RE`, `NODE_RE`, `ERROR_LINE_RE`, `COLOUR_RE`, `RAN_RE`,
@@ -226,20 +226,20 @@ record, and the word is `new?`.
    import, and the unit tables `REPORTS` and `PROOFS` with their two cases;
    the candidate split, the group, the lone-run table and the proof pass
    inside `compare_at_base`; the kept names `suite-at-base-<k>[-<n>].txt`,
-   `.xml` and `collected-at-base-<n>.txt`, and `collected_at_base` in the
+   `.xml` and `collected-at-base-<n>.txt`, and `collected_at_base` in the (NAME NOT IN TREE)
    test module. `quote` stays (`signal` reads it) with its case.
 8. **Every end-to-end case over the comparison is re-read, one by one, and
    `phases/phase-2.md` lists each with its word before and after.** By the
    table of Scope 5 many words move in the *permissive* direction, and each
    such move is a claim the record makes about that layout, so the phase
    record says, per case, which row of the table gave the word: the
-   two-runner rows (`TWO_RUNNERS`), the droppers (`DROPS_ITS_ARGUMENTS`: a
+   two-runner rows (`TWO_RUNNERS`), the droppers (`DROPS_ITS_ARGUMENTS`: a (NAME NOT IN TREE)
    `sh -c` inherits the environment and records; `-p no:junitxml` no longer
    matters), the groups (`test_a_group_decides_only_new`,
    `test_a_file_the_base_fails_only_alone_is_not_called_failing_on_base_too`,
    `test_a_count_another_file_makes_up_does_not_earn_the_word`), the silent
    measuring runner (`test_a_measuring_runner_whose_output_the_gate_never_sees_earns_no_word`,
-   `test_a_silent_measuring_runner_beside_an_empty_session_earns_no_word`),
+   `test_a_silent_measuring_runner_beside_an_empty_session_earns_no_word`), (NAME NOT IN TREE)
    and `test_a_first_runner_without_the_gates_environment_costs_the_word`
    (an `env -i` runner leaves no record; where it is the only runner the
    word is `NO_RECORD`). A case whose planted layout the table now measures
@@ -292,7 +292,7 @@ record, and the word is `new?`.
 
 | Left out | Why | Who answers |
 |---|---|---|
-| Loading the recorder by `PYTEST_PLUGINS` instead of `-p` in `PYTEST_ADDOPTS` | Both need `PYTHONPATH` and both are inherited by children (R1, R2). The owner's direction names `-p`; `PYTEST_PLUGINS` would trade a row that sets `PYTEST_ADDOPTS` for a row that sets `PYTEST_PLUGINS`, and only the first exists in this repository's records | decided here; `plan.md` Alternatives |
+| Loading the recorder by `PYTEST_PLUGINS` instead of `-p` in `PYTEST_ADDOPTS` | Both need `PYTHONPATH` and both are inherited by children (R1, R2). The owner's direction names `-p`; `PYTEST_PLUGINS` would trade a row that sets `PYTEST_ADDOPTS` for a row that sets `PYTEST_PLUGINS`, and only the first exists in this repository's records | decided here; `plan.md` Alternatives (NAME NOT IN TREE) |
 | Recording in xdist workers, or in a pytest a test spawns | The controller receives every report (R5), and a child's record would be a second session about the same tests, with an inner run's record the inner-run class of #789 come back | decided here |
 | Reading `FAILED` lines where a keyed record exists | Mixing the two lists is the inference this work removes; a runner that loaded no recorder contributes no file (Scope 4) | decided here; rule 3 names it |
 | Running the base where `HEAD` left no record | Nothing to compare: the files are known only by name, and a base record could match them only by the same inference | decided here |
