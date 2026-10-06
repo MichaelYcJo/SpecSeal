@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #828 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `01b1f966a7a582d77296e8a678e5045bd2d25701..34e899c031a360273ccdd6486612beef3954a64f`, 4 commits |
+| Contract changes | none |
+| New units | CELL_WORD_RE (depth 1); PATH_TAIL_RE (depth 1); names_a_file (depth 1); range_carriers (depth 1); test_a_bare_name_a_touched_file_carries_unchanged_does_not_land (depth 1); TRACKED_FILES (depth 1); test_a_name_beside_a_tracked_file_of_any_kind_does_not_land (depth 1); test_a_name_beside_a_tracked_py_file_lands_only_through_it (depth 1) |
 | Fix of a fix | first — 🟡 1 at skills/code-review/scripts/round_record.py#landings, a unit round-1's fixes changed; 🟡 2 at skills/code-review/scripts/round_record.py#landings, a unit round-1's fixes changed |
 | Needs a fix | yes — 🟡 1, a bare name lands where a second touched file carries it unchanged; 🟡 2, a cell naming a file outside the extension list lands its backticked name in another file |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,10 +25,10 @@ The verifying round for round 1's fix range `e66d04c0..16fbe326`: whether a Loca
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A bare name lands when a second file of the range carries it unchanged: the one-file check counts only units the fixes added or changed, against `docs/round-record-spec.md:696` and ledger A1 | `skills/code-review/scripts/round_record.py:2434` | open | executed: `u` changed in `mod.py`, `other.py` touched and carrying `u` unchanged; a bare `` `u` `` wrote `first … at mod.py#u`; `no` with the fix applied |
-| 🟡 2 | A cell naming a file outside `NAMES_A_FILE_RE`'s extensions — a `bin/` wrapper, `.cmd`, `Makefile`, `.html` — still lands its backticked name in a Python unit of another file | `skills/code-review/scripts/round_record.py:2426` | open | executed: four tracked shapes each wrote `first … at mod.py#u`; `no` with the fix applied. Latent in the `v0.18.0` and `v0.18.3` records |
-| ⬜ 3 | The spec, the docstring and ledger A1 say an unresolvable range refuses where an open row could land; it refuses whenever any row is open, a document-located one included | `docs/round-record-spec.md:697` | open | executed: `deadbeef..cafebabe` and one open row at `` `README.md:1` `` exited 2 with nothing written |
-| ⬜ 4 | `overview.md` and Q4 record the stop rate as settled by round 1's reviewer; round 1's report left it the owner's call | `seal/specs/1791240747-a-fix-of-a-fix-twice-sends-the-chain-back-to-its-framer/overview.md:27` | open | read: round 1's report, Q4 section; a records correction, outside `Needs a fix` |
+| 🟡 1 | A bare name lands when a second file of the range carries it unchanged: the one-file check counts only units the fixes added or changed, against `docs/round-record-spec.md:696` and ledger A1 | `skills/code-review/scripts/round_record.py:2434` | **fixed** `b8c06276` | fixed at b8c06276; executed: `u` changed in `mod.py`, `other.py` touched and carrying `u` unchanged; a bare `` `u` `` wrote `first … at mod.py#u`; `no` with the fix applied |
+| 🟡 2 | A cell naming a file outside `NAMES_A_FILE_RE`'s extensions — a `bin/` wrapper, `.cmd`, `Makefile`, `.html` — still lands its backticked name in a Python unit of another file | `skills/code-review/scripts/round_record.py:2426` | **fixed** `b8c06276` | fixed at b8c06276; executed: four tracked shapes each wrote `first … at mod.py#u`; `no` with the fix applied. Latent in the `v0.18.0` and `v0.18.3` records |
+| ⬜ 3 | The spec, the docstring and ledger A1 say an unresolvable range refuses where an open row could land; it refuses whenever any row is open, a document-located one included | `docs/round-record-spec.md:697` | **fixed** `64324d11` | fixed at 64324d11; executed: `deadbeef..cafebabe` and one open row at `` `README.md:1` `` exited 2 with nothing written |
+| ⬜ 4 | `overview.md` and Q4 record the stop rate as settled by round 1's reviewer; round 1's report left it the owner's call | `seal/specs/1791240747-a-fix-of-a-fix-twice-sends-the-chain-back-to-its-framer/overview.md:27` | answered | corrected at 1cfb3904 — overview.md and Q4 say round 1 reviewer supplied the sample and the decision was the orchestrator under the owner automation delegation; read: round 1's report, Q4 section; a records correction, outside `Needs a fix` |
 | 🟢 | round 1's finding 1 is closed — a document `Location`, and a name beside an untouched `.py` path, land nowhere | `skills/code-review/scripts/round_record.py#landings` | confirmed | executed: the three new parameters red at `e66d04c0`, green at the target; the class's residue is this round's yellow 1 and yellow 2 |
 | 🟢 | round 1's finding 2 is closed — the gate refuses a landing on a run's first record and a `second` with no landing before it, and an orphan `second` cuts no run | `skills/code-review/scripts/chain_check.py#fix_of_a_fix` | confirmed | executed: four new cases red at `e66d04c0`; `runs_of` and `current_run` agree over 5,460 chains |
 | 🟢 | round 1's finding 3 is closed — with no open row the range is not read | `skills/code-review/scripts/round_record.py#landings` | confirmed | executed: `test_a_foreign_range_with_no_open_row_reads_no` red at `e66d04c0` |
