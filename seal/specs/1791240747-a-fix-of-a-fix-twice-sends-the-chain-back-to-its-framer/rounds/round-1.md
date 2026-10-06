@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #828 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e66d04c03b65e33ac61d641f69fa6f1ccc07f441..16fbe3264fc19820a04852f788eadc1eac27e68b`, 5 commits |
+| Contract changes | none |
+| New units | NAMES_A_FILE_RE (depth 1); test_a_bare_name_two_files_of_the_range_carry_does_not_land (depth 1); foreign_range (depth 1); test_a_foreign_range_with_no_open_row_reads_no (depth 1); test_an_orphan_second_is_no_stop_to_the_generator (depth 1); test_the_depth_restarts_at_a_stop (depth 1); ORPHAN (depth 1); FIRST_OF_A_RUN (depth 1); test_a_second_with_no_earlier_landing_fails_and_does_not_cut_the_run (depth 1); test_a_landing_on_round_one_fails (depth 1); test_a_landing_on_the_first_record_after_a_stop_fails (depth 1); test_a_foot_that_does_not_end_with_the_mark_says_what_the_foot_may_end_on (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🟡 1, a prose `Location` that names a code identifier lands in a Python unit and can stop a run falsely |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,11 +25,11 @@ Spec compliance first against `spec.md` (the `Fix of a fix` row written by `roun
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A prose `Location` that names a code identifier in backticks lands in a Python unit of any file the fix range touched, against S5 and §Out | `skills/code-review/scripts/round_record.py:2396` | open | executed: a planted range changing `main` and adding `helper`; `` `docs/x.md:3` — … `main` `` and `` … `helper` `` each landed. Cause is `IDENTIFIER_RE` at `:2907`. No case pins the shape |
-| ⬜ 2 | The gate refuses a `first` its run already landed before, but not a `second` with no earlier landing, nor a non-`no` value on a run's first record; an orphan `second` cuts the run | `skills/code-review/scripts/chain_check.py:3933` | open | executed: `runs_of` and `fix_of_a_fix` over planted chains passed all three shapes. Generator never writes them; the next record still needs a reframe |
-| ⬜ 3 | `new` refuses an unresolvable previous range even when no row of the report is open, where the row reads `no` whatever the range holds | `skills/code-review/scripts/round_record.py:2373` | open | executed: `deadbeef..cafebabe` with one `answered` row raised `Refused` |
-| ⬜ 4 | `frame`'s refusal still says the last non-empty line has to be the `Framed` line, though the foot may now end with `Reframed` lines | `skills/code-review/scripts/chain_check.py:4715` | open | read: `frame_foot` and `frame_mark` against the sentence; contract §14 |
-| ⬜ 5 | The overview's unverified row about the 23 records at `v0.18.1` and `v0.18.2` has an answer: they resolve with the pull request heads fetched, and five more work items stop | `seal/specs/1791240747-a-fix-of-a-fix-twice-sends-the-chain-back-to-its-framer/overview.md:28` | open | executed: 119 of 122 records resolve; a records correction, outside `Needs a fix` |
+| 🟡 1 | A prose `Location` that names a code identifier in backticks lands in a Python unit of any file the fix range touched, against S5 and §Out | `skills/code-review/scripts/round_record.py:2396` | **fixed** `351b97b8` | fixed at 351b97b8; executed: a planted range changing `main` and adding `helper`; `` `docs/x.md:3` — … `main` `` and `` … `helper` `` each landed. Cause is `IDENTIFIER_RE` at `:2907`. No case pins the shape |
+| ⬜ 2 | The gate refuses a `first` its run already landed before, but not a `second` with no earlier landing, nor a non-`no` value on a run's first record; an orphan `second` cuts the run | `skills/code-review/scripts/chain_check.py:3933` | **fixed** `351b97b8` | fixed at 351b97b8; executed: `runs_of` and `fix_of_a_fix` over planted chains passed all three shapes. Generator never writes them; the next record still needs a reframe |
+| ⬜ 3 | `new` refuses an unresolvable previous range even when no row of the report is open, where the row reads `no` whatever the range holds | `skills/code-review/scripts/round_record.py:2373` | **fixed** `351b97b8` | fixed at 351b97b8; executed: `deadbeef..cafebabe` with one `answered` row raised `Refused` |
+| ⬜ 4 | `frame`'s refusal still says the last non-empty line has to be the `Framed` line, though the foot may now end with `Reframed` lines | `skills/code-review/scripts/chain_check.py:4715` | **fixed** `351b97b8` | fixed at 351b97b8; read: `frame_foot` and `frame_mark` against the sentence; contract §14 |
+| ⬜ 5 | The overview's unverified row about the 23 records at `v0.18.1` and `v0.18.2` has an answer: they resolve with the pull request heads fetched, and five more work items stop | `seal/specs/1791240747-a-fix-of-a-fix-twice-sends-the-chain-back-to-its-framer/overview.md:28` | answered | corrected at d167bb94 — the overview rows and Q1 carry the reviewer resolved numbers (119 of 122 records resolve, five more work items reach second, 26 of 64 over all four tags), Q4 answered; executed: 119 of 122 records resolve; a records correction, outside `Needs a fix` |
 | 🟢 | The ⬜ / 🟢 / ❓ exclusion from landing (overview divergence 4) is justified | `skills/code-review/scripts/round_record.py#landings` | confirmed | read: `OWED_MARKERS`' comment and the findings format's rule that `Needs a fix` never counts a ⬜; executed: a numbered open ⬜ does not land |
 | 🟢 | Added units derived from the range's ends equal what `close` writes into `New units` (divergence 2) | `skills/code-review/scripts/round_record.py#fix_pass_units` | confirmed | read: `measure` derives `added` with the same rule over the same ends |
 | 🟢 | Renamed, moved, split and decorated units, a method inside a changed class, a deleted file, a module-level line and a re-commented unit each read as the spec says | `skills/code-review/scripts/round_record.py#fix_pass_units` | confirmed | executed: rename and move read `added`, decorate and docstring read `changed`, a method lands at its class, a deleted file and a module-level line land nowhere |
