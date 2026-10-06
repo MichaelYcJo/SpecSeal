@@ -10,5 +10,5 @@
 - The check that keeps the word 0.19.0 renamed out of live text again sweeps
   whatever follows `docs/the-pact.md`'s statement about the old header
   (#831). A list item, a block quote, a fenced block, an HTML block, a
-  thematic break or a setext underline directly under the statement's last
-  line used to stay exempt with it.
+  table, a footnote definition, a thematic break or a setext underline
+  directly under the statement's last line used to stay exempt with it.
