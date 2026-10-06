@@ -24,8 +24,10 @@
   count that disagrees with its run in either direction, a run that counted
   past the stop or wrote a fix under it, and a record after the stop with no
   `Reframed` line for it. A finding counts only through the `.py` path its
-  own location carries (`path:line`, `path#unit`, `path::unit`); a code name
-  given without its file counts for nothing, whatever stands beside it, and
+  own location carries (`path:line`, `path#unit`, `path::unit`), written as a
+  whole code span or word; a code name given without its file, a `#name`
+  apart from its path, and a path that is only the tail of a longer token
+  (`pkg\mod.py`) count for nothing, whatever stands beside them, and
   so do notes, confirmations, out-of-scope rows and a location the reader
   cannot place. A reviewer who wants a finding counted writes its path.
 

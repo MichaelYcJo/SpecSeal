@@ -689,10 +689,12 @@ an unbounded domain the arrow's limit declines.
 carries a `.py` path — `path:line`, `path#unit`, `path::unit` — that resolves,
 at round K's `Target SHA`, to a top-level unit round K-1's `Fix range` added or
 changed: present at both ends with a different `ast.dump`, so a re-commented
-unit has not changed. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and
-nor do a name with no `.py` path, whatever stands beside it, a module-level
-line, a `Location` nothing places, a file only the diff-line heuristic reads,
-and a range of no commits. A range whose ends this tree cannot resolve refuses
+unit has not changed. The form is a whole token, a code span or a word: a path
+that is the tail of a longer token, and a `#name` apart from its path, are no
+form. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and nor do a name
+with no `.py` path, whatever stands beside it, a module-level line, a
+`Location` nothing places, a file only the diff-line heuristic reads, and a
+range of no commits. A range whose ends this tree cannot resolve refuses
 `new` at exit 2 while any row owing a fix is open, wherever it points.
 
 | The value | When |
