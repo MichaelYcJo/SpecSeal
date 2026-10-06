@@ -1,10 +1,10 @@
 """The seal is taken once, by the sealer, and this is what it prints.
 
 Issue #30. Part 1 pins the stamp module, `skills/verify/scripts/seal_stamp.py`:
-the disc is computed from a chart, so it cannot be off centre; a letter twin
-exists for a console that cannot draw half-blocks, and it has the block form's
-footprint; colour is emitted at transitions, never per cell; the panel beside
-the disc is data; the chart has a floor; and the failure form carries no
+the disc is computed and its emblem sampled from one vector source, so it
+cannot be off centre; a letter twin exists for a console that cannot draw
+half-blocks, and it has the block form's footprint; colour is emitted at transitions, never per cell; the panel beside
+the disc is data; the scale has a floor; and the failure form carries no
 drawing at all, because a picture that says *sealed* beside a word that says
 *not* is the two-things-disagreeing defect this repository keeps paying for.
 
@@ -269,7 +269,7 @@ def test_the_disc_is_symmetric_because_it_is_computed():
 def test_a_coloured_row_carries_fewer_colour_sequences_than_cells():
     """#30 §*Output size*: a code per cell was 282 KB for one seal. Emitting at
     transitions is what makes the colour form printable, and every row is
-    held to it — the disc's rows, where the lily's edges change colour most,
+    held to it — the disc's rows, where the emblem's edges change colour most,
     and every line of the letter (#717)."""
     mod = module()
     w, h, px = mod.build(1.0)
@@ -430,7 +430,7 @@ def test_the_title_is_the_sheets_first_line_whatever_a_value_says():
 
 
 @pytest.mark.parametrize("scale", [0.9, 0.8, 0.75])
-def test_the_lily_is_lit_from_the_upper_left(scale):
+def test_the_emblem_is_lit_from_the_upper_left(scale):
     """#717's lighting, kept for #832's emblem, one colour pressed into the
     wax: an emblem cell whose up-left neighbour is not emblem is its
     highlight, one whose down-right neighbour is not emblem is its shadow
@@ -441,28 +441,28 @@ def test_the_lily_is_lit_from_the_upper_left(scale):
     the terminal draws the one source and nothing beside it."""
     mod = module()
     w, h, px = mod.build(scale)
-    lily = {mod.LILY_FACE, mod.LILY_LIGHT, mod.LILY_SHADOW}
+    emblem = {mod.LILY_FACE, mod.LILY_LIGHT, mod.LILY_SHADOW}
     field = mod.FIELD_EDGE * mod.R0_CELLS * scale
     seen = set()
     for y in range(h):
         for x in range(w):
             here = px(x, y)
-            if here in (mod.FIELD, *lily):
+            if here in (mod.FIELD, *emblem):
                 u, v = (x + 0.5 - w / 2) / field, (y + 0.5 - h / 2) / field
                 said = mod.shade(
                     lambda a, b: mod.inside(mod.EMBLEM_POLYGONS, a, b), u, v, 1 / field
                 )
                 assert here == (said or mod.FIELD), (x, y, here, said)
-            if here not in lily:
+            if here not in emblem:
                 continue
             seen.add(here)
             up_left, down_right = px(x - 1, y - 1), px(x + 1, y + 1)
             if here == mod.LILY_LIGHT:
-                assert up_left not in lily, (x, y)
+                assert up_left not in emblem, (x, y)
             else:
-                assert up_left in lily, (x, y, here)
-                assert (down_right not in lily) == (here == mod.LILY_SHADOW), (x, y)
-    assert seen == lily, seen
+                assert up_left in emblem, (x, y, here)
+                assert (down_right not in emblem) == (here == mod.LILY_SHADOW), (x, y)
+    assert seen == emblem, seen
 
 
 # --- the emblem: one vector source, sampled at cell centres (#832) ----------
@@ -535,7 +535,7 @@ def enclosed_area(polygons, mod):
     of the others is a hole."""
     total = 0.0
     for k, poly in enumerate(polygons):
-        edges = zip(poly, poly[1:] + poly[:1])
+        edges = zip(poly, poly[1:] + poly[:1], strict=True)
         area = abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in edges)) / 2
         depth = sum(
             mod.inside([other], *poly[0]) for j, other in enumerate(polygons) if j != k
@@ -636,8 +636,8 @@ def test_the_panel_renders_its_rows_and_its_blanks():
 
 
 def test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence():
-    """#30 §*Size*: 75 % is the floor the issue measured — at 60 % the band
-    closes, at 50 % the lily reads as a cross. The floor is let through; a
+    """#30 §*Size*: 75 % is the floor the issue measured on #717's lily — at
+    60 % the band closed, at 50 % the lily read as a cross. The floor is let through; a
     scale under it is refused with a sentence naming both numbers, and the
     command exits 2 with nothing drawn, because a seal nobody can read is the
     counterfeit `verify` names."""
@@ -3575,7 +3575,9 @@ def test_the_docstrings_describe_the_letter_and_the_rows_it_carries():
     module's docstring describes the letter and the twin's characters rather
     than a rope and golds; the gate's module docstring and `panel`'s row
     diagram list the rows the panel carries now; the comment above
-    `SAMPLE_ROWS` says which rows left."""
+    `SAMPLE_ROWS` says which rows left. #832: the twin's `G Y y` are the
+    emblem's letters, and the docstring names no fleur-de-lis and no chart
+    of stitches, which the vector source replaced."""
     stamp = " ".join(
         read_document(
             os.path.join("skills", "verify", "scripts", "seal_stamp.py")
@@ -3585,7 +3587,9 @@ def test_the_docstrings_describe_the_letter_and_the_rows_it_carries():
         "written on a parchment sheet, with a wax disc pressed over the sheet's "
         "lower right corner"
     ) in stamp
-    assert "`m` the wax's edge, `.` the field and `G Y y` the lily's face" in stamp
+    assert "`m` the wax's edge, `.` the field and `G Y y` the emblem's face" in stamp
+    assert "one vector source held below as data (`EMBLEM_D`" in stamp
+    assert "fleur-de-lis" not in stamp and "stitch" not in stamp
     assert "`o O` rope" not in stamp and "the lily's golds" not in stamp
     assert "Since #717 there is no blank row in it, no `chain`" in stamp
     gate = " ".join(

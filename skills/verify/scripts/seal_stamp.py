@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
 """seal-stamp — the drawing the broad gate prints when it was earned.
 
-Issue #30 §*What it prints*, redrawn by #717. A letter: what the gate read —
-the tree and its branch, the base and its ref, the work item, the suite's
-counts, the ledger's, the steps CI also runs, the rounds (`broad_gate.panel`
-owns the list) — written on a parchment sheet, with a wax disc pressed over
-the sheet's lower right corner and a fleur-de-lis pressed into the wax. The
-disc is COMPUTED — `hypot` for its edge — and only the lily is authored, as a
-29x32 counted-stitch chart held below as data. Four hand-typed discs came
-before #30's and every one was lopsided; a circle that is calculated cannot
-be off centre, and resizing it is one number. #717 took off the rope ring and
-the outer red band and pressed the lily in one red lit from the upper left,
-and the owner chose that drawing, its colours and its scale from renderings.
+Issue #30 §*What it prints*, redrawn by #717 and #832. A letter: what the
+gate read — the tree and its branch, the base and its ref, the work item, the
+suite's counts, the ledger's, the steps CI also runs, the rounds
+(`broad_gate.panel` owns the list) — written on a parchment sheet, with a wax
+disc pressed over the sheet's lower right corner and an emblem pressed into
+the wax. The disc is COMPUTED — `hypot` for its edge — and only the emblem is
+authored, as one vector source held below as data (`EMBLEM_D`, closed paths
+in SVG `d` syntax): the disc samples it at each cell's centre, and the
+release PNG fills the same polygons, so the two forms cannot drift. Four
+hand-typed discs came before #30's and every one was lopsided; a circle that
+is calculated cannot be off centre, and resizing it is one number. #717 took
+off the rope ring and the outer red band and pressed the mark in one red lit
+from the upper left, and the owner chose that drawing, its colours and its
+scale from renderings. #832 replaced #717's chart of a lily, whose majority
+vote mangled it below 1.0, with the vector source; which mark it carries is
+the owner's to choose (`EMBLEM_D`'s comment).
 
 Two forms, one drawing (`compose`). The block form is half-block characters,
 the disc in truecolour and the sheet in 256-colour codes, emitted only where
 the colour changes (a code per cell was 282 KB for one seal). The letter twin
 is the same footprint as letters — the sheet's edge `|`, its top `.---.` and
 its bottom `'---'`, the text as itself, `m` the wax's edge, `.` the field and
-`G Y y` the lily's face, highlight and shadow — for a console that cannot
+`G Y y` the emblem's face, highlight and shadow — for a console that cannot
 render half-blocks, and for `seal-stamp` on a pipe. The twin is chosen when
 stdout is not a UTF-8 terminal, or on `--shape`. An agent's report carries
 neither: since #400 the gate draws nothing on a pipe.
@@ -49,7 +54,7 @@ session's turn. This module owns the file: `write_values`, `read_values`,
 Usage:
   seal-stamp                      the stamp over sample rows, for a person
   seal-stamp --shape              the letter twin
-  seal-stamp --scale 0.75         the chart shrunk; 0.75 is the floor
+  seal-stamp --scale 0.75         the disc drawn smaller; 0.75 is the floor
   seal-stamp --from <file>        a sealed run's values file, drawn once
 
 The gate imports `stamp(rows, scale, shape)`, `not_sealed(tree, base,
@@ -82,7 +87,7 @@ import time
 # Copied from `skills/code-review/scripts/round_record.py`, whose comment says
 # this block is the spelling to copy. It sits after the imports, uses no syntax
 # newer than the interpreter it means to catch, and precedes every other act
-# at module level — the chart below is parsed by a call.
+# at module level — the emblem below is parsed by a call.
 FLOOR = (3, 12)
 FLOOR_TEXT = ".".join(str(part) for part in FLOOR)
 BELOW_FLOOR = (
@@ -119,8 +124,8 @@ if _refusal:
 # Z` only, in a 1000 x 1000 viewBox centred on (500, 500) with the field's
 # edge at radius 500, filled even-odd. The terminal samples it at cell
 # centres (`build`) and the release PNG fills the same flattened polygons
-# with Pillow, so the two forms cannot drift. It replaces #717's 29x32
-# counted-stitch chart, whose majority vote mangled the lily below 1.0.
+# with Pillow, so the two forms cannot drift. It replaces #717's chart of a
+# lily, one cell a mark, whose majority vote mangled the lily below 1.0.
 #
 # INTERIM. This is a plain geometric ring, not the project's mark: which
 # mark the seal carries is open with the owner (questions.md Q1 of work item
@@ -275,8 +280,10 @@ SHEET_EDGE = 187  # (215, 215, 175)
 INK = 94  # (135, 95, 0)
 TITLE = 124  # (175, 0, 0)
 
-# The letter for each disc colour in the twin. `.` is the field, as it was
-# before #717; a cell of the sheet is its own character (`compose`).
+# The letter for each disc colour in the twin. `m` is the wax's edge and `.`
+# the field, as it was before #717; `G Y y` are the emblem's face, highlight
+# and shadow, whichever mark `EMBLEM_D` holds (#832). A cell of the sheet is
+# its own character (`compose`).
 KEY = {
     WAX_M: "m",
     FIELD: ".",
@@ -285,9 +292,13 @@ KEY = {
     LILY_SHADOW: "y",
 }
 
-# #30 §*Size*: the chart compresses to 75 % with the lily still legible; at
-# 60 % the band closes up and the foot becomes a blob, and at 50 % it reads as
-# a cross. Above 1.0 nothing enlarges — the chart is one cell per stitch.
+# #30 §*Size* measured the floor on the lily's chart: at 75 % the lily was
+# still legible, at 60 % its band closed up and its foot became a blob, and at
+# 50 % it read as a cross. #832 samples a vector emblem instead and keeps the
+# floor where #30 put it; what holds an emblem's strokes to it is
+# `test_the_terminal_draws_the_area_the_emblem_encloses`, which is red at any
+# rung where cell centres miss a stroke. Above 1.0 nothing is drawn, because
+# the hook's message budget was measured up to 1.0 (`SCALE_TOO_LARGE`).
 SCALE_FLOOR = 0.75
 SCALE_CEILING = 1.0
 # The scale both commands draw at unless told otherwise (#400 §*The size, and
@@ -298,7 +309,9 @@ SCALE_CEILING = 1.0
 # The trade was the lily's legibility against the two blocks lining up, and
 # legibility won. #717 drew the letter at 0.90 again, the owner choosing it
 # from renderings at 0.85 and 0.90 with the disc pressed on the sheet; the
-# rope this paragraph names is gone.
+# rope this paragraph names is gone. Those readings were of the lily, which
+# #832 withdrew: 0.90 stays the rung the hook tries first, and the emblem the
+# owner chooses is looked at there.
 #
 # 0.75 was the other candidate, passed over rather than missed: it is the only
 # legal scale where the disc (17 lines) and the panel end within one line of
@@ -388,7 +401,9 @@ def check_scale(scale):
 # radius, so the four rungs keep the heights they had (44, 40, 36, 34) and
 # the hook's budget cases keep their meaning. It is a parameter of `build`
 # rather than a number buried in it, because the disc's size is the owner's
-# to choose from renderings (#832).
+# to choose from renderings (#832). A smaller disc is a smaller value here and
+# nothing else; the cases it moves are named in `phases/phase-1.md` of work
+# item 1791270164.
 R0_CELLS = 15.5 / 0.74
 
 
@@ -1049,7 +1064,7 @@ def main(argv=None, console_wants_letters=None):
         "--scale",
         type=float,
         default=None,
-        help=f"the chart's scale; {SCALE_FLOOR} is the floor, {SCALE_CEILING} the "
+        help=f"the disc's scale; {SCALE_FLOOR} is the floor, {SCALE_CEILING} the "
         f"size, {DEFAULT_SCALE} the default, and a values file's own scale with "
         "--from",
     )
