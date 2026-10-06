@@ -1,29 +1,19 @@
 # 1791270162 — handoff
 
-Written 2026-10-06 by the orchestrating session (Opus 5.5) when the 0.20.0 run moved to another machine. Read this first, then `overview.md` and `phases/phase-1.md`.
+Written 2026-10-07 by the orchestrating session (Opus 5.5) at the end of the second machine's segment of the 0.20.0 run. It replaces the 2026-10-06 handoff. Read this first, then `overview.md` and `phases/phase-2.md`.
 
 ## Where it stands
 
-- Framed by `framer` on Fable 5.1 (1f76a078). Phase 1, the corpus measurement, was built by `smith` on Opus 5.5 and is closed (1d28e9a9, 29bb0421). Nothing under `hooks/`, `tests/` or `.github/` changed.
-- The branch is pushed so the other machine can fetch it. No pull request is open.
-
-## Phase 2 waits on the owner
-
-M3 is not zero. As framed, 595 recorded command shapes would stop with no plain spelling to rewrite them to. The frame says that every such shape becomes an owner row, and the smith opened three:
-
-- **P2.** The frame's In 1 reads any `$( … )` body holding `git` as unrecognised. That clause alone accounts for 575 of the 595. Should a body be read recursively through the same three shapes? With that reading, M3 falls to 34.
-- **P3.** What happens to `update-ref` (13) and `symbolic-ref` (1)?
-- **P4.** What happens to an untokenizable command (5)?
-
-P1 (where the allow-list comes from) is still unanswered, and its default (a), recorded subcommands only, stands. The phase-2 spawn prompt carries the answers to P2–P4.
-
-## Found for phase 2 (W3)
-
-- `hooks/cmdline.py#command_strings` returns no string for `eval "git switch x"`.
-- A redirection after `git` (`git 2>/dev/null …`) is read as the subcommand word.
+- The owner answered P1–P4 on 2026-10-06, all (a) (`questions.md`, 707872aa). P2 was fed back into `spec.md` In 1.
+- **Phase 2 is closed** (smith on Opus 5.5; commits 38a54f83..32c7280f, `Ran by` filled at 8ba36f55). The guard reads each git command as listed / switch / creation / unrecognised; an unrecognised shape stops only where the tree matters, before the ladder, naming its plain spelling. M3 after P2 is 34 on phase 1's definition.
+- Orchestrator re-ran at the close: lint pass, the three guard modules 181 passed.
+- **48 cases fail in `tests/test_guard_resolves_the_tree_it_judges.py`**: they assert the readings phase 2 retires. They are phase 3's, which rebases onto #841's twins sampling (W4).
+- **P5 is open with the owner**: the frame says an unrecognised shape in an ACTIVE tree asks without the press; the smith built deny regardless of the press, from `docs/worktree-guard-spec.md` §A row 1. The orchestrator agrees; the owner has not answered. Reverting is one line of `stop_unrecognised` and S3's expectation.
+- `survivor-check --range a9d7b0e5...HEAD` reports **5 places**: phase 3 owes corrections or rows in this item's `survivors.md`.
+- HEAD 8ba36f55, pushed. No pull request yet.
 
 ## Next
 
-1. Ask the owner P2–P4 together, once, and P1 with them if they want to change its default.
-2. Phase 2 by `plan.md`, then phase 3. Phase 3 rebases onto #841's twins sampling, which lands first (W4). Then phase 4. The framer estimated 3–5 hours of smith wall time in total.
-3. Routing is `automation`: the draft pull request, the `warden` rounds (Opus 5.5), `broad-gate --preflight`, the sealer, then ready. The pull request goes into `release/v0.20.0` (squash) and closes #826, #732 and #734.
+1. Wait for #841 (PR #845) to land in `release/v0.20.0`, then `git merge origin/release/v0.20.0` (never rebase) and resume phase 3 by `plan.md`: retire the twins case after #841's sampled version, write the one `Corrected ·` row for D1 of 0.18.2, re-measure the corpus with phase 1's definition (the probe of phase 2 saw `check-ref-format`, `hash-object`, `cherry`, `version` that phase 1's table lacks — list candidates under P1 (a)), and settle the 48 cases.
+2. Phase 4 by `plan.md`.
+3. Routing is `automation`: draft PR at the end of the build, `warden` rounds (Opus 5.5), preflight, sealer, ready, squash into `release/v0.20.0`. Closes #826, #732, #734. Read `gh pr checks` for every workflow after each push, and run survivor-check over the whole branch range at each phase boundary.
