@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #846 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `80e7454478913c6821a4f0355cf876b783439d67..fa1c6044532e8b3e3d43b82641f9cb9dbe28c691`, 3 commits |
+| Contract changes | none |
+| New units | COMPARED_AT_BASE (depth 1); NAMED_BY_FAILED_LINES (depth 1); test_a_record_it_cannot_write_leaves_pytest_its_own_exit_under_w_error (depth 1); test_a_pyargs_module_name_is_not_read_as_a_path_outside_the_rootdir (depth 1); test_a_file_pytest_names_outside_its_rootdir_earns_no_word (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1 (a file outside pytest's rootdir is recorded under the wrong path, and a file the branch broke reads `failing on base too`), 🟡 2 (rule 3 does not name the rest of Q2's class), 🟡 3 (the recorder's warning raises out of a hook under warnings-as-errors) |
 | Loses a record or crashes | yes — 🟡 3: with the records file unwritable and warnings as errors, the measured pytest ends in INTERNALERROR, exit 3, and its own result is lost |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,11 +25,11 @@ Round 1 of the chain the owner chose (`routing.md`, `automation`). The reviewer 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The recorder joins `report.fspath` to the rootdir, which names a file outside the rootdir against the wrong directory; two files share one name and a file the branch broke reads `failing on base too` from another file's failure at the base | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:144` | open | executed: `pytest tests sub` with `sub/pytest.ini`, and `-c ci/pytest.ini`, `--rootdir=ci` over two `test_x.py` files, each gave `failing on base too` to a file the base passes; the strict fix turns each into `NO_RECORD_AT_HEAD`, the planted case is red without it and green with it, and the corpus's Q3b "own" row moves |
-| 🟡 2 | Rule 3 names only a replaced `PYTHONPATH` as failing at the gate; `python -I`, `python -E` and a wrapper passing `PYTEST_ADDOPTS` alone fail a green suite the same way, while rule 3 says such wrappers' files read `new?` | `templates/config.md:334` | open | executed: a one-test green suite exits 1 with the recorder's import error under `-I` and `-E`, and 0 plain; read: tox 4.64.9's default pass-env list |
-| 🟡 3 | The recorder's warning raises out of a hook under warnings-as-errors, ending the measured run in INTERNALERROR | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:103` | open | executed: `python -W error` with an unwritable records directory, exit 3; with the warning under its own filter, exit 1 (the planted test) and no INTERNALERROR |
-| ⬜ 4 | Phase 4's correction of R4 was not fed back: `spec.md` still says `report.location[0]` and "two files at one relative path coincide only for one file", and `overview.md` says nothing was fed back | `seal/specs/1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote/overview.md:48` | open | read; paperwork correction, not counted in Needs a fix; also `spec.md:79`, `spec.md:117`, `spec.md:154`, `plan.md:89`, `plan.md:115` |
-| ⬜ 5 | The failure form heads `NO_RECORD_AT_HEAD` rows with "compared at the base", where the base was not run | `skills/verify/scripts/broad_gate.py:2940` | open | read; each row's reason says the base was not run, so behaviour and fact are right |
+| 🔴 1 | The recorder joins `report.fspath` to the rootdir, which names a file outside the rootdir against the wrong directory; two files share one name and a file the branch broke reads `failing on base too` from another file's failure at the base | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:144` | **fixed** `17badc11` | fixed at 17badc11; executed: `pytest tests sub` with `sub/pytest.ini`, and `-c ci/pytest.ini`, `--rootdir=ci` over two `test_x.py` files, each gave `failing on base too` to a file the base passes; the strict fix turns each into `NO_RECORD_AT_HEAD`, the planted case is red without it and green with it, and the corpus's Q3b "own" row moves |
+| 🟡 2 | Rule 3 names only a replaced `PYTHONPATH` as failing at the gate; `python -I`, `python -E` and a wrapper passing `PYTEST_ADDOPTS` alone fail a green suite the same way, while rule 3 says such wrappers' files read `new?` | `templates/config.md:334` | **fixed** `17badc11` | fixed at 17badc11; executed: a one-test green suite exits 1 with the recorder's import error under `-I` and `-E`, and 0 plain; read: tox 4.64.9's default pass-env list |
+| 🟡 3 | The recorder's warning raises out of a hook under warnings-as-errors, ending the measured run in INTERNALERROR | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:103` | **fixed** `17badc11` | fixed at 17badc11; executed: `python -W error` with an unwritable records directory, exit 3; with the warning under its own filter, exit 1 (the planted test) and no INTERNALERROR |
+| ⬜ 4 | Phase 4's correction of R4 was not fed back: `spec.md` still says `report.location[0]` and "two files at one relative path coincide only for one file", and `overview.md` says nothing was fed back | `seal/specs/1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote/overview.md:48` | **fixed** `fa1c6044` | fixed at fa1c6044; read; paperwork correction, not counted in Needs a fix; also `spec.md:79`, `spec.md:117`, `spec.md:154`, `plan.md:89`, `plan.md:115` |
+| ⬜ 5 | The failure form heads `NO_RECORD_AT_HEAD` rows with "compared at the base", where the base was not run | `skills/verify/scripts/broad_gate.py:2940` | **fixed** `17badc11` | fixed at 17badc11; read; each row's reason says the base was not run, so behaviour and fact are right |
 | 🟢 | Q1 and Q2 built as (a) | `skills/verify/scripts/broad_gate.py:2038`, `templates/config.md:334` | confirmed | read: `base_word` gives `NOT_REACHED` with the exit on a non-zero base for a file in no session; rule 3 and the Q2 case hold the replaced-`PYTHONPATH` row failing at the gate |
 
 ## Paste-ready fixes
