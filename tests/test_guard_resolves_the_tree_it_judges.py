@@ -896,7 +896,8 @@ def test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer(
 # Both were built in phase 2 of work item 1790993140 and counted in phase 3
 # over the recorded runs; phase 4 wired or removed each by that count, under
 # the owner's rule of 2026-10-03. #686's ask fired on 9 recorded pairs and was
-# removed, so its fallback is a known limit. #678's fired on none and is wired.
+# removed, so its fallback is a known limit. #678's question was wired, and
+# #826 replaced it with the unrecognised-shape stop.
 
 SWITCH = "git switch feature/x"
 
@@ -942,9 +943,9 @@ WIDER_ONLY = {
     "--config-env, a switch": ("cd w && git --config-env k=v switch x", "switch"),
     # Round 2 of 1790993140: a redirection glued to the subcommand's end.
     # bash runs each (executed by the round); the frozen parser reads
-    # `switch>/dev/null` as no subcommand, and only the cut view reads the
-    # kind. Silent at `f1629706`, where the cut view was compared with the
-    # frozen parser.
+    # `switch>/dev/null` as the subcommand, which is the redirection shape
+    # since #826, and `worktree add>/dev/null` as a `worktree` whose `add` a
+    # redirection hides (`_hidden_mover`).
     "a redirection glued to switch": (
         "cd w && git switch>/dev/null feature/x",
         "switch",
@@ -957,9 +958,10 @@ WIDER_ONLY = {
         "cd w && git worktree add>/dev/null ../wt b",
         "creation",
     ),
-    # #737. The splitter cuts `&>` at `&`, and only the merged view holds the
-    # switch; bash runs each (executed). A mutant comparing the merged view
-    # with itself is silent on both.
+    # #737. The splitter cuts `&>` at `&`; bash runs each as a switch
+    # (executed). The frozen reading reads the `git switch` or `git checkout`
+    # in front of the cut, so the first meets the ladder and the second is
+    # unrecognised.
     "&> between switch and its name": (
         "cd w && git switch &>/dev/null feature/x",
         "switch",
