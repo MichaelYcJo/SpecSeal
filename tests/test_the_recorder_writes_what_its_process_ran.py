@@ -314,3 +314,39 @@ def test_a_record_it_cannot_write_leaves_pytest_its_own_exit_under_w_error(tmp_p
     assert result.returncode == 1, output
     assert "INTERNALERROR" not in output, output
     assert "no record written" in output, output
+
+
+def test_a_pyargs_module_name_is_not_read_as_a_path_outside_the_rootdir(tmp_path):
+    """#825 round 1. The recorder refuses a session handed a path outside its
+    rootdir, and an argument that is no path here -- a `--pyargs` module
+    name -- is passed over rather than read as one, so such a run still
+    records its tests under the module that collected them."""
+    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
+    env = recording_env(records)
+    env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(root / "tests")])
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "no:cacheprovider",
+            "-q",
+            "--pyargs",
+            "test_mixed",
+        ],
+        cwd=str(root),
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=240,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    failed = [
+        os.path.basename(line["path"])
+        for line in lines
+        if line["kind"] == "test" and line["outcome"] == "failed"
+    ]
+    assert failed == ["test_mixed.py"], lines
