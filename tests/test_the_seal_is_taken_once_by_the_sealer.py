@@ -4504,6 +4504,32 @@ def test_a_file_pytest_names_outside_its_rootdir_earns_no_word(tmp_path):
     assert verdict_of(out.stdout, "sub/test_x.py") == gate.NO_RECORD_AT_HEAD, out.stdout
 
 
+def test_pyargs_modules_outside_the_rootdir_earn_no_word(tmp_path):
+    """#825 round 2. `sub/pytest.ini` makes `sub` the rootdir, and the row's
+    `--pyargs` modules live in `extpkg/`, outside it, so pytest gives each an
+    empty node id and both were recorded as `sub`. The base fails
+    `test_b`, the feature breaks `test_a`, and `sub` read `failing on base
+    too`. A session whose `--pyargs` module lies outside its rootdir writes
+    no record, so the base is not run."""
+    posix_row_shell_or_skip()
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"cd sub && PYTHONPATH=..:$PYTHONPATH {FILES_ROW} "
+        "--pyargs extpkg.test_a extpkg.test_b",
+        {
+            "sub/pytest.ini": "[pytest]\n",
+            "extpkg/__init__.py": "",
+            "extpkg/test_a.py": "def test_a():\n    assert True\n",
+            "extpkg/test_b.py": "def test_b():\n    assert False, 'on the base'\n",
+        },
+        {"extpkg/test_a.py": "def test_a():\n    assert False, 'the branch'\n"},
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert gate.ON_BASE not in out.stdout, out.stdout
+
+
 def test_a_part_that_fails_at_the_base_before_the_runner_measures_nothing(tmp_path):
     """A5 (#747). The lint stand-in fails at the base only, so `&&` stops the
     row there before pytest runs, and no pytest at the base loads the
@@ -6324,17 +6350,21 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "`PYTHONPATH`: pytest cannot import the module the `-p` names and exits "
         "1 before any test runs, so the row fails at the gate.",
         "and pass `PYTHONPATH` on wherever `PYTEST_ADDOPTS` goes.",
-        # #825 round 1's 🔴 1.
-        "A pytest handed a path outside its rootdir — `-c` or `--rootdir` "
-        "elsewhere, or a config file in one of its arguments' directories — "
-        "names those files against the argument rather than the rootdir, so it "
-        "writes no record and its files read `new?`.",
+        # #825 rounds 1 and 2.
+        "A pytest that names a file outside its rootdir — one handed a path "
+        "outside it, `-c` or `--rootdir` elsewhere or spelled through a "
+        "symlink, a config file in one of its arguments' directories, or a "
+        "`--pyargs` module Python imports from outside it — names those files "
+        "against the argument rather than the rootdir, so it writes no record, "
+        "and its files are measured as a runner's that did not load the "
+        "recorder; so does one in which a conftest or a plugin builds a "
+        "collector for a path no argument contains,",
         "One limit is named rather than closed: a test written to append to the "
         "record file the recorder is writing, or to write a record of its own "
-        "with the gate's key, can put a line into a keyed record. Round 1 of "
-        "#825 found a second way to a wrong `failing on base too`, a pytest "
-        "naming files outside its rootdir, and the refusal above closes it; no "
-        "third is known",
+        "with the gate's key, can put a line into a keyed record. Rounds 1 and 2 "
+        "of #825 found a second way to a wrong `failing on base too`, a pytest "
+        "naming files outside its rootdir, and the refusals above close every "
+        "branch of pytest's naming rule that reaches it; no third way is known",
     ):
         assert sentence in text, f"rule 3 does not carry: {sentence}"
     for gone in (
@@ -6358,6 +6388,12 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         # it, and a forged record called the only way to the wrong word.
         "A row that replaces `PYTHONPATH` and keeps `PYTEST_ADDOPTS` fares",
         "and that is the one way to a wrong `failing on base too`",
+        # #825 round 2: the refusal named by its path arguments alone, and
+        # its files said to read `new?` wherever another runner recorded.
+        "A pytest handed a path outside its rootdir — `-c` or `--rootdir` "
+        "elsewhere, or a config file in one of its arguments' directories — "
+        "names those files",
+        "writes no record and its files read `new?`.",
     ):
         assert gone not in text, f"rule 3 still carries: {gone}"
 

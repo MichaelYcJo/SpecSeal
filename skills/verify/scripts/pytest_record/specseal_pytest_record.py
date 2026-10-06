@@ -38,12 +38,18 @@ corpus's N1). Each line is flushed as it is written, so a crash leaves what
 ran.
 
 That holds only where pytest names a file against the rootdir, which it does
-for every file under it. A file outside the rootdir is named against the
-argument that reached it, so the node id's path joined to the rootdir names
-a file that is not the test's, and two files under two arguments can share
-one name. A session handed a path outside its rootdir -- `-c` or `--rootdir`
-elsewhere, or a config file in one argument's directory -- therefore writes
-no record at all, and its files read `new?`: the strict side (#825 round 1).
+for every file under it by its own lexical rule. A file outside the rootdir
+is named against the argument that reached it, so the node id's path joined
+to the rootdir names a file that is not the test's, and two files under two
+arguments can share one name. A session in which pytest would name any
+argument outside its rootdir -- a path outside it, `-c` or `--rootdir`
+elsewhere or spelled through a symlink, a config file in one argument's
+directory, a `--pyargs` module Python imports from outside it -- therefore
+writes no record at all: the strict side (#825 rounds 1 and 2). The one
+way past this the arguments cannot show is a collector a conftest or a plugin
+builds for a path no argument contains: pytest gives its tests the parent's
+node id and a `::` name, whose path is no file, so a test line whose path is
+no file abandons the whole record (#825 round 2).
 
 It never changes an outcome and never raises out of a hook: a directory it
 cannot write is one warning, shown under the recorder's own filter so that a
@@ -96,12 +102,27 @@ class Recorder:
         self.config = config
         self.rootdir = _rootdir(config)
         self.stream = None
+        self.file = None
 
     def absolute(self, relative):
         return os.path.normpath(os.path.join(self.rootdir, str(relative)))
 
     def write(self, line):
         if self.stream is None:
+            return
+        if line.get("kind") == "test" and not os.path.isfile(line["path"]):
+            # pytest gives a test the node id of its module's file, unless a
+            # collector it did not reach through an argument or the rootdir
+            # holds it -- one a conftest or a plugin built for a path no
+            # argument contains. Its node id is then the parent's and a `::`
+            # name, and its path no file: not the test's module. The whole
+            # record is abandoned, the strict side (#825 round 2).
+            stream, self.stream = self.stream, None
+            try:
+                stream.close()
+                os.remove(self.file)
+            except (OSError, ValueError):
+                pass
             return
         try:
             self.stream.write(json.dumps(line) + "\n")
@@ -127,15 +148,43 @@ class Recorder:
                 pass
 
     def an_argument_lies_outside_the_rootdir(self):
-        """Whether pytest was handed a path outside its rootdir. pytest
-        names a file there against the argument that reached it, not against
-        the rootdir, so its node id's path joined to the rootdir names no
-        file of its own. An argument that is no path here -- a `--pyargs`
-        module, a path that does not exist -- is passed over."""
-        root = os.path.realpath(self.rootdir)
+        """Whether pytest was handed a path outside its rootdir, by pytest's
+        own rule: lexical, as its `absolutepath` and `relative_to` are, never
+        through a symlink, and with a `--pyargs` module where pytest finds
+        it. pytest names a file there against the argument that reached it,
+        not against the rootdir, so its node id's path joined to the rootdir
+        names no file of its own (#825 rounds 1 and 2). The argument is split
+        as pytest splits it, at `[` and then at `::`. An argument that is no
+        path and no module pytest can find is passed over: pytest stops on
+        it with a usage error."""
+        root = os.path.abspath(self.rootdir)
         here = _invocation_dir(self.config)
+        option = getattr(self.config, "option", None)
+        pyargs = bool(getattr(option, "pyargs", False))
         for argument in getattr(self.config, "args", None) or ():
-            path = os.path.realpath(os.path.join(here, str(argument).split("::")[0]))
+            name = str(argument).partition("[")[0].split("::")[0]
+            located = None
+            if pyargs:
+                # Where pytest's `search_pypath` finds the module: a module's
+                # file, a package's directory, or nothing, and then pytest
+                # reads the argument as a path. `find_spec` imports a dotted
+                # name's parent packages, which pytest's own collection does
+                # next.
+                import importlib.util
+
+                try:
+                    spec = importlib.util.find_spec(name)
+                except Exception:
+                    spec = None
+                if spec is not None:
+                    places = list(spec.submodule_search_locations or ())
+                    if not places:
+                        located = spec.origin
+                    elif spec.origin is None or spec.origin == "namespace":
+                        located = places[0]
+                    else:
+                        located = os.path.dirname(spec.origin)
+            path = os.path.abspath(os.path.join(here, located or name))
             if not os.path.exists(path):
                 continue
             try:
@@ -150,12 +199,11 @@ class Recorder:
         if self.an_argument_lies_outside_the_rootdir():
             return
         name = f"{self.key}-{os.getpid()}.jsonl"
+        self.file = os.path.join(self.directory, name)
         try:
             # Held open across hooks and closed at `pytest_sessionfinish`, so
             # no `with` block can own it.
-            self.stream = open(  # noqa: SIM115
-                os.path.join(self.directory, name), "w", encoding="utf-8"
-            )
+            self.stream = open(self.file, "w", encoding="utf-8")  # noqa: SIM115
         except OSError as error:
             self.give_up(error)
             return

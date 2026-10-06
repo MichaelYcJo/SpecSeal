@@ -2075,13 +2075,14 @@ def compare_at_base(root, base, command, files, keep):
     The process that collected a test is the process that wrote its line,
     so there is no `whose` to decide: a test that runs pytest itself starts
     a pytest with no key, which records nothing, and a second runner in the
-    row writes its own session with its own paths. A pytest handed a path
-    outside its rootdir names those files against the argument rather than
-    the rootdir, so it writes no record at all and its files read `new?`:
-    that was a second way to a wrong `failing on base too`, and the
-    recorder's refusal closes it (#825 round 1). What `templates/config.md`
-    rule 3 names as left open is a test written against this gate's key or
-    its file.
+    row writes its own session with its own paths. A pytest that names a
+    file outside its rootdir names it against the argument rather than the
+    rootdir, so it writes no record at all, and its files are measured as a
+    runner's that did not load the recorder: `new?` where no other runner
+    recorded, and in no list where one did. That was a second way to a wrong
+    `failing on base too`, and the recorder's refusals close it (#825 rounds
+    1 and 2). What `templates/config.md` rule 3 names as left open is a test
+    written against this gate's key or its file.
 
     The `run` call stays in this function's own body, one call for the one
     run: the shell sites are `gate` and this function, and a case holds

@@ -350,3 +350,133 @@ def test_a_pyargs_module_name_is_not_read_as_a_path_outside_the_rootdir(tmp_path
         if line["kind"] == "test" and line["outcome"] == "failed"
     ]
     assert failed == ["test_mixed.py"], lines
+
+
+def pytest_in(root, env, *args):
+    return subprocess.run(
+        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-q", *args],
+        cwd=str(root),
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=240,
+    )
+
+
+def records_written(records):
+    return [f for f in os.listdir(str(records)) if f.endswith(".jsonl")]
+
+
+def test_a_pyargs_module_outside_the_rootdir_writes_no_record(tmp_path):
+    """#825 round 2. pytest finds a `--pyargs` package where Python imports
+    it from, outside the rootdir here, and names its `test_mixed.py` against
+    the package: `test_mixed.py`, the name a file at the rootdir has. The
+    argument is no path, so the refusal used to pass it over and the record
+    named another file."""
+    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    package = tmp_path / "site" / "extpkg"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
+    env = recording_env(records)
+    env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], str(tmp_path / "site")])
+    result = pytest_in(root, env, "--pyargs", "extpkg")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert records_written(records) == [], records_of(records)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a symlink needs privileges on Windows")
+def test_a_rootdir_named_through_a_symlink_writes_no_record(tmp_path):
+    """#825 round 2. pytest compares a path with its rootdir lexically, so a
+    `--rootdir` spelled through a symlink puts `tests/` outside it, and
+    `tests/test_mixed.py` is named `test_mixed.py`. A `realpath` comparison
+    called it inside."""
+    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    link = tmp_path / "link"
+    link.symlink_to(root, target_is_directory=True)
+    result = pytest_in(root, recording_env(records), "--rootdir", str(link), "tests")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert records_written(records) == [], records_of(records)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a symlink needs privileges on Windows")
+def test_an_argument_named_through_a_symlink_writes_no_record(tmp_path):
+    """#825 round 2, the same branch from the other side. The rootdir is the
+    project, named by `-c` as it is, and the argument reaches `tests/`
+    through a symlink, so pytest finds it outside the rootdir and names
+    `tests/test_mixed.py` `test_mixed.py`."""
+    root, records = project(tmp_path, {"test_mixed.py": PASSING_AND_FAILING})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    link = tmp_path / "link"
+    link.symlink_to(root, target_is_directory=True)
+    result = pytest_in(
+        root,
+        recording_env(records),
+        "-c",
+        str(root / "pytest.ini"),
+        str(link / "tests"),
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert records_written(records) == [], records_of(records)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a symlink needs privileges on Windows")
+def test_a_symlinked_directory_under_the_rootdir_is_recorded_by_its_own_name(
+    tmp_path,
+):
+    """#825 round 2. A directory under the rootdir that is a symlink to a
+    place outside it is named by pytest under the rootdir, and it was
+    refused only when it was spelled as an argument."""
+    root, records = project(tmp_path, {})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "test_mixed.py").write_text(PASSING_AND_FAILING, encoding="utf-8")
+    (root / "shared_tests").symlink_to(shared, target_is_directory=True)
+    result = pytest_in(root, recording_env(records), "shared_tests")
+    assert result.returncode == 1, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    failed = {
+        os.path.relpath(line["path"], str(root))
+        for line in lines
+        if line["kind"] == "test" and line["outcome"] == "failed"
+    }
+    assert failed == {os.path.join("shared_tests", "test_mixed.py")}, lines
+
+
+BUILDS_A_COLLECTOR_ELSEWHERE = """\
+from pathlib import Path
+
+import pytest
+
+OUTSIDE = Path(__file__).resolve().parent.parent / "outside"
+
+
+def pytest_collect_directory(path, parent):
+    if path.name == "tests":
+        return pytest.Dir.from_parent(parent, path=OUTSIDE)
+"""
+
+
+def test_a_collector_built_for_a_path_no_argument_holds_writes_no_record(tmp_path):
+    """#825 round 2, the branch the arguments cannot show. A conftest builds
+    a collector for a directory outside the rootdir and outside every
+    argument, so pytest gives its tests the parent's node id and a `::`
+    name, `.::outside::test_far.py::test_out`, whose path is the rootdir
+    itself. A test line whose path is no file is not the test's module, so
+    the session's record is abandoned: the strict side."""
+    root, records = project(tmp_path, {"test_near.py": "def test_in():\n    pass\n"})
+    (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (root / "conftest.py").write_text(BUILDS_A_COLLECTOR_ELSEWHERE, encoding="utf-8")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "test_far.py").write_text(
+        "def test_out():\n    assert False\n", encoding="utf-8"
+    )
+    result = pytest_in(root, recording_env(records))
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert ".::outside::test_far.py::test_out" in result.stdout, result.stdout
+    assert records_written(records) == [], records_of(records)
