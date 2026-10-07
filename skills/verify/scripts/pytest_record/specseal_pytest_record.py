@@ -349,15 +349,12 @@ class Recorder:
         """pytest calls this for a `KeyboardInterrupt`, for the run loop's
         `Interrupted` and for `pytest.exit()`, before `pytest_sessionfinish`
         (`wrap_session`). Remembered here and written on the `end` line."""
-        value = getattr(excinfo, "value", None)
+        value = excinfo.value
         name = type(value).__name__
-        exit_type = getattr(pytest.exit, "Exception", None)
-        if exit_type is not None and isinstance(value, exit_type):
-            message = getattr(value, "msg", None)
-            if message is None:
-                message = str(value)
-            code = getattr(value, "returncode", None)
-            what = f"{name}: {message} (returncode {code})"
+        # `pytest.exit.Exception` is pytest's `Exit`, whose `msg` and
+        # `returncode` every build since 3.x sets in its constructor.
+        if isinstance(value, pytest.exit.Exception):
+            what = f"{name}: {value.msg} (returncode {value.returncode})"
             self.stops.append({"by": "exit", "what": what})
             return
         said = str(value)
@@ -373,9 +370,7 @@ class Recorder:
         for by, flag in (("failures", "shouldfail"), ("stop", "shouldstop")):
             value = getattr(session, flag, False)
             if value:
-                stops.append(
-                    {"by": by, "what": value if isinstance(value, str) else str(value)}
-                )
+                stops.append({"by": by, "what": str(value)})
         return stops
 
     def pytest_sessionfinish(self, session, exitstatus):

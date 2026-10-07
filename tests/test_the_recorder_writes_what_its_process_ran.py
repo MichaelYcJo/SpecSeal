@@ -1234,6 +1234,10 @@ def test_a_failed_collection_under_x_is_written_as_a_stop_in_either_order(
     assert result.returncode == exit_code, result.stdout + result.stderr
     stopped = end_line(records)["stopped"]
     assert {"by": "failures", "what": "stopping after 1 failures"} in stopped, stopped
+    # Where it was the last, the run loop raised pytest's `Interrupted`,
+    # which reaches the keyboard-interrupt hook with pytest's own sentence.
+    interrupted = {"by": "interrupt", "what": "Interrupted: 1 error during collection"}
+    assert (interrupted in stopped) is (exit_code == 2), stopped
 
 
 def test_a_plugins_stop_is_written_as_a_stop(tmp_path):
@@ -1258,3 +1262,43 @@ def test_a_plugins_stop_is_written_as_a_stop(tmp_path):
     assert [entry["by"] for entry in stopped if entry["by"] == "stop"] == ["stop"], (
         stopped
     )
+
+
+def test_a_teststatus_answer_that_holds_no_word_writes_no_category():
+    """#869, at `Recorder.category_of`, for answers no pytest build gives on
+    demand. The hook is asked with the report and the config; a word is its
+    answer's first element. An answer with no first element, a first element
+    that is not a word, and a hook that raises each write `None`, which the
+    gate counts under no category -- and nothing is raised out of the
+    hook."""
+    spec = importlib.util.spec_from_file_location(
+        "specseal_pytest_record_for_categories",
+        os.path.join(RECORDER_DIR, "specseal_pytest_record.py"),
+    )
+    recorder_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recorder_module)
+    asked = []
+
+    class Hook:
+        answer = ("passed", ".", "PASSED")
+
+        def pytest_report_teststatus(self, report, config):
+            asked.append((report, config))
+            if isinstance(self.answer, Exception):
+                raise self.answer
+            return self.answer
+
+    class Config:
+        rootpath = "/r"
+        hook = Hook()
+
+    config = Config()
+    recorder = recorder_module.Recorder("k", "/d", config)
+    report = object()
+    assert recorder.category_of(report) == "passed"
+    assert asked == [(report, config)]
+    for answer in (None, (), [], (7, "x", "y"), RuntimeError("a plugin's hook")):
+        Config.hook.answer = answer
+        assert recorder.category_of(report) is None, answer
+    Config.hook.answer = ["", "", ""]
+    assert recorder.category_of(report) == ""
