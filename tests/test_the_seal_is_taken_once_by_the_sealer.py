@@ -290,7 +290,7 @@ def test_a_coloured_row_carries_fewer_colour_sequences_than_cells():
             assert sequences < visible(line), f"{sequences} sequences: {line!r}"
 
 
-# --- the letter: a sheet with the disc pressed on its corner (#717) ----------
+# --- the letter: the text on a sheet, the disc inside it (#717, #832) -------
 
 
 def disc_at(cell):
