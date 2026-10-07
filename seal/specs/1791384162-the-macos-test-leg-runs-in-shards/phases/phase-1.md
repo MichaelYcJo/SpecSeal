@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | e43c461e (the shards, the reader and the sentences are ea43bac7) |
-| Ran by | unknown — the spawn prompt named the agent, `smith`, and not the model; the orchestrator fills this row |
+| Ran by | smith on Opus 5.5 (filled by the orchestrating session, which spawned it with `model: opus`) |
 
 ## What this phase was asked
 
