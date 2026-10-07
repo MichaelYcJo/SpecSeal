@@ -4837,10 +4837,10 @@ def test_the_failure_form_counts_the_lines_of_the_record_here_it_passed_over():
     nothing. A check that is not the suite is handed no record."""
     gate = gate_module()
     record = gate.RunRecord()
-    record.sessions, record.unread = 1, 1
+    record.sessions, record.unread = 1, 2
     check = gate.Check(gate.SUITE, 1, "", "suite.txt")
     lines = gate.failure_lines(check, {"tests/test_a.py": gate.NEW}, record)
-    said = gate.UNREAD_HERE.format(count=1)
+    said = gate.UNREAD_HERE.format(count=2)
     assert said in lines, lines
     assert lines.index(said) > lines.index("  tests/test_a.py  new"), lines
     record.unread = 0
