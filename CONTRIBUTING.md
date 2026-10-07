@@ -189,7 +189,11 @@ beside the values says which runs they were set from.
 `.test_durations` goes stale as cases are added, which unbalances the
 Windows and macOS shards and drops no case. The file is the Windows leg's,
 and it divides the macOS leg too, because every leg collects the same
-cases. To refresh it, push a branch on which `test.yml` runs the Windows
+cases. It prices each case as Windows ran it, so a case Windows skips is
+near zero there and its whole macOS cost is unseen by the division: after
+a refresh, read the macOS shards' times in the next run's jobs and set
+their `timeout` again by the rule beside the values. To refresh it, push a
+branch on which `test.yml` runs the Windows
 leg as one job again for a single run: one Windows entry with
 `store: "--store-durations"` in place of the four Windows shard entries,
 the three macOS shard entries left as they are, with a `timeout` for the
