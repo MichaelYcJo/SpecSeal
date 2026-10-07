@@ -60,6 +60,27 @@ reading yields (§*Which tree*) as one of three shapes, from its words alone:
   whose git is not all listed, behind a redirection or a zsh precommand
   word, or in a command that would not split into words.
 
+**A brace expansion is unrecognised (#856).** bash and zsh make other
+words of `{main,feature/x}`, `--ro{,}` and `{1..3}` before git runs, so `git
+rebase {main,feature/x}` is `git rebase main feature/x` to git, `git rebase
+--ro{,} feature/x` is `--root`, and `git stash {branch,} x` takes a branch:
+the words the frozen reading read are not git's, and the question this
+section asks has no answer for them. A git segment one of whose words holds
+`{…,…}` with no whitespace inside, or a sequence `{x..y}`, is unrecognised
+where the command holds one outside every quoted span and escape (a `${…}`
+is a parameter expansion and does not count), and its plain spelling is the
+words written out as the shell would make them. The quoting is read off the
+command's text, because the frozen splitter has taken the quotes off the
+words, so `git commit -m '{a,b}'` stays listed. A switch and a creation keep
+their own rules. Expanding the braces in the guard was the other answer, and
+it is not taken: it would be a shell prediction, the family that did not
+converge on one (#834), and the next spelling would reopen it. Two costs are
+named. A command holding a quoted brace in one git segment and an unquoted
+one anywhere else stops on both, because the quoting is the command's. And
+a `git -C` value or a `cd` operand holding a brace is read as one word, so
+the segment is placed in a directory that does not exist and falls back to
+the session's own tree, as §*Which tree* says.
+
 A creation is §B's and is read as it was.
 
 **The stop for an unrecognised shape.** It is taken only where one of the
@@ -118,8 +139,13 @@ stops ask no person anything; without it each is one `ask`. Over the
 31,193 distinct command and directory pairs this repository's runs recorded
 before 2026-10-03, the shapes stop 315 tree-blind, 55 of them pairs the
 guard before #826 did not stop at its most cautious, and they let through
-none it stopped (work item 1791270162, `phases/phase-3.md`).
-Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git, tests/test_worktree_guard.py::test_the_stop_names_each_tree_that_matters_in_both_languages, tests/test_worktree_guard.py::test_a_cut_group_is_judged_in_the_tree_its_own_c_names
+none it stopped (work item 1791270162, `phases/phase-3.md`). The brace
+shape adds none. Of the 32,431 distinct command and directory pairs recorded
+by 2026-10-08, none holds a git word with an unquoted brace expansion, by any
+subcommand, so it stops no recorded command, and its over-stop is none either;
+33 pairs hold one outside every git word (work item 1791384157,
+`phases/phase-1.md`).
+Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git, tests/test_worktree_guard.py::test_the_stop_names_each_tree_that_matters_in_both_languages, tests/test_worktree_guard.py::test_a_cut_group_is_judged_in_the_tree_its_own_c_names, tests/test_worktree_guard.py::test_a_brace_expansion_in_a_git_word_is_unrecognised, tests/test_worktree_guard.py::test_a_quoted_brace_in_a_git_word_stays_listed, tests/test_worktree_guard.py::test_the_brace_stop_reads_in_korean
 
 ### B. Worktree creation (`git worktree add`, or Agent/Task `isolation: "worktree"`)
 
@@ -835,9 +861,10 @@ at one prompt against a wrong allow breaking another session's tree.
   how `rebase`'s branch-naming form was found. A form no row's case runs is
   still a reading.
 - A creation only a hidden spelling holds (`git 2>&1 worktree add …`, `git
-  worktree 2>/dev/null add …`) is an unrecognised shape, so in a clean tree
-  nobody else is in it says nothing and §B never reads it, as at 0.16.0
-  before #678. The consent writer files nothing for it either.
+  worktree 2>/dev/null add …`, and since #856 `git worktree {add,} ../wt f`,
+  whose `add` only bash's brace expansion makes) is an unrecognised shape, so
+  in a clean tree nobody else is in it says nothing and §B never reads it, as
+  at 0.16.0 before #678. The consent writer files nothing for it either.
 - A `rebase` is listed, and detaches HEAD while it runs: a session switching
   in the same tree during that window meets a detached HEAD rather than the
   branch. The guard judges the command before it runs and reads no window.

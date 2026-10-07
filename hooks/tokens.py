@@ -36,9 +36,16 @@ The rules are the two consent reads 0.16.0 had, joined:
     other direction is one refusal.
 """
 
+import re
 import shlex
 
 KNOWN = ("[no-review]", "[no-parity]", "[worktree-ok]", "[shared-tree-ok]")
+
+# A backslash escape, a single-quoted span and a double-quoted span: what a
+# text read takes out to see what the shell leaves unquoted. `is_plain` reads
+# a subshell or a group through it, and the worktree guard reads a brace
+# expansion through it (#856), so the two agree on what a quote is.
+QUOTED_SPANS = re.compile(r"\\.|'[^']*'|\"(?:\\.|[^\"\\])*\"")
 
 
 def words(command):
@@ -201,8 +208,6 @@ def is_plain(command):
         substitution behind an unquoted delimiter;
       * `steps_around_hooks` finds none of its words.
     """
-    import re
-
     from cmdline import (
         drop_comments,
         drop_heredoc_bodies,
@@ -216,7 +221,7 @@ def is_plain(command):
     if substitution_bodies(text):
         return False
     # A subshell, a group or a function body, outside every quoted span.
-    bare = re.sub(r"\\.|'[^']*'|\"(?:\\.|[^\"\\])*\"", "", text)
+    bare = QUOTED_SPANS.sub("", text)
     if any(ch in bare for ch in "(){}"):
         return False
     if any("$(" in b or "`" in b for b in heredoc_bodies(drop_comments(command))):

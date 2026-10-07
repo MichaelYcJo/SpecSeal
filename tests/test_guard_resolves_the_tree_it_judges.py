@@ -825,6 +825,27 @@ def test_the_guard_policy_says_the_record_is_filed_where_the_guard_judged():
     ) in _policy_text()
 
 
+def test_the_guard_policy_names_the_brace_shape_and_its_costs():
+    """§14 of the agent contract, for S11-S13 of work item 1791384157 (#856):
+    §A names the brace shape, its plain spelling and its two costs, the
+    failure-direction paragraph carries phase 1's count, and §*Known limits*'
+    hidden-spelling bullet holds the brace creation. Red against `5623d728`'s
+    text."""
+    text = _policy_text()
+    for sentence in (
+        "**A brace expansion is unrecognised (#856).** bash and zsh make other "
+        "words of `{main,feature/x}`, `--ro{,}` and `{1..3}` before git runs",
+        "its plain spelling is the words written out as the shell would make them",
+        "A command holding a quoted brace in one git segment and an unquoted one "
+        "anywhere else stops on both",
+        "a `git -C` value or a `cd` operand holding a brace is read as one word",
+        "Of the 32,431 distinct command and directory pairs recorded by "
+        "2026-10-08, none holds a git word with an unquoted brace expansion",
+        "`git worktree {add,} ../wt f`",
+    ):
+        assert sentence in text, sentence
+
+
 def test_the_consent_writer_composes_the_creations_own_dash_c(repo, tmp_path):
     """S3 of work item 1791384157, the half the chains do not reach: the
     writer files under the directory the creation's own `-C` names, composed
