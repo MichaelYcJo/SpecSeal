@@ -9,8 +9,8 @@
   session was working in. Both now stop where a switch would matter, with
   the advice to run `git switch <branch>` first. So does `git rebase
   --root>/dev/null feature/x`, where the redirection used to hide `--root`.
-  A rebase of the branch HEAD is on still passes, and so do
-  `--rebase-merges` and every other option.
+  A rebase of the branch HEAD is on still passes, and so does one carrying
+  `--rebase-merges` or another option that takes no value.
 
   The guard's policy now says two more things a person meets. A stop that
   describes one tree calls it "this tree", even when it is not the tree the

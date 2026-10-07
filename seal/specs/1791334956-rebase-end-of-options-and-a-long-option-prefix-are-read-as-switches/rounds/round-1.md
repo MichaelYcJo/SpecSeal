@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #855 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `71e4b3a3496bb9d3505692fc569852aa0d43c172..71e4b3a3496bb9d3505692fc569852aa0d43c172`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -33,9 +33,9 @@ It did not run the full suite.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | brace expansion hands git words the guard reads as one: `git rebase {main,feature/x}` and `git rebase --ro{,} feature/x` switch HEAD and are silent in an ACTIVE tree | `hooks/worktree-guard.py:2250` | deferred a new issue | executed under git 2.50.1 and bash; silent at the base too, so not a regression; the same gap reaches `stash` and `worktree` (read), so the fix is the guard's word reading and outside this item's frame |
-| ⬜ 2 | the docstring and R1 say `--root` is read off the words bash hands git, and the code reads them only once redirections are off | `hooks/worktree-guard.py:2246` | open | read; the phrase is false for a brace-expanded word (finding 1); wording only |
-| ⬜ 3 | the changelog fragment says every other option passes, and a one-word rebase with an option taking a value stops | `seal/specs/1791334956-rebase-end-of-options-and-a-long-option-prefix-are-read-as-switches/changelog.md:12` | open | executed: `-X theirs main`, `-s ort main` and `-ix true main` deny in an ACTIVE tree, as at the base; a paperwork correction, not counted in `Needs a fix` |
+| 🟡 1 | brace expansion hands git words the guard reads as one: `git rebase {main,feature/x}` and `git rebase --ro{,} feature/x` switch HEAD and are silent in an ACTIVE tree | `hooks/worktree-guard.py:2250` | deferred #856 | executed under git 2.50.1 and bash; silent at the base too, so not a regression; the same gap reaches `stash` and `worktree` (read), so the fix is the guard's word reading and outside this item's frame |
+| ⬜ 2 | the docstring and R1 say `--root` is read off the words bash hands git, and the code reads them only once redirections are off | `hooks/worktree-guard.py:2246` | answered | ledger row R1 corrected in the closing commit to "off the words once their redirections are off"; the docstring's same words go with #856, which changes that function's reading; read; the phrase is false for a brace-expanded word (finding 1); wording only |
+| ⬜ 3 | the changelog fragment says every other option passes, and a one-word rebase with an option taking a value stops | `seal/specs/1791334956-rebase-end-of-options-and-a-long-option-prefix-are-read-as-switches/changelog.md:12` | answered | the changelog fragment corrected in the closing commit: a rebase carrying `--rebase-merges` or another option that takes no value still passes; executed: `-X theirs main`, `-s ort main` and `-ix true main` deny in an ACTIVE tree, as at the base; a paperwork correction, not counted in `Needs a fix` |
 | 🟢 | round 3's finding 1 of work item 1791270162 is closed — `--end-of-options` and every prefix of `--root` git accepts are read | `hooks/worktree-guard.py:2257` | confirmed | executed: 29 spellings under git 2.50.1, every switch denies but the two brace rows; the new rebase rows and the git-binding case red at `3d78c220`, green here |
 | 🟢 | round 3's note 2 of work item 1791270162 is closed — §A says a one-tree reason calls its tree "this tree" | `docs/worktree-guard-spec.md:102` | confirmed | read; the policy pin red at `3d78c220` (executed) |
 | 🟢 | round 3's note 3 of work item 1791270162 is closed — §Known limits names `cd w 2>&1` and a cut git in an `if` body | `docs/worktree-guard-spec.md:807` | confirmed | read; the policy pin red at `3d78c220` (executed) |
