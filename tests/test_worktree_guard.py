@@ -1882,10 +1882,11 @@ def test_a_rebase_naming_a_branch_is_unrecognised(monkeypatch, capsys, repo, com
         "git rebase --reapply-cherry-picks main",
         "git rebase --ro",
         "git rebase --end-of-options main",
-        # git refuses `--r` as ambiguous (exit 129, git 2.50.1), and reads a
-        # `--ro` after the end of the options as a revision, so neither
-        # names a branch.
+        # git refuses `--r` as ambiguous and `--roots` as unknown (exit 129,
+        # git 2.50.1), and reads a `--ro` after the end of the options as a
+        # revision, so none of them names a branch.
         "git rebase --r feature/x",
+        "git rebase --roots feature/x",
         "git rebase --end-of-options --ro",
     ],
 )
