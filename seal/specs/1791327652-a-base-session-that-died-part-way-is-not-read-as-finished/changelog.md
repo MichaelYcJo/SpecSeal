@@ -17,8 +17,8 @@
   session also left tests out of every list, that count is the one named.
   `failing on base too` is unchanged. Two stops still pass as a finished
   session, and are named: a `pytest.exit` in a test that picks 0, 1 or 5 as
-  its return code, and a run without xdist that `-x` stops while its order
-  mixes files.
+  its return code, and a run without xdist that `-x` or `--maxfail` stops
+  while its order mixes files.
 - **The failure form says when a session at `HEAD` stopped part-way.** A
   test that kills pytest on the branch writes no failing line, so its file
   was in no list and nothing said a session had stopped. The form now

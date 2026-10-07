@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #851 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `034fbe4cdbf1a79e11c815f581d9cebacb48a612..034fbe4cdbf1a79e11c815f581d9cebacb48a612`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -33,10 +33,10 @@ It did not run the full suite.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The comment and one case's docstring say that under `-x` a failed collection exits 1; when the failing file is the last collected, it exits 2 | `skills/verify/scripts/broad_gate.py:1944` | open | executed on pytest 9.1.1: 1 with the broken file first, 2 with it last, under `-x` and `--maxfail=1`; read: pytest raises `Failed` only at the next collection's start; the gate's word is right in both, so no defect ships; also at `broad_gate.py:1932` and `tests/test_the_seal_is_taken_once_by_the_sealer.py:4308` |
-| ⬜ 2 | The comment says each exit was measured on pytest 6.1, 7.0 and 9.1; exit 3 was read there, not measured | `skills/verify/scripts/broad_gate.py:1940` | open | read: round 2's ten stops gave 0, 1, 2, 4 and 5 and no 3; its report labels exit 3 on 6.1.0 and 7.0.0 as read; the value is right |
-| ⬜ 3 | The overview still gives exit 2 to every failed collection, says the exits were measured on 9.1.1 alone, and leaves round 2 a question it answered | `seal/specs/1791327652-a-base-session-that-died-part-way-is-not-read-as-finished/overview.md:19` | open | read: rows 19 and 32 unchanged by the fix pass; a correction to the paperwork, outside `Needs a fix` |
-| ⬜ 4 | The changelog's reworded sentence names `-x` but not `--maxfail` for the second stop, which rule 3 names | `seal/specs/1791327652-a-base-session-that-died-part-way-is-not-read-as-finished/changelog.md:18` | open | read against rule 3; the sentence before the rewording missed it too; a correction to the paperwork, outside `Needs a fix` |
+| ⬜ 1 | The comment and one case's docstring say that under `-x` a failed collection exits 1; when the failing file is the last collected, it exits 2 | `skills/verify/scripts/broad_gate.py:1944` | deferred #852 — the exit a stopped session writes is #852's subject, recording why a session stopped; the gate's word is right either way, since exit 2 reads the strict `new?` | #852 — the exit a stopped session writes is #852's subject, recording why a session stopped; the gate's word is right either way, since exit 2 reads the strict `new?`; executed on pytest 9.1.1: 1 with the broken file first, 2 with it last, under `-x` and `--maxfail=1`; read: pytest raises `Failed` only at the next collection's start; the gate's word is right in both, so no defect ships; also at `broad_gate.py:1932` and `tests/test_the_seal_is_taken_once_by_the_sealer.py:4308` |
+| ⬜ 2 | The comment says each exit was measured on pytest 6.1, 7.0 and 9.1; exit 3 was read there, not measured | `skills/verify/scripts/broad_gate.py:1940` | deferred #852 — the comment's measured-versus-read wording belongs with #852's exits; round 2's report holds the measurement | #852 — the comment's measured-versus-read wording belongs with #852's exits; round 2's report holds the measurement; read: round 2's ten stops gave 0, 1, 2, 4 and 5 and no 3; its report labels exit 3 on 6.1.0 and 7.0.0 as read; the value is right |
+| ⬜ 3 | The overview still gives exit 2 to every failed collection, says the exits were measured on 9.1.1 alone, and leaves round 2 a question it answered | `seal/specs/1791327652-a-base-session-that-died-part-way-is-not-read-as-finished/overview.md:19` | answered | a correction to this item's `overview.md`, made in the closing commit: row 19 says a failed collection gives 1 under `-x` where another file follows, and names what 6.1 and 7.0 measured; row 32 is closed by round 2's answer; read: rows 19 and 32 unchanged by the fix pass; a correction to the paperwork, outside `Needs a fix` |
+| ⬜ 4 | The changelog's reworded sentence names `-x` but not `--maxfail` for the second stop, which rule 3 names | `seal/specs/1791327652-a-base-session-that-died-part-way-is-not-read-as-finished/changelog.md:18` | answered | a correction to this item's `changelog.md`, made in the closing commit: the stop names `-x` or `--maxfail`, as rule 3 does; read against rule 3; the sentence before the rewording missed it too; a correction to the paperwork, outside `Needs a fix` |
 | 🟢 | round 2's blocking finding 1 is closed — no three-part pytest version in `RAN_TO_ITS_END`'s comment | `skills/verify/scripts/broad_gate.py:1940` | confirmed | executed in the clone: the version-timer case passes |
 | 🟢 | round 2's blocking finding 2 is closed — the **New?** bullet shares no 15-word run with rule 3, and its pin moved | `skills/verify/SKILL.md:517` | confirmed | executed in the clone: the pasted-passage module and both pins pass; `longest_run` gives 21 words before and none of 15 after |
 | 🟢 | round 2's finding 3 is closed where it said exit 2 — every place it named ties exit 2 to a collection without `-x` | `skills/verify/scripts/broad_gate.py:1932` | confirmed | read at `034fbe4c`; what the narrowing now adds about `-x` is ⬜ 1 |
