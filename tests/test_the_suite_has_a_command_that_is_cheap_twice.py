@@ -904,6 +904,10 @@ def test_a_failed_pillow_install_is_a_sentence_and_pytest_is_still_called(
     assert rt.main([]) == 0
     err = capsys.readouterr().err
     assert rt.PILLOW in err, err
+    # #832: `rsvg-convert` draws the seal and Pillow only reads it, so the
+    # line announcing the top-up says so. Seen red against #718's sentence.
+    assert "which the suite's pixel case decodes the release seal with" in err, err
+    assert "draws the release seal" not in err, err
     assert "the release seal's pixel case fails" in err, err
     assert "every other case runs" in err, err
     assert "run bin/test again" in err, err

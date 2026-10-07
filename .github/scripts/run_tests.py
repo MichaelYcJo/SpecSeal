@@ -314,8 +314,8 @@ def add_pillow(venv):
     else:
         step = [str(venv_python(venv)), "-m", "pip", "install", "--quiet", PILLOW]
     print(
-        f"bin/test: adding {PILLOW} to {venv}, which draws the release seal "
-        "the suite's pixel case pins. This run pays for it; every run after "
+        f"bin/test: adding {PILLOW} to {venv}, which the suite's pixel case "
+        "decodes the release seal with. This run pays for it; every run after "
         "it finds it there.",
         file=sys.stderr,
     )
