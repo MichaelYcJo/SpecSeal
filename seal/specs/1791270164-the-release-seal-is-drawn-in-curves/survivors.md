@@ -9,6 +9,15 @@ item's fragment corrects it, a released work item's frame records what that
 work item decided, a test docstring tells the history its case exists for,
 and two places share only the phrase *half a cell*.
 
+Phases 5–9 removed more: the sheet from `seal_stamp.py`, #717's row shapes
+from `broad_gate.panel`, and the Pillow drawing from `release_seal.py`. At
+e0aaf29 the check reported 33 places beyond the first 19 rows. One was live,
+`bin/test`'s line saying Pillow draws the release seal, and it is corrected
+and pinned at d6839f6. The other 32 are the rows after the first 19, and
+they stand for the same reasons as above and for two more: a case that asserts a removed
+sentence is absent has to carry it, and a comment that tells a row's history
+says what was there before it says what came back.
+
 | Path | Quote | Grounds |
 |---|---|---|
 | `seal/releases/0.17.0.md` | the sheet's right edge at the disc's centre column, or two cells past the longest line where the text is wider; | L1, a released row, frozen; `seal/ledger/1791270164-the-release-seal-is-drawn-in-curves.md`'s `Corrected · L1` supersedes it |
@@ -30,3 +39,35 @@ and two places share only the phrase *half a cell*.
 | `tests/test_the_seal_is_taken_once_by_the_sealer.py` | A calculated circle that is not reproducible gives that argument back at every scale but 1.0 | the same docstring's reason for the case, which holds for any computed disc |
 | `skills/evidence-check/scripts/evidence_check.py` | # half a cell and the report stays per-row readable. | shares only *half a cell* with the removed comment on `build`'s sample grid; it is about a ledger row's cells |
 | `tests/test_a_row_points_by_content.py` | a partial rewrite would strand half a cell in each format | shares only *half a cell*; it is about a ledger row's cells |
+| `tests/test_the_seal_is_taken_once_by_the_sealer.py` | Since #717 there is no blank row in it, no `chain` | a negative pin: the docstrings case asserts this sentence is NOT in `seal_stamp.py`, so the case carries it to hold the comment above `SAMPLE_ROWS` to its #832 wording |
+| `tests/test_the_gate_names_every_step_ci_runs.py` | chain off, because a drawn panel is green by construction | the comment over `HISTORICAL_ROWS` tells the row's history, #717 taking `chain` off, and its next sentence says #832 put it back |
+| `seal/releases/0.18.0.md` | Decoded, every half of every cell is the colour | R2, a released row, frozen; the fragment's `Corrected · R2` supersedes it |
+| `seal/releases/0.18.0.md` | writes paint's operations as an RGBA PNG | the same released R2 and the same correction |
+| `seal/releases/0.18.0.md` | The frame's check, *the darkest pixel is nearer the ink than the parchment* | the same released R2's notes and the same correction |
+| `seal/releases/0.18.0.md` | lays each cell of seal_stamp.compose's letter as a background rectangle | R1, a released row, frozen; the fragment's `Corrected · R1` supersedes it |
+| `seal/releases/0.12.2.md` | gives a value 23 columns and cuts with no | R5's notes, a released row, frozen; the fragment's `Corrected · R5` supersedes it |
+| `seal/releases/0.17.0.md` | inner lines without the frame and without any blank | L1, released and frozen; the fragment's `Corrected · L1` supersedes it |
+| `seal/releases/0.17.0.md` | The block form emits a colour only where it changes, keeps a painted trailing cell | L3, released and frozen; the fragment's `Corrected · L3` supersedes it |
+| `seal/releases/0.17.0.md` | describes the letter and the twin's characters | L4, released and frozen; the fragment's `Corrected · L4` supersedes it |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/overview.md` | Measured with bin/mutation-check over rgb's cube levels | #718's closing memo, which shipped in 0.18.0; it records what #718 measured, and `settle --retire-process` retires the directory |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/overview.md` | that check passed with the ink's red and green swapped | the same released memo |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/overview.md` | the darkest pixel is nearer the cell's ink than | the same released memo, quoting its frame |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/spec.md` | the PNG is pinned against the terminal output | #718's frame, which shipped in 0.18.0; it records what #718 built |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/spec.md` | The PNG carries the terminal form's colours | the same released frame |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/spec.md` | Both are seen red by swapping two colours | the same released frame |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/spec.md` | the PNG's top and bottom halves have the colours | the same released frame |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/spec.md` | In every non-space text cell, the darkest pixel is nearer the cell's ink | the same released frame |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/spec.md` | A triple as is, a 256-colour code through xterm's cube and grey ramp | the same released frame |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/spec.md` | an ordered list of ("rect", x0, y0, x1, y1, rgb) | the same released frame |
+| `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/spec.md` | Pillow may enter only as a test-and-release dependency | the same released frame: what #718 allowed Pillow to be |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/spec.md` | absent where the ref is the commit | #717's released frame: the panel's rows as #717 built them, which #832 re-shaped in `panel` |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/spec.md` | The blank rows go from the data because the chosen sheet draws none | the same released frame |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/spec.md` | its top line as .---. and its bottom as | the same released frame: the twin over #717's sheet |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/spec.md` | the SEALED title is 124, the ink 94, the sheet 230, the edge 187 | the same released frame: #717's four 256-colour codes |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/spec.md` | the twin's first non-blank line is the sheet's | the same released frame |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/spec.md` | the first and last lines of the sheet are blank parchment | the same released frame |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/spec.md` | the seal's lowest row is below the sheet's last line | the same released frame: #717's corner overhang |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/questions.md` | How the sheet reads on a light terminal background as well as a dark one | #717's released questions, a question its owner answered then |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/questions.md` | the sheet's width where the text and not the seal sets it | the same released questions |
+| `seal/specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner/questions.md` | Whether the blank rows stay in the data | the same released questions: #717's answer, which #832's owner reversed |
+| `seal/specs/1790815615-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run/plan.md` | is drawn on success alone, so every exit code on it is 0 | #666's released plan, a record of its reasoning; the sentence it shares with `panel`'s docstring is still true there |
