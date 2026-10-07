@@ -8,6 +8,10 @@ file. It writes `seal/specs/<work-item-id>/changelog.md`, and release
 preparation gathers those fragments into the release's file and its heading
 here, with `.github/scripts/gather_changelog.py --version X.Y.Z`.
 
+## 0.20.0 — 2026-10-07
+
+[changelog/0.20.0.md](changelog/0.20.0.md)
+
 ## 0.19.0 — 2026-10-06
 
 [changelog/0.19.0.md](changelog/0.19.0.md)
