@@ -162,24 +162,12 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "taken on*, it now has two members, and the exemption is keyed on "
         "(file, token) so neither one lets the number through anywhere else"
     ),
-    ("skills/verify/scripts/broad_gate.py", "9.1.1"): (
-        "pytest's, named in the comments over `JUNIT_REPORT`, `COLLECT_ONLY` "
-        "and `COLLECTED_RE` as the build whose report, collection listing and "
-        "collection-only trailer were measured or read (#789, #812): which "
-        "exits write the report and what it holds, the `<path>: <count>` "
-        "lines and the trailer the proof pass reads. The third member of "
-        "the class the row above names, a loaded file naming the tool build a "
-        "measurement was taken on; an output read off an unnamed pytest is "
-        "not a measurement, and no release of SpecSeal makes the number wrong"
-    ),
-    ("skills/verify/scripts/broad_gate.py", "3.8.0"): (
-        "pytest-xdist's, named in the comments over `JUNIT_REPORT` and "
-        "`COLLECT_ONLY` as the build on which the controller was measured to "
-        "write the report for a run with a missing path and exit 5, and not "
-        "to distribute a collection-only run (#761, #789). The fourth "
-        "member of the same class: what xdist does is a property of the "
-        "build it was read off, and no release of SpecSeal makes it wrong"
-    ),
+    # A pytest build and a pytest-xdist build had rows here, keyed on
+    # `broad_gate.py`, for the comments over the JUnit report and the
+    # collection-only proof. #825 retired both, and the recorder that replaced
+    # them names its builds by two components, so no token is left for a row
+    # to name; a row naming none would let the number back into the gate
+    # unexamined.
     ("CONTRIBUTING.md", "4.2.0"): (
         "markdown-it-py's, the parser the suite's CommonMark oracle reads, "
         "pinned in `.github/scripts/run_tests.py#MARKDOWN_IT` (#667). The "
@@ -188,7 +176,7 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "the runner's constant; no release of SpecSeal makes the number wrong"
     ),
     ("CONTRIBUTING.md", "12.3.0"): (
-        "Pillow's, the imaging library the release seal is drawn with, pinned "
+        "Pillow's, the imaging library the release seal is decoded with, pinned "
         "in `.github/scripts/run_tests.py#PILLOW` (#718). The class is the "
         "row above's: the fallback commands carry the pin so they install "
         "the version the suite's pixel case is held to, and a case holds "

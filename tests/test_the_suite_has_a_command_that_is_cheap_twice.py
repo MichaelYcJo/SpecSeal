@@ -904,6 +904,10 @@ def test_a_failed_pillow_install_is_a_sentence_and_pytest_is_still_called(
     assert rt.main([]) == 0
     err = capsys.readouterr().err
     assert rt.PILLOW in err, err
+    # #832: `rsvg-convert` draws the seal and Pillow only reads it, so the
+    # line announcing the top-up says so. Seen red against #718's sentence.
+    assert "which the suite's pixel case decodes the release seal with" in err, err
+    assert "draws the release seal" not in err, err
     assert "the release seal's pixel case fails" in err, err
     assert "every other case runs" in err, err
     assert "run bin/test again" in err, err
@@ -1002,6 +1006,16 @@ def test_ci_installs_the_parser_the_runner_pins():
         for words in installs
         for word in words
     ), installs
+    # #841: pytest-split joins the same line, at the version the runner pins.
+    # It is CI's alone, so it is not in `PACKAGES` and `bin/test` never
+    # installs it.
+    assert any(rt.PYTEST_SPLIT in words for words in installs), installs
+    assert not any(
+        word.lower().startswith("pytest-split") and word != rt.PYTEST_SPLIT
+        for words in installs
+        for word in words
+    ), installs
+    assert rt.PYTEST_SPLIT not in rt.PACKAGES, rt.PACKAGES
 
 
 def test_the_section_names_the_parser_and_where_it_is_pinned():

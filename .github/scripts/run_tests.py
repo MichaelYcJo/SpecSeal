@@ -63,11 +63,12 @@ oracle reads, so the hook readers are checked against a parser that shares
 nothing with them. It is test-only: nothing under `hooks/` or `skills/`
 imports it.
 
-A second is Pillow, pinned in `PILLOW` (#718). It draws the release's seal
-as a PNG in `.github/scripts/release_seal.py`, which the tag push runs, and
-the suite's pixel case pins that drawing against the terminal form. It is
-test-and-release-only, on the same terms: nothing under `hooks/` or
-`skills/` imports it, and a plugin user installs nothing new.
+A second is Pillow, pinned in `PILLOW` (#718). The release's seal is the
+owner's SVG, which `.github/scripts/release_seal.py` hands to `rsvg-convert`
+when the tag push runs it (#832), and the suite's pixel case decodes the PNG
+that draws with Pillow. It is test-and-release-only, on the same terms:
+nothing under `hooks/` or `skills/` imports it, and a plugin user installs
+nothing new.
 
 A third is `cmarkgfm`, pinned in `CMARKGFM` (#647): GitHub's own renderer,
 which `tests/gfm_table_oracle.py` reads to hold the table walker in
@@ -96,12 +97,12 @@ FLOOR_TEXT = ".".join(str(part) for part in FLOOR)
 MARKDOWN_IT_VERSION = "4.2.0"
 MARKDOWN_IT = f"markdown-it-py=={MARKDOWN_IT_VERSION}"
 
-# The imaging library `.github/scripts/release_seal.py` draws the release
-# seal with (#718), and the one the suite's pixel case decodes it with.
+# The imaging library the suite's pixel case decodes the release seal with
+# (#718). Since #832 `rsvg-convert` draws the seal and Pillow only reads it.
 # Pinned for the parser's reason: the pixel case samples what one version
-# rasterises, and `ImageFont.load_default` is the font a runner without
-# DejaVu, Menlo or Consolas falls back to. Test-and-release-only: the gates
-# stay stdlib-only. `.github/workflows/test.yml`,
+# decodes. Test-and-release-only: the gates stay stdlib-only, and the
+# `seal` job installs it to run the suite at the tag.
+# `.github/workflows/test.yml`,
 # `.github/workflows/publish-release.yml` and `CONTRIBUTING.md`'s fallback
 # carry the same string, and a case holds each to this one.
 PILLOW_VERSION = "12.3.0"
@@ -118,6 +119,16 @@ PILLOW = f"pillow=={PILLOW_VERSION}"
 # carry the same string, and a case holds each to this one.
 CMARKGFM_VERSION = "2025.10.22"
 CMARKGFM = f"cmarkgfm=={CMARKGFM_VERSION}"
+
+# `pytest-split`, the plugin the Windows leg of `.github/workflows/test.yml`
+# stores its per-case durations with, and later divides the suite by (#841).
+# Pinned for the parser's reason, since the file it writes is what the
+# division is computed from. CI-only, so it is NOT in `PACKAGES` below:
+# `bin/test` never stores durations or divides the suite, and a local build
+# installs nothing new for it. `.github/workflows/test.yml` carries the same
+# string, and a case holds it to this one.
+PYTEST_SPLIT_VERSION = "0.11.0"
+PYTEST_SPLIT = f"pytest-split=={PYTEST_SPLIT_VERSION}"
 
 # What a built environment holds. `pytest-xdist` is here because the suite
 # runs `-n auto` by default (#337): a build without it is the build whose
@@ -303,8 +314,8 @@ def add_pillow(venv):
     else:
         step = [str(venv_python(venv)), "-m", "pip", "install", "--quiet", PILLOW]
     print(
-        f"bin/test: adding {PILLOW} to {venv}, which draws the release seal "
-        "the suite's pixel case pins. This run pays for it; every run after "
+        f"bin/test: adding {PILLOW} to {venv}, which the suite's pixel case "
+        "decodes the release seal with. This run pays for it; every run after "
         "it finds it there.",
         file=sys.stderr,
     )

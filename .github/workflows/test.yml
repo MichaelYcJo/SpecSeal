@@ -12,6 +12,10 @@ on:
     # no `synchronize` fires, nothing re-runs, and the draft's green stays on
     # that SHA through the merge. Two clicks, no commit.
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  # A pushed branch measured without a pull request (#841): a branch whose
+  # routing stops before the pull request runs nothing on push, and the
+  # Windows leg's own `--durations` table is the only per-case figure for it.
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -35,11 +39,43 @@ jobs:
         # depend on the interpreter, at the versions it names. Whether any
         # other module's result depends on the interpreter has not been
         # measured.
+        #
+        # `timeout`: each leg's budget in minutes, by `questions.md` Q6's rule
+        # (a) of work item 1791270165 -- 1.5 times the leg's slowest measured
+        # job after that item's phases 3 and 4, rounded up to 5. GitHub fails
+        # a job that runs past it, so a leg that grows names itself here
+        # rather than in a wait. The base is the slowest of the runs measured,
+        # because the same suite ran 1.2 times slower from one run to the
+        # next and one shard ran 1.7 times slower than its siblings in one
+        # run:
+        #   ubuntu  9 m 03 s, run 37469595104 (7 m 58 s in 37458654434,
+        #           6 m 40 s in 37457228586, 5 m 40 s in 37465328899) -> 15
+        #   macOS  20 m 52 s, run 37469595104 (19 m 52 s in 37457228586,
+        #          16 m 27 s in 37458654434, 17 m 38 s in 37465328899) -> 35
+        #   Windows, per shard: 10 m 34 s, group 3 of run 37469595104 (the
+        #          other shards there 9 m 27 s to 10 m 15 s; 5 m 38 s to
+        #          10 m 03 s in the sharded run 37465328899)          -> 20
         include:
-          - { os: ubuntu-latest, python: "3.12" }
-          - { os: macos-latest, python: "3.12" }
-          - { os: windows-latest, python: "3.12" }
+          - { os: ubuntu-latest, python: "3.12", timeout: 15 }
+          - { os: macos-latest, python: "3.12", timeout: 35 }
+          # Windows in four shards (#841). `pytest-split` divides the suite
+          # by each case's duration on the Windows leg, read from the
+          # committed `.test_durations`, so every shard collects the whole
+          # suite and runs its own disjoint part, and the four parts are the
+          # whole suite. A case missing from the file is given the average and
+          # still runs in exactly one shard: a stale file unbalances the
+          # shards and never drops a case. Four is the smallest count whose
+          # slowest shard stays under 12 minutes on the figures of run
+          # 37458654434 (7,530 s of cases, 1,974 s unsharded), with the
+          # arithmetic in
+          # `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/phases/phase-3.md`.
+          # ubuntu and macOS stay one job each.
+          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 1", timeout: 20 }
+          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 2", timeout: 20 }
+          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 3", timeout: 20 }
+          - { os: windows-latest, python: "3.12", split: "--splits 4 --group 4", timeout: 20 }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
     steps:
       # Not shallow. `tests/test_a_rider_reaches_its_file.py` asks git whether
       # a recorded SHA is an ancestor of HEAD, and at depth 1 no SHA is: the
@@ -60,24 +96,36 @@ jobs:
       # inside them. The spawn count does not vary by platform; the price of
       # one spawn does: 7ms on ubuntu, 22ms on macOS, 60ms on windows, where
       # there is no `fork`, Defender scans each new image, and `git` carries an
-      # MSYS2 runtime per invocation. That is the whole of why the windows leg
-      # took 198s against ubuntu's 24s. Nothing is shared between tests -- each
-      # builds its own repository under `tmp_path` -- so the spawns can be run
-      # several at a time, and the workers scale with whatever cores the runner
-      # has rather than with a number written here.
+      # MSYS2 runtime per invocation. Those figures, and the windows leg's 198s
+      # against ubuntu's 24s that they explained, are from the suite as it
+      # stood then; by 2026-10-06 the windows job took 37-40 minutes. The
+      # current per-case figures are each leg's own `--durations` table below,
+      # recorded with their run ids in
+      # `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/phases/phase-1.md`.
+      # Each test builds its own repository under `tmp_path`, or copies one a
+      # session or module fixture built once in its own worker and only reads
+      # (#841), so no test writes where another reads, the spawns can be run
+      # several at a time, and the workers scale with whatever cores the
+      # runner has rather than with a number written here.
       # markdown-it-py is the parser the suite's CommonMark oracle reads
       # (#667), pinned: `.github/scripts/run_tests.py#MARKDOWN_IT` is the one
       # place the version is chosen, and a case holds this line to it.
-      # Pillow draws the release seal and its pixel case decodes it (#718),
+      # Pillow decodes the release seal in its pixel case (#718, #832),
       # pinned in `run_tests.py#PILLOW` and held to this line the same way, so
       # the pin runs on all three operating systems.
       # cmarkgfm is GitHub's renderer, which the table walker's oracle reads
       # (#647), pinned in `run_tests.py#CMARKGFM` and held to this line too.
-      - run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22
+      # pytest-split divides the Windows leg into its shards (#841), pinned
+      # in `run_tests.py#PYTEST_SPLIT` and held to this line the same way.
+      - run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22 pytest-split==0.11.0
       - run: |
           git config --global user.email ci@ci
           git config --global user.name ci
-      - run: pytest tests/ -q -n auto
+      # `--durations=50`: each leg prints its own slowest cases, so a figure
+      # for one operating system is read off that operating system (#841).
+      # `split` is empty on ubuntu and macOS, so those legs run the whole
+      # suite as before.
+      - run: pytest tests/ -q -n auto --durations=50 ${{ matrix.split }}
 
   # The plugin's headline check, run against the plugin. A coordinate that
   # stopped resolving fails; drift is reported and does not. Drift means the

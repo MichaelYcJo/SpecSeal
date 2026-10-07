@@ -17,33 +17,38 @@ ACTIVE = [(111, "/tree", 1.0, 0.5, "VS Code")]
 IDLE = [(222, "/tree", 400.0, 90.0, "Terminal")]
 
 
-def reason_for(cmd, cwd):
-    """The verdict `main()` would reach for `cmd`, without the session half.
+def reason_for(cmd):
+    """The first shape `main()` would act on in `cmd`, without the session
+    half: a switch, a creation or an unrecognised shape, and None where every
+    segment is listed or no git at all.
 
-    `split_command` returns segments as TOKEN LISTS, so classification and the
+    `split_command` returns segments as TOKEN LISTS, so the shape and the
     quoting decision come from one place — a quoted sentence is a single token
-    and can never arrive here as a command word.
+    and can never arrive here as a command word. Since #826 the shape is read
+    from the words alone, so no repository is needed.
     """
     segments, _clean = wg.split_command(cmd)
     for tokens in segments:
-        got = wg.classify(tokens, cwd)
-        if got:
+        got = wg.shape_of(tokens)
+        if got not in (None, "listed"):
             return got
     return None
 
 
-# --- classify: what counts as a branch switch / worktree creation ---------
+# --- shape_of: what counts as a branch switch / worktree creation ---------
 
 
 @pytest.mark.parametrize(
     "cmd,expected",
     [
         ("git switch feature/x", "switch"),
-        ("git switch -c feature/y", "create+switch"),
+        ("git switch -c feature/y", "switch"),
         ("git switch -", "switch"),  # previous branch IS a switch
-        ("git checkout -b feature/y", "create+switch"),
-        ("git checkout -", "switch"),
-        ("git worktree add ../wt feature/x", "worktree-add"),
+        # A `checkout` with no `-- <path>` is unrecognised: its stop names
+        # `git switch` and `git checkout -- <path>` (#826).
+        ("git checkout -b feature/y", "unrecognised"),
+        ("git checkout -", "unrecognised"),
+        ("git worktree add ../wt feature/x", "creation"),
         ("git worktree list", None),
         ("git worktree remove ../wt", None),
         ("echo git switch feature/x", None),  # prose mention, not a command
@@ -54,8 +59,8 @@ def reason_for(cmd, cwd):
         # An unclosed apostrophe used to make shlex refuse the segment, and a
         # refused segment carried no classification at all.
         ("git switch feature/x  # don't ask", "switch"),
-        ("git worktree add ../wt f  # user's call", "worktree-add"),
-        ("git checkout -b feature/y  # don't rebase", "create+switch"),
+        ("git worktree add ../wt f  # user's call", "creation"),
+        ("git checkout -b feature/y  # don't rebase", "unrecognised"),
         # A quoted string arrives as one token, so its contents can never
         # present themselves as a command word.
         ("echo don't switch feature/x", None),
@@ -78,24 +83,18 @@ def reason_for(cmd, cwd):
         ('echo "a; git switch feature/x; b"', None),
     ],
 )
-def test_classify(repo, cmd, expected):
-    assert reason_for(cmd, str(repo)) == expected
+def test_shape_of(cmd, expected):
+    assert reason_for(cmd) == expected
 
 
-def test_classify_checkout_of_existing_file_is_restore(repo):
-    assert reason_for("git checkout f.txt", str(repo)) is None
-
-
-def test_classify_checkout_dwim_remote_branch(repo, tmp_path):
-    import subprocess
-
-    clone = tmp_path / "clone"
-    subprocess.run(["git", "clone", "-q", str(repo), str(clone)], check=True)
-    # feature/x exists only as origin/feature/x in the clone
-    subprocess.run(
-        ["git", "-C", str(clone), "branch", "-Dq", "feature/x"], capture_output=True
-    )
-    assert reason_for("git checkout feature/x", str(clone)) == "switch"
+def test_a_checkout_restores_by_its_dashes_and_not_by_the_tree(repo):
+    """#826. `git checkout f.txt` used to be a restore because `f.txt` exists
+    in the tree and no ref has its name. The tree is no longer read: the same
+    words name a branch as easily as a file, so they are unrecognised, and
+    the `--` is what makes a restore."""
+    assert (repo / "f.txt").exists()
+    assert reason_for("git checkout f.txt") == "unrecognised"
+    assert reason_for("git checkout -- f.txt") is None
 
 
 # --- decision matrix (session detection stubbed) --------------------------
@@ -782,12 +781,12 @@ def test_an_apostrophe_after_the_token_no_longer_hides_it(monkeypatch, capsys, r
 
 def test_the_C_target_follows_the_segment_that_was_judged(repo):
     """`main()` asks `segment_cwd` for the `-C` target of the very segment
-    `classify` judged, from the same token list. Reading the two from separate
-    tokenizations is how a switch aimed at another repository gets judged
-    against THIS tree."""
+    whose shape it read, from the same token list. Reading the two from
+    separate tokenizations is how a switch aimed at another repository gets
+    judged against THIS tree."""
     cmd = "git -C /x/y switch b  # don't"
     segments, _ = wg.split_command(cmd)
-    assert wg.classify(segments[0], str(repo)) == "switch"
+    assert wg.shape_of(segments[0]) == "switch"
     # `normpath`, because `apply_chdir` ends in one: the assertion is that
     # the target followed the segment, not that this platform spells a path
     # with `/`.
@@ -828,7 +827,7 @@ def test_a_quoted_C_value_survives_an_apostrophe(repo):
         ("git -C 'my repo' switch b  # don't", "/base/my repo"),
     ):
         segments, _ = wg.split_command(cmd)
-        assert wg.classify(segments[0], str(repo)) == "switch", cmd
+        assert wg.shape_of(segments[0]) == "switch", cmd
         assert wg.segment_cwd(segments[0], "/base") == os.path.normpath(target), cmd
 
 
@@ -1089,3 +1088,992 @@ def test_a_git_command_inside_a_heredoc_body_is_not_judged(monkeypatch, capsys, 
             json.loads(out)["hookSpecificOutput"]["permissionDecision"] if out else None
         )
         assert got == want, (command, out)
+
+
+# --- #826: a listed shape is silent, and the rest stop where the tree matters --
+#
+# `spec.md` S1, S3, S4, S8 and S9 of work item 1791270162. The guard no longer
+# predicts a switch from a command's words: it lets through a git command it
+# knows leaves the branch where it is, sends a `git switch` to the ladder, and
+# stops every other git shape, but only in a tree where a switch would matter.
+
+STOP = "does not know to leave the branch where it is"
+
+# The five tree states of `docs/worktree-guard-spec.md` §A, as the stub of
+# `sessions_in_tree` and whether `f.txt` carries an uncommitted change.
+STATES = {
+    "active": ((ACTIVE, [], True), False),
+    "idle": (([], IDLE, True), False),
+    "unusable": (([], [], False), False),
+    "dirty": (([], [], True), True),
+    "clean": (([], [], True), False),
+}
+
+
+def in_state(monkeypatch, repo, state, module=None):
+    """Put `repo` and the session stub into STATE, and return the stub."""
+    sessions, dirty = STATES[state]
+    (repo / "f.txt").write_text(
+        "changed\n" if dirty else "one\ntwo\nthree\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module or wg, "sessions_in_tree", lambda top, own="": sessions)
+    return sessions
+
+
+def verdict(monkeypatch, capsys, cwd, command, session_id="me", module=None):
+    """`main()`'s decision and reason for COMMAND run from CWD."""
+    module = module or wg
+    monkeypatch.setattr(
+        module,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": session_id,
+            "tool_input": {"command": command},
+            "cwd": str(cwd),
+        },
+    )
+    try:
+        module.main()
+    except SystemExit:
+        pass
+    out = capsys.readouterr().out.strip()
+    if not out:
+        return "silent", ""
+    d = json.loads(out)["hookSpecificOutput"]
+    return d["permissionDecision"], d["permissionDecisionReason"]
+
+
+def pressed_root(tmp_path, repo):
+    """A projects root holding session `me`'s `automation` answer for REPO,
+    in the shape the harness writes it."""
+    from test_the_guard_asks_once_per_session import ask_entries, write_transcript
+
+    root = tmp_path / "pressed-projects"
+    write_transcript(root, "me", ask_entries(repo))
+    return root
+
+
+# S1's shapes. Each is a git command that leaves HEAD's branch where it was,
+# or a substitution whose body holds only such commands (P2 (a)).
+LISTED = (
+    "git status",
+    "git diff",
+    "git add -A",
+    "git commit -m x",
+    "git log",
+    "git rev-parse HEAD",
+    "git fetch",
+    "git checkout -- README.md",
+    "git checkout feature/x -- README.md",
+    "git restore README.md",
+    "git -C W status",
+    "git worktree list",
+    "git stash",
+    "F=$(git diff --name-only)",
+    "echo `git rev-parse HEAD`",
+    "diff <(git show HEAD:f.txt) f.txt",
+    "git log $(git rev-parse HEAD)",
+)
+
+# Where a redirection goes, glued or spaced, sampled rather than crossed.
+REDIRECTED = (
+    lambda c: c,
+    lambda c: c + " 2>/dev/null",
+    lambda c: c + " 2> /dev/null",
+    lambda c: c + " >/dev/null 2>&1",
+)
+
+
+def test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """S1. A listed shape says nothing in all five tree states, with and
+    without the person's `automation` press, and runs no program at all: the
+    tree is never read for it. A sampled product: every shape meets every
+    state and both readers, with one redirection spelling each, rotated."""
+    import subprocess
+
+    calls = []
+    real_run = subprocess.run
+
+    def counting(*args, **kwargs):
+        calls.append(args[0] if args else kwargs.get("args"))
+        return real_run(*args, **kwargs)
+
+    empty = tmp_path / "no-projects"
+    empty.mkdir()
+    pressed = pressed_root(tmp_path, repo)
+    n = 0
+    for press in (False, True):
+        monkeypatch.setattr(
+            wg.worktree_consent, "PROJECTS_ROOT", str(pressed if press else empty)
+        )
+        for state in STATES:
+            in_state(monkeypatch, repo, state)
+            for shape in LISTED:
+                command = REDIRECTED[n % len(REDIRECTED)](shape)
+                n += 1
+                monkeypatch.setattr(subprocess, "run", counting)
+                got = verdict(monkeypatch, capsys, repo, command)
+                monkeypatch.setattr(subprocess, "run", real_run)
+                assert got == ("silent", ""), (state, press, command, got)
+                assert not calls, (state, press, command, calls)
+
+
+# S3's shapes, each with a phrase of the plain spelling its stop must name.
+UNRECOGNISED = {
+    "git checkout feature/x": "`git switch <branch>`",
+    "git checkout README.md": "`git restore <path>`",
+    "git checkout -b y": "`git switch <branch>`",
+    "git checkout --detach HEAD~1": "`git switch --detach <rev>`",
+    "git checkout ':/fix'": "`git checkout -- <path>`",
+    "git bisect start": "`git -C <scratch clone>`",
+    "git update-ref refs/heads/y HEAD": "`git -C <scratch clone>`",
+    "sh -c 'git switch x'": "rather than as a string",
+    'bash -c "git checkout x"': "rather than as a string",
+    'eval "git switch x"': "rather than as a string",
+    "echo $(git switch x)": "outside the substitution",
+    "2>/dev/null git switch x": "Write `git` first",
+    "noglob git switch x": "Write `git` first",
+    "git 2>&1 worktree add ../wt b": "after the command's own words",
+    'git switch x && echo "unclosed': "`git commit -F <file>`",
+    # W3: a redirection written after `git` is no subcommand.
+    "git 2>/dev/null status": "after the command's own words",
+    # P2 (a): a body is read through the same shapes, nested ones too.
+    "echo $(echo $(git checkout x))": "`git switch <branch>`",
+    "X=$(git symbolic-ref HEAD refs/heads/y)": "`git -C <scratch clone>`",
+    "echo $(2>&1 git switch x)": "Write `git` first",
+    # A `--` names a restore only with a path after it, and a redirection is
+    # no path: git reads each of these as `feature/x --` and switches.
+    "git checkout feature/x --": "`git switch <branch>`",
+    "git checkout feature/x -- >/dev/null": "`git switch <branch>`",
+    "git checkout feature/x -- > out.txt": "`git switch <branch>`",
+    "git stash branch y": "`git -C <scratch clone>`",
+    "git>/dev/null switch x": "Write `git` first",
+    "2>&1 git switch x": "Write `git` first",
+}
+
+
+def test_an_unrecognised_shape_stops_where_the_tree_matters(monkeypatch, capsys, repo):
+    """S3. Without the press, in each state where a switch would matter, the
+    guard stops before the ladder and names the shape it read and the plain
+    spelling it reads. An `ask` for the person, except in a tree another
+    session is ACTIVE in, where `docs/worktree-guard-spec.md` §A row 1 denies
+    a branch-form `checkout` outright and nobody is asked to approve it, and
+    on a line holding a `git switch` the frozen reading reads, where
+    approving would run the switch past the ladder (round 1 of work item
+    1791270162, red 1)."""
+    for state in ("active", "idle", "unusable", "dirty"):
+        in_state(monkeypatch, repo, state)
+        for command, rewrite in UNRECOGNISED.items():
+            decision, reason = verdict(monkeypatch, capsys, repo, command)
+            switch_on_line = command.startswith("git switch")
+            want = "deny" if state == "active" or switch_on_line else "ask"
+            assert decision == want, (state, command, decision, reason)
+            assert STOP in reason, (state, command, reason)
+            assert rewrite in reason, (state, command, reason)
+            assert "LEAVES_THE_TREE" in reason, (state, command, reason)
+
+
+def test_the_stop_names_the_shape_it_read(monkeypatch, capsys, repo):
+    """S3: the shape as it was read, quoted, so the person and the model see
+    which command on the line stopped it."""
+    in_state(monkeypatch, repo, "dirty")
+    for command, quoted in (
+        ("git status && git checkout feature/x", "`git checkout feature/x`"),
+        ("git update-ref refs/heads/y HEAD", "`git update-ref refs/heads/y HEAD`"),
+        ("echo $(git switch x)", "`git switch x`"),
+        ('sh -c "git switch x"', "`sh -c 'git switch x'`"),
+    ):
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        assert decision == "ask" and quoted in reason, (command, reason)
+    # Each shape once, however often it is written, and the rest counted
+    # past the fifth.
+    decision, reason = verdict(
+        monkeypatch, capsys, repo, "git checkout x; git checkout x; git status"
+    )
+    assert reason.count("`git checkout x`") == 1, reason
+    six = "; ".join(f"git checkout b{n}" for n in range(6))
+    decision, reason = verdict(monkeypatch, capsys, repo, six)
+    assert "`git checkout b4`" in reason and "`git checkout b5`" not in reason
+    assert "  · and 1 more" in reason, reason
+
+
+def test_a_body_nested_past_the_bound_is_read_as_one_it_could_not_finish(
+    monkeypatch, capsys, repo
+):
+    """P2 (a) reads a body inside a body, to the commit gate's depth; a body
+    deeper than that stops rather than passing unread."""
+    in_state(monkeypatch, repo, "dirty")
+    command = "echo $(echo $(git status))"
+    assert verdict(monkeypatch, capsys, repo, command) == ("silent", "")
+    monkeypatch.setattr(wg, "BODY_DEPTH", 1)
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "ask" and "could not run" in reason, reason
+
+
+def test_a_switch_carrying_a_cut_redirection_still_meets_the_ladder(
+    monkeypatch, capsys, repo
+):
+    """`2>&1` cuts a segment at its `&`, and the glued-back view of a switch
+    the frozen reading already read is that switch's, not a hidden one."""
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(monkeypatch, capsys, repo, "git switch feature/x 2>&1")
+    assert decision == "ask" and STOP not in reason, reason
+    assert "They will follow you onto the target branch" in reason, reason
+
+
+def test_the_same_shapes_are_silent_in_a_clean_single_stream_tree(
+    monkeypatch, capsys, repo
+):
+    """S4. §A row 5: nothing to protect, so nothing is asked, whatever the
+    shape. The base asked about a hidden switch here (candidate C)."""
+    in_state(monkeypatch, repo, "clean")
+    for command in UNRECOGNISED:
+        assert verdict(monkeypatch, capsys, repo, command) == ("silent", ""), command
+
+
+def test_the_segments_tree_is_the_one_that_matters(monkeypatch, capsys, repo, tmp_path):
+    """S8. The stop is judged in the tree the segment names: a `git -C` or a
+    `cd` to a second clone is judged there, and a `cd` the walk cannot
+    resolve falls back to the session's own tree (#686)."""
+    import subprocess
+
+    other = tmp_path / "w"
+    subprocess.run(
+        ["git", "clone", "-q", str(repo), str(other)], check=True, capture_output=True
+    )
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": ([], [], True))
+    named = (f"git -C {other} checkout x", f"cd {other} && git checkout x")
+    unresolved = 'cd "$W" && git checkout x'
+
+    (other / "f.txt").write_text("changed\n", encoding="utf-8")
+    for command in named:
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        assert decision == "ask" and STOP in reason, (command, reason)
+    assert verdict(monkeypatch, capsys, repo, unresolved) == ("silent", "")
+
+    (other / "f.txt").write_text("one\ntwo\nthree\n", encoding="utf-8")
+    (repo / "f.txt").write_text("changed\n", encoding="utf-8")
+    for command in named:
+        assert verdict(monkeypatch, capsys, repo, command) == ("silent", ""), command
+    decision, reason = verdict(monkeypatch, capsys, repo, unresolved)
+    assert decision == "ask" and STOP in reason, reason
+
+    # A `git -C` naming no repository touches no tree, and git refuses it:
+    # silent even where every tree asked about holds an ACTIVE session.
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": (ACTIVE, [], True))
+    nowhere = f"git -C {tmp_path / 'none'} checkout x"
+    assert verdict(monkeypatch, capsys, repo, nowhere) == ("silent", "")
+
+
+def test_an_unrecognised_shape_stops_before_a_switch_on_the_same_line(
+    monkeypatch, capsys, repo
+):
+    """S9. The stop stops the whole line, so it comes first; a listed shape
+    beside a switch leaves the switch to today's dirty-tree row alone. The
+    stop is a `deny` there: approving an `ask` would run the switch past the
+    ladder (round 1 of work item 1791270162, red 1; an `ask` at
+    `4de95fa7`)."""
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(
+        monkeypatch, capsys, repo, "git checkout README.md && git switch feature/x"
+    )
+    assert decision == "deny" and STOP in reason, reason
+    assert reason.endswith(
+        "Re-issue the command in a plain spelling. Run the `git switch` as a "
+        "command of its own, so the branch-switch rules judge its tree."
+    ), reason
+    assert "They will follow you onto the target branch" not in reason, reason
+    decision, reason = verdict(
+        monkeypatch, capsys, repo, "git status && git switch feature/x"
+    )
+    assert decision == "ask", reason
+    assert "They will follow you onto the target branch" in reason, reason
+    assert STOP not in reason, reason
+
+
+def test_no_approval_runs_a_line_past_an_active_tree(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 1 of work item 1791270162, red 1. Approving the stop's `ask`
+    runs every segment of the line. So a `git switch` on it, or an
+    unrecognised shape in a second tree another session is ACTIVE in, put
+    §A row 1's deny one approval away: each of these was an `ask` about the
+    session tree's changes at `4de95fa7`, and the base denied the switches.
+    The other direction holds too: with the second tree IDLE or its
+    detection unusable and no switch on the line, the stop is still the
+    person's `ask`, and its reason names each tree that matters (round 2,
+    yellow 4)."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    in_state(monkeypatch, repo, "dirty")
+    # None is W with detection unusable.
+    for held, sessions in (
+        (ACTIVE, (ACTIVE, [], True)),
+        (IDLE, ([], IDLE, True)),
+        (None, ([], [], False)),
+    ):
+        monkeypatch.setattr(
+            wg,
+            "sessions_in_tree",
+            lambda top, own="", s=sessions: s if top.endswith("W") else ([], [], True),
+        )
+        for command in (
+            f"git checkout f.txt && git -C {w} switch feature/x",
+            f"git checkout f.txt && cd {w} && git switch feature/x",
+            f"git update-ref refs/x HEAD && git -C {w} switch feature/x",
+        ):
+            decision, reason = verdict(monkeypatch, capsys, repo, command)
+            assert decision == "deny", (held, command, decision, reason)
+            assert "Run the `git switch` as a command of its own" in reason, reason
+        for command in (
+            f"git checkout f.txt && git -C {w} checkout feature/x",
+            f"git checkout f.txt && cd {w} && git checkout feature/x",
+        ):
+            decision, reason = verdict(monkeypatch, capsys, repo, command)
+            if held is ACTIVE:
+                assert decision == "deny", (command, decision, reason)
+                assert "another Claude session is actively working here" in reason
+                assert "uncommitted tracked changes" not in reason, reason
+                continue
+            # Round 2, yellow 4: the reason names both trees, the session's
+            # for its changes and W for its sessions or its detection. At
+            # `3c9a1161` it named the session tree's changes alone.
+            assert decision == "ask", (command, decision, reason)
+            assert "uncommitted tracked changes" in reason, reason
+            assert f"`{repo}`" in reason and f"`{w}`" in reason, reason
+            if held is IDLE:
+                assert "none of them can be shown to be working" in reason, reason
+                assert "pid 222" in reason, reason
+            else:
+                assert "cannot be told in this environment" in reason, reason
+
+
+def test_the_tree_is_read_once_for_both_kinds(monkeypatch, capsys, repo):
+    """W2. A command holding an unrecognised shape and a switch in one tree
+    reads that tree's sessions and its changes once each, and the ladder
+    takes what the stop's question already read."""
+    seen = {"sessions": 0, "changes": 0}
+    real_changes = wg.tracked_changes
+
+    def sessions(top, own=""):
+        seen["sessions"] += 1
+        return ([], [], True)
+
+    def changes(cwd):
+        seen["changes"] += 1
+        return real_changes(cwd)
+
+    monkeypatch.setattr(wg, "sessions_in_tree", sessions)
+    monkeypatch.setattr(wg, "tracked_changes", changes)
+    got = verdict(
+        monkeypatch, capsys, repo, "git checkout README.md && git switch feature/x"
+    )
+    assert got == ("silent", "")
+    assert seen == {"sessions": 1, "changes": 1}, seen
+
+
+# W1: the stop's one text, both readers' endings, in both languages.
+STOP_EN = (
+    "This command holds a git command this guard does not know to leave the "
+    "branch where it is, and in this tree a branch switch would matter: it has "
+    "1 uncommitted tracked changes, which a switch would carry onto the other "
+    "branch.\n"
+    "\n"
+    "  · `git checkout feature/x` — a `git checkout` with no `-- <path>`, which "
+    "can switch a branch as well as restore a file. For a switch, write `git "
+    "switch <branch>` or `git switch --detach <rev>`; for a restore, `git "
+    "checkout -- <path>` or `git restore <path>`.\n"
+    "\n"
+    "The plain spellings are what this guard reads: a `git switch` then meets "
+    "the branch-switch rules, and a git subcommand on the list passes. Name "
+    "another tree with `git -C <dir>`. The list is `LEAVES_THE_TREE` in "
+    "hooks/worktree-guard.py. "
+)
+STOP_KO = (
+    "이 명령에는 브랜치를 그대로 둔다고 이 guard 가 확인하지 못한 git 명령이 "
+    "있고, 이 트리에서는 브랜치 전환이 문제가 됩니다. 커밋되지 않은 추적 파일 "
+    "변경이 1건 있고, 전환하면 이 변경이 다른 브랜치로 따라갑니다.\n"
+    "\n"
+    "  · `git checkout feature/x` — `-- <path>` 가 없는 `git checkout` 이라, "
+    "파일을 되돌릴 수도 있지만 브랜치를 전환할 수도 있습니다. 전환이라면 `git "
+    "switch <branch>` 나 `git switch --detach <rev>` 로, 파일 되돌리기라면 `git "
+    "checkout -- <path>` 나 `git restore <path>` 로 쓰세요.\n"
+    "\n"
+    "이 guard 는 위의 평범한 표기를 읽습니다. `git switch` 는 브랜치 전환 "
+    "규칙으로 판단하고, 목록에 있는 git 하위 명령은 그대로 통과합니다. 다른 "
+    "트리는 `git -C <dir>` 로 지정하세요. 목록은 hooks/worktree-guard.py 의 "
+    "`LEAVES_THE_TREE` 입니다. "
+)
+ENDINGS = {
+    ("en", "ask"): "Approve to run it as written, or decline and re-issue it in "
+    "a plain spelling.",
+    ("en", "deny"): "Re-issue the command in a plain spelling.",
+    ("ko", "ask"): "그대로 실행하려면 승인하고, 아니면 거부한 뒤 평범한 표기로 "
+    "다시 실행하세요.",
+    ("ko", "deny"): "평범한 표기로 다시 실행하세요.",
+}
+
+
+def test_the_stop_says_one_text_with_two_endings_in_both_languages(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """W1. The person's `ask` and the model's `deny` carry one text, and only
+    the last sentence says which of them is reading it."""
+    pressed = pressed_root(tmp_path, repo)
+    empty = tmp_path / "no-projects"
+    empty.mkdir()
+    monkeypatch.setenv("SPECSEAL_LANG", "ko")
+    wko = load_hook_module("worktree-guard.py", "wg_ko_stop")
+    for lang, module, text in (("en", wg, STOP_EN), ("ko", wko, STOP_KO)):
+        in_state(monkeypatch, repo, "dirty", module=module)
+        for decision, root in (("ask", empty), ("deny", pressed)):
+            monkeypatch.setattr(module.worktree_consent, "PROJECTS_ROOT", str(root))
+            got = verdict(
+                monkeypatch, capsys, repo, "git checkout feature/x", module=module
+            )
+            assert got == (decision, text + ENDINGS[lang, decision]), (lang, got)
+
+
+# Round 2 of work item 1791270162, yellow 4: where more than one tree on the
+# line matters and none is ACTIVE, the reason names each, first one first.
+TREES_EN = (
+    "This command holds a git command this guard does not know to leave the "
+    "branch where it is, and in each of these trees a branch switch would "
+    "matter:\n"
+    "  `{repo}`: it has 1 uncommitted tracked changes, which a switch would "
+    "carry onto the other branch.\n"
+    "  `{w}`: whether another session works here cannot be told in this "
+    "environment (process inspection is unavailable).\n"
+    "\n"
+)
+TREES_KO = (
+    "이 명령에는 브랜치를 그대로 둔다고 이 guard 가 확인하지 못한 git 명령이 "
+    "있고, 아래 트리마다 브랜치 전환이 문제가 됩니다.\n"
+    "  `{repo}`: 커밋되지 않은 추적 파일 변경이 1건 있고, 전환하면 이 변경이 "
+    "다른 브랜치로 따라갑니다.\n"
+    "  `{w}`: 이 환경에서는 프로세스를 조회할 수 없어, 다른 세션이 이 트리에서 "
+    "작업 중인지 확인할 수 없습니다.\n"
+    "\n"
+)
+
+
+def test_the_stop_names_each_tree_that_matters_in_both_languages(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 2 of work item 1791270162, yellow 4. Approving the `ask` runs
+    the line in every tree it names, so the person is shown each tree that
+    matters and why, not only the first: at `3c9a1161` this reason named the
+    session tree's changes alone."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    monkeypatch.setenv("SPECSEAL_LANG", "ko")
+    wko = load_hook_module("worktree-guard.py", "wg_ko_trees")
+    command = f"git checkout f.txt && git -C {w} checkout feature/x"
+    for lang, module, text in (("en", wg, TREES_EN), ("ko", wko, TREES_KO)):
+        in_state(monkeypatch, repo, "dirty", module=module)
+        monkeypatch.setattr(
+            module,
+            "sessions_in_tree",
+            lambda top, own="": (
+                ([], [], False) if top.endswith("W") else ([], [], True)
+            ),
+        )
+        decision, reason = verdict(monkeypatch, capsys, repo, command, module=module)
+        assert decision == "ask", (lang, decision, reason)
+        assert reason.startswith(text.format(repo=repo, w=w)), (lang, reason)
+    # Two directories of one tree are one tree, and its reason reads as it
+    # always did.
+    (repo / "sub").mkdir()
+    one_tree = "git checkout f.txt && cd sub && git checkout feature/x"
+    decision, reason = verdict(monkeypatch, capsys, repo, one_tree)
+    assert decision == "ask", (decision, reason)
+    assert reason.startswith(STOP_EN.split("\n")[0]), reason
+
+
+def test_a_broken_wider_reader_costs_a_stop_never_a_silence(monkeypatch, capsys, repo):
+    """W3. Where `hooks/cmdline.py` does not load, or one of its readers
+    raises, the bare word `git` in a string, a substitution or a hidden
+    position is the finding: a stop where the tree matters, never a silence.
+    A plain git command is read by the frozen reading and is unaffected."""
+    in_state(monkeypatch, repo, "dirty")
+    hidden = (
+        "sh -c 'git switch x'",
+        'eval "git switch x"',
+        "echo $(git switch x)",
+        "git log $(git switch x)",
+        "2>/dev/null git switch x",
+    )
+    monkeypatch.setattr(wg, "wide", None)
+    for command in hidden:
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        assert decision == "ask" and "could not run" in reason, (command, reason)
+    assert verdict(monkeypatch, capsys, repo, "git status") == ("silent", "")
+    monkeypatch.undo()
+
+    in_state(monkeypatch, repo, "dirty")
+    assert wg.wide is not None
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("a shape nobody measured")
+
+    for reader in ("reparsed_texts", "substitution_bodies", "parse_git"):
+        monkeypatch.setattr(wg.wide, reader, boom)
+    for command in hidden:
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        assert decision == "ask" and "could not run" in reason, (command, reason)
+
+
+@pytest.mark.parametrize(
+    "command", ["git worktree &>/dev/null add ../wt b", "2>&1 git switch feature/x"]
+)
+@pytest.mark.parametrize("broken", ["missing", "raising"])
+def test_a_broken_reader_leaves_no_cut_group_silent(
+    monkeypatch, capsys, repo, command, broken
+):
+    """Round 1 of work item 1791270162, yellow 4. The reader that glues an
+    `&` cut back is `hooks/cmdline.py#merged_view`; where it did not load or
+    raises, the cut is the finding. Silent at `4de95fa7` for three of the
+    four, where `_merged_findings` returned nothing."""
+    in_state(monkeypatch, repo, "dirty")
+    if broken == "missing":
+        monkeypatch.setattr(wg, "wide", None)
+    else:
+
+        def boom(*_a, **_k):
+            raise RuntimeError("broken reader")
+
+        monkeypatch.setattr(wg.wide, "merged_view", boom)
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "ask" and "could not run" in reason, (command, reason)
+
+
+# A git an `&` cut, with its `-C` before the cut, after it, or on both sides
+# of a chain of cuts. `{w}` is the second tree.
+CUT_GROUPS = (
+    "2>&1 git -C {w} switch feature/x",
+    "2>&1 git -C {w} checkout feature/x",
+    "git -C {w} worktree &>/dev/null add ../wt b",
+    "git -C {w} worktree 2>&1 add ../wt b",
+    "git -C {w} worktree 2>&1 >&2 add ../wt b",
+    "git -C {w} stash &>/dev/null branch y",
+    "git -C {w} stash 2>&1 branch y",
+    "cd {w} && 2>&1 git switch feature/x",
+    "cd {w} && git worktree 2>&1 add ../wt b",
+)
+
+
+def test_a_cut_group_is_judged_in_the_tree_its_own_c_names(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 2 of work item 1791270162, red 2. A git an `&` cut was placed
+    by the tokens of the group's last part, which carry no `-C`, so it was
+    judged in the tree it was typed from: each row carrying its `-C` inside
+    the group was silent at `3c9a1161` with the session's tree clean and `W`
+    dirty or ACTIVE, where the base asked about `2>&1 git -C W switch` and
+    `git -C W worktree &>/dev/null add` (round 2's report). The group is one
+    command, run where its first part runs, so it is judged in the tree its
+    own `-C` names; the two rows reached through a `cd` watch that
+    directory."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    for state, want in (("dirty", "ask"), ("active", "deny")):
+        sessions = (ACTIVE, [], True) if state == "active" else ([], [], True)
+        (w / "f.txt").write_text(
+            "changed\n" if state == "dirty" else "one\ntwo\nthree\n", encoding="utf-8"
+        )
+        monkeypatch.setattr(
+            wg,
+            "sessions_in_tree",
+            lambda top, own="", s=sessions: s if top.endswith("W") else ([], [], True),
+        )
+        for group in CUT_GROUPS:
+            command = group.format(w=w)
+            decision, reason = verdict(monkeypatch, capsys, repo, command)
+            assert decision == want and STOP in reason, (state, command, reason)
+
+
+@pytest.mark.parametrize("broken", ["missing", "raising"])
+def test_a_broken_reader_judges_a_cut_in_the_tree_before_it(
+    monkeypatch, capsys, repo, tmp_path, broken
+):
+    """Round 2 of work item 1791270162, yellow 3. Where the reader that glues
+    an `&` cut back is missing or raises, the cut is placed by the part
+    before it, where the frozen reading finds a `-C`: `git -C W worktree
+    2>&1 add ../wt b` asks with `W` dirty and the session's tree clean,
+    silent at `3c9a1161`, which placed it by the part after. A `-C` after
+    the cut (`2>&1 git -C W switch x`) only the broken reader could read, so
+    that group is judged in the tree it was typed from: the limit
+    `docs/worktree-guard-spec.md` §*Known limits* names."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    (w / "f.txt").write_text("changed\n", encoding="utf-8")
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": ([], [], True))
+    if broken == "missing":
+        monkeypatch.setattr(wg, "wide", None)
+    else:
+
+        def boom(*_a, **_k):
+            raise RuntimeError("broken reader")
+
+        monkeypatch.setattr(wg.wide, "merged_view", boom)
+    for group in CUT_GROUPS:
+        command = group.format(w=w)
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        if group.startswith("2>&1 git -C"):
+            assert decision == "silent", (command, decision, reason)
+        else:
+            assert decision == "ask" and "could not run" in reason, (command, reason)
+
+
+# Phase 1 of work item 1791270162, `phases/phase-1.md` §M1: every git
+# subcommand the frozen reading yields over the recorded runs, as pairs
+# holding it in cut 1 / cut 2. Phase 3 re-read cut 1 on the same definition
+# and found the same table.
+RECORDED = {
+    "log": (2858, 3064),
+    "status": (2609, 2848),
+    "commit": (2014, 2149),
+    "diff": (2028, 2127),
+    "add": (1842, 1947),
+    "rev-parse": (893, 961),
+    "show": (651, 756),
+    "push": (573, 607),
+    "checkout": (532, 576),
+    "grep": (385, 454),
+    "fetch": (252, 276),
+    "clone": (223, 243),
+    "branch": (223, 236),
+    "worktree": (152, 164),
+    "switch": (120, 126),
+    "merge-base": (98, 104),
+    "config": (84, 100),
+    "stash": (95, 99),
+    "ls-tree": (55, 73),
+    "tag": (46, 60),
+    "ls-files": (56, 58),
+    "merge": (52, 55),
+    "ls-remote": (44, 47),
+    "archive": (43, 47),
+    "pull": (43, 44),
+    "cat-file": (38, 41),
+    "for-each-ref": (26, 40),
+    "describe": (26, 27),
+    "rev-list": (23, 24),
+    "reset": (23, 23),
+    "remote": (17, 19),
+    "init": (17, 17),
+    "update-ref": (13, 13),
+    "merge-tree": (7, 11),
+    "apply": (8, 11),
+    "check-ignore": (10, 10),
+    "restore": (6, 7),
+    "clean": (5, 6),
+    "reflog": (6, 6),
+    "revert": (6, 6),
+    "blame": (3, 5),
+    "rm": (5, 5),
+    "cherry-pick": (4, 4),
+    "mv": (1, 2),
+    "show-ref": (2, 2),
+    "rebase": (2, 2),
+    "diff-tree": (1, 2),
+    "gc": (1, 1),
+    "format-patch": (0, 1),
+    "count-objects": (0, 1),
+    "update-index": (1, 1),
+    "help": (1, 1),
+    "symbolic-ref": (1, 1),
+    "shortlog": (1, 1),
+}
+# What the frame judges does not leave the branch (`spec.md` In 5), and the
+# words that are a shape of their own rather than a list entry.
+MOVERS = {"switch", "checkout", "worktree", "update-ref", "symbolic-ref", "bisect"}
+
+
+def test_the_list_carries_its_counts_and_nothing_unmeasured():
+    """S10 of work item 1791270162. `LEAVES_THE_TREE` is exactly the recorded
+    subcommands that leave the branch, each beside the count phase 1
+    measured, and holds none of the movers. Red with one count changed in
+    the module's comment, and with `rebase` taken off the list."""
+    import inspect
+    import re
+
+    listed = re.findall(
+        r'^\s+"([\w-]+)",\s+#\s+(\d+)/(\d+)',
+        inspect.getsource(wg).split("LEAVES_THE_TREE = frozenset(")[1].split(")")[0],
+        re.M,
+    )
+    counts = {sub: (int(a), int(b)) for sub, a, b in listed}
+    assert set(counts) == set(wg.LEAVES_THE_TREE), sorted(
+        set(counts) ^ set(wg.LEAVES_THE_TREE)
+    )
+    assert counts == {s: n for s, n in RECORDED.items() if s not in MOVERS}
+    assert not (MOVERS & wg.LEAVES_THE_TREE)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git rebase main feature/x",
+        "git rebase --onto main main feature/x",
+        "git rebase --root feature/x",
+        "git rebase main feature/x 2>/dev/null",
+        # Round 2, red 1: revision spellings that are not options. git reads
+        # a lone `-` as `@{-1}`, and every word after `--` as a revision, so
+        # each of these switches (git 2.50.1); the first two and the last
+        # were listed at `3c9a1161`.
+        "git rebase - feature/x",
+        "git rebase -i - feature/x",
+        "git rebase --onto main - feature/x",
+        "git rebase @{-1} feature/x",
+        "git rebase main @{-1}",
+        "git rebase -- main -x",
+        # #854 (round 3 of work item 1791270162, yellow 1): git's other word
+        # that ends the options, and a prefix of `--root`, which git takes as
+        # `--root`. Each switches under git 2.50.1 and was listed at
+        # `3d78c220`.
+        "git rebase --ro feature/x",
+        "git rebase --roo feature/x",
+        "git rebase -i --ro feature/x",
+        "git rebase --end-of-options main -x",
+        # bash hands git `--root` once the redirection is off.
+        "git rebase --root>/dev/null feature/x",
+    ],
+)
+def test_a_rebase_naming_a_branch_is_unrecognised(monkeypatch, capsys, repo, command):
+    """Round 1 of work item 1791270162, red 3. git switches to the named
+    branch before it rebases, and HEAD stays there; listed and silent at
+    `4de95fa7`. The stop names the plain spelling."""
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "ask" and STOP in reason, reason
+    assert (
+        "a `git rebase` naming a branch, which git switches to before it rebases. "
+        "Write `git switch <branch>` first, then `git rebase <upstream>`." in reason
+    ), reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git rebase main",
+        "git rebase -i HEAD~3",
+        "git rebase --continue",
+        "git rebase --root",
+        "git rebase main 2>/dev/null",
+        "git rebase -",
+        "git rebase -i -",
+        "git rebase @{-1}",
+        # #854: a long option starting `--r` that is no prefix of `--root`
+        # stays an option, a prefix of `--root` alone names no branch, and
+        # `--end-of-options` ends the options without being a word itself.
+        "git rebase --rebase-merges main",
+        "git rebase --reapply-cherry-picks main",
+        "git rebase --ro",
+        "git rebase --end-of-options main",
+        # git refuses `--r` as ambiguous and `--roots` as unknown (exit 129,
+        # git 2.50.1), and reads a `--ro` after the end of the options as a
+        # revision, so none of them names a branch.
+        "git rebase --r feature/x",
+        "git rebase --roots feature/x",
+        "git rebase --end-of-options --ro",
+    ],
+)
+def test_a_rebase_of_the_current_branch_stays_listed(command):
+    """The other direction: a `rebase` with one word that is not an option,
+    or `--root` alone, rebases the branch HEAD is on and stays listed."""
+    assert wg.shape_of(command.split()) == "listed"
+
+
+# One form of each `LEAVES_THE_TREE` row, run against git by the case below:
+# where the subcommand takes a branch, the form names one. `{start}` is the
+# branch HEAD is on; `..` is the directory beside the repository.
+FORMS = {
+    "log": "log feature/x",
+    "status": "status",
+    "commit": "commit --allow-empty -qm x",
+    "diff": "diff feature/x",
+    "add": "add -A",
+    "rev-parse": "rev-parse feature/x",
+    "show": "show feature/x",
+    "push": "push -q . feature/x:refs/heads/pushed",
+    "grep": "grep one feature/x",
+    "fetch": "fetch -q . feature/x:fetched",
+    "clone": "clone -q . ../cloned{n}",
+    "branch": "branch y feature/x",
+    "merge-base": "merge-base {start} feature/x",
+    "config": "config user.name x",
+    "stash": "stash",
+    "ls-tree": "ls-tree feature/x",
+    "tag": "tag t feature/x",
+    "ls-files": "ls-files",
+    "merge": "merge -q --no-edit feature/x",
+    "ls-remote": "ls-remote .",
+    "archive": "archive -o ../a{n}.tar feature/x",
+    "pull": "pull -q --no-rebase --no-edit . feature/x",
+    "cat-file": "cat-file -t feature/x",
+    "for-each-ref": "for-each-ref",
+    "describe": "describe --always feature/x",
+    "rev-list": "rev-list feature/x",
+    "reset": "reset -q --hard feature/x",
+    "remote": "remote add o .",
+    "init": "init -q",
+    "merge-tree": "merge-tree --write-tree {start} feature/x",
+    "apply": "apply ../p.diff",
+    "check-ignore": "check-ignore f.txt",
+    "restore": "restore --source feature/x g.txt",
+    "clean": "clean -fdq",
+    "reflog": "reflog",
+    "revert": "revert --no-edit HEAD",
+    "blame": "blame f.txt",
+    "rm": "rm -q --cached f.txt",
+    "cherry-pick": "cherry-pick feature/x",
+    "mv": "mv f.txt h.txt",
+    "show-ref": "show-ref",
+    "rebase": "rebase -q feature/x",
+    "diff-tree": "diff-tree feature/x",
+    "gc": "gc --auto",
+    "format-patch": "format-patch -q -o ../p{n} {start}..feature/x",
+    "count-objects": "count-objects",
+    "update-index": "update-index --refresh",
+    "help": "help -a",
+    "shortlog": "shortlog -s feature/x",
+}
+# Forms git runs as a switch, each of which the guard must not list.
+SWITCHING = (
+    "rebase {start} feature/x",
+    "rebase --onto {start} {start} feature/x",
+    "rebase --root feature/x",
+    "rebase - feature/x",
+    # #854: a prefix of `--root`, and the two words that end git's options
+    # before a branch named `-x`, which the template holds.
+    "rebase --ro feature/x",
+    "rebase --end-of-options {start} -x",
+    "rebase -- {start} -x",
+    "stash branch y",
+    "checkout feature/x",
+    "switch feature/x",
+)
+
+
+def test_no_listed_form_moves_head_under_git(repo, tmp_path):
+    """Binds `LEAVES_THE_TREE` to git (round 1 of work item 1791270162, red
+    3): each row's form runs in a copy of a repository with a second commit
+    on `feature/x` and a stash, and a form the guard reads as listed must
+    leave HEAD naming the branch it named. Every row has a form, so a row
+    added without one goes red, and each switching form must move HEAD
+    under git, so the comparison cannot pass by measuring nothing. Red at
+    `4de95fa7`, where `git rebase <start> feature/x` was listed.
+
+    Every git the case runs must have run: a form git refused leaves HEAD
+    where it was and would pass as listed unmeasured, on a runner whose git
+    lacks an option (round 2 of work item 1791270162, white 5). `git
+    check-ignore` exits 1 for a path it does not ignore, which is its form's
+    answer."""
+    import shutil
+    import subprocess
+
+    def git(d, *args, ok=0):
+        done = subprocess.run(
+            ["git", "-C", str(d), *args],
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            env={**os.environ, "GIT_EDITOR": "true", "GIT_PAGER": "cat"},
+        )
+        assert done.returncode == ok, (args, done.returncode, done.stderr)
+        return done
+
+    def head(d):
+        return (d / ".git" / "HEAD").read_text(encoding="utf-8").strip()
+
+    template = tmp_path / "template"
+    shutil.copytree(repo, template)
+    start = head(template).rsplit("/", 1)[-1]
+    git(template, "switch", "-q", "feature/x")
+    (template / "g.txt").write_text("g\n", encoding="utf-8")
+    git(template, "add", "g.txt")
+    git(template, "commit", "-qm", "g")
+    git(template, "switch", "-q", start)
+    # A branch whose name starts with `-`, which `git branch` refuses to
+    # make; a word git reads as a revision only after `--` or
+    # `--end-of-options` (#854).
+    git(template, "update-ref", "refs/heads/-x", "HEAD")
+    (template / "f.txt").write_text("changed\n", encoding="utf-8")
+    (tmp_path / "p.diff").write_bytes(git(template, "diff").stdout)
+    git(template, "stash", "-q")
+    assert head(template) == f"ref: refs/heads/{start}"
+
+    assert set(FORMS) == set(wg.LEAVES_THE_TREE), sorted(
+        set(FORMS) ^ set(wg.LEAVES_THE_TREE)
+    )
+    listed, moved = [], []
+    for n, form in enumerate([*FORMS.values(), *SWITCHING]):
+        words = form.format(start=start, n=n).split()
+        if wg.shape_of(["git", *words]) == "listed":
+            listed.append(form)
+        copy = tmp_path / f"r{n}"
+        shutil.copytree(template, copy)
+        git(copy, *words, ok=1 if words[0] == "check-ignore" else 0)
+        if head(copy) != head(template):
+            moved.append(form)
+    # A listed form that moved HEAD is a wrong row.
+    assert not set(listed) & set(moved), sorted(set(listed) & set(moved))
+    assert sorted(listed) == sorted(FORMS.values()), sorted(
+        set(FORMS.values()) ^ set(listed)
+    )
+    assert sorted(moved) == sorted(SWITCHING), moved
+
+
+def test_the_readings_are_gone():
+    """S11 of work item 1791270162. None of the symbols `spec.md` In 4
+    removes is defined, and the switch arm runs no `rev-parse`: nothing
+    looks a name up. Red at `9c03ae85`, where every one was still defined."""
+    import inspect
+
+    gone = (
+        "wider_only_kinds",
+        "_bare_words",
+        "ask_what_only_the_wider_reading_finds",
+        "switch_kind",
+        "SWITCH_OPTIONS",
+        "_Options",
+        "_long_option",
+        "read_switch_words",
+        "handed_words",
+        "_redirection_width",
+        "_REDIRECTION",
+        "is_ref",
+        "_verified",
+        "_commit_named",
+        "_object_named",
+        "_one_merge_base",
+        "_OBJECT_NAME",
+        "tracked_in_any_remote",
+        "_refs",
+        "_fetched_as",
+        "_the_bases_lookup",
+        "_no_guess",
+        "classify",
+    )
+    assert [name for name in gone if hasattr(wg, name)] == []
+    arm = (
+        wg.main,
+        wg.shape_of,
+        wg._segment_finding,
+        wg._git_finding,
+        wg._merged_findings,
+        wg._command_findings,
+        wg._finding_tree,
+    )
+    assert [f.__name__ for f in arm if "rev-parse" in inspect.getsource(f)] == []

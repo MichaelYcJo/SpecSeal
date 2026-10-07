@@ -99,7 +99,7 @@ def test_an_unset_comspec_on_windows_is_cmd_exe(tree, monkeypatch):
     "row, expected",
     [
         (ROW, HANDED),
-        # `compare_at_base`'s runner: the first command, then quoted paths.
+        # A runner handed quoted paths.
         ('bin/test "tests/x.py"', r'bin\test "tests/x.py"'),
         ("bin/test tests/a/b.py --out=dir/x", r"bin\test tests/a/b.py --out=dir/x"),
         ('"tools/run tests" -q "a/b"', r'"tools\run tests" -q "a/b"'),
@@ -300,7 +300,7 @@ def test_the_one_shell_site_is_run_and_it_applies_the_rewrite():
     """A2, the class by construction. `broad_gate.py` has exactly one call
     passing `shell=`, it is inside `run`, and the string it is handed is the
     one `handed_to_shell` produced. `gate`'s `SUITE` and `compare_at_base`'s
-    `suite-at-base-<k>` both reach a shell through it, so a third shell site
+    `suite-at-base` both reach a shell through it, so a third shell site
     written anywhere else turns this red rather than going unrewritten."""
     with open(GATE, encoding="utf-8") as handle:
         tree = ast.parse(handle.read())
@@ -596,10 +596,12 @@ def test_a_switch_against_a_program_runs_on_the_real_platform(tmp_path):
 # --- A5: a failing row with no test result says so ----------------------------
 
 # Pinned verbatim, because a person reads it on the failure form and decides
-# from it whether to open the kept file (`agent-contract` §14).
+# from it whether to open the kept file (`agent-contract` §14). It names both
+# ways a row prints no summary, never one as the only one (#849 round 1).
 NO_SUMMARY = (
     "no pytest summary in this output, so this exit code is not a count of "
-    "failing tests: the row may have stopped before any test ran"
+    "failing tests: the row may have stopped before any test ran, or a pytest "
+    "it ran may have died part-way"
 )
 
 

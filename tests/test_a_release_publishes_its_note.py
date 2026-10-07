@@ -529,23 +529,33 @@ def test_the_glance_block_is_built_by_one_function_and_its_sealed_twin_by_anothe
     """S1's shape (#718). The note's glance block is exactly `glance`'s, so
     the seal can find it by the same function; `sealed_glance` is the heading,
     the image, a blank line and one line carrying every row the table had, in
-    its order."""
+    its order. Since #832 the image is an `<img>` carrying its display
+    width, because the PNG is drawn at twice that size for a high-density
+    screen and Markdown's image syntax has no width; and the alt text and
+    the URL are escaped for the attribute they sit in, so a quote cannot end
+    it early. Seen red against the Markdown image, and by the escape
+    removed."""
     mod, body = published(monkeypatch, tmp_path, RELEASE)
     work, closed, people = mod.tally(RELEASE, OWNER)
     block = mod.glance(work, closed, people)
     assert body.startswith(block + "\n\n### ✨ Features"), body[:400]
     assert mod.sealed_glance(
-        "https://example.com/seal.png", "a seal", work, closed, people
+        "https://example.com/seal.png", "a seal", 160, work, closed, people
     ) == (
         f"{mod.GLANCE_HEADING}\n\n"
-        "![a seal](https://example.com/seal.png)\n\n"
+        '<img src="https://example.com/seal.png" alt="a seal" width="160">\n\n'
         "🔀 Pull requests **7** · ✅ Issues closed **4** · 🙌 Outside contributors **2**"
     )
     alone = [pull(10, OWNER, "fix: one", "Closes #100")]
     work, closed, people = mod.tally(alone, OWNER)
-    assert mod.sealed_glance("u", "a", work, closed, people).endswith(
+    assert mod.sealed_glance("u", "a", 160, work, closed, people).endswith(
         "🔀 Pull requests **1** · ✅ Issues closed **1**"
     )
+    odd = mod.sealed_glance('u?a=1&b="2"', 'a "seal" <b>', 80, work, closed, people)
+    assert (
+        '<img src="u?a=1&amp;b=&quot;2&quot;" alt="a &quot;seal&quot; &lt;b&gt;" '
+        'width="80">'
+    ) in odd, odd
 
 
 # --- the seam with the script that writes the section ----------------------
@@ -656,7 +666,8 @@ def test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit
         "    timeout-minutes: 60" in seal and "    continue-on-error: true" in seal
     ), seal
     held = steps(seal)
-    assert len(held) == 5, held
+    # Six since #832: the step that installs `rsvg-convert` joined them.
+    assert len(held) == 6, held
     assert any(line.strip() == "persist-credentials: false" for line in held[0]), held[
         0
     ]
@@ -670,6 +681,47 @@ def test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit
     assert any(
         "SUITE_OUTCOME: ${{ steps.suite.outcome }}" in line for line in tokened[0]
     ), tokened
+
+
+def test_the_seal_job_installs_rsvg_convert_before_the_suite_and_the_draw():
+    """S6 (#832). The runner image carries no `rsvg-convert`, so the `seal`
+    job installs `librsvg2-bin` with `apt-get`, without the recommended
+    packages, in a step of its own that is `continue-on-error` like every
+    other: an install that fails costs the image, and `release_seal.py`
+    says so on its `::warning::` line. The step comes before the suite, so
+    the suite at the tag runs the case that draws the seal with the real
+    binary, and so before the draw. Seen red against the job without it,
+    and with it placed after the draw.
+
+    The package lists are refreshed first, and the refresh does not gate
+    the install: `apt-get update` exits non-zero when any one list fails,
+    a third-party list the package does not come from included, so `&&`
+    after it skipped an install that would have worked (round 1's ⬜ 8). A
+    bare `;` skipped it too, because a step with no `shell:` runs under
+    `bash -e`, so the refresh is followed by `|| true` (round 2's 🟡 2).
+    Seen red against the `;` step."""
+    held = steps(job(workflow(), "seal"))
+    installs = [
+        at
+        for at, step in enumerate(held)
+        if any(
+            "sudo apt-get install -y --no-install-recommends librsvg2-bin" in line
+            for line in step
+        )
+    ]
+    assert len(installs) == 1, held
+    (at,) = installs
+    assert any(line.strip() == "continue-on-error: true" for line in held[at])
+    run = next(line for line in held[at] if "librsvg2-bin" in line)
+    assert "sudo apt-get update || true;" in run, run
+    assert "apt-get update &&" not in run, run
+    suite = next(
+        n for n, step in enumerate(held) if any("--junitxml" in s for s in step)
+    )
+    draw = next(
+        n for n, step in enumerate(held) if any("release_seal.py" in s for s in step)
+    )
+    assert at < suite < draw, (at, suite, draw)
 
 
 def test_the_workflow_is_not_a_step_of_the_release_job():

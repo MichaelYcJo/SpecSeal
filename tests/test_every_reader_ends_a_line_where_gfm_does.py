@@ -647,11 +647,19 @@ OUT_OF_CLASS = {
     ("skills/verify/scripts/broad_gate.py", "gate"): (1, TOOL),
     ("skills/verify/scripts/broad_gate.py", "job_steps"): (1, YAML),
     ("skills/verify/scripts/broad_gate.py", "ledger_total"): (1, TOOL),
+    # The recorder's JSON Lines (#825): `json.dumps` escapes every control
+    # character and every non-ASCII one, so no separator but LF is in it.
+    ("skills/verify/scripts/broad_gate.py", "read_record"): (1, TOOL),
     ("skills/verify/scripts/broad_gate.py", "suite_counts"): (1, TOOL),
     ("skills/verify/scripts/deferral_check.py", "read_events"): (1, YAML),
     ("skills/verify/scripts/deferral_check.py", "runners_in"): (1, YAML),
+    # The disc's mark chart (#832): every character but `.` and `M` is refused
+    # after the split, so a line any other separator made is refused as well.
+    ("skills/verify/scripts/seal_stamp.py", "read_chart"): (
+        1,
+        "the disc's mark chart, a grid of `.` and `M`, not a document's lines",
+    ),
     ("skills/verify/scripts/payload_meter.py", "frontmatter"): (1, YAML),
-    ("skills/verify/scripts/seal_stamp.py", "<module>"): (1, "a constant"),
     ("skills/verify/scripts/session_cost.py", "open_log"): (1, TOOL),
     ("skills/verify/scripts/unverified_check.py", "overviews_at"): (1, GIT),
     ("skills/verify/scripts/unverified_check.py", "tree_at"): (1, GIT),
@@ -693,6 +701,12 @@ OUT_OF_CLASS.update(
         # records are read through, reading what `unfenced` shows it as
         # `config_rows` does (#647; ⬜ 21 of #735's round 3).
         ("hooks/config.py", "gfm_table"): (1, F),
+        # A glued old header quoted as written, read back by its row number.
+        ("hooks/config.py", "read_table"): (
+            1,
+            "reads back the line `gfm_table` numbered, with the split it "
+            "numbered on (#831)",
+        ),
         # The machine-local map `pact-check` reads, the same walk (#647).
         ("skills/evidence-check/scripts/pact_check.py", "path_map"): (1, F),
         ("hooks/routing.py", "table_rows"): (1, F),

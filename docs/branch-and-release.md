@@ -69,9 +69,10 @@ act, fires the note, because a note has to name a tag.
   pull request title is therefore a line of the release note: write it as
   one. **Then the release's seal is attached** (#718). A second job in the
   same workflow runs only when this run created the release. It runs the
-  suite at the tag, draws one seal for the release from the broad gate's
-  letter, attaches it as `seal.png`, and replaces the glance table with the
-  image and one line of the table's counts. That edit is the only change it
+  suite at the tag, draws the owner's seal from `.github/scripts/release-seal.svg`
+  with `rsvg-convert`, which the job installs (#832), attaches it as
+  `seal.png`, and replaces the glance table with the image at its display
+  width and one line of the table's counts. That edit is the only change it
   makes to a note, and only to one whose glance table is still exactly as it
   was generated. Any failure is a `::warning::` in the job log and leaves
   the note as it was published, so the seal can never turn the release red.

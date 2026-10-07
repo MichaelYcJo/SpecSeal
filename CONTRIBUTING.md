@@ -107,8 +107,9 @@ The suite needs `pytest`, one parser, `markdown-it-py`, pinned to one
 version in `MARKDOWN_IT` in `.github/scripts/run_tests.py`, Pillow, pinned
 in `PILLOW` beside it, and one renderer, `cmarkgfm`, pinned in `CMARKGFM`.
 The parser is the CommonMark oracle the hook readers are checked against
-(#667). Pillow draws the release seal the tag push attaches to the GitHub
-Release, and the suite's pixel case decodes that drawing (#718). The
+(#667). Pillow decodes the release seal the tag push draws with
+`rsvg-convert` and attaches to the GitHub Release, in the suite's pixel
+case (#718, #832). The
 renderer is GitHub's own, cmark-gfm, and the table walker in
 `hooks/config.py` is checked against what it renders (#647). The parser and
 the renderer are test-only and Pillow is test-and-release-only: the gates
@@ -166,11 +167,41 @@ uvx --with pytest --with markdown-it-py==4.2.0 --with pillow==12.3.0 --with cmar
 ```
 
 CI runs five jobs: lint (`ruff check` + `ruff format --check`), the suite on
-ubuntu, macOS and Windows at the floor stated above, `tests/test_arm_check.py`
+ubuntu, macOS and Windows at the floor stated above (Windows in four shards,
+divided by `pytest-split` from the committed `.test_durations`, #841),
+`tests/test_arm_check.py`
 at 3.13 and 3.14 (`arm-check`'s node-type tables are only as true as the
 interpreter that reads them, #684), the evidence ledger against this
 repository, and the hygiene workflow that guards releases. A change to any
 hook needs a test that fails without it — see the counterfeit rule below.
+
+**A case has a budget, and so does each leg.** A case whose call runs longer
+than `CASE_CEILING_S` in `tests/conftest.py` (90 s) fails with one line
+naming it and its seconds, locally as in CI. Make it cheaper, split it, or
+sample what it walks. On a machine running other suites at the same time, a
+case can pass that ceiling on load alone; `SPECSEAL_CASE_CEILING_S=<seconds>`
+raises it for one run, and CI never sets it. The ceiling reads a case's call
+only: time spent building a fixture in setup is not held to it. Each
+`pytest` leg in `test.yml` carries a `timeout-minutes`, and the comment
+beside the values says which runs they were set from.
+
+`.test_durations` goes stale as cases are added, which unbalances the
+Windows shards and drops no case. To refresh it, push a branch on which
+`test.yml` runs the Windows leg as one job again for a single run: one
+Windows entry with `store: "--store-durations"` in place of the four shard
+entries, with a `timeout` for the whole leg rather than a shard's 20 (it
+ran 34 minutes unsharded when the file was first made, so 55 by the rule
+beside the values); `${{ matrix.store }}` on the pytest line; and an
+`actions/upload-artifact@v4` step with `if: always() && matrix.store != ''`,
+`path: .test_durations` and `include-hidden-files: true` (the name starts
+with a dot, which the action skips by default). Both halves of the
+condition are needed. On that branch the shard cases in
+`tests/test_the_windows_leg_runs_in_shards_that_make_the_whole.py` fail,
+because the matrix has no shards, so without `always()` the upload is
+skipped although the file was written. Without `matrix.store != ''`,
+ubuntu and macOS upload the committed file under the same name first.
+Download the artifact with `gh run download <run> -n <artifact>`, make its
+line ends LF, commit it, and restore the shards.
 
 **The suite runs with `gh` logged out, on your machine as on CI.** CI's
 pytest job has no token, so `tests/conftest.py` makes the same true locally
