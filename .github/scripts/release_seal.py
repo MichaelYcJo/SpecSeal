@@ -237,10 +237,11 @@ def png(ops, dimensions, path):
 # column is `{label:<8}`, not the longest label: `deferred` is exactly eight,
 # which is the only reason the column looked set by it.
 LABELS = ("SEALED", "tag", "PRs", "issues", "suite", "items", "capped", "deferred")
-# The widest value the panel carries before the frame would cut it,
-# `skills/verify/scripts/broad_gate.py#PANEL_VALUE_WIDTH`. Held here rather
-# than imported, because that module is the whole gate; a case holds the two
-# to one number.
+# The widest value a release's panel carries before the frame would cut it.
+# It was `skills/verify/scripts/broad_gate.py#PANEL_VALUE_WIDTH` until #832
+# widened the gate's to 41 for the open layout's 80 columns; a release's rows
+# were out of that work item's scope, so this one stays 23, and the case that
+# held the two to one number holds this one apart from the gate's.
 PANEL_VALUE_WIDTH = 23
 # What a row says when the source it is read from could not be read: the row
 # stays, because a dropped row reads as none and a 0 reads as a count

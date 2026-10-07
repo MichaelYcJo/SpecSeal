@@ -436,7 +436,10 @@ def letter_row(cells):
 
 # --- the panel -----------------------------------------------------------
 
-PANEL_WIDTH = 36
+# Wide enough that a value gets `broad_gate.PANEL_VALUE_WIDTH` columns: the
+# frame's two edges and the `"  {label:<8} "` prefix's eleven, then 41 (#832,
+# phase 5 of work item 1791270164; 36 and 23 before it).
+PANEL_WIDTH = 54
 
 
 def letter(rows, width=PANEL_WIDTH):
@@ -938,22 +941,26 @@ def label(values):
 # clean` from #400 to #666, which the real panel's own comment refuses as a
 # counterfeit, because nothing held the two lists together; a case in
 # `tests/test_the_seal_is_taken_once_by_the_sealer.py` holds the labels
-# against `panel`'s now. Since #717 there is no blank row in it, no `chain`,
-# no `exit` under the suite and no `drifted` under the ledger, because
-# `panel` returns none of them.
+# against `panel`'s now. #717 took the blank row, `chain`, the suite's `exit`
+# and the ledger's `drifted` out of it, because `panel` returned none of them.
+# Since #832 it carries the blank row, `chain` and the ledger's three counts
+# again, in the owner's shapes of 2026-10-07: the ref beside its commit, a
+# `✓` on a result row, ` · ` and `→` between parts, a dim `·` before a row
+# that is not a pass.
 SAMPLE_ROWS = [
     ("SEALED", ""),
     ("tree", "c46fd2d"),
     ("", "feat/12-a-branch"),
-    ("base", "1e2bed9"),
-    ("", "origin/release/next"),
-    ("item", "#34 . 1799000000"),
+    ("base", "1e2bed9  origin/release/next"),
+    ("item", "#34 · 1799000000"),
     ("gate", "tree 1.2.3"),
-    ("suite", "768 passed, 1 skipped"),
-    ("ledger", "187 ok"),
-    ("CI also", "4 more steps"),
-    ("rounds", "3 . capped"),
-    ("", "2 deferred -> #56"),
+    None,
+    ("suite", "✓ 768 passed · 1 skipped"),
+    ("ledger", "✓ 187 ok · 0 drifted · 0 broken"),
+    ("chain", "✓ exit 0"),
+    ("CI also", "· 4 more steps"),
+    ("rounds", "3 · capped"),
+    ("", "2 deferred → #56"),
 ]
 
 

@@ -228,16 +228,21 @@ def test_the_rows_are_the_fixed_set_in_order_and_fit_the_panel():
     """S8. `release_rows` returns the fixed label set in order, the tag's
     continuation carrying `main`. Every label fits `seal_stamp.letter`'s
     eight-wide label column -- `deferred` is exactly eight, which is the only
-    reason the column looks set by it -- and no value is wider than
-    `broad_gate.PANEL_VALUE_WIDTH`. A count of 0 still draws its row."""
+    reason the column looks set by it -- and no value is wider than the
+    release's own `PANEL_VALUE_WIDTH`, 23. A count of 0 still draws its row.
+
+    The two widths were one number until #832: `broad_gate`'s became 41 for
+    the open layout's 80 columns (S5a), and the release's rows are out of
+    that work item's scope, so the release keeps 23 and no longer follows
+    the gate's."""
     mod = seal()
     rows = mod.release_rows("1.2.3", "aaa11111bbbb", 10, 0, (7003, 66), (10, 27, 6, 13))
     assert rows == [*ROWS[:4], ("issues", "0 closed"), *ROWS[5:]], rows
     assert all(len(label) <= 8 for label in mod.LABELS), mod.LABELS
     assert [label for label, _ in rows if label] == list(mod.LABELS)
     width = load(GATE, "broad_gate_for_the_release_rows").PANEL_VALUE_WIDTH
-    assert mod.PANEL_VALUE_WIDTH == width == 23
-    assert all(len(value) <= width for _, value in rows), rows
+    assert mod.PANEL_VALUE_WIDTH == 23 < width, (mod.PANEL_VALUE_WIDTH, width)
+    assert all(len(value) <= mod.PANEL_VALUE_WIDTH for _, value in rows), rows
 
 
 def test_a_suite_wider_than_the_value_column_moves_skipped_to_its_own_row():
