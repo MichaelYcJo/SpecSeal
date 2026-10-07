@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #850 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `3c9a11617fe794c8420dbbf920d8a67179f2c9db..a3164380d609e568dbeee219247bd60150284918`, 7 commits |
 | Contract changes | stop_unrecognised → main, round-1-report.md, round-1.md, round-2-report.md, spec.md |
 | New units | TREES_EN (depth 1); TREES_KO (depth 1); test_the_stop_names_each_tree_that_matters_in_both_languages (depth 1); CUT_GROUPS (depth 1); test_a_cut_group_is_judged_in_the_tree_its_own_c_names (depth 1); test_a_broken_reader_judges_a_cut_in_the_tree_before_it (depth 1) |
