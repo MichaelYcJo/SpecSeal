@@ -514,9 +514,9 @@ about to run it a second time after the change.
   session of the base that ended non-zero left tests or collections out of
   every list, a test whose xdist worker died in its setup among them, so
   the record cannot say the file passed. A session of the base that
-  stopped part-way reads the same way: it wrote no `end` line to its
-  record, because its process died, as plain pytest does on a test that
-  calls `os._exit`, or its recorder stopped writing; or its `end` line
+  stopped part-way reads the same way: its record holds no `end` line,
+  because the process died, which plain pytest does on a test that calls
+  `os._exit`, or its recorder stopped writing; or its `end` line
   shows an exit other than 0, 1 or 5, as a `KeyboardInterrupt` or
   `pytest.exit()` in a test and xdist under `-x` give. It is a question about the
   file, not a finding either way; open the kept `suite-at-base.txt` and the

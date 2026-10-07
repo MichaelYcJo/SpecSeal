@@ -1929,8 +1929,8 @@ def record_path(path, worktree):
 #   0 OK, 1 TESTS_FAILED, 5 NO_TESTS_COLLECTED -- the run loop ran every test
 #     it collected, or there were none. Held here.
 #   2 INTERRUPTED -- a `KeyboardInterrupt` or `pytest.exit()` in a test, a
-#     failed collection without `--continue-on-collection-errors` (no test
-#     runs), xdist under `-x` or `--maxfail`, and a plugin that sets
+#     failed collection without `-x` or `--continue-on-collection-errors` (no
+#     test runs), xdist under `-x` or `--maxfail`, and a plugin that sets
 #     `shouldstop`. Stopped part-way, and still writes its `end` line.
 #   3 INTERNAL_ERROR -- the run loop raised, a hook among the causes.
 #   4 USAGE_ERROR -- pytest refused an argument after the session started,
@@ -1938,12 +1938,13 @@ def record_path(path, worktree):
 #
 # Any other value is a return code `pytest.exit` or a plugin chose, and is no
 # exit of a session that ran to its end. Each exit above was measured with
-# the recorder loaded on pytest 9.1.1. Two stops still exit with a value held
-# here, and are named rather than closed: `pytest.exit` with a `returncode` of
-# 0, 1 or 5 chooses it, and a run without xdist that `-x` or `--maxfail`
-# stops exits 1. That one leaves no file partly run while each file's tests
-# run together: it stops in the file whose failure stopped it, which reads
-# `failing on base too`, and the files after it hold no line.
+# the recorder loaded on pytest 6.1, 7.0 and 9.1 (#849 round 2). Two stops
+# still exit with a value held here, and are named rather than closed:
+# `pytest.exit` with a `returncode` of 0, 1 or 5 chooses it, and a run
+# without xdist that `-x` or `--maxfail` stops exits 1, a failed collection
+# under `-x` among them. That one leaves no file partly run while each file's
+# tests run together: it stops in the file whose failure stopped it, which
+# reads `failing on base too`, and the files after it hold no line.
 RAN_TO_ITS_END = (0, 1, 5)
 
 

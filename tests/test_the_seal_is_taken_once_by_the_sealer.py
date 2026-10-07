@@ -4304,8 +4304,8 @@ def test_a_keyed_session_whose_end_shows_a_stop_is_counted_unended(
 ):
     """#849 round 1's 🟡 1, at `read_record`. pytest writes an `end` line for
     a session it stopped itself: a `KeyboardInterrupt` or `pytest.exit()` in
-    a test, a failed collection and xdist under `-x` give 2, a run loop that
-    raised gives 3, an argument refused after the session started gives 4.
+    a test, a failed collection without `-x` and xdist under `-x` give 2
+    (under `-x` a failed collection gives 1), a run loop that raised gives 3, an argument refused after the session started gives 4.
     Only 0, 1 and 5 are the exits of a session that ran to its end; any
     other, a code `pytest.exit` chose and an `end` line with no exit among
     them, counts the session as stopped part-way and turns `new` into
@@ -4560,9 +4560,9 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "them, so the record cannot say the file passed.",
         # #849 (#825 round 6's 🟡 1): a session of the base with no end, and
         # #849 round 1's 🟡 1: one whose end shows pytest stopped it.
-        "A session of the base that stopped part-way reads the same way: it "
-        "wrote no `end` line to its record, because its process died, as "
-        "plain pytest does on a test that calls `os._exit`, or its recorder "
+        "A session of the base that stopped part-way reads the same way: its "
+        "record holds no `end` line, because the process died, which plain "
+        "pytest does on a test that calls `os._exit`, or its recorder "
         "stopped writing; or its `end` line shows an exit other than 0, 1 or "
         "5, as a `KeyboardInterrupt` or `pytest.exit()` in a test and xdist "
         "under `-x` give.",
@@ -7141,8 +7141,9 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "segfaults, or its recorder stopped writing, a disk that filled among "
         "the causes; or its `end` line shows an exit other than the three of a "
         "session that ran to its end, 0, 1 and 5, as a `KeyboardInterrupt` or "
-        "`pytest.exit()` in a test, a failed collection and xdist under `-x` "
-        "give. Where a red session also left reports out, that count is the "
+        "`pytest.exit()` in a test, a failed collection without `-x` and "
+        "xdist under `-x` give. Where a red session also left reports out, "
+        "that count is the "
         "one named.",
         "Two stops are named rather than closed: a test that calls "
         "`pytest.exit` with a return code of 0, 1 or 5 chooses one of the "

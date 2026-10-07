@@ -7,17 +7,18 @@
   passing and nothing failing, so the file read `new`: the branch looked to
   have broken a file whose base run had crashed. pytest can also stop a
   session itself and still write the `end` line: a `KeyboardInterrupt` or
-  `pytest.exit()` in a test, a failed collection, and xdist under `-x` all
-  end it with exit 2. Now a base session is counted as one that stopped
+  `pytest.exit()` in a test, a failed collection without `-x`, and xdist
+  under `-x` all end it with exit 2. Now a base session is counted as one that stopped
   part-way where its record has no `end` line, or where that line shows an
   exit other than 0, 1 and 5, the three of a session that ran to its end.
   Either `new` then reads `new?` naming how many such sessions there were. A
   recorder that stopped writing for another reason, such as a disk that
   filled, reads the same way, which is the strict direction. Where a red
   session also left tests out of every list, that count is the one named.
-  `failing on base too` is unchanged. Two stops are named rather than
-  closed: a test that calls `pytest.exit` with a return code of 0, 1 or 5,
-  and a run without xdist that `-x` stops while its order mixes files.
+  `failing on base too` is unchanged. Two stops still pass as a finished
+  session, and are named: a `pytest.exit` in a test that picks 0, 1 or 5 as
+  its return code, and a run without xdist that `-x` stops while its order
+  mixes files.
 - **The failure form says when a session at `HEAD` stopped part-way.** A
   test that kills pytest on the branch writes no failing line, so its file
   was in no list and nothing said a session had stopped. The form now
