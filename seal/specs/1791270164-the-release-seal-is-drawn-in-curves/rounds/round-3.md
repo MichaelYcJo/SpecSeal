@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #859 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `f94e262e0ff6a47285dc328a75727000f195d80d..f94e262e0ff6a47285dc328a75727000f195d80d`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -36,7 +36,7 @@ It was also asked to read every workflow of `gh pr checks 859` once each had fin
 | 🟢 | round 2's finding 2 is closed — a failed `apt-get update` no longer stops the install under the step's `bash -e`, and the comment, the case, ledger W3 and the overview row agree | `.github/workflows/publish-release.yml:116` | confirmed | executed: `bash -e` runs past `false \|\| true;` and stops at `false;`; the install case red with the step set back to `;`, green restored. read: no `shell:` and no `defaults` on the step; `phases/phase-8.md:21` is phase 8's dated record |
 | 🟢 | round 2's finding 3 is closed — `spec.md` ends with the `Framed` line, and `chain_check` accepts it | `seal/specs/1791270164-the-release-seal-is-drawn-in-curves/spec.md:423` | confirmed | executed: `chain_check.py --baseline origin/release/v0.20.0` exit 0 judged as a draft, with the release job's fetches; the PR's `release` job passed. Judged as ready it exits 1 on `round-2.md`'s `nobody` and `not yet` alone |
 | carried | round 2's finding 4 — `round-1.md`'s `New units` counts the merge's units | `seal/specs/1791270164-the-release-seal-is-drawn-in-curves/rounds/round-1.md:13` | deferred #860 | already deferred in round 2; #860 is open on the 0.21.0 milestone; round 2's range holds no merge and its `New units: none` is right |
-| ⬜ 1 | the allowance's comment says a renderer recognises an SVG by its namespace, and `rsvg-convert` 2.58.4 draws the release SVG identically without it | `tests/test_no_real_identifiers.py:25` | open | executed: the PNG from the SVG with `xmlns` removed is byte for byte the PNG from the SVG as committed. The entry is right; the SVG case reads elements by the namespace |
+| ⬜ 1 | the allowance's comment says a renderer recognises an SVG by its namespace, and `rsvg-convert` 2.58.4 draws the release SVG identically without it | `tests/test_no_real_identifiers.py:25` | answered | the allowance stands: the release-seal case reads the SVG's elements by that namespace, and an XML parser needs it, whatever `rsvg-convert` tolerates; the comment's one clause about renderers is imprecise and changes nothing the entry allows; executed: the PNG from the SVG with `xmlns` removed is byte for byte the PNG from the SVG as committed. The entry is right; the SVG case reads elements by the namespace |
 | ❓ | on the ubuntu and Windows group 2 legs one case that passed at bf1a9447 is skipped at f94e262e; the CI log names no skipped case | `.github/workflows/test.yml` | ❓ out of verified scope | the nine modules that read round records skip nothing new; the orchestrator answers it, by reading skip reasons in the sealer's broad run |
 
 ## Paste-ready fixes
