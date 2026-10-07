@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | 84535260 |
-| Ran by | specseal:smith on claude-opus-5-5 |
+| Ran by | smith on Opus 5.5 |
 
 ## What this phase was asked
 

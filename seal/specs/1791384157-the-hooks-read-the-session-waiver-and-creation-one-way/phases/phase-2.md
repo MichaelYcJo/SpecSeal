@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | e1cca725 |
-| Ran by | specseal:smith on claude-opus-5-5 |
+| Ran by | smith on Opus 5.5 |
 
 ## What this phase was asked
 
