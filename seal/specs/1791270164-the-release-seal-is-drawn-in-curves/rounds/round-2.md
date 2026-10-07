@@ -7,15 +7,16 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #859 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `1789de0b496a751a0c6eaf4163d30b3e1f9aec42..b74041bba2c303cf5832a29afc23f6f268073316`, 3 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1 (`test_only_neutral_domains` red on three legs), 🟡 2 (`apt-get update;` under `bash -e`) |
 | Loses a record or crashes | no |
+<!-- New units: .github/workflows/publish-release.yml read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -34,10 +35,10 @@ It also read every workflow of `gh pr checks 859` once each had finished. It did
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | `test_only_neutral_domains` is red on the ubuntu, macOS and Windows group 2 legs: the release SVG and its case carry the SVG namespace host, which `ALLOWED_DOMAINS` does not hold | `.github/scripts/release-seal.svg:1` | open | executed: the three legs' logs, 1 failed each, the same two lines; reproduced in the clone, exit 1; with the namespace's domain allowlisted, 5 passed. Phase 8's line, not a fix of a fix |
-| 🟡 2 | Round 1's ⬜ 8 is not closed: the step runs under `bash -e`, so `apt-get update;` still ends it at a failed refresh, and the comment, the case, ledger W3 and an overview row say it does not | `.github/workflows/publish-release.yml:114` | open | executed: `bash -e` stops at `false;`, and `\|\| true` runs the next command; the proposed assertion is red against today's step and green with the fix. read: the PR's own job logs `-e` as its shell |
-| ⬜ 3 | `spec.md` ends with a `Reframed` line that names no round, so `chain_check` refuses the foot and the `release` job is red | `seal/specs/1791270164-the-release-seal-is-drawn-in-curves/spec.md:419` | open | a correction: executed, the job's log; the fence committed in the clone clears that refusal |
-| ⬜ 4 | `round-1.md`'s `New units` row lists 109 units the merge brought, and `Contract changes` the merge's contracts | `seal/specs/1791270164-the-release-seal-is-drawn-in-curves/rounds/round-1.md:13` | open | a correction: executed, 109 of 111 are defined at `559977a3`; the two others are the fix pass's cases |
+| 🔴 1 | `test_only_neutral_domains` is red on the ubuntu, macOS and Windows group 2 legs: the release SVG and its case carry the SVG namespace host, which `ALLOWED_DOMAINS` does not hold | `.github/scripts/release-seal.svg:1` | **fixed** `cc900a0f` | fixed at cc900a0f — `www.w3.org` is allowed with its reason: a renderer recognises an SVG by its namespace, so it cannot be removed or replaced; executed: the three legs' logs, 1 failed each, the same two lines; reproduced in the clone, exit 1; with the namespace's domain allowlisted, 5 passed. Phase 8's line, not a fix of a fix |
+| 🟡 2 | Round 1's ⬜ 8 is not closed: the step runs under `bash -e`, so `apt-get update;` still ends it at a failed refresh, and the comment, the case, ledger W3 and an overview row say it does not | `.github/workflows/publish-release.yml:114` | **fixed** `40a3a3f3` | fixed at 40a3a3f3 — the step runs `sudo apt-get update \|\| true;` before the install, so a failed update still installs under `bash -e`; the comment, the case docstring, ledger row `Corrected · W3` and the overview say so; executed: `bash -e` stops at `false;`, and `\|\| true` runs the next command; the proposed assertion is red against today's step and green with the fix. read: the PR's own job logs `-e` as its shell |
+| ⬜ 3 | `spec.md` ends with a `Reframed` line that names no round, so `chain_check` refuses the foot and the `release` job is red | `seal/specs/1791270164-the-release-seal-is-drawn-in-curves/spec.md:419` | answered | corrected at b74041bb — a correction to the frame's record: `spec.md`'s foot ends with the `Framed` line, and the owner-driven 2026-10-07 redraw is a sentence above it; a correction: executed, the job's log; the fence committed in the clone clears that refusal |
+| ⬜ 4 | `round-1.md`'s `New units` row lists 109 units the merge brought, and `Contract changes` the merge's contracts | `seal/specs/1791270164-the-release-seal-is-drawn-in-curves/rounds/round-1.md:13` | answered | issue #860 (0.21.0) — `round_record.py#touched` counts a merge's units in a fix range; a correction: executed, 109 of 111 are defined at `559977a3`; the two others are the fix pass's cases |
 | 🟢 | round 1's blocking finding is closed — the merge made the pull request mergeable, CI ran, and every row the release branch changed survived | `seal/ledger/1791270161-the-broad-gate-reads-a-record-its-pytest-plugin-wrote.md:1` | confirmed | executed: the four-point row probe; the six rows both sides changed differ from the release branch's only in the re-stamped SKILL.md anchor; `correction-check` exit 0 over two ranges; `evidence-check --strict` 0 drifted |
 | 🟢 | round 1's 🟡 2 is closed, and so is its class: every styled cell beside the disc | `skills/verify/scripts/seal_stamp.py:492` | confirmed | executed: the case red with the guard reverted; a probe over 246 row sets at 0.90 and with no disc, every text cell shown as drawn |
 | 🟢 | round 1's 🟡 3 is closed under any chart `read_chart` accepts | `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py:321` | confirmed | executed: green under seven charts, among them a checkerboard whose small stamp is 7,728 units |
