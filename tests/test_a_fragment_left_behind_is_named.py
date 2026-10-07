@@ -561,6 +561,29 @@ def test_a_fragment_change_clears_exactly_the_commits_it_descends_from(
     )
 
 
+def test_a_fragment_brought_along_on_each_of_two_lines_clears_both(
+    repo, monkeypatch, capsys
+):
+    """S9 of #860, with a fragment change on each of two lines of history.
+    Each line's behaviour commit is cleared by its own line's fragment
+    commit, and neither fragment commit descends from the other — so the
+    descent is asked of every fragment commit, not of the newest alone."""
+    target = built(repo)
+    open_round(repo, 1, target)
+    git(repo, "switch", "-qc", "side")
+    change(repo, "hooks/side.py", message="a topic commit")
+    change(repo, FRAGMENT, message="the topic brings the fragment along")
+    git(repo, "switch", "-q", "feature")
+    change(repo, "hooks/x.py", message="fix")
+    change(repo, FRAGMENT, message="the main line brings it along")
+    # Both lines appended to the fragment; the conflict is the fragment's
+    # text and nothing this reads, so the main line's side of it is kept.
+    merge(repo, "merge the topic", "-X", "ours", "side")
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    assert notice(out) is None, out
+
+
 def test_a_branch_rebuilt_on_the_base_names_its_own_commits_and_not_the_siblings(
     repo, monkeypatch, capsys
 ):
