@@ -286,6 +286,35 @@ def state_changes(cells):
     return changes
 
 
+def what_a_terminal_shows(line):
+    """`line` as a terminal reads it: each character with the foreground,
+    the background and the intensity the SGRs before it left set. `32` sets
+    the foreground to the terminal's own green, written `"green"` here."""
+    fg = bg = weight = None
+    shown = []
+    for token in re.findall(r"\x1b\[[0-9;]*m|.", line):
+        if not token.startswith("\x1b["):
+            shown.append((token, fg, bg, weight))
+            continue
+        parts = token[2:-1].split(";")
+        while parts:
+            part = parts.pop(0)
+            if part in ("38", "48"):
+                rgb, parts = tuple(int(v) for v in parts[1:4]), parts[4:]
+                fg, bg = (rgb, bg) if part == "38" else (fg, rgb)
+            elif part == "0":
+                fg = bg = weight = None
+            elif part in ("1", "2"):
+                weight = {"1": "bold", "2": "dim"}[part]
+            elif part == "22":
+                weight = None
+            elif part in ("32", "39"):
+                fg = "green" if part == "32" else None
+            elif part == "49":
+                bg = None
+    return shown
+
+
 def test_a_line_writes_one_sgr_per_change_and_no_reset_inside_it():
     """#832 S11, the owner's lean encoding (`frames.py#encode`): a code only
     where the foreground, the background or the style of the next visible
@@ -321,6 +350,17 @@ def test_a_line_writes_one_sgr_per_change_and_no_reset_inside_it():
         written = len(SGR.findall(body))
         assert written == state_changes(cells), (written, state_changes(cells), line)
         assert line.endswith(RESET) == (written > 0), line
+        # And what a terminal shows is the cells: a blank paints nothing, and
+        # every other character is in its cell's colours and style.
+        shown = what_a_terminal_shows(body)
+        assert len(shown) == len(cells), (len(shown), len(cells))
+        for (char, fg, bg, style), seen in zip(cells, shown, strict=True):
+            if char in (None, " "):
+                assert seen[0] == " " and seen[2] is None, ("a painted blank", seen)
+                continue
+            colour = "green" if style == "green" else fg
+            weight = style if style in ("bold", "dim") else None
+            assert seen == (char, colour, bg, weight), (seen, (char, fg, bg, style))
         for found in SGR.finditer(body):
             parts = found.group(0)[2:-1].split(";")
             bare_parts = []
@@ -423,7 +463,9 @@ def trimmed(cells):
     return cells
 
 
-@pytest.mark.parametrize("which", ["FULL_ROWS", "SAMPLE_ROWS", "SMALL_ROWS", "none"])
+@pytest.mark.parametrize(
+    "which", ["FULL_ROWS", "SAMPLE_ROWS", "SMALL_ROWS", "OLD_ROWS", "none"]
+)
 def test_the_disc_stands_left_of_the_open_text_block_each_centred(which, monkeypatch):
     """#832 S3, the owner's layout of 2026-10-07 (`frames.py#design_open`).
     No parchment, no edge, no frame, and no background on any cell outside
@@ -433,12 +475,14 @@ def test_the_disc_stands_left_of_the_open_text_block_each_centred(which, monkeyp
     halves, every other cell of the disc's columns is empty, and no line
     runs past its own last visible cell. The rule is rebuilt here and every
     cell of `compose` is compared with it, over a real run's panel, the
-    sample's, the four-row panel whose text the disc outgrows, and none."""
+    sample's, the four-row panel whose text the disc outgrows, an older
+    gate's long panel that outgrows the disc, and none."""
     mod, cases = module(), hook_cases()
     rows = {
         "FULL_ROWS": cases.FULL_ROWS,
         "SAMPLE_ROWS": mod.SAMPLE_ROWS,
         "SMALL_ROWS": cases.SMALL_ROWS,
+        "OLD_ROWS": cases.OLD_ROWS,
         "none": [],
     }[which]
     n, disc_lines, gap = 28, 14, 3
@@ -448,6 +492,8 @@ def test_the_disc_stands_left_of_the_open_text_block_each_centred(which, monkeyp
     top_disc, top_text = (height - disc_lines) // 2, (height - len(text)) // 2
     if which == "SMALL_ROWS":
         assert (height, top_text) == (14, 4), (height, top_text)
+    if which == "OLD_ROWS":
+        assert (height, top_disc) == (19, 2), (height, top_disc)
     letter = mod.compose(rows, 0.9)
     assert (letter.height, letter.disc) == (height, (0, 2 * top_disc, n, n))
     assert len(letter.cells) == height
@@ -471,16 +517,16 @@ def test_the_disc_stands_left_of_the_open_text_block_each_centred(which, monkeyp
             if cell[0] not in HALF_BLOCKS:
                 assert cell[2] is None, ("a background outside the circle", ln, cell)
     assert letter.width == max(len(line) for line in letter.cells)
-    if text:
-        assert letter.width == n + gap + max(len(line) for line in text)
-        # `GAP` is the clear columns between the disc and the text, nothing else.
-        monkeypatch.setattr(mod, "GAP", 0)
-        assert mod.compose(rows, 0.9).width == letter.width - gap
     # With no disc, the last rung `fitted` steps down to, the block stands at
     # column 0 and sets the height alone.
     bare = mod.compose(rows, None)
     assert bare.disc is None and bare.height == len(text)
     assert bare.cells == [trimmed(line) for line in text]
+    if text:
+        assert letter.width == n + gap + max(len(line) for line in text)
+        # `GAP` is the clear columns between the disc and the text, nothing else.
+        monkeypatch.setattr(mod, "GAP", 0)
+        assert mod.compose(rows, 0.9).width == letter.width - gap
 
 
 def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
