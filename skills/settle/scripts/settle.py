@@ -189,17 +189,26 @@ FRAGMENTS = "seal/ledger"
 RELEASES = "seal/releases"
 TESTS = "tests/"
 
-# `path#anchor@hash`, narrowed to the one group this reads. The full shape is
-# `skills/evidence-check/scripts/evidence_check.py#ANCHOR_RE`, which resolves
-# the anchor and the hash as well; nothing here opens the code a row cites, so
-# the path is the whole of what a segment is derived from.
-COORDINATE_RE = re.compile(
-    r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
-    r"#(?:\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"
-    r"(?:>\"(?:[^\"\n]|\\\")+\")?"
-    r"@[0-9a-f]{6,12}"
-)
 MARKER_LINE_RE = re.compile(r"^<!-- specs/(\S+) -->$", re.M)
+
+
+def coordinate_paths(line):
+    """The path of every ledger coordinate on LINE, in order, read by the
+    coordinate's one grammar, `evidence_check.py#ANCHOR_RE` (#867). Nothing
+    here opens the code a row cites, so the path is the whole of what a
+    segment is derived from. A narrowed copy of the pattern used to stand
+    here; it matched the same spans as the checker's over every released
+    ledger when it went, which is why reading the checker moved no
+    segment."""
+    global _grammar
+    if _grammar is None:
+        _grammar = load(CHECKER, "specseal_evidence_checker").ANCHOR_RE
+    return [m.group("path") for m in _grammar.finditer(line)]
+
+
+# The checker's `ANCHOR_RE`, loaded at the first line `coordinate_paths`
+# reads rather than at import, so a run that reads no ledger never loads it.
+_grammar = None
 
 
 def under(root, rel):
@@ -407,17 +416,13 @@ def coordinates(root):
                 if line.startswith("## "):
                     current = None
                 if current:
-                    out[current] += [
-                        m.group("path") for m in COORDINATE_RE.finditer(line)
-                    ]
+                    out[current] += coordinate_paths(line)
     for path in sorted(glob.glob(os.path.join(under(root, FRAGMENTS), "*.md"))):
         work_item_id = os.path.basename(path)[: -len(".md")]
         with open(path, encoding="utf-8") as f:
             for line, live in live_lines(f.read().split("\n")):
                 if live:
-                    out[work_item_id] += [
-                        m.group("path") for m in COORDINATE_RE.finditer(line)
-                    ]
+                    out[work_item_id] += coordinate_paths(line)
     return out
 
 
@@ -595,7 +600,8 @@ def anchored_rows(root, work_item_ids):
     reads every ledger the checker reads, asked of the checker itself
     (`evidence_check.py#default_patterns` — `seal/ledger.md`, every
     `seal/ledger/*.md`, every `seal/releases/*.md`, and the pre-0.10
-    `docs/**/_evidence.md`), with the one coordinate shape, `COORDINATE_RE`.
+    `docs/**/_evidence.md`), with the coordinate's one grammar, the
+    checker's own `ANCHOR_RE` (#867).
 
     **Every line, a fenced or commented one included.** The checker reads a
     commented row and a row inside a fence that never closes, so either is
@@ -628,11 +634,10 @@ def anchored_rows(root, work_item_ids):
     view = checker.family_view([under(root, rel) for rel in sources], root, {})
     superseded = {key for top in view.superseded for key in view.families.get(top, [])}
     # A refusal -- a `config.md` that will not read, a freeze row written
-    # twice or not a number -- keeps the freeze ON (#867): the advice a
-    # released row then gets is a `Corrected ·` row in a fragment, which is
-    # right in a frozen repository and harmless in one that is not, where
-    # the in-place edit it would otherwise get is a write a frozen file
-    # refuses.
+    # twice or not a number -- keeps the freeze ON (#867): the freeze never
+    # turns off because the file could not be read, so a released row is
+    # still answered by a `Corrected ·` row in a fragment and never by an
+    # edit to the released file.
     cutoff, refused = checker.frozen_from(root)
     frozen = cutoff is not None or refused is not None
     found = []
@@ -644,7 +649,7 @@ def anchored_rows(root, work_item_ids):
         for number, line in enumerate(lines, start=1):
             if (identity, number) in superseded:
                 continue
-            paths = [m.group("path") for m in COORDINATE_RE.finditer(line)]
+            paths = [m.group("path") for m in checker.ANCHOR_RE.finditer(line)]
             dead, items = [], set()
             for path in paths:
                 for prefix, work_item_id in prefixes.items():

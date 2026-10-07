@@ -1704,6 +1704,73 @@ def test_a_closing_pipe_citation_is_keyed_by_the_citation():
     ], found
 
 
+# --- #867: a row's identity is read by the coordinate's one grammar --------
+
+
+def test_a_path_with_no_extension_has_its_coordinate_as_its_identity():
+    """S6 of #867. The 0.8.2 release row anchored on `bin/test` had no
+    identity here: this module's own pattern required a `.ext` before the
+    `#`, so a merge dropping a correction of that row was silence. Read by
+    `evidence_check.py#ANCHOR_RE`, the row is named by its coordinate with
+    the hash dropped, as every other row is. Seen red against the module's
+    own pattern: `frozenset()`."""
+    line = (
+        '| R1 · the runner | `bin/test#"# Typed as \\`bin/test\\`, never as a '
+        'bare \\`test\\`"@6f0c2a1b`, `bin/round-record#main@0123abcd` | read | '
+        "2026-01-01 | |"
+    )
+    row = cc.Row(line)
+    assert row.anchors == frozenset(
+        {
+            'bin/test#"# Typed as \\`bin/test\\`, never as a bare \\`test\\`"',
+            "bin/round-record#main",
+        }
+    ), row.anchors
+
+
+@pytest.mark.parametrize(
+    "example",
+    [
+        "`docs/a.md#1장@abcdef12`",
+        "`docs/a.md#1-scope @abcdef12`",
+        "`src/a.py#handler @abcdef12`",
+    ],
+)
+def test_a_malformed_example_quoted_in_a_row_is_no_identity(example):
+    """S6. The 0.15.5 and 0.15.6 release rows quote MALFORMED coordinates as
+    examples of what the checker refuses; the checker reads none of them as
+    a coordinate, and this module now reads them the same way. Seen red
+    against the module's own pattern, which took each as an identity."""
+    row = cc.Row(f"| E1 · a malformed example, {example}, is named | read | | |")
+    assert row.anchors == frozenset(), row.anchors
+
+
+def test_a_first_cell_holding_an_escaped_pipe_is_keyed_whole():
+    """S6. The first cell is the shared reader's (`split_row`), which honours
+    `\\|`; a raw split keyed this row on `T1 · a row quoting \\`, a fragment
+    of its claim, which 47 released rows shared the shape of. Seen red
+    against the raw split."""
+    row = cc.Row(
+        "| T1 · a row quoting `\\| Item \\| Value \\|` | `a/one.py#f@11111111` "
+        "| read | 2026-01-01 | |"
+    )
+    assert row.key == "T1 · a row quoting `| Item | Value |`", row.key
+
+
+def test_a_citation_is_the_first_coordinate_of_the_code_grounds_cell():
+    """A `Corrected ·` row's citation is read from its Code grounds cell, so
+    a coordinate the claim itself quotes is never taken for the row it
+    corrects."""
+    line = (
+        "| Corrected · `a/one.py#f@11111111` no longer holds | "
+        '`seal/releases/0.1.0.md#"### 1000000001-the-first">"R1 ·"@abcdef12`, '
+        "`a/one.py#g@22222222` | read | 2026-02-01 | Corrected 2026-02-01 |"
+    )
+    assert list(cc.corrections(line + "\n")) == [
+        'seal/releases/0.1.0.md#"### 1000000001-the-first">"R1 ·"'
+    ]
+
+
 def test_a_dropped_closing_pipe_correction_is_reported(tmp_path):
     root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT, CITING: ""})
     run(root, "checkout", "-q", "-b", "ours")

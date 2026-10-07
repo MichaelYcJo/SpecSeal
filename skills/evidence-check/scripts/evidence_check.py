@@ -141,13 +141,25 @@ HELP_EPILOG = _EPILOG_HEAD + (__doc__ or "").partition(_EPILOG_HEAD)[2]
 # records arm reads a name written the way a coordinate is written with the
 # same two pieces (`RECORD_COORD_RE`, #508): one grammar, so *a coordinate*
 # means one thing in both arms.
+#
+# **This is the one grammar of the coordinate** (#867). `correction_check.py`
+# and `settle.py` load this module and read `ANCHOR_RE` itself, and
+# `.github/scripts/rider_check.py` builds its stamp from `ANCHOR_LOCATOR` and
+# `ANCHOR_HASH`, because a stamp is a coordinate minus its path. Three
+# regexes used to spell it again, and they disagreed: `correction-check` gave
+# no identity to a path with no `.ext` (`bin/test`) and gave one to a quoted
+# MALFORMED example with a space before the `@`. A locator form added here is
+# read by every one of them; a reader that copied a piece would not be.
 ANCHOR_PATH = r"[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?"
 ANCHOR_NAME = r"[A-Za-z_][A-Za-z0-9_.]*"
+ANCHOR_QUOTED = r"\"(?:[^\"\n]|\\\")+\""
+ANCHOR_LOCATOR = ANCHOR_QUOTED + r"|" + ANCHOR_NAME
+ANCHOR_HASH = r"[0-9a-f]{6,12}"
 ANCHOR_RE = re.compile(
     r"(?P<path>" + ANCHOR_PATH + r")"
-    r"#(?P<locator>\"(?:[^\"\n]|\\\")+\"|" + ANCHOR_NAME + r")"
-    r"(?:>(?P<claim>\"(?:[^\"\n]|\\\")+\"))?"
-    r"@(?P<hash>[0-9a-f]{6,12})"
+    r"#(?P<locator>" + ANCHOR_LOCATOR + r")"
+    r"(?:>(?P<claim>" + ANCHOR_QUOTED + r"))?"
+    r"@(?P<hash>" + ANCHOR_HASH + r")"
 )
 HASH_LEN = 8
 # A clause of a pact held in another repository, cited from a signer

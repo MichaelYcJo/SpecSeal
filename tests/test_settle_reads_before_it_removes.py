@@ -1841,6 +1841,31 @@ def real_ledgers():
     ]
 
 
+def test_settle_reads_a_coordinate_by_the_checkers_own_grammar():
+    """S7 of #867. `settle` kept a narrowed copy of the coordinate pattern;
+    it reads `evidence_check.py#ANCHOR_RE` now, so a locator form the checker
+    gains is a coordinate here too. Over this repository's released ledgers
+    every path `coordinate_paths` attributes is the path of a checker match,
+    in order. Measured when the copy went: the copy and the checker matched
+    the same 8,218 spans, so no segment moved. Seen red against 5623d728's
+    `settle.py`, which has no `coordinate_paths`."""
+    spec = importlib.util.spec_from_file_location(
+        "ec_for_settle_grammar",
+        os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py"),
+    )
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    assert not hasattr(settle, "COORDINATE_RE"), "a second grammar is back"
+    seen = 0
+    for path in real_ledgers():
+        with open(path, encoding="utf-8") as f:
+            for line in f.read().split("\n"):
+                want = [m.group("path") for m in ec.ANCHOR_RE.finditer(line)]
+                assert settle.coordinate_paths(line) == want, line
+                seen += len(want)
+    assert seen > 8000, seen
+
+
 def test_the_rule_over_this_repositorys_ledger_loses_no_section():
     """The same fact over the real corpus: the ids `coordinates` sections are
     the ids `blank_fences` alone would section, and there are some. Set
@@ -1890,9 +1915,7 @@ def test_no_section_of_this_repositorys_ledger_loses_a_coordinate():
             if line.startswith("## "):
                 current = None
             if current:
-                out.setdefault(current, []).extend(
-                    m.group("path") for m in settle.COORDINATE_RE.finditer(line)
-                )
+                out.setdefault(current, []).extend(settle.coordinate_paths(line))
         return out
 
     fence_only, live = {}, {}
