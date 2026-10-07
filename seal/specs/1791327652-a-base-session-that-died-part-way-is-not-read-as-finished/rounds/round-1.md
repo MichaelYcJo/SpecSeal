@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #851 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `e7fc758a7bc877c2d46ea408bddb3dac2b580e34..8ce0dc7969637776c3efa66cd4f63f1f1f99a915`, 3 commits |
 | Contract changes | failure_lines → plan.md, spec.md, round-1-report.md, round-1.md, gate, pytest |
 | New units | RAN_TO_ITS_END (depth 1); UNENDED_HERE (depth 1); test_a_keyed_session_whose_end_shows_a_stop_is_counted_unended (depth 1); STOPS_ITS_SESSION (depth 1); test_a_base_session_pytest_stopped_part_way_gives_no_new (depth 1); MARKS (depth 1); FAILS_ONCE_B_STARTED (depth 1); RUNS_UNTIL_A_FAILED (depth 1); test_a_base_run_xdist_stopped_under_x_gives_no_new (depth 1); test_a_session_that_stopped_part_way_here_is_counted_under_the_list (depth 1) |
