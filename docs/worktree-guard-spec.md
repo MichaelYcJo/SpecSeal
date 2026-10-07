@@ -47,7 +47,9 @@ reading yields (§*Which tree*) as one of three shapes, from its words alone:
   `--root` and one: those name the branch git switches to before it
   rebases (`git rebase main feature/x`), and the shape is unrecognised. A
   lone `-` is a word, since git reads it as `@{-1}`, and so is every word
-  after a `--`: `git rebase - feature/x` switches too.
+  after a `--` or an `--end-of-options`: `git rebase - feature/x` switches
+  too. git takes an unambiguous prefix of `--root` (`--ro`) as `--root`,
+  and so does the guard.
 - **a switch** — `git switch`, whatever its words. It takes the rows above,
   in the tree its segment names.
 - **unrecognised** — every other git: a `checkout` with no path after a
@@ -97,7 +99,9 @@ ACTIVE in makes it a `deny` even where an earlier tree only matters for its
 changes. The stop's reason names each tree that matters and why, its
 changes, its IDLE sessions or its detection unusable, because approving the
 `ask` runs the line in every one of them; where one is ACTIVE, the reason
-describes the ACTIVE trees alone. A git the commit gate's wider reading
+describes the ACTIVE trees alone. A reason that describes one tree calls it
+"this tree", whichever tree it is: with the session's own tree clean and `W`
+dirty, `git -C W checkout x` asks about "this tree" and means `W`. A git the commit gate's wider reading
 reads as a segment of its own (behind a redirection or a zsh precommand
 word) is judged in the tree its own `-C` names, and so is a git an `&` cut
 apart (`2>&1 git -C W switch x`, `git -C W worktree &>/dev/null add …`),
@@ -800,6 +804,12 @@ at one prompt against a wrong allow breaking another session's tree.
   transcripts, 27,351 distinct command and directory pairs, 395 of them holding
   a switch). It would have stopped 9 of them, so under the owner's rule of
   2026-10-03 the fallback stays (work item 1790993140, `phases/phase-3.md`).
+  Two more spellings reach the same fallback (#854). One is `cd w 2>&1`
+  before the switch: the frozen splitter cuts it at its `&`, so the walk
+  keeps the directory before the `cd` first. The other is an unrecognised
+  shape the walk cannot place: a cut git inside an `if` body after `cd w`
+  (`cd w && if …; then 2>&1 git switch x; fi`) is judged in the session's own
+  tree, where the guard before #826 asked in every tree.
   `git -C <dir> switch …`, or a plain `cd <dir>` of its own, is the spelling
   the guard reads. `test_a_switch_tree_the_guard_cannot_place_is_judged_as_its_own`
   in `tests/test_guard_resolves_the_tree_it_judges.py` pins it.

@@ -2237,12 +2237,25 @@ def _rebase_names_a_branch(args) -> bool:
     `@{-1}`, and every word after a `--` is a revision whatever it starts
     with, so `git rebase - feature/x` and `git rebase -- main -x` each switch
     and count two words (git 2.50.1; round 2 of work item 1791270162, red
-    1). `@{-1}` starts with no `-` and always counted."""
+    1). `@{-1}` starts with no `-` and always counted.
+
+    git has a second word that ends its options, `--end-of-options`, which it
+    takes only spelled whole, and it takes any unambiguous prefix of a long
+    option: `--ro` and `--roo` are `--root`, while `--r` is ambiguous and git
+    refuses it. `--root` is the one option of `git rebase -h` that changes how
+    many words name a branch, and it is read off the words bash hands git, so
+    `--root>/dev/null` is `--root` too. An option taking a value counts its
+    value as a word, as above (git 2.50.1; #854, round 3 of work item
+    1791270162, yellow 1)."""
     words = _plain_words(args)
-    end = words.index("--") if "--" in words else len(words)
+    end = next(
+        (i for i, w in enumerate(words) if w in ("--", "--end-of-options")),
+        len(words),
+    )
     plain = [w for w in words[:end] if w == "-" or not w.startswith("-")]
     plain += words[end + 1 :]
-    return len(plain) >= (1 if "--root" in args else 2)
+    root = any(w.startswith("--ro") and "--root".startswith(w) for w in words[:end])
+    return len(plain) >= (1 if root else 2)
 
 
 def _git_finding(tokens, parsed):

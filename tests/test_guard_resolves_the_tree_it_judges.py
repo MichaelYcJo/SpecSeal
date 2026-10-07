@@ -912,6 +912,11 @@ UNPLACED = {
     "noglob cd": f"noglob cd w && {SWITCH}",
     "cd to an unset variable": f'cd "$W" && {SWITCH}',
     "2>&1 cd": f"2>&1 cd w && {SWITCH}",
+    # #854 (round 3 of work item 1791270162, white 3): the splitter cuts
+    # `cd w 2>&1` at its `&` and the walk keeps the directory before the
+    # `cd`; an `if` body's directory is unresolved. bash runs both in `w`.
+    "cd 2>&1": f"cd w 2>&1 && {SWITCH}",
+    "a cut git in an if body": f"cd w && if true; then 2>&1 {SWITCH}; fi",
 }
 
 
@@ -926,6 +931,23 @@ def test_a_switch_tree_the_guard_cannot_place_is_judged_as_its_own(
     session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
     decision, reason, _ = run(monkeypatch, capsys, UNPLACED[name], session)
     assert decision == "silent", (name, decision, reason)
+
+
+def test_a_one_tree_reason_calls_the_tree_it_judges_this_tree(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """`docs/worktree-guard-spec.md` §A: a reason that describes one tree
+    calls it "this tree", whichever tree it is, so with the session's tree
+    clean and `w` dirty the reason about `w` names no path (#854, round 3 of
+    work item 1791270162, white 2)."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, top = run(
+        monkeypatch, capsys, "git -C w checkout feature/x", session
+    )
+    assert decision == "ask", (decision, reason)
+    assert top and os.path.samefile(top, session / "w"), top
+    assert "in this tree a branch switch would matter" in reason, reason
+    assert str(session / "w") not in reason, reason
 
 
 WIDER_ONLY = {
@@ -1248,6 +1270,12 @@ def test_the_guard_policy_says_which_shapes_reach_the_rows_and_who_reads_the_sto
         "Every tree on the line is read before the stop is taken",
         "A `rebase` is listed unless it has two words that are not options, "
         "or `--root` and one",
+        # #854 (round 3 of work item 1791270162, yellow 1 and white 2),
+        # absent at `3d78c220`.
+        "and so is every word after a `--` or an `--end-of-options`",
+        "git takes an unambiguous prefix of `--root` (`--ro`) as `--root`, "
+        "and so does the guard.",
+        'A reason that describes one tree calls it "this tree", whichever tree it is',
     ):
         assert sentence in text, sentence
 
@@ -1270,6 +1298,10 @@ def test_the_guard_policy_says_nothing_is_read_past_the_base():
         "A string handed to a shell (`sh -c`, `bash -c`, `eval`) is judged in "
         "the tree its segment names",
         "or either side of an `&` the splitter cut is the finding",
+        # #854 (round 3 of work item 1791270162, white 3), absent at
+        # `3d78c220`.
+        "One is `cd w 2>&1` before the switch: the frozen splitter cuts it at its `&`",
+        "a cut git inside an `if` body after `cd w`",
     ):
         assert limit in text, limit
     for gone in (
