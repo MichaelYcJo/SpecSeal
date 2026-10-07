@@ -184,6 +184,11 @@ except (Exception, SystemExit):
 # The AFTER half of this guard: it owns the consent record, and this file reads
 # it. A plain filename again -- and the reason that file's name carries an
 # underscore where every other gate here carries a hyphen.
+#
+# `hooksession` beside it: which process is a Claude session is one test,
+# `hooksession.is_claude`, shared with the lease writer and the commit gate's
+# lease route (#868).
+import hooksession
 import worktree_consent
 from cmdline_base import apply_chdir, parse_git
 
@@ -1116,7 +1121,9 @@ def sessions_in_tree(top: str, own_session_id: str = ""):
     conservative behaviour.
     """
     # `pgrep -x claude` was observed to silently miss live sessions on macOS,
-    # so enumerate with ps and match the executable basename ourselves.
+    # so enumerate with ps and match the executable basename ourselves, by
+    # the one test the lease writer and the commit gate's lease route use
+    # (`hooksession.is_claude`, #868).
     try:
         r = subprocess.run(
             ["ps", "-axo", "pid=,comm="],
@@ -1130,7 +1137,7 @@ def sessions_in_tree(top: str, own_session_id: str = ""):
             if not line:
                 continue
             num, _, comm = line.partition(" ")
-            if os.path.basename(comm.strip()) == "claude":
+            if hooksession.is_claude(comm):
                 pids.add(int(num))
     except Exception:
         return [], [], False

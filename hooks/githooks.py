@@ -57,6 +57,8 @@ import json
 import os
 import subprocess
 
+import hooksession
+
 # The hooks this plugin installs, in the order the installer names them.
 HOOKS = ("pre-commit", "reference-transaction", "post-commit")
 
@@ -114,8 +116,14 @@ _NARROW = {
 # day and never the directory, so a directory alone holds nobody (round 1 of
 # #692, 🟡 11). A glob that matches nothing stays a literal word, which `-f`
 # answers no to.
+#
+# The variable is `hooksession.SESSION_VARIABLE`, the one name the Python side
+# reads (#868). The stub also tested `$CLAUDECODE`, which `hooksession.session`
+# never read, so a stub that started Python on it alone started an interpreter
+# that answered no session unless a lease stood -- and a lease starts it
+# anyway. The verdict is the same in every state without it.
 _P2 = (
-    'if [ -z "$CLAUDE_CODE_SESSION_ID$CLAUDECODE" ]; then\n'
+    'if [ -z "$' + hooksession.SESSION_VARIABLE + '" ]; then\n'
     "  c=$(git rev-parse --git-common-dir 2>/dev/null)\n"
     "  l=\n"
     '  for f in "$c"/specseal-leases/* "$c"/worktrees/*/specseal-leases/*; do\n'

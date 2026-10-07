@@ -52,14 +52,21 @@ Enforced by: tests/test_the_hooks_are_installed_where_git_runs_them.py::test_the
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **A commit with no Claude session behind it is a person's own, and is not
 judged.**
-The session comes from `CLAUDE_CODE_SESSION_ID`, which the harness exports to
-every Bash child and git hands to its hooks. Where it is absent, as under
-`env -i`, the hook takes the lease (`hooks/session-lease.py`) whose recorded
-pid is its nearest ancestor named `claude`. Two leases naming one pid are no
-session. With neither, the commit is the person's (`questions.md` P2, answer
-(a)), and the stub leaves before Python starts wherever no lease file stands
-in the clone. `hooks/hooksession.py` holds the two routes.
-Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_no_variable_and_no_lease_is_a_persons_own_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_the_lease_names_the_session_when_no_variable_is_exported, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_an_emptied_environment_is_still_judged_through_the_lease, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_an_emptied_lease_directory_starts_no_python
+The session comes from `CLAUDE_CODE_SESSION_ID`, the one session variable the
+harness exports to every Bash child, which git hands to its hooks; the stub's
+short-cut tests that name and no other. Where it is absent, as under `env
+-i`, the hook takes the lease (`hooks/session-lease.py`) whose recorded pid
+is the session's `claude` process: `CLAUDE_PID` where the environment carries
+it, an observed value, and else its nearest ancestor whose name is `claude`.
+The lease writer records its pid by the same reader, so the lease it writes
+is the one the hook finds (#868). A process is a Claude session by one test,
+its executable's basename is `claude` (`hooks/hooksession.py#is_claude`),
+which the worktree guard's count of other sessions uses too. Two leases
+naming one pid are no session. With neither, the commit is the person's
+(`questions.md` P2, answer (a)), and the stub leaves before Python starts
+wherever no lease file stands in the clone. `hooks/hooksession.py` holds the
+two routes and the names they read.
+Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_no_variable_and_no_lease_is_a_persons_own_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_the_lease_names_the_session_when_no_variable_is_exported, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_an_emptied_environment_is_still_judged_through_the_lease, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_an_emptied_lease_directory_starts_no_python, tests/test_the_commit_gate_decides_at_the_commit.py::test_the_lease_route_reads_the_exported_pid_with_no_ps_run, tests/test_the_commit_gate_decides_at_the_commit.py::test_the_one_session_variable_is_the_one_the_stub_and_the_reader_name, tests/test_lease_liveness.py::test_the_lease_records_the_process_the_hook_reads_back, tests/test_lease_liveness.py::test_the_lease_records_the_pid_the_harness_exports, tests/test_lease_liveness.py::test_the_guard_counts_the_sessions_the_one_test_names
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **The arms, the marks and the declaration are the ones
@@ -236,10 +243,11 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
 - **Windows** runs the stubs through git's bundled `sh`, and #692's Windows
   pass ran them there on `windows-latest` (CI runs 37013783175 and after).
   Git for Windows' `ps` takes no `-o`, so a hook there finds no `claude`
-  ancestor: the session comes from `CLAUDE_CODE_SESSION_ID` alone, and a
-  commit under `env -i`, which the lease names on POSIX, is a person's
-  there. A command that exports `LD_PRELOAD` runs no hook at all: `stdbuf`
-  exports it as an MSYS path, the bundled `sh` dies loading it, and git
+  ancestor, and `env -i` empties `CLAUDE_PID` as it empties the session
+  variable: a commit under `env -i`, which the lease names on POSIX, is a
+  person's there. Read from the code, not run on Windows. A command that
+  exports `LD_PRELOAD` runs no hook at all: `stdbuf` exports it as an MSYS
+  path, the bundled `sh` dies loading it, and git
   commits as if every hook had passed. Neither command is plain
   (`hooks/tokens.py#is_plain`), so the PreToolUse reading judges both before
   they run, as 0.16.0's did.

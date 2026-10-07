@@ -1219,14 +1219,15 @@ STEPS_AROUND = {
     "env -i in a subshell": "(env -i git commit -m x)",
     "GIT_CONFIG in a subshell": "(GIT_CONFIG_GLOBAL=/x/g git commit -m x)",
     "an unreadable command": "git commit -m 'x",
-    # Round 2's 🟡 1: the session variables the stub reads, removed another
-    # way than `env -i`. A harness may export one of the two, so either alone
-    # is enough to leave the stub no session, and each case names one.
-    "an emptied session variable": "CLAUDECODE= git commit -m x",
-    "a session variable in a subshell": "(CLAUDECODE= git commit -m x)",
-    "env -u": "env -u CLAUDECODE git commit -m x",
+    # Round 2's 🟡 1: the session variable the stub reads, removed another
+    # way than `env -i`. Since #868 the stub reads one name,
+    # `CLAUDE_CODE_SESSION_ID`, and these cases name it; they named
+    # `CLAUDECODE` too while the stub read both.
+    "an emptied session variable": "CLAUDE_CODE_SESSION_ID= git commit -m x",
+    "a session variable in a subshell": "(CLAUDE_CODE_SESSION_ID= git commit -m x)",
+    "env -u": "env -u CLAUDE_CODE_SESSION_ID git commit -m x",
     "env -u glued to its name": "env -uCLAUDE_CODE_SESSION_ID git commit -m x",
-    "env --unset=": "env --unset=CLAUDECODE git commit -m x",
+    "env --unset=": "env --unset=CLAUDE_CODE_SESSION_ID git commit -m x",
     "unset": "unset CLAUDE_CODE_SESSION_ID; git commit -m x",
     # Round 2's 🟡 2: a config file the command names, which can carry
     # core.hooksPath where no word does.
@@ -1242,7 +1243,9 @@ STEPS_AROUND = {
     "XDG_CONFIG_HOME": "XDG_CONFIG_HOME=/x/c git commit -m x",
     # Round 3's 🟡 1: a string a shell parses again. None of these is plain,
     # so the reading judges each (P7, the owner's answer of 2026-10-02).
-    "sh -c unsetting a session variable": "sh -c 'unset CLAUDECODE; git commit -m x'",
+    "sh -c unsetting a session variable": (
+        "sh -c 'unset CLAUDE_CODE_SESSION_ID; git commit -m x'"
+    ),
     "include.path behind cd in bash -c": (
         "bash -c 'cd . && git -c include.path=/x/cfg commit -m x'"
     ),
@@ -1250,15 +1253,15 @@ STEPS_AROUND = {
         "sh -c 'cd . && GIT_CONFIG_GLOBAL=/x/g git commit -m x'"
     ),
     "HOME in a quoted substitution": 'echo "$(cd . && HOME=/x/h git commit -m x)"',
-    "eval of a literal string": "eval 'unset CLAUDECODE; git commit -m x'",
+    "eval of a literal string": "eval 'unset CLAUDE_CODE_SESSION_ID; git commit -m x'",
     # P7: an `eval` is not plain, so the reading's fail-closed answer for one
     # whose argument it cannot reduce comes back, as 0.16.0 gave it.
     "eval of a variable": 'eval "$C"',
     # Round 3's 🟡 2: the environment emptied with another option first.
     "env -v -i": "env -v -i git commit -m x",
     "env -u then -i": "env -u FOO -i git commit -m x",
-    "env -u glued behind a flag": "env -vuCLAUDECODE git commit -m x",
-    "env -S splitting a -u": "env -S'-u CLAUDECODE' git commit -m x",
+    "env -u glued behind a flag": "env -vuCLAUDE_CODE_SESSION_ID git commit -m x",
+    "env -S splitting a -u": "env -S'-u CLAUDE_CODE_SESSION_ID' git commit -m x",
     "exec -c": "(exec -c git commit -m x)",
     # The limit beside the removed stub: `rm` and `chmod` are not plain, so
     # a command that takes the stubs away first is judged (P7).
@@ -1302,6 +1305,12 @@ def test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading(world, 
         "git -c user.name=HOME commit -m x",
         "git commit -m 'read include.path'",
         "",
+        # S6 of work item 1791384157 (#868): the stub reads one session name,
+        # so a word naming `CLAUDECODE` leaves it its session. Red at
+        # `5623d728`, where the list named both.
+        "CLAUDECODE= git commit -m x",
+        "env -u CLAUDECODE git commit -m x",
+        "git commit -m CLAUDECODE",
     ],
 )
 def test_only_those_words_make_the_reading_judge_a_git_decided_clone(command):
@@ -1322,15 +1331,24 @@ STILL_PLAIN = [
     "cat $HOME/x",
     "git -c user.name=HOME commit -m x",
     "git commit -m 'read include.path'",
+    # S6 of work item 1791384157 (#868): flipped to plain. It was a word the
+    # list read while the stub read `CLAUDECODE`.
+    "git commit -m CLAUDECODE",
 ]
 # Not plain any more, so the 0.16.0 reading judges them: `env`, `printenv`
 # and `cat` with an expansion are programs outside the allowlist, and an
-# empty command is no shape at all.
+# empty command is no shape at all. An assignment in a program's place is no
+# plain shape either, so `CLAUDECODE= git commit -m x` is judged by the
+# reading although the list no longer names the variable (S6 of work item
+# 1791384157 said it would stand aside; `is_plain` refuses the assignment
+# first).
 NO_LONGER_PLAIN = [
     "env FOO=1 git commit -m x",
     "printenv GIT_DIR",
     "printenv HOME",
     "",
+    "CLAUDECODE= git commit -m x",
+    "env -u CLAUDECODE git commit -m x",
 ]
 
 
@@ -1346,7 +1364,7 @@ NO_LONGER_PLAIN = [
         "cat <<EOF\n'\nEOF\necho '",  # splits whole, but not once the body goes
         # A word the list reads, in an otherwise plain shape (round 3's m07):
         # it costs one judgment, which is the list's direction (P6).
-        "git commit -m CLAUDECODE",
+        "git commit -m CLAUDE_CODE_SESSION_ID",
         "git commit -m x >&f",  # output duplicated onto a file
         "git diff --output=/x/o; git commit -m x",  # an option that writes
         "/usr/bin/git commit -m x",  # a program that is not the bare word
@@ -1463,6 +1481,7 @@ def test_the_post_tool_use_notice_stands_aside_where_git_says_it(world, monkeypa
 # --- the units underneath ----------------------------------------------------
 
 import commitgate  # noqa: E402
+import githooks  # noqa: E402
 import hooksession  # noqa: E402
 
 
@@ -1525,6 +1544,64 @@ def test_two_leases_naming_one_pid_name_no_session(tmp_path):
     assert hooksession.from_lease(str(common), 4242) == "a"
     (leases / "b").write_text('{"pid": 4242}', encoding="utf-8")
     assert hooksession.from_lease(str(common), 4242) == ""
+
+
+def test_the_lease_route_reads_the_exported_pid_with_no_ps_run(tmp_path, monkeypatch):
+    """S5 of work item 1791384157 (#868). Where the environment carries
+    `CLAUDE_PID`, the hook's lease route matches it against the leases and
+    runs no `ps`; without it the walk runs as before. Red at `5623d728`,
+    where the route walked the process table whatever the environment held."""
+    common = tmp_path / "git"
+    leases = common / "specseal-leases"
+    leases.mkdir(parents=True)
+    (leases / "s5").write_text('{"pid": 4242}', encoding="utf-8")
+    ran = []
+
+    def no_process_table(*args, **kwargs):
+        ran.append(args[0] if args else kwargs.get("args"))
+        raise OSError("no ps here")
+
+    monkeypatch.setattr(hooksession.subprocess, "run", no_process_table)
+    assert hooksession.session(str(common), {"CLAUDE_PID": "4242"}) == (
+        "s5",
+        "lease",
+    )
+    assert not ran, ran
+    assert hooksession.session(str(common), {}) == ("", "")
+    assert ran, "the walk under the variable did not run"
+
+
+def test_the_one_session_variable_is_the_one_the_stub_and_the_reader_name():
+    """S6 of work item 1791384157 (#868). `hooksession.session` reads one
+    variable, and the stub's short-cut names the same one and no other:
+    `$CLAUDECODE` was read by the stub alone, so a stub that started Python on
+    it started an interpreter that answered no session unless a lease stood.
+    Red at `5623d728`, where the stub named both."""
+    assert hooksession.SESSION_VARIABLE == "CLAUDE_CODE_SESSION_ID"
+    for hook in ("pre-commit", "reference-transaction", "post-commit"):
+        text = githooks.stub_text(hook, version="0.0.1")
+        assert "$CLAUDE_CODE_SESSION_ID" in text, hook
+        assert "CLAUDECODE" not in text, hook
+
+
+def test_the_policy_names_the_one_session_reader():
+    """§14 of the agent contract, for S4-S6 of work item 1791384157 (#868):
+    `docs/the-commit-gate-inside-git.md` names `CLAUDE_PID`, the one test of
+    a process's name and the one session variable. Red against
+    `5623d728`'s text."""
+    path = Path(__file__).resolve().parent.parent / "docs"
+    text = " ".join(
+        (path / "the-commit-gate-inside-git.md").read_text(encoding="utf-8").split()
+    )
+    for sentence in (
+        "the one session variable the harness exports to every Bash child",
+        "`CLAUDE_PID` where the environment carries it, an observed value, and "
+        "else its nearest ancestor whose name is `claude`",
+        "A process is a Claude session by one test, its executable's basename "
+        "is `claude` (`hooks/hooksession.py#is_claude`)",
+        "`env -i` empties `CLAUDE_PID` as it empties the session variable",
+    ):
+        assert sentence in text, sentence
 
 
 def test_a_lease_in_a_linked_worktree_is_read(tmp_path):

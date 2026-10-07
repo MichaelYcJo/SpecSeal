@@ -39,6 +39,8 @@ The rules are the two consent reads 0.16.0 had, joined:
 import re
 import shlex
 
+import hooksession
+
 KNOWN = ("[no-review]", "[no-parity]", "[worktree-ok]", "[shared-tree-ok]")
 
 # A backslash escape, a single-quoted span and a double-quoted span: what a
@@ -113,10 +115,11 @@ def steps_around_hooks(command):
     `--config-env`, `git config`, a `GIT_CONFIG_*` value), a config file that
     can carry it (`include.path`, `includeIf.<condition>.path`, `HOME=`,
     `XDG_CONFIG_HOME=`), any `GIT_CONFIG*` assignment, `env` emptying the
-    environment, and a word naming
-    `CLAUDECODE` or `CLAUDE_CODE_SESSION_ID` whole -- the last two leave the
-    stub no session variable. A command that does not split is read as one of
-    them.
+    environment, and a word naming the session variable
+    (`hooksession.SESSION_VARIABLE`, `CLAUDE_CODE_SESSION_ID`) whole, which
+    leaves the stub no session variable. `CLAUDECODE` left the list with
+    #868, because the stub no longer reads it. A command that does not split
+    is read as one of them.
     The direction is the refusal's: a word read here that meant nothing costs
     the reading's judgment of one command, which is 0.16.0's.
     """
@@ -131,19 +134,19 @@ def steps_around_hooks(command):
         after = split[i + 1] if i + 1 < len(split) else ""
         if _empties_the_environment(word, after):
             return True
-        # The stub's P2 short-cut reads two session names, so a command that
-        # empties, unsets or reassigns either leaves the stub no session where
-        # no lease stands: `NAME= git commit`, `env -u NAME`, `env -uNAME`,
+        # The stub's P2 short-cut reads one session name, so a command that
+        # empties, unsets or reassigns it leaves the stub no session where no
+        # lease stands: `NAME= git commit`, `env -u NAME`, `env -uNAME`,
         # `env --unset=NAME`, `unset NAME` (round 2 of #692, 🟡 1, executed).
         # 0.16.0's reading stopped each. The name is compared whole, so
-        # `$CLAUDECODE` or a message that mentions it is not one.
+        # `$CLAUDE_CODE_SESSION_ID` or a message that mentions it is not one.
         name, eq, value = word.strip("()").partition("=")
         session = name
         if name == "--unset":
             session = value
         elif name.startswith("-u"):
             session = name[2:]
-        if session in ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID"):
+        if session == hooksession.SESSION_VARIABLE:
             return True
         # A config file the command names can carry core.hooksPath where no
         # word does: `include.path` or `includeIf.<condition>.path`, set by
