@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 875 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `f105d83b4dfdc6fca7594b225a11c1c073c9f07c..fb256f548bdcd472593e3565b74da16953104b15`, 4 commits |
 | Contract changes | none |
 | New units | ALLOWED_UNDER_PATHS (depth 1); PRODUCT_HOST (depth 1); test_the_product_host_is_allowed_bare_and_under_the_directory_only (depth 1); test_a_root_with_no_manifest_is_a_malformed_argument (depth 1) |
