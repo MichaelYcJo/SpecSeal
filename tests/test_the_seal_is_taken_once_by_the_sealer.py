@@ -1745,25 +1745,28 @@ def refusal_of(repo, value, keep):
 
 
 @pytest.mark.parametrize(
-    "row, said",
+    "row",
     [
         # Nothing ran, and the exit is the same 1 a failing test gives.
-        ("exit 1", True),
-        # A summary was printed, so the form shows the count instead.
-        ("echo 1 failed in 0.01s && exit 1", False),
+        "exit 1",
+        # A summary was printed and no pytest ran: S3 of #869. The printed
+        # line is no count, so the form says no record rather than `1 failed`.
+        "echo 1 failed in 0.01s && exit 1",
     ],
 )
-def test_a_failing_row_with_no_summary_says_so_on_the_form(repo, tmp_path, row, said):
-    """#448's A5, end to end. Both rows read the same under `/bin/sh` and
-    `cmd.exe`, so this runs on every leg. The exit code stays 1 either way;
-    what changes is one line on the failure form."""
+def test_a_failing_row_with_no_record_says_so_on_the_form(repo, tmp_path, row):
+    """#448's A5 and #869's S3, end to end. Both rows read the same under
+    `/bin/sh` and `cmd.exe`, so this runs on every leg. The exit code stays 1
+    either way, no pytest left a record, and the form's suite entry ends with
+    the line that says so; the summary line the second row printed is quoted
+    among its first lines and is nowhere counted."""
     out = run_gate(set_row(repo, row), keep=tmp_path / "out")
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     assert "NOT SEALED" in out.stdout, out.stdout
-    line = "no pytest summary in this output, so this exit code is not a count of"
-    assert (line in out.stdout) is said, out.stdout
-    if not said:
-        assert "1 failed" in out.stdout, out.stdout
+    gate = gate_module()
+    lines = [line.strip() for line in out.stdout.splitlines()]
+    assert gate.NO_RECORD_HERE in lines, out.stdout
+    assert "1 failed" not in lines, out.stdout
 
 
 def test_a_row_wrapped_in_backticks_is_refused_and_shown_rewritten(repo, tmp_path):
@@ -1921,7 +1924,8 @@ def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
     never reported it, because a vacuous pass is a pass. So the suite's own
     output is read too: the row's command has to have run the fixture's one
     test. It used to be read off the panel's `suite` row, which a piped run
-    no longer draws (#400); the row is `summary_counts` of this same kept text.
+    no longer draws (#400), and then off the kept text; since #869 the row
+    is the record the row's own pytest wrote, which the panel reads.
     """
     if needs_posix:
         posix_row_shell_or_skip()
@@ -1930,7 +1934,7 @@ def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
     assert out.returncode == 0, f"{why}\n{out.stdout}\n{out.stderr}"
     assert "SEALED" in out.stdout and "NOT SEALED" not in out.stdout
     suite = (keep / "suite.txt").read_text(encoding="utf-8")
-    assert gate_module().summary_counts(suite) == "1 passed", (
+    assert gate_module().suite_counts(head_run(keep, repo)) == "1 passed", (
         f"{why}\nthe gate sealed without the row's suite running:\n{suite}"
     )
 
@@ -3485,12 +3489,20 @@ def checks_with(gate, suite="", ledger="", code=0):
     }
 
 
+def a_run(gate, **counts):
+    """A `RunRecord` of one keyed session counting `counts`, in the order
+    given, the way `read_record` counts the lines the recorder wrote (#869)."""
+    run = gate.RunRecord()
+    run.sessions, run.counts = 1, dict(counts)
+    return run
+
+
 LONG_BRANCH = (
     "feat/666-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run"
 )
 # 1.2.3 is illustrative, not a release this repository has (`test_release_hygiene`).
 LONG_REF = "refs/remotes/other/release/v1.2.3-hotfix"
-LONG_SUITE = "12345 passed, 67890 skipped, 12 xfailed in 1234.56s"
+LONG_SUITE = {"passed": 12345, "skipped": 67890, "xfailed": 12}
 LONG_LEDGER = "total: 12345 ok · 0 drifted · 0 broken · 0 external"
 
 
@@ -3508,7 +3520,7 @@ def test_no_value_on_the_panel_is_wider_than_the_frame_gives(tmp_path):
     rows = gate.panel(
         "c46fd2db",
         gate.Base("release/v1.2.3-hotfix", "1e2bed90", LONG_REF, "1e2bed90"),
-        checks_with(gate, LONG_SUITE + "\n", LONG_LEDGER + "\n"),
+        checks_with(gate, "", LONG_LEDGER + "\n"),
         str(item),
         copy=gate.copy_origin(ROOT),
         branch=LONG_BRANCH,
@@ -3524,6 +3536,7 @@ def test_no_value_on_the_panel_is_wider_than_the_frame_gives(tmp_path):
                 )
             ),
         ),
+        run=a_run(gate, **LONG_SUITE),
     )
     values = [row[1] for row in rows if row]
     # Round 1's 🟡 1, the owner's Q1 answer: a list continues on the rows
@@ -3598,13 +3611,14 @@ def test_the_widest_panel_the_tree_can_produce_fits_at_the_first_rung(tmp_path):
     rows = gate.panel(
         "c46fd2db",
         gate.Base("release/v1.2.3-hotfix", "1e2bed90", LONG_REF, "1e2bed90"),
-        checks_with(gate, LONG_SUITE + "\n", LONG_LEDGER + "\n"),
+        checks_with(gate, "", LONG_LEDGER + "\n"),
         str(item),
         workflow,
         copy=gate.copy_origin(ROOT),
         branch=LONG_BRANCH,
         pr="#12345",
         record=record_of(tmp_path, capped_record(verdicts=verdicts)),
+        run=a_run(gate, **LONG_SUITE),
     )
     # The blank before the result rows is `None` since #832's S5a.
     named = [row for row in rows if row]
@@ -3672,36 +3686,64 @@ def test_a_list_too_long_for_its_row_continues_beneath_it():
 
 
 @pytest.mark.parametrize(
-    "suite, rows",
+    "counts, rows",
     [
         (
-            "768 passed, 1 skipped in 9.1s\n",
+            {"passed": 768, "skipped": 1},
             [("suite", "✓ 768 passed · 1 skipped")],
         ),
         (
-            "12345 passed, 67890 skipped, 12 xfailed in 9.1s\n",
+            {"passed": 12345, "skipped": 67890, "xfailed": 12},
             [("suite", "✓ 12345 passed · 67890 skipped ·"), ("", "12 xfailed")],
         ),
-        ("no summary here\n", [("suite", "exit 0")]),
+        (None, [("suite", "exit 0")]),
     ],
 )
-def test_the_suite_carries_its_counts_and_nothing_under_them(suite, rows):
-    """#717's A8, `suite`. The counts where pytest printed them, wrapped as
+def test_the_suite_carries_its_counts_and_nothing_under_them(counts, rows):
+    """#717's A8, `suite`. The counts the row's pytest recorded, wrapped as
     #666 wraps them, and the row after the last counts row is the ledger's
     label — not `exit 0`, which a `SEALED` stamp already says. Where there
-    are no counts the row reads `exit N`, which is then the only statement
+    is no record the row reads `exit N`, which is then the only statement
     of what the suite did. #832's S5a: the counts stand behind a `✓` and are
     joined by ` · `, the owner's design of 2026-10-07."""
     gate = gate_module()
     panel = gate.panel(
         "c46fd2db",
         gate.Base("base", "1e2bed90", "base", "1e2bed90"),
-        checks_with(gate, suite),
+        checks_with(gate),
         None,
+        run=None if counts is None else a_run(gate, **counts),
     )
     at = panel.index(rows[0])
     assert panel[at : at + len(rows)] == rows, panel
     assert panel[at + len(rows)][0] == gate.LEDGER, panel
+
+
+def test_the_suite_row_reads_the_record_and_nothing_the_row_printed():
+    """S1 (#869). The row's output carries a test's own print of a summary
+    line, `999 passed in 1s`, after pytest's — the decoy `COUNTS_RE` took,
+    walking the output backwards — and the record counts 768 passed and 1
+    skipped. The `suite` row is the record's. Where the record has no
+    session, or a line it could not read, the printed line is still not
+    read: the row reads `exit 0`."""
+    gate = gate_module()
+    printed = "........\n768 passed, 1 skipped in 12.34s\nsee: 999 passed in 1s\n"
+    base = gate.Base("base", "1e2bed90", "base", "1e2bed90")
+    rows = gate.panel(
+        "c46fd2db",
+        base,
+        checks_with(gate, printed),
+        None,
+        run=a_run(gate, passed=768, skipped=1),
+    )
+    assert ("suite", "✓ 768 passed · 1 skipped") in rows, rows
+    assert not any(row and "999" in row[1] for row in rows), rows
+    unread = a_run(gate, passed=768, skipped=1)
+    unread.unread = 1
+    for run in (None, gate.RunRecord(), unread):
+        rows = gate.panel("c46fd2db", base, checks_with(gate, printed), None, run=run)
+        assert ("suite", "exit 0") in rows, rows
+    assert not hasattr(gate, "COUNTS_RE") and not hasattr(gate, "summary_counts")
 
 
 def test_the_ledger_carries_its_three_counts_on_one_row():
@@ -3797,9 +3839,7 @@ def test_the_result_rows_carry_a_tick_and_a_blank_row_stands_before_them(tmp_pat
         "jobs:\n  release:\n    steps:\n"
         "      - name: a declared review chain has the round record it claimed\n"
     )
-    checks = checks_with(
-        gate, "1 passed in 1s\n", "total: 1 ok · 0 drifted · 0 broken\n", code=5
-    )
+    checks = checks_with(gate, "", "total: 1 ok · 0 drifted · 0 broken\n", code=5)
     checks[gate.CHAIN_NAME] = gate.Check(gate.CHAIN_NAME, 0, "", "chain.txt")
     rows = gate.panel(
         "c46fd2db",
@@ -3811,6 +3851,7 @@ def test_the_result_rows_carry_a_tick_and_a_blank_row_stands_before_them(tmp_pat
         branch="feature",
         pr="#12",
         record=record_of(tmp_path, capped_record()),
+        run=a_run(gate, passed=1),
     )
     assert rows == [
         ("SEALED", ""),
@@ -3919,13 +3960,14 @@ def test_the_sample_carries_every_row_the_panel_can(tmp_path):
     rows = gate.panel(
         "c46fd2db",
         gate.Base("release/x", "1e2bed90", "origin/release/x", "1e2bed90"),
-        checks_with(gate, "1 passed in 1s\n", "total: 1 ok · 0 drifted · 0 broken\n"),
+        checks_with(gate, "", "total: 1 ok · 0 drifted · 0 broken\n"),
         str(tmp_path / "1799000000-an-item"),
         workflow,
         copy="tree 1.2.3",
         branch="feature",
         pr="#12",
         record=record_of(tmp_path, capped_record()),
+        run=a_run(gate, passed=1),
     )
     labels = [None if row is None else row[0] for row in rows]
     sample = [None if row is None else row[0] for row in module().SAMPLE_ROWS]
@@ -4347,39 +4389,26 @@ def test_the_gate_names_the_row_it_sealed_over(repo, tmp_path):
     )
 
 
-def test_the_suite_row_reads_pytests_counts_and_not_a_linters(tmp_path):
-    """Round 1's 🟡 5. `summary_counts` walked the lines backwards and took the
-    first `COUNTS_RE` match, and a `Broad gate` row is a test runner joined to
-    a linter with `&&` — so the linter's output stands after pytest's summary
-    and `2 warnings emitted` matched first.
-
-    The panel's `suite` row is what a reader takes as how many tests ran, so
-    a warning count printed there is the seal reporting a number that did not
-    come from the run it claims."""
+def test_the_suite_row_reads_pytests_counts_and_not_a_linters():
+    """Round 1's 🟡 5 and round 2's 🟡 13 of #666, as #869 closes the class.
+    The text reader walked the row's output backwards and took a linter's
+    `2 warnings emitted`, then `Found 2 errors.`, as the suite's count, and
+    matched nothing on a skipped-only run. The record holds pytest's reports
+    and nothing a linter printed, so a linter after the runner cannot reach
+    the row whatever it prints; and a run where every test skipped still
+    shows its count, rather than an `exit 0` saying nothing about a run in
+    which nothing executed."""
     gate = gate_module()
-    assert (
-        gate.summary_counts(
-            "768 passed, 1 skipped in 30s\nwarning: 2 warnings emitted\n"
-        )
-        == "768 passed, 1 skipped"
+    base = gate.Base("base", "1e2bed90", "base", "1e2bed90")
+    linted = "768 passed in 30s\nwarning: 2 warnings emitted\nFound 2 errors.\n"
+    rows = gate.panel(
+        "c46fd2db", base, checks_with(gate, linted), None, run=a_run(gate, passed=768)
     )
-    assert (
-        gate.summary_counts("3 failed, 2 passed in 1s\n4 warnings\n")
-        == "3 failed, 2 passed"
+    assert ("suite", "✓ 768 passed") in rows, rows
+    rows = gate.panel(
+        "c46fd2db", base, checks_with(gate), None, run=a_run(gate, skipped=3)
     )
-    assert gate.summary_counts("2 warnings emitted\n") is None, (
-        "a run with no pytest summary in it reports a count anyway"
-    )
-    # Round 2's 🟡 13: the CLASS, not the instance. `warnings` was the word
-    # round 1 measured and `errors` is the same defect one linter over —
-    # `Found 2 errors.` is what `ruff` and `mypy` print, and a row whose
-    # linter runs with `--exit-zero` reaches the panel with it. A
-    # skipped-only run is the shape that matched no word at all and came
-    # back None, which the panel renders `suite exit 0`: the seal's most
-    # trusted row saying nothing about a run in which nothing executed.
-    assert gate.summary_counts("1 passed in 1s\nFound 2 errors.\n") == "1 passed"
-    assert gate.summary_counts("3 skipped in 0.10s\n") == "3 skipped"
-    assert gate.summary_counts("768 passed in 63.21s (0:01:03)\n") == "768 passed"
+    assert ("suite", "✓ 3 skipped") in rows, rows
 
 
 @pytest.mark.parametrize(
@@ -4500,9 +4529,19 @@ def failing_in_base_record(keep, path):
     for _, line in base_records(keep):
         named = line.get("path", "").replace("\\", "/")
         if line.get("kind") in ("test", "collect") and named.endswith(f"/{path}"):
-            if line["kind"] == "collect" or line.get("outcome") == "failed":
+            if line.get("outcome") == "failed":
                 return True
     return False
+
+
+def head_run(keep, root):
+    """The `RunRecord` of the row's run at `HEAD` under `keep`, read by the
+    gate's own reader with the key its `session` line carries (#869)."""
+    for record in sorted((keep / "records").glob("head-*.jsonl")):
+        first = record.read_text(encoding="utf-8").splitlines()[0]
+        key = json.loads(first)["key"]
+        return gate_module().read_record(str(keep / "records"), key, str(root))
+    return gate_module().RunRecord()
 
 
 # Two stand-ins that print what a linter and a formatter print and exit 0, so
@@ -4849,6 +4888,24 @@ def test_the_failure_form_counts_the_lines_of_the_record_here_it_passed_over():
         "did not parse" in line
         for line in gate.failure_lines(gate.Check(gate.LEDGER, 2, "", "ledger.txt"))
     )
+
+
+def test_the_failure_form_ends_the_suite_with_the_records_counts_in_pytests_order():
+    """S2 (#869). A failing suite's entry ends with the counts its record
+    holds, after the file list and before the kept file, in the order and the
+    plural pytest's own line uses — `1 failed, 767 passed, 1 error`, and `2
+    errors` where there are two — whatever the row printed."""
+    gate = gate_module()
+    run = gate.RunRecord()
+    run.sessions, run.counts = 1, {"passed": 767, "error": 1, "failed": 1}
+    printed = "FAILED tests/test_a.py::t\n999 failed in 1s\n"
+    check = gate.Check(gate.SUITE, 1, printed, "suite.txt")
+    lines = gate.failure_lines(check, {"tests/test_a.py": gate.NEW}, run)
+    assert lines[-2:] == ["1 failed, 767 passed, 1 error", "full output: suite.txt"], (
+        lines
+    )
+    run.counts["error"] = 2
+    assert "1 failed, 767 passed, 2 errors" in gate.failure_lines(check, None, run)
 
 
 def test_a_keyed_session_with_no_end_line_is_counted_unended(tmp_path):
@@ -6214,8 +6271,9 @@ def test_a_session_that_stopped_part_way_here_is_counted_under_the_list(tmp_path
     """#849 round 1's 🟡 2. At `HEAD` a test that kills plain pytest writes
     only its passing setup, so its file is in no list of failing files, and
     pytest prints no summary. The failure form says a session stopped
-    part-way under the list, and `NO_SUMMARY` names a pytest that died beside
-    one that never started."""
+    part-way under the list, and since #869 the suite entry ends with what
+    that session's record counted before it died, never with a line saying
+    no pytest left a record, which one did."""
     repo = base_then_feature(
         tmp_path / "repo",
         files_row(False) + " tests",
@@ -6236,7 +6294,10 @@ def test_a_session_that_stopped_part_way_here_is_counted_under_the_list(tmp_path
     assert verdict_of(out.stdout, "tests/test_a.py") == gate.NEW, out.stdout
     assert verdict_of(out.stdout, "tests/test_two.py") is None, out.stdout
     assert gate.UNENDED_HERE.format(count=1) in lines, out.stdout
-    assert gate.NO_SUMMARY in lines, out.stdout
+    # `F..`: the fixture repository's own test and `test_ok` passed before
+    # `test_crash` killed the process.
+    assert "1 failed, 2 passed" in lines, out.stdout
+    assert gate.NO_RECORD_HERE not in lines, out.stdout
 
 
 # A plugin whose directory hook fails while the session itself walks its
