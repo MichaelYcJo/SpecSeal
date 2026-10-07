@@ -650,7 +650,7 @@ OUT_OF_CLASS = {
     # The recorder's JSON Lines (#825): `json.dumps` escapes every control
     # character and every non-ASCII one, so no separator but LF is in it.
     ("skills/verify/scripts/broad_gate.py", "read_record"): (1, TOOL),
-    ("skills/verify/scripts/broad_gate.py", "suite_counts"): (1, TOOL),
+    ("skills/verify/scripts/broad_gate.py", "summary_counts"): (1, TOOL),
     ("skills/verify/scripts/deferral_check.py", "read_events"): (1, YAML),
     ("skills/verify/scripts/deferral_check.py", "runners_in"): (1, YAML),
     # The disc's mark chart (#832): every character but `.` and `M` is refused

@@ -633,4 +633,4 @@ def test_a_failing_suite_with_no_summary_says_it_is_not_a_count(name, text, said
     assert lines[0] == "exit 1", lines
     assert lines[-1] == "full output: /x/out.txt", lines
     if name == "suite" and not said:
-        assert gate.suite_counts(text) in lines, lines
+        assert gate.summary_counts(text) in lines, lines

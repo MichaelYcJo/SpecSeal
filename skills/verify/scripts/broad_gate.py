@@ -1889,33 +1889,42 @@ class RunRecord:
     the order the records first name it; `collected` every file any line
     names. A file is its path made relative to the run's worktree and
     spelled with `/`, or its absolute path where it lies outside the
-    worktree. `skipped` counts lines that did not parse. `unplaced` sums the
+    worktree. `unread` counts the lines of the keyed files that did not
+    parse as an object, which the recorder never writes (#869); another
+    run's file is not counted. `counts` is how many reports pytest's own
+    summary line counts under each category, over the keyed sessions, in
+    the order each category was first written: a `test` line under its
+    `category`, a failed collection under `error` and a skipped one under
+    `skipped`, as pytest's terminal reporter counts them. `unplaced` sums the
     `end` lines' counts of the tests and collections the recorder wrote as
     no line, for want of a file of their own (#825's reframe after round 3);
     `unplaced_red` sums only those of sessions whose `end` line shows a
     non-zero exit, because a session that exited 0 failed nothing, counted
     or not (#825 round 5). `unended` counts the sessions that stopped
     part-way: those whose record holds no `end` line, because the process
-    died or the recorder stopped writing (#849), and those whose `end` line
-    shows an exit `RAN_TO_ITS_END` does not hold, because pytest ended the
-    session itself (#849 round 1).
+    died or the recorder stopped writing (#849); those whose `end` line says
+    pytest stopped the session -- an interrupt, `pytest.exit()`, `-x` or
+    `--maxfail`, a plugin's stop (#852); and those whose `end` line shows an
+    exit `RAN_TO_ITS_END` does not hold, the net for a stop no hook showed
+    (#849 round 1).
 
     Named apart from `Record`, which is a round record's home (#666)."""
 
     __slots__ = (
         "collected",
+        "counts",
         "failing",
         "sessions",
-        "skipped",
         "unended",
         "unplaced",
         "unplaced_red",
+        "unread",
     )
 
     def __init__(self):
-        self.sessions, self.skipped, self.unplaced = 0, 0, 0
+        self.sessions, self.unread, self.unplaced = 0, 0, 0
         self.unplaced_red, self.unended = 0, 0
-        self.failing, self.collected = {}, set()
+        self.failing, self.collected, self.counts = {}, set(), {}
 
 
 def record_path(path, worktree):
@@ -1962,6 +1971,11 @@ def record_path(path, worktree):
 # reads `failing on base too`, and the files after it hold no line.
 RAN_TO_ITS_END = (0, 1, 5)
 
+# The category pytest's terminal reporter counts a collect report under
+# (`TerminalReporter.pytest_collectreport`): a failed collection is an
+# `error` on its summary line and a skipped one a `skipped` (#869).
+COLLECT_CATEGORY = {"failed": "error", "skipped": "skipped"}
+
 
 def read_record(directory, key, worktree):
     """The `RunRecord` of every `*.jsonl` under `directory` whose first line
@@ -1970,20 +1984,25 @@ def read_record(directory, key, worktree):
 
     Pure, apart from reading the files. A file whose first line does not
     carry this key is another run's and is passed over whole, whatever its
-    name says; a line that does not parse as an object is counted in
-    `skipped` and passed over, and a blank line is passed over uncounted.
-    Every line naming a path is a test or a failed collection, and its
-    `outcome` says whether it failed. A file's lines are read as a set —
-    xdist's controller is handed one failed collection once per worker
-    (`phases/phase-1.md` of 1791270161) — and no test or collection is
-    counted. Files are
+    name says, and none of its lines is counted; a line of a keyed file that
+    does not parse as an object is counted in `unread` and passed over, and
+    a blank line is passed over uncounted. Every line naming a path is a
+    test or a failed or skipped collection, and its `outcome` says whether
+    it failed. A file's lines are read as a set for the lists — xdist's
+    controller is handed one failed collection once per worker
+    (`phases/phase-1.md` of 1791270161) — so a collection is counted once
+    per session however often its line was written, and a `test` line once
+    per line, as pytest counts each report. A `test` line whose `category`
+    is not a word, or is `""`, counts under none. Files are
     read in the order they were last written, so where a row runs pytest
     twice the first runner's files come first. A directory that cannot be
     listed, or a file that cannot be read, holds no record. An `end` line's
     `unplaced`, where it is an integer, is added to the record's, and to its
     `unplaced_red` too where that line's `exitstatus` is not 0. A keyed file
-    with no `end` line, or with an `end` line whose `exitstatus` is not in
-    `RAN_TO_ITS_END`, adds one to `unended`."""
+    with no `end` line, with an `end` line whose `stopped` is not an empty
+    list — a stop pytest showed, or a value the recorder never writes — or
+    with an `end` line whose `exitstatus` is not in `RAN_TO_ITS_END`, adds
+    one to `unended`."""
     record = RunRecord()
     try:
         names = os.listdir(directory)
@@ -2000,29 +2019,35 @@ def read_record(directory, key, worktree):
         except OSError:
             continue
     for _, _, text in sorted(found):
-        parsed = []
+        parsed, unread = [], 0
         for line in text.splitlines():
             if not line.strip():
                 continue
             try:
                 value = json.loads(line)
             except ValueError:
-                record.skipped += 1
+                unread += 1
                 continue
             if isinstance(value, dict):
                 parsed.append(value)
             else:
-                record.skipped += 1
+                unread += 1
         if not parsed or parsed[0].get("key") != key:
             continue
         record.sessions += 1
+        record.unread += unread
         # A session stopped part-way where it wrote no `end` line -- its
         # process died, or its recorder stopped writing (#849, #825 round 6)
-        # -- or where its `end` line shows an exit pytest gives a session it
-        # stopped itself (#849 round 1).
+        # -- where its `end` line says pytest stopped it (#852), or where
+        # that line shows an exit no session that ran to its end gives (#849
+        # round 1).
         ends = [value for value in parsed[1:] if value.get("kind") == "end"]
-        if not ends or any(end.get("exitstatus") not in RAN_TO_ITS_END for end in ends):
+        if not ends or any(
+            end.get("stopped") != [] or end.get("exitstatus") not in RAN_TO_ITS_END
+            for end in ends
+        ):
             record.unended += 1
+        collections = set()
         for value in parsed[1:]:
             unplaced = value.get("unplaced")
             if value.get("kind") == "end" and type(unplaced) is int:
@@ -2037,6 +2062,16 @@ def read_record(directory, key, worktree):
             record.collected.add(named)
             if value.get("outcome") == "failed":
                 record.failing.setdefault(named, None)
+            category = None
+            if value.get("kind") == "test":
+                category = value.get("category")
+            elif value.get("kind") == "collect":
+                seen = (value.get("nodeid"), value.get("outcome"))
+                if seen not in collections:
+                    collections.add(seen)
+                    category = COLLECT_CATEGORY.get(value.get("outcome"))
+            if isinstance(category, str) and category:
+                record.counts[category] = record.counts.get(category, 0) + 1
     return record
 
 
@@ -2700,7 +2735,39 @@ def coverage_line(text, given):
 # --- what the panel reads --------------------------------------------------
 
 
-def suite_counts(text):
+# The order pytest's summary line prints the categories in, from its
+# `KNOWN_TYPES` with the two no report carries left out (`deselected`,
+# `warnings`); a category outside it follows, in the order it was first
+# written, as pytest prints one (#869).
+SUMMARY_ORDER = ("failed", "passed", "skipped", "xfailed", "xpassed", "error")
+# The one category pytest's line pluralises among those a report carries.
+PLURALS = {"error": "errors"}
+
+
+def suite_counts(record):
+    """The suite's counts as pytest's summary line prints them, without its
+    clock — `1 failed, 767 passed, 1 error` — read off the `RunRecord` of
+    the row's run, or None.
+
+    Every number is a count of lines the row's own pytest wrote, under the
+    category pytest's own line counts each report under (`read_record`), so
+    nothing the row PRINTS can reach it (#869). None where no session
+    carries the key, where a keyed file holds a line that did not parse —
+    a count that passed a line over is not one anybody can vouch for — or
+    where no report was counted at all."""
+    if not record.sessions or record.unread or not record.counts:
+        return None
+    known = [name for name in SUMMARY_ORDER if name in record.counts]
+    other = [name for name in record.counts if name not in SUMMARY_ORDER]
+    said = []
+    for name in known + other:
+        count = record.counts[name]
+        word = PLURALS.get(name, name) if count != 1 else name
+        said.append(f"{count} {word}")
+    return ", ".join(said)
+
+
+def summary_counts(text):
     """pytest's own counts off the row's output, or None.
 
     pytest's summary line is the counts followed by the WALL CLOCK — `768
@@ -3051,7 +3118,7 @@ def panel(
     if copy:
         rows.append(("gate", copy))
     rows.append(None)
-    counts = suite_counts(checks[SUITE].text)
+    counts = summary_counts(checks[SUITE].text)
     if counts:
         first, *more = counts.split(", ")
         rows += wrapped(SUITE, [TICK + first, *(SEP + part for part in more)])
@@ -3143,7 +3210,7 @@ def failure_lines(check, verdicts=None, unplaced=0, unended=0):
     if unended:
         lines.append(UNENDED_HERE.format(count=unended))
     if check.name == SUITE:
-        counts = suite_counts(check.text)
+        counts = summary_counts(check.text)
         lines.append(counts or NO_SUMMARY)
     if check.name == LEDGER:
         total = ledger_total(check.text)

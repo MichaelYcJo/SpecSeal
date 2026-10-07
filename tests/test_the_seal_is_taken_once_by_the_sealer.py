@@ -1921,7 +1921,7 @@ def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
     never reported it, because a vacuous pass is a pass. So the suite's own
     output is read too: the row's command has to have run the fixture's one
     test. It used to be read off the panel's `suite` row, which a piped run
-    no longer draws (#400); the row is `suite_counts` of this same kept text.
+    no longer draws (#400); the row is `summary_counts` of this same kept text.
     """
     if needs_posix:
         posix_row_shell_or_skip()
@@ -1930,7 +1930,7 @@ def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
     assert out.returncode == 0, f"{why}\n{out.stdout}\n{out.stderr}"
     assert "SEALED" in out.stdout and "NOT SEALED" not in out.stdout
     suite = (keep / "suite.txt").read_text(encoding="utf-8")
-    assert gate_module().suite_counts(suite) == "1 passed", (
+    assert gate_module().summary_counts(suite) == "1 passed", (
         f"{why}\nthe gate sealed without the row's suite running:\n{suite}"
     )
 
@@ -4348,7 +4348,7 @@ def test_the_gate_names_the_row_it_sealed_over(repo, tmp_path):
 
 
 def test_the_suite_row_reads_pytests_counts_and_not_a_linters(tmp_path):
-    """Round 1's 🟡 5. `suite_counts` walked the lines backwards and took the
+    """Round 1's 🟡 5. `summary_counts` walked the lines backwards and took the
     first `COUNTS_RE` match, and a `Broad gate` row is a test runner joined to
     a linter with `&&` — so the linter's output stands after pytest's summary
     and `2 warnings emitted` matched first.
@@ -4358,14 +4358,16 @@ def test_the_suite_row_reads_pytests_counts_and_not_a_linters(tmp_path):
     come from the run it claims."""
     gate = gate_module()
     assert (
-        gate.suite_counts("768 passed, 1 skipped in 30s\nwarning: 2 warnings emitted\n")
+        gate.summary_counts(
+            "768 passed, 1 skipped in 30s\nwarning: 2 warnings emitted\n"
+        )
         == "768 passed, 1 skipped"
     )
     assert (
-        gate.suite_counts("3 failed, 2 passed in 1s\n4 warnings\n")
+        gate.summary_counts("3 failed, 2 passed in 1s\n4 warnings\n")
         == "3 failed, 2 passed"
     )
-    assert gate.suite_counts("2 warnings emitted\n") is None, (
+    assert gate.summary_counts("2 warnings emitted\n") is None, (
         "a run with no pytest summary in it reports a count anyway"
     )
     # Round 2's 🟡 13: the CLASS, not the instance. `warnings` was the word
@@ -4375,9 +4377,9 @@ def test_the_suite_row_reads_pytests_counts_and_not_a_linters(tmp_path):
     # skipped-only run is the shape that matched no word at all and came
     # back None, which the panel renders `suite exit 0`: the seal's most
     # trusted row saying nothing about a run in which nothing executed.
-    assert gate.suite_counts("1 passed in 1s\nFound 2 errors.\n") == "1 passed"
-    assert gate.suite_counts("3 skipped in 0.10s\n") == "3 skipped"
-    assert gate.suite_counts("768 passed in 63.21s (0:01:03)\n") == "768 passed"
+    assert gate.summary_counts("1 passed in 1s\nFound 2 errors.\n") == "1 passed"
+    assert gate.summary_counts("3 skipped in 0.10s\n") == "3 skipped"
+    assert gate.summary_counts("768 passed in 63.21s (0:01:03)\n") == "768 passed"
 
 
 @pytest.mark.parametrize(
@@ -4581,10 +4583,10 @@ def a_test(path, outcome, when="call", **extra):
     }
 
 
-# `(lines, failing, collected, skipped)`: the lines of one record file, with
+# `(lines, failing, collected, unread)`: the lines of one record file, with
 # each `path` relative to the worktree (made absolute by the case), and what
 # `read_record` reads off them. A line given as a string is written as it is.
-RECORD_LINES = [
+RECORDED_LINES = [
     pytest.param(
         [
             a_session(),
@@ -4669,19 +4671,22 @@ RECORD_LINES = [
 ]
 
 
-@pytest.mark.parametrize("lines, failing, collected, skipped", RECORD_LINES)
+@pytest.mark.parametrize("lines, failing, collected, unread", RECORDED_LINES)
 def test_a_record_is_read_for_the_files_it_names_failing(
-    tmp_path, lines, failing, collected, skipped
+    tmp_path, lines, failing, collected, unread
 ):
     """S6's reader (#825), `spec.md` Data & interfaces. A file of the
     record's lines is read for the files that failed in any phase or could
     not be collected, in the order first named, and for every file named;
     a skip and an xfail are not failures, a failed collection repeated per
     xdist worker is one file, a file whose first line is not a session of
-    this key is another run's whatever its name, and a line that does not
-    parse as an object is counted and passed over, a blank one uncounted.
-    Paths are named from the worktree with `/`, and one outside it keeps
-    its absolute spelling."""
+    this key is another run's whatever its name, and a line of a keyed file
+    that does not parse as an object is counted in `unread` and passed
+    over, a blank one uncounted. Another run's file is counted in nothing,
+    garbage and all (#869, S6 of 1791384158: it used to be counted in
+    `skipped` beside the keyed file's, and nothing read the sum). Paths are
+    named from the worktree with `/`, and one outside it keeps its absolute
+    spelling."""
     gate = gate_module()
     worktree = tmp_path / "wt"
     worktree.mkdir()
@@ -4700,9 +4705,10 @@ def test_a_record_is_read_for_the_files_it_names_failing(
     )
     (records / f"{RECORD_KEY}-7.jsonl").write_text(body, encoding="utf-8")
     # Another run's record in the same directory, passed over by its first
-    # line.
+    # line, with a line of its own that does not parse.
     (records / "base-ffffffffffffffff-8.jsonl").write_text(
-        json.dumps(a_session("base-ffffffffffffffff")) + "\n", encoding="utf-8"
+        json.dumps(a_session("base-ffffffffffffffff")) + "\n{garbage\n",
+        encoding="utf-8",
     )
     record = gate.read_record(str(records), RECORD_KEY, str(worktree))
     named = [f.replace("<outside>", outside.replace(os.sep, "/")) for f in failing]
@@ -4710,7 +4716,7 @@ def test_a_record_is_read_for_the_files_it_names_failing(
     assert {f.replace(os.sep, "/") for f in record.collected} == {
         f.replace("<outside>", outside.replace(os.sep, "/")) for f in collected
     }
-    assert record.skipped == skipped
+    assert record.unread == unread
     has_session = bool(lines) and lines[0] == a_session()
     assert record.sessions == (1 if has_session else 0)
 
@@ -4810,8 +4816,15 @@ def test_a_keyed_session_with_no_end_line_is_counted_unended(tmp_path):
     files = {
         "died": [a_session(), passing],
         "bare": [a_session()],
-        "ended": [a_session(), passing, {"kind": "end", "exitstatus": 1}],
-        "green": [a_session(), {"kind": "end", "exitstatus": 0, "unplaced": 0}],
+        "ended": [
+            a_session(),
+            passing,
+            {"kind": "end", "exitstatus": 1, "stopped": []},
+        ],
+        "green": [
+            a_session(),
+            {"kind": "end", "exitstatus": 0, "unplaced": 0, "stopped": []},
+        ],
         "other": [a_session("head-ffffffffffffffff"), passing],
     }
     for name, lines in files.items():
@@ -4828,36 +4841,55 @@ def test_a_keyed_session_with_no_end_line_is_counted_unended(tmp_path):
     assert gate.base_word(ended, 1, "tests/test_a.py") == gate.NEW
 
 
+NOTHING_STOPPED = []
+STOPPED_BY_EXIT = [{"by": "exit", "what": "Exit: stop here (returncode 1)"}]
+STOPPED_BY_X = [{"by": "failures", "what": "stopping after 1 failures"}]
+NO_STOPPED = object()
+
+
 @pytest.mark.parametrize(
-    "exitstatus, stopped",
+    "exitstatus, said, stopped",
     [
-        pytest.param(0, False, id="0-ok"),
-        pytest.param(1, False, id="1-tests-failed"),
-        pytest.param(5, False, id="5-no-tests-collected"),
-        pytest.param(2, True, id="2-interrupted"),
-        pytest.param(3, True, id="3-internal-error"),
-        pytest.param(4, True, id="4-usage-error"),
-        pytest.param(7, True, id="a-code-pytest-exit-chose"),
-        pytest.param(None, True, id="no-exit"),
+        pytest.param(0, NOTHING_STOPPED, False, id="0-ok"),
+        pytest.param(1, NOTHING_STOPPED, False, id="1-tests-failed"),
+        pytest.param(5, NOTHING_STOPPED, False, id="5-no-tests-collected"),
+        pytest.param(2, NOTHING_STOPPED, True, id="2-interrupted"),
+        pytest.param(3, NOTHING_STOPPED, True, id="3-internal-error"),
+        pytest.param(4, NOTHING_STOPPED, True, id="4-usage-error"),
+        pytest.param(7, NOTHING_STOPPED, True, id="a-code-pytest-exit-chose"),
+        pytest.param(None, NOTHING_STOPPED, True, id="no-exit"),
+        pytest.param(0, STOPPED_BY_EXIT, True, id="0-and-pytest-exit"),
+        pytest.param(1, STOPPED_BY_EXIT, True, id="1-and-pytest-exit"),
+        pytest.param(5, STOPPED_BY_EXIT, True, id="5-and-pytest-exit"),
+        pytest.param(1, STOPPED_BY_X, True, id="1-and-x"),
+        pytest.param(0, "nothing", True, id="stopped-not-a-list"),
+        pytest.param(0, NO_STOPPED, True, id="no-stopped"),
     ],
 )
 def test_a_keyed_session_whose_end_shows_a_stop_is_counted_unended(
-    tmp_path, exitstatus, stopped
+    tmp_path, exitstatus, said, stopped
 ):
-    """#849 round 1's 🟡 1, at `read_record`. pytest writes an `end` line for
-    a session it stopped itself: a `KeyboardInterrupt` or `pytest.exit()` in
-    a test, a failed collection without `-x` and xdist under `-x` give 2
-    (under `-x` a failed collection gives 1), a run loop that raised gives 3, an argument refused after the session started gives 4.
-    Only 0, 1 and 5 are the exits of a session that ran to its end; any
-    other, a code `pytest.exit` chose and an `end` line with no exit among
-    them, counts the session as stopped part-way and turns `new` into
-    `new?`."""
+    """#849 round 1's 🟡 1 and #852, at `read_record`. pytest writes an
+    `end` line for a session it stopped itself, and since #852 the recorder
+    writes on it what stopped the session: what `pytest_keyboard_interrupt`
+    was handed and the session's `shouldfail` and `shouldstop`. A session
+    stopped part-way where that list is not empty -- a `pytest.exit` that
+    chose 0, 1 or 5 and a plain `-x` among them, which exit with a value a
+    session that ran to its end gives too -- and where the exit is not 0, 1
+    or 5, the net for a stop no hook shows: an internal error gives 3, an
+    argument refused after the session started gives 4, and a code
+    `pytest.exit` chose, or an `end` line with no exit, is neither. A
+    `stopped` that is not a list, or absent, is no line the recorder writes
+    and reads as stopped. Each counts the session as stopped part-way and
+    turns `new` into `new?`."""
     gate = gate_module()
     worktree = tmp_path / "wt"
     worktree.mkdir()
     records = tmp_path / "records"
     records.mkdir()
     end = {"kind": "end", "unplaced": 0}
+    if said is not NO_STOPPED:
+        end["stopped"] = said
     if exitstatus is not None:
         end["exitstatus"] = exitstatus
     lines = [a_session(), a_test(str(worktree / "tests/test_a.py"), "passed"), end]
@@ -4884,7 +4916,7 @@ def test_the_unplaced_counts_of_this_runs_records_are_summed(tmp_path):
     worktree.mkdir()
     records = tmp_path / "records"
     records.mkdir()
-    end = {"kind": "end", "exitstatus": 1}
+    end = {"kind": "end", "exitstatus": 1, "stopped": []}
     files = {
         "a": [a_session(), {**end, "unplaced": 2}],
         "b": [
@@ -4911,6 +4943,154 @@ def test_the_unplaced_counts_of_this_runs_records_are_summed(tmp_path):
     assert (green.unplaced, green.unplaced_red) == (7, 0)
     assert gate.base_word(green, 0, "tests/test_a.py") == gate.NEW
     assert gate.base_word(green, 1, "tests/test_a.py") == gate.NEW
+
+
+def write_record(records, name, lines):
+    """One record file under `records`: each line as JSON, or a string as it
+    is."""
+    (records / f"{name}.jsonl").write_text(
+        "".join(
+            (line if isinstance(line, str) else json.dumps(line)) + "\n"
+            for line in lines
+        ),
+        encoding="utf-8",
+    )
+
+
+def a_collect(path, outcome):
+    return {"kind": "collect", "nodeid": path, "outcome": outcome, "path": path}
+
+
+def test_the_counts_are_the_categories_pytest_counted_each_report_under(tmp_path):
+    """S5's counter (#869). A `test` line counts under the category the
+    recorder wrote for it, which is pytest's own; a failed collection counts
+    as an `error` and a skipped one as a `skipped`, as pytest's terminal
+    reporter counts them, and one written once per xdist worker counts once.
+    A `""` category, one that is not a word and a line with none count
+    nowhere. `suite_counts` prints them in pytest's order, `error`
+    pluralised the way pytest pluralises it, a category outside pytest's
+    list after it in the order first written."""
+    gate = gate_module()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    records = tmp_path / "records"
+    records.mkdir()
+    a = str(worktree / "tests/test_a.py")
+    b = str(worktree / "tests/test_b.py")
+    c = str(worktree / "tests/test_c.py")
+    write_record(
+        records,
+        "one",
+        [
+            a_session(),
+            a_test(a, "passed", when="setup", category=""),
+            a_test(a, "passed", category="passed"),
+            a_test(a, "passed", when="teardown", category=""),
+            a_test(a, "passed", category="rerun"),
+            a_test(a, "failed", when="setup", category="error"),
+            a_test(a, "failed", when="teardown", category="error"),
+            a_test(a, "skipped", category="xfailed", wasxfail=""),
+            a_test(a, "passed", category="xpassed", wasxfail=""),
+            a_test(a, "failed", category="failed"),
+            a_test(a, "skipped", when="setup", category="skipped"),
+            a_test(a, "passed", category=7),
+            a_test(a, "passed"),
+            a_collect(b, "failed"),
+            a_collect(b, "failed"),
+            a_collect(c, "skipped"),
+            {"kind": "end", "exitstatus": 1, "unplaced": 0, "stopped": []},
+        ],
+    )
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert record.counts == {
+        "passed": 1,
+        "rerun": 1,
+        "error": 3,
+        "xfailed": 1,
+        "xpassed": 1,
+        "failed": 1,
+        "skipped": 2,
+    }
+    assert gate.suite_counts(record) == (
+        "1 failed, 1 passed, 2 skipped, 1 xfailed, 1 xpassed, 3 errors, 1 rerun"
+    )
+    assert record.collected == {"tests/test_a.py", "tests/test_b.py", "tests/test_c.py"}
+    assert list(record.failing) == ["tests/test_a.py", "tests/test_b.py"]
+
+
+def test_two_keyed_sessions_sum_their_counts(tmp_path):
+    """S4 (#869). A row that runs pytest twice shows both runs: the counts
+    are summed over every session carrying the key, where pytest's printed
+    line is one run's. One `error` is singular."""
+    gate = gate_module()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    records = tmp_path / "records"
+    records.mkdir()
+    ended = {"kind": "end", "exitstatus": 1, "unplaced": 0, "stopped": []}
+    first = str(worktree / "tests/test_first.py")
+    second = str(worktree / "tests/test_second.py")
+    write_record(
+        records,
+        "first",
+        [
+            a_session(),
+            a_test(first, "passed", category="passed"),
+            a_test(first, "passed", category="passed"),
+            a_test(first, "failed", category="failed"),
+            ended,
+        ],
+    )
+    write_record(
+        records,
+        "second",
+        [
+            a_session(),
+            a_test(second, "passed", category="passed"),
+            a_test(second, "failed", when="setup", category="error"),
+            ended,
+        ],
+    )
+    write_record(
+        records,
+        "another-run",
+        [
+            a_session("head-ffffffffffffffff"),
+            a_test(second, "passed", category="passed"),
+        ],
+    )
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert record.sessions == 2
+    assert gate.suite_counts(record) == "1 failed, 3 passed, 1 error"
+
+
+def test_counts_the_record_cannot_vouch_for_are_none(tmp_path):
+    """S6's counter (#869). Where no session carries the key there is no
+    count; where a keyed file holds a line that did not parse, a count that
+    passed it over is refused rather than printed short; and a session that
+    counted no report has none to print."""
+    gate = gate_module()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    records = tmp_path / "records"
+    records.mkdir()
+    passing = a_test(str(worktree / "tests/test_a.py"), "passed", category="passed")
+    ended = {"kind": "end", "exitstatus": 0, "unplaced": 0, "stopped": []}
+    assert (
+        gate.suite_counts(gate.read_record(str(records), RECORD_KEY, str(worktree)))
+        is None
+    )
+    write_record(records, "one", [a_session(), passing, ended])
+    write_record(records, "other", [a_session("head-ffffffffffffffff"), "{garbage"])
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert (record.unread, gate.suite_counts(record)) == (0, "1 passed")
+    write_record(records, "one", [a_session(), passing, "{cut off", ended])
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert record.unread == 1
+    assert gate.suite_counts(record) is None
+    write_record(records, "one", [a_session(), ended])
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert (record.sessions, gate.suite_counts(record)) == (1, None)
 
 
 def test_a_records_directory_that_is_not_there_holds_no_record(tmp_path):
