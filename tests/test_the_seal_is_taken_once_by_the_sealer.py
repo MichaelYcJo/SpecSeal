@@ -719,6 +719,10 @@ def test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence():
     assert "a values file and `--scale` may carry" in str(too_large.value)
     for gone in ("too few cells", "a larger disc", "measured up to it", "stitch"):
         assert gone not in both, (gone, both)
+    # The command's own help says the same: the band, and one disc size.
+    told = " ".join(run_wrapper("--help").stdout.split())
+    assert "a scale in the band 0.75-1.0" in told, told
+    assert "the disc is one size at every scale" in told, told
     out = run_wrapper("--shape", "--scale", "0.5")
     assert out.returncode == 2, f"exit {out.returncode}; stderr {out.stderr!r}"
     assert "0.75" in out.stderr, f"the command's refusal names no floor: {out.stderr!r}"
