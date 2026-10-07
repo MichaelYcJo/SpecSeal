@@ -359,7 +359,15 @@ def test_a_record_that_cannot_vouch_for_the_counts_is_a_failure_never_a_zero(
             ),
             encoding="utf-8",
         )
-    with pytest.raises(ValueError):
+    said = {
+        "no directory named": "SUITE_RECORDS names no directory",
+        "no key named": "SUITE_KEY names no key",
+        "a directory that is not there": "carries the key",
+        "no session carries the key": "carries the key",
+        "a line that did not parse": "did not parse",
+        "a session that stopped part-way": "stopped part-way",
+    }[case]
+    with pytest.raises(ValueError, match=said):
         seal().suite_counts(directory, key)
 
 
