@@ -324,7 +324,7 @@ answers it — a box a reader cannot act on is the same defect one layer up.
 
 ```bash
 gh release view vX.Y.Z                              # did the note publish
-python3 .github/scripts/plugin_directory_check.py   # what the directory has
+python3 .github/scripts/plugin_directory_check.py   # what the marketplace files hold
 ```
 
 - [ ] **A GitHub Release exists at `vX.Y.Z`** — `gh release view vX.Y.Z`.
@@ -358,19 +358,26 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
       `gh release upload`, then apply the note it prints with
       `gh release edit --notes-file`.
 - [ ] **The plugin directory's answer has been read** —
-      `python3 .github/scripts/plugin_directory_check.py`. It says, per
-      directory, whether this plugin is listed, which commit the entry pins,
-      and whether that commit is an ancestor of `main`. **It reports and never
-      fails**, deliberately: the directories sync on somebody else's schedule,
-      one of the two has gone twenty-eight days without a commit, and a red
-      nobody can act on is what `CLAUDE.md`'s first goal is against. Not
-      listed means submitting it through the form the command names, which is
-      a person's act, once. Listed while pinning an older commit means the
-      directory has not caught up — resubmit through the same form. Whether an
-      update reaches a listed plugin on its own is readable from nowhere
-      public — it is an open question, and the repository owner is who
-      answers it — and resubmitting is unnecessary under one answer and never
-      wrong under either.
+      `python3 .github/scripts/plugin_directory_check.py`. It reads the two
+      marketplace files on GitHub and says, per file, whether this plugin has
+      an entry, which commit the entry pins, and whether that commit is an
+      ancestor of `main`. **It reports and never fails**, deliberately: the
+      files sync on somebody else's schedule, one of the two has gone
+      twenty-eight days without a commit, and a red nobody can act on is what
+      `CLAUDE.md`'s first goal is against. Those files are not the directory,
+      the catalog people browse inside Claude, and the directory is readable
+      from nowhere a script can reach, so the command ends by saying it was
+      not read and printing the address of the page that answers. A portal
+      listing is answered on the portal's Submissions page, with its status
+      and the version that is live, and takes each new version from its
+      tracked branch on its own. A Console listing is answered on the Console
+      page. SpecSeal's listing is a Console listing, by the repository owner's
+      reading of the Console page on 2026-10-07, and a Console listing takes
+      no new version until a person moves it to the portal
+      (`claude.com/docs/directory/publish`, §*Move an earlier submission to
+      the developer portal*), so no release reaches the directory through it
+      until then. Whether it shows up at all is what a search for SpecSeal
+      inside Claude answers.
 
 <!-- specs/1788789330-the-update-notice-names-the-expensive-move -->
 **A notice telling somebody an update landed names the move it costs them.**

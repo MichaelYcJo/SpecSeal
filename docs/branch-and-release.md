@@ -76,13 +76,18 @@ act, fires the note, because a note has to name a tag.
   makes to a note, and only to one whose glance table is still exactly as it
   was generated. Any failure is a `::warning::` in the job log and leaves
   the note as it was published, so the seal can never turn the release red.
-- **The plugin directory is read by a command that never fails a release.**
-  `.github/scripts/plugin_directory_check.py` says, per directory, whether the
-  plugin is listed, which commit the entry pins and whether that commit is on
-  `main`, and it exits 0 whatever it finds: the directories sync on somebody
-  else's schedule, and a red nobody here can act on is what `CLAUDE.md`'s first
-  goal is against. Nothing fires it; a person runs it at the checklist's box.
-  Submitting or resubmitting is a person's act.
+- **The marketplace files are read by a command that never fails a release, and
+  the plugin directory by a person.** `.github/scripts/plugin_directory_check.py`
+  reads the two marketplace files on GitHub, public outputs of the directory's
+  review pipeline, and says per file whether the plugin has an entry, which
+  commit it pins and whether that commit is on `main`. It exits 0 whatever it
+  finds: those files sync on somebody else's schedule, and a red nobody here can
+  act on is what `CLAUDE.md`'s first goal is against. The directory's own state —
+  whether the plugin is published there, and at which version — is not among its
+  answers, because no script can reach the directory; the command says so and
+  prints the page a person opens. Nothing fires it; a person runs it at the
+  checklist's box. Submitting a plugin, or moving a Console listing to the
+  developer portal, is a person's act.
 - **A label a document specifies is created and spent by a workflow.** When
   the release reaches `main`, the close-issues workflow runs
   `.github/scripts/tracker_labels.py --apply`, which creates every declared
@@ -94,7 +99,7 @@ act, fires the note, because a note has to name a tag.
 `docs/release-checklist.md` §6 carries a box for each of the first two. The
 first confirms the workflow fired and is not where the note gets written; the
 second is where the command is run.
-Enforced by: tests/test_a_release_publishes_its_note.py::test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit, tests/test_the_release_tail_does_not_end_at_the_tag.py::test_the_label_acts_are_fired_by_the_merge_to_main_not_the_tag, tests/test_the_release_seal_is_drawn.py::test_any_failure_leaves_the_note_as_it_was_published
+Enforced by: tests/test_a_release_publishes_its_note.py::test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit, tests/test_the_release_tail_does_not_end_at_the_tag.py::test_the_label_acts_are_fired_by_the_merge_to_main_not_the_tag, tests/test_the_release_tail_does_not_end_at_the_tag.py::test_the_directory_check_reads_the_marketplace_files_and_not_the_directory, tests/test_the_release_seal_is_drawn.py::test_any_failure_leaves_the_note_as_it_was_published
 
 ### Work accumulates on a release branch
 
@@ -152,15 +157,18 @@ Enforced by: tests/test_a_rider_reaches_its_file.py::test_no_rider_stamp_names_a
 
 <!-- specs/1790076050-the-release-tail-is-three-acts-no-document-names -->
 **A third reader points at those commits now, and it is outside this
-repository.** A plugin directory lists an external plugin by pinning a commit
-of its source repository — measured 2026-09-22 over one directory's 310
+repository.** A marketplace file lists an external plugin by pinning a commit
+of its source repository — measured 2026-09-22 over one marketplace file's 310
 entries, 258 point outward and **every one of them carries a `sha`**, while
-the other 52 name a path inside the directory's own repository and pin nothing
+the other 52 name a path inside that file's own repository and pin nothing
 at all. Ninety-six of the 258 also carry a `ref`, and 91 of those name `main`
 or `master`, so the `sha` is what a reader resolves. The counts and the
 command that produced them were recorded in phase 3 of work item
 `1790076050-the-release-tail-is-three-acts-no-document-names`, whose marker
-stands above this paragraph.
+stands above this paragraph. The plugin directory itself, the catalog people
+browse inside Claude, holds a commit too: a plugin submitted at its developer
+portal is served from a scanned commit of the branch the submission tracks
+(`claude.com/docs/directory/publish`, read 2026-10-07).
 So the rule above stopped being only about readers this repository can fix.
 Breaking it now also breaks a consumer nobody here can reach, and the people
 it reaches are people the owner cannot name — which is the same failure as

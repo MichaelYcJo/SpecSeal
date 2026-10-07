@@ -141,18 +141,66 @@ def test_the_note_box_says_it_confirms_rather_than_performs():
     )
 
 
+def directory_box():
+    box = [b for b in boxes(after_the_tag()) if "plugin_directory_check.py" in b]
+    assert box, "no box carries the directory command"
+    return box[0]
+
+
 def test_the_directory_box_says_it_never_fails_a_release():
     """#417 rejected a gate keyed to the directory's state with a
     measurement. A box that reads as a gate gets treated as one, and the first
-    release it reports *not listed* on stops for nothing."""
-    box = [b for b in boxes(after_the_tag()) if "plugin_directory_check.py" in b]
-    assert box, "no box carries the directory command"
-    assert "reports and never fails" in box[0]
-    for state in ("Not listed", "pinning an older commit"):
-        assert state in box[0], (
-            f"the box does not say what to do in the {state!r} state; the "
-            "first answer it gives today is *not listed* in both directories"
-        )
+    release it reports an absent entry on stops for nothing.
+
+    #858 A5: the box used to say what to do when the command said *not
+    listed* or an entry pinned an older commit — submit, then resubmit —
+    about a directory the command never read. The directory answers a
+    challenge page to any script, so the box says that, names the page a
+    person opens for each kind of listing, and sends nobody to resubmit: on
+    the portal nothing is resubmitted, and a Console listing takes no new
+    version."""
+    box = directory_box()
+    assert "reports and never fails" in box
+    assert "marketplace files" in box, "the box does not say what the command reads"
+    assert "readable from nowhere a script can reach" in box, (
+        "the box does not say the directory itself is out of a script's reach, "
+        "so the command's answer reads as the directory's"
+    )
+    for page in ("Submissions page", "Console page"):
+        assert page in box, f"the box does not name the {page}"
+    for kind in ("portal listing", "Console listing"):
+        assert kind in box, f"the box does not say which page answers for a {kind}"
+    assert "on its own" in box, (
+        "the box does not say a portal listing takes new versions from its "
+        "tracked branch by itself"
+    )
+    assert "resubmit" not in box.lower(), (
+        "the box sends the reader to resubmit, which is wrong for both kinds of listing"
+    )
+
+
+def test_the_directory_box_records_which_kind_of_listing_it_is_with_a_date():
+    """#858 A6. Nothing in the tree can see SpecSeal's listing move from the
+    Console to the portal, so the sentence saying which kind it is carries
+    whose reading it is and when — a reader can then tell it has aged — and
+    says what that kind means for a release and where the move is
+    documented."""
+    sentences = re.split(r"(?<=\.) ", directory_box())
+    kind = [s for s in sentences if "SpecSeal's listing is a Console listing" in s]
+    assert kind, "the box does not say which kind of listing SpecSeal's is"
+    assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", kind[0]), (
+        f"the kind sentence carries no date: {kind[0]!r}"
+    )
+    assert "reading" in kind[0], (
+        f"the kind sentence does not say it is somebody's reading: {kind[0]!r}"
+    )
+    assert "no new version" in kind[0], (
+        "the kind sentence does not say what a Console listing means for a "
+        f"release: {kind[0]!r}"
+    )
+    assert "claude.com/docs/directory/publish" in kind[0], (
+        f"the kind sentence does not say where the move is documented: {kind[0]!r}"
+    )
 
 
 def test_each_box_names_something_that_exists():
@@ -262,3 +310,23 @@ def test_the_label_acts_are_fired_by_the_merge_to_main_not_the_tag():
     assert "Nothing fires it" in rule, (
         "the statement does not say the directory check is run by a person"
     )
+
+
+def test_the_directory_check_reads_the_marketplace_files_and_not_the_directory():
+    """#858 A7. The bullet used to say the command answers, per directory,
+    whether the plugin is listed. It reads two marketplace files on GitHub,
+    and the directory is out of any script's reach, so the bullet names the
+    input and says the directory's state is not among the answers."""
+    rule = release_tail_rule()
+    lead = "**The marketplace files are read by a command"
+    assert lead in rule, "the release-tail statement has no bullet for the check"
+    start = rule.index(lead)
+    bullet = rule[start : rule.index("- **", start)]
+    assert "two marketplace files" in bullet, (
+        "the bullet does not name what the command reads"
+    )
+    assert "not among its answers" in bullet, (
+        "the bullet does not say the directory's state is outside what the "
+        "command answers"
+    )
+    assert "Nothing fires it" in bullet
