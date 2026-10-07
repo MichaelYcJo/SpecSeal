@@ -19,13 +19,16 @@
   rewrites and retries, and nobody is asked; otherwise it is an `ask`,
   except in a tree another session is actively working in, or on a line
   that also holds a `git switch`, where it is a `deny` either way, because
-  approving would run the whole line.
+  approving would run the whole line. Where the line reaches more than one
+  tree that matters, the `ask` names each tree and why, so a second tree's
+  idle sessions are not hidden behind the first tree's changes.
 
   What a person meets: `git checkout <branch>` in a dirty tree now stops
   with *write `git switch <branch>`* instead of asking about the changes,
   and `git checkout README.md` stops the same way where it used to pass as
   a restore. `git rebase <upstream> <branch>` stops too, because git
-  switches to `<branch>` before it rebases. A git subcommand this
+  switches to `<branch>` before it rebases, and so does `git rebase -
+  <branch>`, whose `-` is the previous branch. A git subcommand this
   repository never ran — `git submodule
   update`, `git notes` — stops in such a tree until a release adds it to the
   list. On Windows, where the guard can never count the other sessions,

@@ -72,6 +72,16 @@ ends in the operator itself, so `2>&-`, `>-`, `<<<-` and `<>-` hide no
 form of every list row runs against git. A broken reader on an `&` cut
 costs a stop. The string's `-C` is named as a limit rather than read.
 
+**Round 2's fix pass** answered two 🔴, two 🟡 and two ⬜, the run's first
+fix of a fix. A `rebase` counts a lone `-` and every word after `--` as
+words, because git reads each as a revision, so `git rebase - feature/x`
+stops. A git an `&` cut is placed by its own glued words from where its
+first part runs, so `2>&1 git -C W switch x` is judged in `W`; with the
+reader broken a cut is placed by the part before it, and a `-C` after the
+cut is a named limit. The stop's reason names every tree on the line that
+matters, or the ACTIVE ones, rather than the first. The git-binding case
+asserts that each form ran.
+
 ## Where spec and implementation diverged
 
 | Divergence | Spec says / code did | Chosen | Grounds |
@@ -90,6 +100,9 @@ costs a stop. The string's `-C` is named as a limit rather than read.
 | The policy's §*Creation consent* | `spec.md` In 6 names §A, §*Which tree* and §*Known limits* / phase 4 also corrected §*Creation consent*'s #678 and #790 sentences | corrected | each said what candidate C and #790's slot rule did, and survivor-check named the second; I9's correction followed from the first |
 | A switch beside the stop | `spec.md` In 2: "the unrecognised stop taken first where the tree matters, since a stop there stops the whole line" / the stop was an `ask` there, and approving it ran the switch with the ladder never read | a `deny`, and every tree on the line read before the stop (round 1, red 1); `spec.md` In 2 and S9 fed back | a `deny` stops the whole line and an `ask` does not. At `4de95fa7` `git checkout f.txt && git -C W switch feature/x` asked about the session tree's changes with `W` ACTIVE, where the base denied; `git checkout f.txt && git -C W checkout feature/x` did the same through a second unrecognised shape, the same cause one tree over |
 | `rebase` on the list | `spec.md` In 5: "`rebase` … leave it" / git 2.50.1 left HEAD on `feature/x` after `git rebase main feature/x` (round 1, red 3) | a `rebase` naming a branch is unrecognised, `rebase` stays listed otherwise | In 5's own definition is HEAD naming the same branch when the command ends, and the branch-naming form fails it; the plain `rebase <upstream>` passes it, as the `stash branch` exception already does for `stash` |
+| What the stop's reason describes when several trees matter | the warden's round-2 paste-ready fix ranked the states (ACTIVE, IDLE, unusable, changes) and described the one that says the most / the orchestrator's spawn asked that the reason "name every tree that matters, not only the first, unless one is ACTIVE" | every tree that matters, each with its path and its own reason; the ACTIVE ones alone where there are any; one tree reads as before | a ranking still hides a tree: two dirty trees, or an IDLE tree beside a dirty one, show one reason while approving runs the line in both. The person approving is the one who needs each tree, and one tree keeps the old text and every existing pin |
+| The rebase class in round 2 | the warden's fix counted a lone `-` / the spawn asked for "`-`, `@{-N}` and anything else git reads as a revision" | a lone `-`, and every word after a `--` | git 2.50.1 switched HEAD to a branch named `-x` for `git rebase -- main -x` (deleted probe), so a word after `--` is a revision whatever it starts with; `@{-N}` starts with no `-` and was always counted (`git rebase main @{-1}` detached HEAD in the same probe, and stops) |
+| Where a cut's finding is indexed with the reader broken | the warden's fix handed back `index - 1` beside the part before the cut / a `bin/mutation-check` break back to `index` survived | `index - 1`, the part the cut runs from | `cmdline_base.walk_directories` carries the running states first across an `&` (`SUBSHELL`), so both parts' first directory is the same and the index changes nothing a case can watch; the tokens, which do change the tree, went red when broken |
 | `<&` and `>&` in `_OPERATORS` | the fix the warden proposed kept every operator ending a word / a break dropping `>&` survived `bin/mutation-check` | left out, with the reason in the comment | the splitter cuts a word at its `&` and `merged_view` glues the next word on, so a spaced `>& 1` arrives as `>&1`; `_redirections` places it, so a change to that gluing goes red there |
 
 ## Not verified
@@ -140,3 +153,15 @@ is open with the owner.
   implementation*, round 1's fix pass (red 1).
 - `spec.md` In 1 and In 5: a `rebase` naming a branch is unrecognised.
   *Inferred during implementation*, round 1's fix pass (red 3).
+- `spec.md` In 1: a lone `-` and every word after `--` count as a
+  `rebase`'s words. *Inferred during implementation*, round 2's fix pass
+  (red 1).
+- `spec.md` In 2: the stop's reason names each tree that matters, or the
+  ACTIVE ones. *Inferred during implementation*, round 2's fix pass
+  (yellow 4).
+- `spec.md` In 4: a git an `&` cut is judged in the tree its own `-C`
+  names from where its first part runs, and with the reader broken in the
+  tree the part before the cut names. *Inferred during implementation*,
+  round 2's fix pass (red 2, yellow 3).
+- `spec.md` Data & interfaces: `stop_unrecognised` takes `trees` and
+  `switch_on_line`. Corrected in round 2's fix pass (white 6).

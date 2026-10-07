@@ -1674,10 +1674,13 @@ def test_a_cut_group_is_judged_in_the_tree_its_own_c_names(
 ):
     """Round 2 of work item 1791270162, red 2. A git an `&` cut was placed
     by the tokens of the group's last part, which carry no `-C`, so it was
-    judged in the tree it was typed from: silent at `3c9a1161` with the
-    session's tree clean and `W` dirty or ACTIVE, where the base asked about
-    the first three. The group is one command, run where its first part
-    runs, so it is judged in the tree its own `-C` names."""
+    judged in the tree it was typed from: each row carrying its `-C` inside
+    the group was silent at `3c9a1161` with the session's tree clean and `W`
+    dirty or ACTIVE, where the base asked about `2>&1 git -C W switch` and
+    `git -C W worktree &>/dev/null add` (round 2's report). The group is one
+    command, run where its first part runs, so it is judged in the tree its
+    own `-C` names; the two rows reached through a `cd` watch that
+    directory."""
     import shutil
 
     w = tmp_path / "W"
