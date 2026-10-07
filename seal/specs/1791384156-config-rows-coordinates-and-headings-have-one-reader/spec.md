@@ -113,7 +113,7 @@ them so nobody reopens one.
    the rule costs no existing file.
 2. **An absent file and an unreadable file are two states, and only the
    second is refused.** `hooks/config.py#declared_pacts` and
-   `hooks/mode-gate.py#unreadable` each tell the two apart already, in
+   `hooks/mode-gate.py#unreadable` (NAME NOT IN TREE since phase 1) each tell the two apart already, in
    opposite directions, for the reason each docstring gives: a gate that
    refuses wrongly is an outage, a command that reads a written row as
    absent is the silence the pact reader exists to end. Today the freeze arm
@@ -240,7 +240,7 @@ say so.
   `declared_mode`, `reference_roots`, `declared_pacts` and `pact_declaration`
   read through them; `pact_declaration`'s own doubled-row sentences become
   the generic one's.
-- `hooks/mode-gate.py#unreadable` is removed; the gate asks the reader.
+- `hooks/mode-gate.py#unreadable` is removed; the gate asks the reader · NAME NOT IN TREE.
 - `hooks/routing.py#parse`: a doubled label has no value.
 - `skills/evidence-check/scripts/evidence_check.py`: the locator and hash
   pieces of `ANCHOR_RE` exported as named strings beside `ANCHOR_PATH` and
