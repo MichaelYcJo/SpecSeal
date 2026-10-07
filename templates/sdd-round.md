@@ -316,6 +316,13 @@ durable, committed home instead. -->
      copies these numbers into its `## Fixes` table, so the format is one
      choice two agents pay for.
 
+     **A `⬜` row takes no row in that table.** It stays open here through
+     every round of the run and closes once at the run's end, through
+     `round-record notes`, whose table names the round beside the id
+     because an id restarts in every record.
+     `skills/code-review/orchestration.md` §*A note closes once, at the
+     run's end* owns that rule.
+
      **A row that commissions nothing takes no id**, and its `#` cell says
      so: `carried`, `🟢 fix-surface`. A confirmation this round verified and
      did not open, an earlier round's closure carried into this table, and a

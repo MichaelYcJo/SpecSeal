@@ -562,7 +562,11 @@ rebuilt — only re-checked for whether the finding is now fixed.
 sits under `## Fixes` as `| # | Verdict | Commit or grounds |`, one row per
 OPEN finding of the round it answers: `fixed` with the commit, `answered` with
 the grounds, `deferred <home>` with the issue or file it went to — a finding
-the reviewer closed in the report takes no row, and `close` refuses one.
+the reviewer closed in the report takes no row, and `close` refuses one. A ⬜
+note takes none either: `close` leaves it open and refuses a row for it, and
+the run's notes close once at its end through `round-record notes`
+(`skills/code-review/orchestration.md` §*A note closes once, at the run's
+end* owns that rule).
 **The Verdict cell holds the word alone**, and everything after it goes in
 `Commit or grounds`; only `deferred` carries its own suffix, because the home
 is what makes a deferral readable. Two things that are not `fixed` although

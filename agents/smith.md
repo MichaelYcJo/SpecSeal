@@ -201,6 +201,10 @@ incorporation. This file only adds what the skill does not carry.
    commit in the range, and a commit somebody can open is the whole of what
    `fixed` asserts. The Verdict cell holds the word alone in both cases;
    only `deferred` carries its own suffix.
+   A ⬜ takes no row at all: `close` leaves a note open and refuses a row for
+   one, and the run's notes close once at its end, through `round-record
+   notes` — `skills/code-review/orchestration.md` §*A note closes once, at
+   the run's end* owns that rule.
    The build's phases keep theirs.
    A fix that changes what the work item ships brings the work item's
    `changelog.md` along in its range, and `chain-check` names one that did

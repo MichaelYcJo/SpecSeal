@@ -38,7 +38,8 @@ options exist.
 
 **The fix pass hands back a `## Fixes` table, and `close` applies it.** The
 handover carries `| # | Verdict | Commit or grounds |`, one row per open
-finding, the verdict `fixed`, `answered` or `deferred <home>`; you run
+finding but a ⬜, which takes none (§*A note closes once, at the run's end*
+below), the verdict `fixed`, `answered` or `deferred <home>`; you run
 `round-record close --item <dir> --round N --fixes <file> --range <a>..<b>`
 and the record's verdict cells, `Fix range`, `Contract changes` and
 `New units` are written from that table and the fix range. The pass writes no
@@ -195,7 +196,8 @@ whose `Location` is under `seal/specs/`, `seal/ledger/`, `seal/releases/` or
 reads is prose, corrected in passing or not at all. `Needs a fix` does not
 count it. `docs/review-chain-spec.md` §*The last round verifies* owns the rule
 and the count behind it — 33 of the last branch's 65 findings were located in
-records.
+records. Such a finding is a ⬜, and the section below says when a ⬜ closes:
+once, at the run's end.
 
 ### A note closes once, at the run's end
 
@@ -288,7 +290,7 @@ framer:
 
 | Step | What |
 |---|---|
-| The record | every open finding closes `deferred the frame` through `close`, so `Fixes checked by` reads `no fixes to check` and `Pass` is ticked over the deferrals, as a capped record's is |
+| The record | every open finding but a ⬜ closes `deferred the frame` through `close`, so `Fixes checked by` reads `no fixes to check`; at the same moment, before the framer is spawned, `round-record notes` closes the stopped run's notes (§*A note closes once, at the run's end*), and `Pass` is ticked over the deferrals, as a capped record's is |
 | The pull request | labelled `chain: reframed` |
 | The framer | spawned again with the run's round records as its input — they are in the tree, so the prompt names them and carries nothing else. It rewrites `plan.md` (new phase rows; a closed phase keeps its commit) and `spec.md` where the scope moves, and adds `Reframed <date> by <who>, after round <N>.` under the `Framed` line. Under `Automation \| yes` the spawn asks nobody |
 | The redesign | approved by a second `Approved` line in `plan.md` when `smith` is spawned for it, built, and reviewed. `round_record.py new` refuses its first record until the `Reframed` line names the stop, and that record starts the count at `no` |
