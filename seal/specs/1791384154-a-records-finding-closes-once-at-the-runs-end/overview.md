@@ -29,7 +29,7 @@ A ⬜ note stops costing a fix pass, a reader and sometimes the run's one reopen
 
 ## Not done
 
-Pending — filled when the build closes.
+A run stopped at a `second` whose notes were not closed there stops being read once the redesign's first record exists: `seal` and `chain_check.carried_notes` read the run the last record belongs to, as `spec.md` Scope 7 and S9 frame it. `notes` is run at the `second`, before the framer is spawned; nothing refuses the redesign's first record over an earlier run's open note. Closing that would be a refusal in `new` or a wider read in both readers, which the frame did not ask for (phase 2).
 
 ## Fed back into the spec
 
