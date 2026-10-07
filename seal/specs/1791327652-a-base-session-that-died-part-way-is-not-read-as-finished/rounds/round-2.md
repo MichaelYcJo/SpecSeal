@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #851 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `c339dccdcb27f3d2db995de27964ecd66bea1da6..b1de5a0b4bf66b5eed680221a71cf65f24d72218`, 3 commits |
 | Contract changes | none |
 | New units | none |
