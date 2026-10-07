@@ -21,11 +21,11 @@ name: publish the release note
 # the release in this run (`created` is its output; a re-pushed tag or a full
 # re-run finds a release already there and writes `false`, and a re-run of
 # `seal` alone keeps `true` and meets the glance-table guard instead). It
-# runs the suite at the tag, draws one seal for the release from
-# `seal_stamp.compose`'s
-# letter, attaches it as `seal.png`, and replaces the note's glance table with
-# the image and one line of the table's counts
-# (`.github/scripts/release_seal.py`). Every step of it is
+# runs the suite at the tag, draws the owner's seal from
+# `.github/scripts/release-seal.svg` with `rsvg-convert` (#832), attaches it
+# as `seal.png`, and replaces the note's glance table with the image and one
+# line of the table's counts (`.github/scripts/release_seal.py`). Every step
+# of it is
 # `continue-on-error`, and every failure the script meets is a log line and a
 # `::warning::` with an exit of 0: the note is already out, and a seal that
 # cannot be drawn costs the image and never the counts. So nothing in that
@@ -99,6 +99,16 @@ jobs:
       - name: install the suite's packages and Pillow
         continue-on-error: true
         run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22
+      # `rsvg-convert`, which draws the seal from its SVG (#832). The runner
+      # image carries no SVG renderer, so `librsvg2-bin` is installed here,
+      # without the packages apt recommends, after the package lists are
+      # refreshed: an image's lists can name a version the mirror has since
+      # dropped. Before the suite, so the suite at the tag runs the one case
+      # that draws with the real binary; an install that fails costs the
+      # image, and the draw's `::warning::` says so.
+      - name: install rsvg-convert
+        continue-on-error: true
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends librsvg2-bin
       # `test.yml`'s ubuntu leg, plus the JUnit file the counts are read from.
       # No token is in this step's environment, and the checkout left none in
       # `.git/config`.
