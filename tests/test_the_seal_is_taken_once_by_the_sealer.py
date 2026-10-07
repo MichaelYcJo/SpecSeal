@@ -277,7 +277,8 @@ def state_changes(cells):
     would paint it, so a blank after the disc is a change of background."""
     state, changes = (None, None, None), 0
     for char, fg, bg, style in cells:
-        if char in (None, " ") and bg is None:
+        if char in (None, " "):
+            assert bg is None, "a space carries a background"
             fg, style = state[0], state[2]
         if (fg, bg, style) != state:
             changes += 1
@@ -289,10 +290,13 @@ def test_a_line_writes_one_sgr_per_change_and_no_reset_inside_it():
     """#832 S11, the owner's lean encoding (`frames.py#encode`): a code only
     where the foreground, the background or the style of the next visible
     cell differs from what is set; every part of one change in one SGR, so
-    no two are adjacent; no reset inside a line, and `\\x1b[0m` closing a
-    line that wrote a code. A blank with no background writes nothing and
-    keeps what is set. Read over a real run's stamp and over the disc
-    alone, against the count of changes taken from `compose`'s cells here.
+    no two are adjacent, and no part twice in one; no reset inside a line,
+    and `\\x1b[0m` closing a line that wrote a code. A blank keeps the
+    foreground and the style as set and writes nothing, unless a background
+    is still set from the disc, which it ends. Read over a real run's stamp,
+    with its disc and without (whose blank lines write nothing at all), and
+    over the disc alone, against the count of changes taken from
+    `compose`'s cells here.
 
     #30 §*Output size* found a code per cell 282 KB for one seal; the
     writer before this one reset over every cell nothing covered. A real
@@ -303,8 +307,11 @@ def test_a_line_writes_one_sgr_per_change_and_no_reset_inside_it():
     lines = mod.stamp(cases.FULL_ROWS, 0.9, shape=False)
     w, h, px = mod.build(0.9)
     alone = [mod.disc_cells(px, w, y) for y in range(0, h, 2)]
+    bare = mod.compose(cases.FULL_ROWS, None).cells
+    assert [] in bare, "the block with no disc has no blank line to read"
     pairs = [
         *zip(letter.cells, lines, strict=True),
+        *zip(bare, mod.stamp(cases.FULL_ROWS, None), strict=True),
         *((cells, mod.colour_row(cells)) for cells in alone),
     ]
     for cells, line in pairs:
@@ -314,6 +321,16 @@ def test_a_line_writes_one_sgr_per_change_and_no_reset_inside_it():
         written = len(SGR.findall(body))
         assert written == state_changes(cells), (written, state_changes(cells), line)
         assert line.endswith(RESET) == (written > 0), line
+        for found in SGR.finditer(body):
+            parts = found.group(0)[2:-1].split(";")
+            bare_parts = []
+            while parts:
+                part = parts.pop(0)
+                if part in ("38", "48"):
+                    parts = parts[4:]
+                else:
+                    bare_parts.append(part)
+            assert len(bare_parts) == len(set(bare_parts)), found.group(0)
     label = mod.label(cases.full_values())
     size = len("\n".join([label, *lines]).encode("utf-16-le")) // 2
     assert size < 5500, size
@@ -546,6 +563,11 @@ def test_the_title_is_the_sheets_first_line_whatever_a_value_says():
     assert "".join(c[0] for c in lines[3]).endswith("SEALED"), lines[3]
     untitled = mod.text_lines(rows[1:])
     assert not any(c[1] or c[3] == "bold" for line in untitled for c in line)
+    # The title row is `("SEALED", "")` exactly: a first row that says more is
+    # a row, and a first row that is a blank is a blank.
+    valued = mod.text_lines([("SEALED", "v1.2.3"), ("tree", "aaa1111")])
+    assert "".join(c[0] for c in valued[0]) == "SEALED  v1.2.3", valued[0]
+    assert mod.text_lines([None, ("tree", "a")])[0] == []
 
 
 def test_the_disc_is_lit_from_the_upper_left():
@@ -762,6 +784,10 @@ def test_the_text_lines_are_a_red_title_a_rule_and_the_rows_under_it():
             )
             assert styles[:1] == [first], (row, styles)
             assert set(styles[1:]) <= {None}, (row, styles)
+    # Only a mark followed by a space is a mark: `·x` and a bare `✓` are text.
+    for value in ("·x", "✓", "✓x"):
+        (line,) = mod.text_lines([("x", value)])
+        assert [c[3] for c in line[8:]] == [None] * len(value), (value, line)
     # A `""` label puts its value in the column of the value above it.
     branch = ["".join(c[0] for c in line) for line in mod.text_lines(ROWS)][3]
     tree = ["".join(c[0] for c in line) for line in mod.text_lines(ROWS)][2]

@@ -464,16 +464,16 @@ def colour_row(cells):
     owner's `frames.py#encode`). A code only where the next visible cell's
     foreground, background or style differs from what is set; every part of
     that change in one SGR; no reset inside the line, and `RESET` at its end
-    where it wrote a code. An empty cell, and a space with no background, is
-    written as a space that keeps the foreground and the style as they are
-    set, because a space shows neither — but a background paints it, so a
-    background still set from the disc ends there with `49`. A style that
-    ends is written `22;39` first, which takes the foreground back to the
-    terminal's own as well; the foreground is not written for a green cell,
-    whose colour is its style."""
+    where it wrote a code. An empty cell or a space — no space carries a
+    background, because only a disc cell has one — is written as a space
+    that keeps the foreground and the style as they are set, since a space
+    shows neither; but a background would paint it, so one still set from
+    the disc ends there with `49`. A style that ends is written `22;39`
+    first, which takes the foreground back to the terminal's own as well, so
+    `39` is not written a second time in the same SGR."""
     out, state, wrote = [], (None, None, None), False
     for char, fg, bg, style in cells:
-        if char in (None, " ") and bg is None:
+        if char in (None, " "):
             char, fg, style = " ", state[0], state[2]
         if (fg, bg, style) != state:
             parts, shown = [], state[0]
@@ -483,13 +483,12 @@ def colour_row(cells):
                     shown = None
                 if style:
                     parts.append(STYLE_CODES[style])
-            if fg != shown and style != "green":
+            if fg != shown:
                 parts.append(colour_code(38, fg))
             if bg != state[1]:
                 parts.append(colour_code(48, bg))
-            if parts:
-                out.append(f"\x1b[{';'.join(parts)}m")
-                wrote = True
+            out.append(f"\x1b[{';'.join(parts)}m")
+            wrote = True
             state = (fg, bg, style)
         out.append(char)
     return "".join(out) + (RESET if wrote else "")
@@ -606,9 +605,9 @@ def compose(rows, scale):
         k, t = ln - top_disc, ln - top_text
         line = disc_cells(px, n, 2 * k) if 0 <= k < tall else [EMPTY] * n
         said = text[t] if 0 <= t < len(text) else []
-        if said:
-            line += [EMPTY] * (GAP if px else 0) + said
-        while line and line[-1][0] in (None, " ") and line[-1][2] is None:
+        line += [EMPTY] * (GAP if px else 0) + said
+        # No space carries a background, so a blank at the end is padding.
+        while line and line[-1][0] in (None, " "):
             line.pop()
         cells.append(line)
     width = max((len(line) for line in cells), default=0)
