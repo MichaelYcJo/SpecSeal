@@ -666,6 +666,23 @@ def test_close_carries_a_note_open(repo):
     ) in out, out
 
 
+def test_a_record_answered_beside_a_carried_note_reads_no_fixes_to_check(repo):
+    """`close` answers the 🔴 with grounds and carries ⬜ 3: nothing closed on
+    a fix word, and the open note commissions no reader, so the record reads
+    `no fixes to check` — the run's end, where `notes` can run. Seen red
+    with `close`'s landing handed every word: the note held the cell at
+    `nobody`."""
+    a, b = a_red_and_a_note(repo)
+    code, out = run_close(
+        repo, 1, "| 2 | answered | not a defect here |\n", f"{a}..{b}"
+    )
+    assert code in (0, 1), out
+    chain = check_module()
+    text = record(repo, 1)
+    assert fields(text)[chain.CHECKED_BY] == chain.NO_FIXES, text
+    assert "- [ ] Pass" in text
+
+
 @pytest.mark.parametrize(
     "row", ["| 3 | fixed | {sha} |\n", "| 3 | answered | it stands |\n"]
 )
