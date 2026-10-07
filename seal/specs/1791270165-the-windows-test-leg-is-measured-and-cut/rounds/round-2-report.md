@@ -148,7 +148,7 @@ the variable's absence. This is a correction to the run's paperwork.
 - ⬜ 8, the call-only limit. *Read.* `CONTRIBUTING.md`, the changelog
   fragment and `overview.md` each name it, as the answer said.
 - Round 1's four confirmations rest on code the fixes did not change
-  (`test.yml`'s timeouts and shards, `_sample`, `a_sealed_run`'s
+  (`test.yml`'s timeouts and shards, `_sample`, `a_sealed_run`'s · NAME NOT IN TREE
   assertions, the hook) and are carried, not re-derived.
 
 ## CI at this HEAD

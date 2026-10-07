@@ -38,7 +38,7 @@ Round 1 of the chain the owner chose (`routing.md`, answered again as `automatio
 | ⬜ 10 | *What the next phase needs* predates phase 3 | `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/overview.md:24` | **fixed** `af688f2e` | fixed at af688f2e; read; a correction to the record |
 | 🟢 | The ceiling and the three timeouts are Q6 (a) applied to the slowest of the four runs | `tests/conftest.py:842`, `.github/workflows/test.yml:61` | confirmed | executed (logs read): every base figure in both comments matches the job times and `--durations` lines |
 | 🟢 | S4: the shards make the whole suite | `.github/workflows/test.yml:75` | confirmed | executed (logs read): 12,838 + 208 = 13,046, ubuntu's at `98b817ad`; 13,051 at `d6587217` |
-| 🟢 | The 4a sample keeps S5's contract, and the 4b cuts keep every assertion | `tests/test_guard_resolves_the_tree_it_judges.py#_sample`, `tests/test_the_seal_is_taken_once_by_the_sealer.py#a_sealed_run` | confirmed | read; the red against `94d7b2e0` is the smith's executed claim and was not re-run |
+| 🟢 | The 4a sample keeps S5's contract, and the 4b cuts keep every assertion | `tests/test_guard_resolves_the_tree_it_judges.py#_sample`, `tests/test_the_seal_is_taken_once_by_the_sealer.py#a_sealed_run` | confirmed | read; the red against `94d7b2e0` is the smith's executed claim and was not re-run · NAME NOT IN TREE |
 | 🟢 | The ceiling reaches nested pytest only in its own module, and fails a case correctly under xdist | `tests/conftest.py:854` | confirmed | read (fixture repositories carry no copy of the conftest) and executed (xdist probe) |
 
 ## Paste-ready fixes

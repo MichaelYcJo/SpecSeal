@@ -32,6 +32,91 @@ A command that also creates a worktree is judged by this table whichever of the
 two is written first, with the creation judged inside it — see §Creation
 consent, *So the creation is judged between the ladder's two halves*.
 
+**Which commands reach these rows (#826).** The guard does not predict
+whether a command switches a branch. It reads each git segment the frozen
+reading yields (§*Which tree*) as one of three shapes, from its words alone:
+
+- **listed** — its subcommand is in `LEAVES_THE_TREE`, the git subcommands
+  this repository's recorded runs hold whose plain invocation leaves HEAD's
+  branch where it was, each beside its count, or it is a `checkout` with a
+  path after its `--` (`git checkout -- f`, `git checkout x -- f`). A listed
+  shape is silent in every tree state and spawns no git. `worktree` and
+  `stash` are listed unless the first word bash hands git after them is
+  `add` or `branch`, so a redirection in front of that word hides nothing.
+  A `rebase` is listed unless it has two words that are not options, or
+  `--root` and one: those name the branch git switches to before it
+  rebases (`git rebase main feature/x`), and the shape is unrecognised. A
+  lone `-` is a word, since git reads it as `@{-1}`, and so is every word
+  after a `--`: `git rebase - feature/x` switches too.
+- **a switch** — `git switch`, whatever its words. It takes the rows above,
+  in the tree its segment names.
+- **unrecognised** — every other git: a `checkout` with no path after a
+  `--`, a subcommand the list does not hold (`update-ref`, `symbolic-ref`,
+  `stash branch`, or one this repository never ran), and a git the frozen
+  reading does not read as one — in a string handed to a shell (`sh -c`,
+  `bash -c`, `eval`, `env -S`), in a `$( … )`, backtick or `<( … )` body
+  whose git is not all listed, behind a redirection or a zsh precommand
+  word, or in a command that would not split into words.
+
+A creation is §B's and is read as it was.
+
+**The stop for an unrecognised shape.** It is taken only where one of the
+first four rows above would speak about a switch in the tree the shape's
+segment names: another session ACTIVE or IDLE there, detection unusable, or
+tracked changes. In a clean tree nobody else is in, row 5 says nothing of a
+switch, and nothing is said of a shape that might be one. Where the tree
+matters the guard stops before the rows, with one reason that quotes every
+unrecognised shape on the line and its plain spelling: `git switch <branch>`
+or `git switch --detach <rev>` for a switch, `git checkout -- <path>` or `git
+restore <path>` for a restore, the git command run on its own for a string or
+a body, `git` first and the redirection last, `git commit -F <file>` for a
+command that would not split, and `git -C <dir>` for another tree. A
+subcommand the list does not hold is its own plain spelling, so the reason
+names running it in a scratch clone with `git -C <scratch clone>`, or after
+the other session ends.
+
+The stop has two readers. Where the session's person pressed `automation` on
+the routing question, it is a `deny` to the model, which rewrites in the
+plain spelling and meets the rows above on the retry, and no person is
+asked. Otherwise it is an `ask` with the same text, except in a tree another
+session is ACTIVE in: row 1 denies a branch-form `checkout` there with
+nobody asked, so the stop is a `deny` whoever is at the keyboard. On the
+`ask` path a creation on the same line is judged first, because approving
+runs every segment. A `git switch` on the same line makes the stop a `deny`
+whoever is at the keyboard, for the same reason: approving would run the
+switch past the rows above, in a tree the stop's reason does not describe,
+so the reason says to run the switch on its own. The consent record is
+never read for the stop: a creation having run says nothing about whether
+anybody is at the keyboard.
+
+Each unrecognised shape is judged in the tree its own segment names, first
+one first, and each tree is looked up once, so a shape in a clean tree takes
+no stop away from one behind it in a dirty tree. Every tree on the line is
+read before the stop is taken, so a shape in a tree another session is
+ACTIVE in makes it a `deny` even where an earlier tree only matters for its
+changes. The stop's reason names each tree that matters and why, its
+changes, its IDLE sessions or its detection unusable, because approving the
+`ask` runs the line in every one of them; where one is ACTIVE, the reason
+describes the ACTIVE trees alone. A git the commit gate's wider reading
+reads as a segment of its own (behind a redirection or a zsh precommand
+word) is judged in the tree its own `-C` names, and so is a git an `&` cut
+apart (`2>&1 git -C W switch x`, `git -C W worktree &>/dev/null add …`),
+from the directory its first part runs in; a string handed to a shell is
+not read for one. A body
+and a command that would not split belong to no one segment and are judged
+in the session's own tree.
+
+**The failure direction.** The guard stops more than it did — every
+unrecognised shape where the tree matters — and allows more in one place, a
+creation only a hidden spelling holds in a clean tree nobody else is in,
+where nothing the Premise protects is at stake. Under the press the extra
+stops ask no person anything; without it each is one `ask`. Over the
+31,193 distinct command and directory pairs this repository's runs recorded
+before 2026-10-03, the shapes stop 315 tree-blind, 55 of them pairs the
+guard before #826 did not stop at its most cautious, and they let through
+none it stopped (work item 1791270162, `phases/phase-3.md`).
+Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git, tests/test_worktree_guard.py::test_the_stop_names_each_tree_that_matters_in_both_languages, tests/test_worktree_guard.py::test_a_cut_group_is_judged_in_the_tree_its_own_c_names
+
 ### B. Worktree creation (`git worktree add`, or Agent/Task `isolation: "worktree"`)
 
 | Tree state | Decision |
@@ -283,9 +368,11 @@ worktree add …`, `git 2>/dev/null worktree add …`, `git 2>&1 worktree add
 (…)` in front of it, or a spaced `--config-env` before `worktree`, are not git to this
 guard either: #674 taught the commit gate to read past them,
 and this guard reads a command through `hooks/cmdline_base.py`, the reader
-frozen at `86256492`, which does not (#689, §*Which tree*). Since #678
-they leave the second group: the guard puts such a creation to the person, and
-under consent it says nothing, as at the base. `parse_git` expands nothing and compares that
+frozen at `86256492`, which does not (#689, §*Which tree*). Since #826
+they leave the second group as an unrecognised shape (§A): such a creation
+stops where the tree its segment names matters, under consent too, because
+the stop reads no consent record, and in a clean tree nobody else is in it
+says nothing, as at the base. `parse_git` expands nothing and compares that
 last component, so `~/git`, `*/git` and `$HOME/git` belong to the first group.
 What the class costs is the
 allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`
@@ -337,9 +424,9 @@ took the verdict, consent made it silent for a compound, and `git worktree add
 ../x -b x && git switch y` ran the switch over a tree another session was
 ACTIVE in — which *What does not change* below rules out. The walk now keeps
 the first switch and the first creation in either order and hands both to the
-table above. Since #790 the first switch is the first the base's lookups read,
-and a `checkout` only #790's lookups read takes the place only where they
-read none (§*Which tree*, §*Known limits*). Both spellings get the same decision and the same reason in every
+table above. Since #826 the switch is a `git switch`, and an unrecognised
+shape on the same line is stopped before either where its tree matters
+(§A). Both spellings get the same decision and the same reason in every
 tree state, consent state and attempt, and the combined verdict is never
 weaker than the switch's alone or the creation's alone.
 
@@ -598,41 +685,25 @@ session is in that shape at all, since it refuses a switch and tells the user
 to work in a separate worktree, so the session stays where it was while the
 commands do not. The whole command is read the way the release base `86256492`
 read it, and not the way the commit gate reads it since #674 (#689): which
-segments are git, the `-C` values each names, where every `cd` lands. Two
-rules are read past the base. The first, since #764 and #738 on the owner's
-answer of 2026-10-04: a `checkout`'s and a `switch`'s own words are read as
-git's option parser sees them once bash has taken the redirections off. So a
-creating option counts in any spelling git accepts (`-bNAME`, `-qb NAME`,
-`--orphan=NAME`, `--cre NAME`), an option's value is not a name (`git checkout
---conflict merge feature/x` names `feature/x`), and a redirection is no word
-(`git checkout 2>/dev/null feature/x`, `git checkout feature/x>/dev/null`).
-The second, since #790 on the owner's placement of it in the milestone of the
-release that ships it, on 2026-10-05: a `checkout`'s name is looked up the way
-`git checkout` resolves it. The name is a branch to switch to where it names a
-commit once resolved and peeled, as every single-revision form does, a message
-search (`git checkout ':/fix typo'`) included, and where `rev-parse` reads the
-word as a range git's object lookup reads it whole, as `git checkout` does;
-where it is `<a>...<b>` with exactly one merge base, a side left empty meaning
-`HEAD`; and where a remote-tracking branch of any remote ends in it, or a
-remote's fetch refspec maps `refs/heads/<name>` to a ref that exists, which is
-git's guess. The base's lookup is still asked first, so no name it read as a
-branch goes quiet. A `checkout` only these lookups read as a switch takes the
-place of no switch the base read in the same command, and it takes no question
-away from candidate C below: it is judged only where the base read no switch
-at all. The guess reads every remote on the default of `questions.md` P1 in
-work item 1791163981, taken under the owner's `automation` routing. Which
-segments are git, the `-C` values each names and where every `cd` lands stay
-the base's, and `hooks/cmdline_base.py` is unchanged. This guard and the
-consent writer read it through `hooks/cmdline_base.py`, which is that commit's
-`hooks/cmdline.py` copied byte for byte. Neither chooses a segment or a tree
-through `hooks/cmdline.py`; the guard asks that module one question about a
-command's kinds, below, and its answer never names a tree. Since #780 the
+segments are git, the `-C` values each names, where every `cd` lands. Nothing
+is read past the base's words since #826: a segment's shape (§A) is its
+subcommand and, for `checkout`, `worktree` and `stash`, the one word that
+decides it, and no name is looked up in any tree. This guard and the consent
+writer read the command through `hooks/cmdline_base.py`, which is that
+commit's `hooks/cmdline.py` copied byte for byte, and `hooks/cmdline_base.py`
+is unchanged. Neither chooses a segment, a slot or a directory through
+`hooks/cmdline.py`. The guard asks that module only what the frozen reading
+does not read as git — a shell's string, an `eval`'s argument, a substitution
+body, a git behind a redirection or a zsh precommand word, a group an `&`
+cut apart — and each answer is an unrecognised shape (§A). One answer names
+a tree: where only that module reads a git, the `-C` it reads is composed
+onto the directory the frozen walk placed the segment in. Since #780 the
 guard's consent read also has it take a command's here-document bodies out
-(§*Choice sites*), which names no tree either.
+(§*Choice sites*), which names no tree.
 
 The reason is that this guard takes one answer where the gate takes all of
-them. It judges the first segment of each kind and the first directory in it
-that names a tree. The gate's wider reading finds more segments and more
+them. It judges the first switch and the first creation, and the first
+directory in each that names a tree. The gate's wider reading finds more segments and more
 directories than the base's, and while the guard shared it, which one came
 first decided the tree. Each way of ordering the two that was tried met a
 command where what came first was a segment or a directory bash never ran the
@@ -645,57 +716,33 @@ with a redirection among its words (`cd W 2>/dev/null`, `2>/dev/null cd W`,
 `cd>/dev/null W`, `2>&1 cd W`) does not move the tree this guard judges or the
 clone consent is filed under, while bash runs the switch in W. A git behind a
 redirection or behind zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or
-`foreach i (…)` is not git to this guard, so it judges no tree there
-(§*Creation consent*'s command-word groups). Round 2 of work item 1790660768
-made the guard read the first and #674 the second, and #689 took both back as
-the accepted cost. The commit gate's own reading, kept for a clone whose hooks
+`foreach i (…)` is not git to the frozen reading, and the consent writer
+files nothing for it (§*Creation consent*'s command-word groups); the guard
+reads it as an unrecognised shape (§A). Round 2 of work item 1790660768 made
+the guard read the first and #674 the second, and #689 took both back as the
+accepted cost. The commit gate's own reading, kept for a clone whose hooks
 slot is foreign, reads both.
 
-**Since #678, a switch or a creation that only the commit gate's reading finds
-is put to the person instead of passing silently.** That covers a git behind a
-redirection or a zsh prefix, and one after a spaced `--config-env`. The guard
-asks `hooks/cmdline.py` which kinds it finds that the frozen reading does not,
-and only at an exit where it was about to say nothing, so every deny, choice
-and ask the frozen reading earns still decides first. A creation reads consent
-first and stays silent under it, as at the base. Each view the wider reading
-makes is read as git is handed it: a redirection glued to a word's end is cut
-off and then every redirection is taken out before the kind is read, so a
-redirection's word is never read as a branch name (#737), and the frozen
-segments it is compared with are read the same way (#738). The question then
-follows one rule: the guard asks wherever a view's words hold a switch or a
-creation that none of the frozen segments the view was made from holds. Each
-side is read by its words alone, as git is handed them: a `switch` naming a
-word or `-` or carrying a creating option, a `checkout` carrying a creating
-option (`-b`, `-B` or `--orphan`, in any spelling git's option parser
-accepts), a `checkout` that names `-` or a word other than `.` before any
-`--` and has no word after one, or a `worktree add`; an option's value is not
-a name, and a redirection is no word. A `--` with nothing after it only says
-the name before it is no file, and git switches to that name. The reading looks up no
-tree (#689), so it asks whether or not
-the command moves the tree, and a restore or a detach whose words read as a
-switch is asked as one when the frozen reading misses it. For example,
-`git checkout &>/dev/null README.md` is asked, because a file's name reads as
-a branch's, and `git checkout . &>/dev/null` is not, because its words name
-nothing; the two are examples, not the set. Measured before it was
-wired: over the 27,351 distinct command and directory pairs recorded in this
-repository's transcripts on the maintainer's machine before 2026-10-03, it
-would have stopped none (work item 1790993140, `phases/phase-3.md`), and
-re-counted for #737's reading it still stops none (work item 1791019475,
-`phases/phase-1.md`). Where `hooks/cmdline.py` fails to load, the guard keeps
-its own rows and asks nothing it could not read.
-`test_what_only_the_wider_reading_finds_is_put_to_the_person` and
-`test_a_creation_only_the_wider_reading_finds_is_silent_under_consent`, in
-`tests/test_guard_resolves_the_tree_it_judges.py`, pin both halves, and
-`test_a_redirection_word_is_not_read_as_a_branch_name` and
-`test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands`
-pin the restore, and
-`test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers`
-pins the rule over generated shapes.
+Candidate C (#678), which asked about a switch or a creation only the commit
+gate's reading found, and the two rules read past the base — a `checkout`'s
+and a `switch`'s option words (#764, #738) and a `checkout`'s name looked up
+as git resolves it (#790) — left with #826. Each grew on the question *does
+this command switch a branch?*, and the findings against them did not
+converge; the question §A asks instead is *is this command known to leave the
+branch where it is?*. Where `hooks/cmdline.py` fails to load, or a reader in
+it raises, the bare word `git` in a string, a body, a hidden position, a
+command that would not split or either side of an `&` the splitter cut is
+the finding, so a broken reader costs a stop where the tree matters and
+never a silence. Such a cut is judged in the tree the part before it names,
+which is where it runs; a `-C` written after the cut is not read
+(§*Known limits*).
+Enforced by: tests/test_worktree_guard.py::test_a_broken_wider_reader_costs_a_stop_never_a_silence, tests/test_worktree_guard.py::test_a_broken_reader_leaves_no_cut_group_silent, tests/test_worktree_guard.py::test_a_broken_reader_judges_a_cut_in_the_tree_before_it, tests/test_guard_resolves_the_tree_it_judges.py::test_a_git_only_the_wider_reading_finds_stops_where_its_tree_matters, tests/test_guard_resolves_the_tree_it_judges.py::test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer
 
 #692, the redesign of how the gates learn where a command acts, decided this
 reading on the owner's answers of 2026-10-01, and it stays. No git refuses a
 branch switch before its tree has moved (`seal/specs/1790815613-…/phases/
-phase-1.md`, M1), so §A keeps this reading on every git, permanently. A
+phase-1.md`, M1), so §A keeps reading the command's text on every git,
+permanently, and since #826 reads its shape rather than predicting a switch. A
 creation keeps it too, because a hook after git made one cannot undo all of
 what it did (§*Creation consent*, *Decided before git runs*).
 `tests/test_the_frozen_reading_never_grows.py` pins `hooks/cmdline_base.py`
@@ -735,8 +782,8 @@ at one prompt against a wrong allow breaking another session's tree.
 
 - Neither a switch nor a creation is judged by git. No git refuses a switch
   before its tree has moved (M1), and a hook after a creation cannot undo all
-  of it (P6), so §A and §B predict from the command's text on every git,
-  through the frozen reading §*Which tree* describes.
+  of it (P6), so §A and §B read the command's text on every git, through the
+  frozen reading §*Which tree* describes.
 - A switch into the worktree the same command creates is judged against the
   session's own tree: `git worktree add ../x -b x && cd ../x && git switch y`
   meets that tree's switch verdict, because `../x` does not exist yet when the
@@ -756,56 +803,59 @@ at one prompt against a wrong allow breaking another session's tree.
   `git -C <dir> switch …`, or a plain `cd <dir>` of its own, is the spelling
   the guard reads. `test_a_switch_tree_the_guard_cannot_place_is_judged_as_its_own`
   in `tests/test_guard_resolves_the_tree_it_judges.py` pins it.
-- A `checkout`'s and a `switch`'s options are read from a static table, taken
-  from git 2.54.0's `git checkout -h` and `git switch -h` (§*Which tree*).
-  An option a later git adds reads as one that takes nothing until the table
-  lists it, so its separate value reads as a name, which is how every
-  value-taking option read before #764.
-  `test_the_option_table_binds_the_installed_git` fails on the first machine
-  whose git lists one. Three shapes stay outside the reading. Each was
-  counted over the command and directory pairs recorded before 2026-10-03
-  that were still on disk on 2026-10-04, 25,741 of the 27,351 above (work
-  item 1791119071, `phases/phase-1.md` and `phases/phase-3.md`):
-  - a `<` or `>` inside a quoted name (`git checkout 'a>b'`) is cut like an
-    unquoted one, because the frozen splitter has taken the quotes off before
-    the word is read. A cut name that is a ref is asked, and one that is not
-    reads as a restore. No pair held one;
-  - a switch behind an `&`- or `|`-led redirection (`git checkout 2>&1
-    feature/x`) reaches only the wider reading, which looks up no tree, so a
-    file behind the same operator (`git checkout 2>&1 README.md`) is asked
-    too. In no pair did such an operator stand where only that reading held
-    the switch. The same cut leaves the frozen reading the words before it
-    alone, so `git checkout feature/x <&1 -- README.md`, a restore, is judged
-    a switch to `feature/x`, as at the base. A cut after a `--` leaves the
-    frozen reading a `--` with nothing after it, so `git checkout feature/x
-    -- <&1 README.md`, a restore, is judged a switch to `feature/x` too;
-  - `git checkout -U 3 feature/x` reads `feature/x` as the name, although git
-    refuses `-U` without `-p`, so a command git refuses is asked.
-- A `checkout`'s name is looked up as git resolves it (§*Which tree*), and a
-  few names git refuses are still read as a branch, so the command is asked
-  although it would not run: `^<rev>`, read as one since before #790; and a
-  guessed name under `--detach`, held by two remotes, or ending a longer
-  remote branch's name (`x` beside `origin/feature/x`), where git takes no
-  guess or refuses an ambiguous one. The guard reads each remote's fetch
-  refspec, as git's guess does, but no `checkout.guess`,
-  `checkout.defaultRemote` or `--no-guess`, so it guesses where git would not,
-  never the other way. A revision syntax a later git adds that neither `git
-  rev-parse --verify` nor git's object lookup reads as one name, as neither
-  reads `<a>...<b>`, reads as no branch until the guard learns it. Measured with git 2.54.0 (work item 1791163981,
-  `phases/phase-1.md`); `test_nothing_the_base_read_as_a_switch_goes_quiet`
-  in `tests/test_guard_resolves_the_tree_it_judges.py` pins the direction.
-- A `checkout` only #790's lookups read as a switch is judged only where the
-  frozen reading read no switch in the command (§*Which tree*), so one in a
-  second, dirty tree, written before a switch the frozen reading reads in a
-  clean tree, goes unasked, as it did at the base. Judging it first instead
-  took the question from the frozen reading's switch, which the base asked
-  (round 1 of 1791163981, 🟡 3).
+- `LEAVES_THE_TREE` holds the subcommands this repository's recorded runs
+  hold, each with its count, and nothing guessed (owner's answer P1 (a) of
+  work item 1791270162). A git subcommand this repository never ran — `git
+  submodule update`, `git notes` — is unrecognised in every repository the
+  plugin is installed in, so it stops in a tree that matters until a release
+  adds its row; under the press the model cannot rewrite it, because it is
+  its own plain spelling. The stop's reason names the list, so the row to add
+  is one search away. Which subcommands leave the branch was read off what
+  each does, and one form of each row is run against git: a listed form
+  that moves HEAD fails `test_no_listed_form_moves_head_under_git`, which is
+  how `rebase`'s branch-naming form was found. A form no row's case runs is
+  still a reading.
+- A creation only a hidden spelling holds (`git 2>&1 worktree add …`, `git
+  worktree 2>/dev/null add …`) is an unrecognised shape, so in a clean tree
+  nobody else is in it says nothing and §B never reads it, as at 0.16.0
+  before #678. The consent writer files nothing for it either.
+- A `rebase` is listed, and detaches HEAD while it runs: a session switching
+  in the same tree during that window meets a detached HEAD rather than the
+  branch. The guard judges the command before it runs and reads no window.
+  A `rebase` naming a branch is unrecognised (§A), and its words are read
+  without an option table, so an option's value counts as a word: `git
+  rebase --onto main x` stops too.
+- A body (`$( … )`, a backtick pair, `<( … )`) and a command that would not
+  split belong to no one segment, so each is judged in the session's own
+  tree: `cd W && F=$(git checkout x)` with `W` dirty and the session's tree
+  clean says nothing.
+- A string handed to a shell (`sh -c`, `bash -c`, `eval`) is judged in the
+  tree its segment names, the one it was typed from: its own `-C` and `cd`
+  are not read. `sh -c 'git -C W switch x'` with `W` dirty and the
+  session's tree clean says nothing, as it did before #826. Only a git the
+  wider reading reads as a segment of its own has its `-C` composed.
+- Where `hooks/cmdline.py` did not load, or the reader that glues an `&`
+  cut back raises, a git the cut split is judged in the tree the part before
+  the cut names: `git -C W worktree 2>&1 add …` is judged in `W`, and `2>&1
+  git -C W switch x`, whose `-C` comes after the cut, in the tree it was
+  typed from. With `W` dirty and the session's tree clean the second says
+  nothing; with the reader loaded both are judged in `W`.
+- The frozen splitter has taken the quotes off before a word is read, so a
+  quoted `<` or `>` reads as a redirection: a path written `"> f"` after a
+  `checkout`'s `--` is no path, and the command is unrecognised. The same
+  splitter reads a redirection glued to the subcommand as the subcommand
+  (`git status>/dev/null`), and a spaced `--config-env`'s value as the
+  subcommand (`git --config-env k=v switch x` reads `k=v`), so each stops
+  where the tree matters with a plain spelling that names the wrong word.
+  Each stops; none goes silent.
 - On Windows the count of other sessions is always unusable. It walks the
   process table with `ps -o` and `ps -axo`, and Git for Windows' `ps` takes
   neither, so every tree state there reads as *detection unusable* and takes
   that row of §A and §B. A second Bash creation in one session therefore
   meets the confirmation where a POSIX system's single-stream row refuses it
-  (#692's Windows pass, CI run 36978391812).
+  (#692's Windows pass, CI run 36978391812). And every unrecognised shape
+  stops there, in every tree: a `deny` to the model under the press, an
+  `ask` otherwise. Read from the code, not run on Windows.
 - Transcript activity is per-project, not per-pid: one working session marks
   every session of that project active. Conservative by design.
 - tty atime also refreshes on in-turn stdin reads (a session listening for

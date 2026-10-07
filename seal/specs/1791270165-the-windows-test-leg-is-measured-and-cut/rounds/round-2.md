@@ -126,7 +126,7 @@ def test_a_ceiling_of_zero_or_less_is_refused_naming_the_variable():
 | round-1 | `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/overview.md:24` | round 1's ⬜ 10 — fixed |
 | round-1 | `tests/conftest.py:842`, `.github/workflows/test.yml:61` | round 1's 🟢 — confirmed |
 | round-1 | `.github/workflows/test.yml:75` | round 1's 🟢 — confirmed |
-| round-1 | `tests/test_guard_resolves_the_tree_it_judges.py#_sample`, `tests/test_the_seal_is_taken_once_by_the_sealer.py#a_sealed_run` | round 1's 🟢 — confirmed |
+| round-1 | `tests/test_guard_resolves_the_tree_it_judges.py#_sample`, `tests/test_the_seal_is_taken_once_by_the_sealer.py#a_sealed_run` | round 1's 🟢 — confirmed · NAME NOT IN TREE |
 | round-1 | `tests/conftest.py:854` | round 1's 🟢 — confirmed |
 
 ## Deferred

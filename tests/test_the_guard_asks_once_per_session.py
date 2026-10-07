@@ -1752,3 +1752,69 @@ def test_consent_fails_closed_on_any_exception(monkeypatch, repo):
     assert wc.consent(str(repo), "me") == ""
     grant(repo)
     assert wc.consent(str(repo), "me") == "record"
+
+
+# --- #826: the stop for an unrecognised shape, and its two readers ----------
+#
+# `spec.md` S5, S6 and S7 of work item 1791270162. Where the person pressed
+# `automation`, the stop is a deny to the model naming the plain spelling;
+# otherwise it is an `ask`. The consent record is not the press.
+
+STOP = "does not know to leave the branch where it is"
+
+
+def dirty(repo):
+    (repo / "f.txt").write_text("changed\n", encoding="utf-8")
+
+
+def test_under_the_press_the_stop_is_a_deny_to_the_model(
+    monkeypatch, capsys, projects, repo
+):
+    """S5. Nobody is asked: the model gets the turn and the plain spelling."""
+    write_transcript(projects, "me", ask_entries(repo))
+    dirty(repo)
+    for command, plain in (
+        ("git checkout feature/x", "`git switch <branch>`"),
+        ("git checkout README.md", "`git restore <path>`"),
+        ("sh -c 'git switch x'", "rather than as a string"),
+        ("2>/dev/null git switch x", "Write `git` first"),
+        ("git update-ref refs/heads/y HEAD", "`git -C <scratch clone>`"),
+    ):
+        decision, reason = decide(monkeypatch, capsys, repo, command)
+        assert decision == "deny", (command, decision, reason)
+        assert STOP in reason and plain in reason, (command, reason)
+        assert "AskUserQuestion" not in reason, (command, reason)
+
+
+def test_the_plain_retry_meets_todays_rows(monkeypatch, capsys, projects, repo):
+    """S6. The deny's rewrite reaches the ladder, which asks the person about
+    the changes in a dirty tree, press or none, and denies with the worktree
+    steer where another session is ACTIVE."""
+    write_transcript(projects, "me", ask_entries(repo))
+    dirty(repo)
+    assert decide(monkeypatch, capsys, repo, "git checkout feature/x")[0] == "deny"
+    decision, reason = decide(monkeypatch, capsys, repo, "git switch feature/x")
+    assert decision == "ask" and "uncommitted tracked changes" in reason, reason
+    assert STOP not in reason, reason
+
+    (repo / "f.txt").write_text("one\ntwo\nthree\n", encoding="utf-8")
+    active = (ACTIVE, [], True)
+    decision, reason = decide(
+        monkeypatch, capsys, repo, "git checkout feature/x", sessions=active
+    )
+    assert decision == "deny" and STOP in reason, reason
+    decision, reason = decide(
+        monkeypatch, capsys, repo, "git switch feature/x", sessions=active
+    )
+    assert decision == "deny" and "actively working" in reason, reason
+    assert "worktree add" in reason, reason
+
+
+def test_the_consent_record_is_not_the_press(monkeypatch, capsys, projects, repo):
+    """S7. A creation having run says nothing about whether anybody is at the
+    keyboard, so a record on disk and no `automation` answer is still the
+    person's `ask`."""
+    grant(repo)
+    dirty(repo)
+    decision, reason = decide(monkeypatch, capsys, repo, "git checkout feature/x")
+    assert decision == "ask" and STOP in reason, reason

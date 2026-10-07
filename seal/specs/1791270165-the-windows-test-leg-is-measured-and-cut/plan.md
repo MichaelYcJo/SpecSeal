@@ -71,9 +71,9 @@ is the only per-case figure, and it is a different machine.
   operators `_redirections()` derives from `hooks/cmdline.py#_REDIRECTION`,
   at every word position, glued and spaced, target glued and spaced — on the
   order of 500 shapes per verb. `test_no_twin_is_asked_unless_an_operator_cuts_the_segment`
-  walks it for every verb of `TWINS` and `DASHED_TWINS` (about sixty
-  verbs) through `_read_apart`, which runs `wg.walk_command`, `wg.classify`
-  per segment and `wg.wider_only_kinds`. The fixture `a_branch_and_a_file`
+  walks it for every verb of `TWINS` and `DASHED_TWINS` (about sixty · NAME NOT IN TREE
+  verbs) through `_read_apart`, which runs `wg.walk_command`, `wg.classify` · NAME NOT IN TREE
+  per segment and `wg.wider_only_kinds`. The fixture `a_branch_and_a_file` · NAME NOT IN TREE
   patches `wg.is_ref` to a set lookup so "a sweep of the generated shapes
   spawns no git per shape" — so this case is **CPU-bound by its own
   account**, and the Windows per-spawn multiplier would not apply to it.
@@ -81,7 +81,7 @@ is the only per-case figure, and it is a different machine.
   (`hooks/worktree-guard.py:1157`, `:1176`) is `questions.md` Q4, a
   measurement, and it decides whether sampling alone brings the case to
   seconds on Windows. The sibling `test_no_constructed_switch_is_silent`
-  walks the same generator over `DASHED_SWITCHES` and is not in the local
+  walks the same generator over `DASHED_SWITCHES` and is not in the local · NAME NOT IN TREE
   top 5, which says the twins' extra cost is in the wider reading of a
   non-switch, not in the generator.
 - `tests/test_the_seal_is_taken_once_by_the_sealer.py` (8,353 lines). Its
