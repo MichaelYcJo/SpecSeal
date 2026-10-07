@@ -2,7 +2,11 @@
 
 The seal's emblem becomes one vector source that the terminal stamp and the release PNG both rasterise, so the release image stops being a staircase of terminal cells (#832).
 
-## Where the run stopped (2026-10-07, after phase 3)
+## Where the run stopped (2026-10-07, phase 5 held)
+
+**Phase 5 is on hold, and none of it is committed.** The orchestrator stopped the release-PNG work mid-segment because the owner is reconsidering the seal's emblem and palette. Before the hold arrived, smith had already turned the owner SVG's three `<text>` layers into Georgia Bold paths and wired `rasterise` and `sealed_glance`'s `<img width>`. The new cases had been seen red, and nothing was committed. That work is saved outside the tree in the orchestrating session's scratchpad, `p5-held/` (a patch of the four tracked files and the converted SVG), and the tree went back to `200fedf1`. The path version and the text version were compared through `rsvg-convert` at 320 px: one pixel differs, by 9 in one channel. A control, the same SVG with Helvetica, differs in 7,661 pixels. Q4 is measured and closed in `questions.md`.
+
+**What landed while phase 5 waits**, none of it depending on the emblem: the ledger fragment, with seven released rows corrected and six re-read (`evidence-check --strict .` exits 0); the changelog fragment's two terminal-seal entries; `docs/seals/` with the gold lily and the red lily; and two hygiene fixes this work item's own earlier phases had left red. The fragment's corrections and the changelog describe the 14-cell § the tree draws now. If the owner changes the terminal emblem too, L2, L3, S2 and both changelog entries are rewritten with it.
 
 **Phase 3 is closed at `35277597` and green**: the two stamp modules with the four slices beside them, 710 passed. The terminal draws the owner's hand-drawn § on a 14-cell disc inside the sheet, four flat colours, the layout cell for cell the owner's reference. `phases/phase-3.md` holds Q3, the places the frame did not hold, how each case was seen red, and the ledger anchors phase 6 must correct. Phase 4, the owner's look at `specseal-stamp-14.ans`, is the orchestrator's; phase 5 waits on it.
 
@@ -33,6 +37,8 @@ Phase 1 closed at `88070eac` (`phases/phase-1.md`). Its two divergence rows abou
 | ✅ Each new case shown red (§15) | one `mutation-check` per break, every verdict `red`, listed case by case in `phases/phase-1.md` |
 | `seal-stamp`'s block form looked at by eye on a terminal. Phase 2 looked at its half-cells drawn as a picture on a dark and a light ground, and the twin at 0.90 and 0.75; no segment has seen a terminal render the block form. A real-run stamp at 0.90 is in the orchestrating session's scratchpad as `stamp-0.90.ans` | the owner, through the orchestrator |
 | The 14-cell stamp rendered by a terminal. Phase 3 read its letters with the colour codes stripped and its twin against the reference, and drew nothing on a screen. `fitted`'s message for one `full_values()` block is `specseal-stamp-14.ans` in the orchestrating session's scratchpad | the owner, through the orchestrator — `plan.md` phase 4, `questions.md` Q8 |
+| The release seal's PNG (phase 5): the owner SVG, its rasteriser, the `seal` job's install step and the note's `<img width>`. Held on 2026-10-07 while the owner reconsiders the emblem and palette; the release job still paints the terminal stamp cell for cell | the owner, through the orchestrator |
+| `docs/seals/`'s two `.ans` files printed by a terminal. smith compared their cells with each tag's own drawing and looked at the PNG previews, and printed neither file in a terminal | the owner, through the orchestrator |
 | ✅ The production emblem. `EMBLEM_D` is an interim ring, and the pull request must not open with it (questions.md Q1 (c)) | the owner answered Q1 with the § on 2026-10-06; `EMBLEM_D` holds it verbatim at `bcba578b`, pinned by `test_the_emblem_is_the_owners_section_sign_inside_the_field` <!-- NAME NOT IN TREE --> |
 
 ## Fed back into the spec
