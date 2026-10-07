@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #850 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `3c9a11617fe794c8420dbbf920d8a67179f2c9db..a3164380d609e568dbeee219247bd60150284918`, 7 commits |
+| Contract changes | stop_unrecognised → main, round-1-report.md, round-1.md, round-2-report.md, spec.md |
+| New units | TREES_EN (depth 1); TREES_KO (depth 1); test_the_stop_names_each_tree_that_matters_in_both_languages (depth 1); CUT_GROUPS (depth 1); test_a_cut_group_is_judged_in_the_tree_its_own_c_names (depth 1); test_a_broken_reader_judges_a_cut_in_the_tree_before_it (depth 1) |
 | Fix of a fix | first — 🔴 1 at hooks/worktree-guard.py#_rebase_names_a_branch, a unit round-1's fixes added; 🔴 2 at hooks/worktree-guard.py#main, a unit round-1's fixes changed; 🟡 3 at hooks/worktree-guard.py#_cut_unread, a unit round-1's fixes added; 🟡 4 at hooks/worktree-guard.py#main, a unit round-1's fixes changed |
 | Needs a fix | yes — 🔴 1, 🔴 2, 🟡 3 and 🟡 4: `git rebase - <branch>` switches while listed, a git cut by an `&` is judged in the tree of its last part and so is silent over an ACTIVE `-C` tree, the broken-reader path places a cut the same way, and the stop hides an IDLE or unreadable second tree behind the first tree's changes |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,12 +31,12 @@ It also read every workflow of `gh pr checks 850`, and it did not run the full s
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | `_rebase_names_a_branch` drops a lone `-`, so `git rebase - feature/x`, which git runs as a switch to `feature/x`, is listed and silent in an ACTIVE tree | `hooks/worktree-guard.py:2235` | open | executed: HEAD moved under git 2.50.1; the build silent in an ACTIVE tree; the base silent too |
-| 🔴 2 | a git cut by an `&` is placed by its last part's tokens, so `2>&1 git -C W switch feature/x` and `git -C W worktree &>/dev/null add ../wt b` are silent with `W` ACTIVE | `hooks/worktree-guard.py:2941` | open | executed against the build and the base: silent where the base asked; a regression |
-| 🟡 3 | `_cut_unread` places a cut by the later part, so with the reader missing `git -C W worktree 2>&1 add ../wt b` is silent with `W` dirty | `hooks/worktree-guard.py:2393` | open | executed: silent; the trial fix asks |
-| 🟡 4 | the stop describes the first tree that matters unless a later one is ACTIVE, so an IDLE or unreadable second tree is never shown in the `ask` | `hooks/worktree-guard.py:2981` | open | executed: the IDLE and unreadable rows name only the session tree's changes; the new case pins that text |
-| ⬜ 5 | the git-binding case passes a `FORMS` row git refused, since it checks no return code | `tests/test_worktree_guard.py:1772` | open | executed: every form ran under git 2.50.1; a refusal elsewhere would pass unmeasured |
-| ⬜ 6 | `spec.md` Data & interfaces gives `stop_unrecognised` its pre-round-1 signature | `seal/specs/1791270162-the-worktree-guard-allows-a-listed-shape-and-asks-the-rest/spec.md:312` | open | read; a paperwork correction, not counted in `Needs a fix` |
+| 🔴 1 | `_rebase_names_a_branch` drops a lone `-`, so `git rebase - feature/x`, which git runs as a switch to `feature/x`, is listed and silent in an ACTIVE tree | `hooks/worktree-guard.py:2235` | **fixed** `6b4bcec5` | fixed at 6b4bcec5 — `_rebase_names_a_branch` counts a lone `-` and every word after `--` as a revision; `@{-N}` already counted; six rebase rows, three listed rows and a `SWITCHING` form added; executed: HEAD moved under git 2.50.1; the build silent in an ACTIVE tree; the base silent too |
+| 🔴 2 | a git cut by an `&` is placed by its last part's tokens, so `2>&1 git -C W switch feature/x` and `git -C W worktree &>/dev/null add ../wt b` are silent with `W` ACTIVE | `hooks/worktree-guard.py:2941` | **fixed** `8cd9fea6` | fixed at 8cd9fea6 — `_merged_findings` returns the cut's first part and its glued tokens, and `main` places the tree from the first part's directory with them; nine `CUT_GROUPS` rows; executed against the build and the base: silent where the base asked; a regression |
+| 🟡 3 | `_cut_unread` places a cut by the later part, so with the reader missing `git -C W worktree 2>&1 add ../wt b` is silent with `W` dirty | `hooks/worktree-guard.py:2393` | **fixed** `f117ccfb` | fixed at f117ccfb — `_cut_unread` places a broken reader's cut by the part before it; a `-C` after the cut is named in §Known limits and pinned; executed: silent; the trial fix asks |
+| 🟡 4 | the stop describes the first tree that matters unless a later one is ACTIVE, so an IDLE or unreadable second tree is never shown in the `ask` | `hooks/worktree-guard.py:2981` | **fixed** `53e0c547` | fixed at 53e0c547 — the stop names every tree that matters with its own reason, or the ACTIVE ones alone; English and Korean texts pinned; executed: the IDLE and unreadable rows name only the session tree's changes; the new case pins that text |
+| ⬜ 5 | the git-binding case passes a `FORMS` row git refused, since it checks no return code | `tests/test_worktree_guard.py:1772` | **fixed** `6e93ff94` | fixed at 6e93ff94 — the git-binding case asserts every git it runs exited as expected; executed: every form ran under git 2.50.1; a refusal elsewhere would pass unmeasured |
+| ⬜ 6 | `spec.md` Data & interfaces gives `stop_unrecognised` its pre-round-1 signature | `seal/specs/1791270162-the-worktree-guard-allows-a-listed-shape-and-asks-the-rest/spec.md:312` | answered | corrected at 503dfa60 — `spec.md` Data & interfaces gives `stop_unrecognised`'s current signature, and In 1, In 2 and In 4 take round 2's fixes back, each marked inferred; read; a paperwork correction, not counted in `Needs a fix` |
 | 🟢 | round 1's blocking finding 1 is closed — a switch beside the stop, or an ACTIVE second tree, makes the stop a deny | `hooks/worktree-guard.py:2775` | confirmed | executed: the new case passes, and the probe's ACTIVE-second-tree row denies |
 | 🟢 | round 1's blocking finding 2 is closed — a closed, moved or `-`-named target takes no next word | `hooks/worktree-guard.py:2155` | confirmed | executed: eight forms under bash, each a creation or a switch, ask in a dirty tree and deny in an ACTIVE one |
 | 🟢 | round 1's blocking finding 3 is closed for the three forms it named | `hooks/worktree-guard.py:2226` | confirmed | executed through the new cases; the lone `-` is 🔴 1 of this round |
