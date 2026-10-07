@@ -7,7 +7,7 @@ evidence ledger, not here.
 
 📋 implement applied
 · spec:     this item's `spec.md`, `plan.md` (Approved 2026-10-08), `questions.md` (Q1 answered (a)), `handoff.md`, `routing.md`; `skills/code-review/orchestration.md` §*Orchestrator: the run ends with a verifying round* and §*A fix of a fix twice sends the work item back to its framer*; `skills/code-review/SKILL.md` §*Findings format*; `skills/implement/SKILL.md` §3–§5; `docs/the-evidence-ledger.md` via `evidence-check --help`; `CONTRIBUTING.md` §*House rules*
-· evidence: `seal/ledger/1791384154.md` N1–N13, `Corrected · S6` (0.10.0), and 73 `Re-read ·` rows for the released rows the build drifted
+· evidence: `seal/ledger/1791384154-a-records-finding-closes-once-at-the-runs-end.md` N1–N13, `Corrected · S6` (0.10.0), and 73 `Re-read ·` rows for the released rows the build drifted
 · verified: executed — every new case seen red first (`bin/mutation-check`, 30 breaks, all red; one more first named a `-k` that matched no case and was re-run with one that did), the touched test modules and the text-hygiene modules narrow, `ruff check` and `ruff format --check` on every touched Python file, `survivor-check` over the branch, `evidence-check --strict .` exit 0, Q2's corpus count; read — the 152 released rows' claims, `chain-check`'s other arms' interaction with notes; unverified — the full suite, lint and typecheck (the sealer's)
 
 ## Why this work exists

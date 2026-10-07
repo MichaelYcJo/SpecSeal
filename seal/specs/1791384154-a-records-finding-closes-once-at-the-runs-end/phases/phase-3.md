@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 3 |
 | Commit | 1e9d98f0 |
-| Ran by | unknown — the spawn prompt named the work item and the routing but not the agent and model running it; the orchestrator fills it |
+| Ran by | smith on Opus 5.5 (filled by the orchestrating session, which spawned it with `model: opus`) |
 
 ## What this phase was asked
 
