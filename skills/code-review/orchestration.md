@@ -197,6 +197,45 @@ count it. `docs/review-chain-spec.md` §*The last round verifies* owns the rule
 and the count behind it — 33 of the last branch's 65 findings were located in
 records.
 
+### A note closes once, at the run's end
+
+**A ⬜ commissions nothing before the run ends, and closes once at its end.**
+A note is the reviewer's mark for a finding that reads badly while the
+behaviour and the fact stay right (`skills/code-review/SKILL.md` §*Findings
+format*). Until this rule each one took a row in its own round's fix table,
+and a note closed `fixed` commissioned a reader for a sentence: on #822's run
+five notes were the only fix words of one record, and they spent the run's one
+reopening.
+
+So a note is carried open in the record that holds it, and closed there:
+
+| When | What a ⬜ takes |
+|---|---|
+| a round's fix pass | no row. `round-record close` leaves it open and refuses a row for it, and `Pass` stays unticked over it |
+| the next round | nothing. It is not reported again; `## Inherited coordinates` already carries its coordinate and its word |
+| the run's end | one row in the notes table, closed by `round-record notes --item <dir> --fixes <table> --at <sha>` with every other note of the run, in one pass and at one commit |
+
+**The run's end is the last record of the run reading `Fixes checked by | no
+fixes to check`**, which holds at all four exits: a verifying round that
+opened nothing, the reopening bound, the round cap's verifying round, and a
+`second` — where `notes` runs before the framer is spawned, so the framer
+reads corrected records. `notes` refuses before it.
+
+Each note closes `answered` with `corrected at <sha>` as its grounds where the
+closing commit corrected it — `corrected` in the notes table, with `--at`
+naming that commit — `answered` with the grounds it stands on, or `deferred
+<home>` by the ladder below; never `fixed`. The notes table is the fix table
+with a `Round` column in front, `| Round | # | Verdict | Commit or grounds |`,
+because a finding's id restarts at every round. No fix pass, no reader and no
+check follows the notes commit: the broad gate reads it, and what the gate
+does not read stands or is filed.
+
+`round-record seal` refuses while a note of the run is open, and
+`chain_check.py` holds the rule at the pull request: a ⬜ closed on a fix
+word is an error for a work item begun at or after `1791384154` and a notice
+before it, and a ⬜ still open on a record of the run is an error at a ready
+pull request and a notice on a draft.
+
 ### The cap is a ceiling, and this is the floor it never had
 
 **Stop when a round finds nothing that leaves the root and nothing that

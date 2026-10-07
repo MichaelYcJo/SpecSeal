@@ -2225,7 +2225,7 @@ STOPS_HERE = "the fix passes stop here"
 # committed corpus (`phases/phase-4.md` of #823), counting them took the work
 # items the stop would have reached from 18 to 24 of 57, on notes alone.
 COMMISSIONS_NOTHING = (
-    "\N{WHITE LARGE SQUARE}",
+    chain.NOTE,
     "\N{LARGE GREEN CIRCLE}",
     "\N{BLACK QUESTION MARK ORNAMENT}",
 )
