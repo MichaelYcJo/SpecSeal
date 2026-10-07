@@ -1224,10 +1224,13 @@ RANGE_RULE = "A range owns the commits that descend from its start"
 
 
 def test_a_unit_a_merge_brought_in_a_file_no_own_commit_touched_is_not_new(repo):
-    """S1 of #860, at the file level. The sibling's unit sits in a file only
-    the merge changed; the two ends' diff named it as this round's."""
+    """S1 of #860, at the file level. The sibling's units sit in files only
+    the merge changed; the two ends' diff named them as this round's, and
+    named the sibling's script as a file this round's surface read by the
+    diff-line heuristic."""
     a = round_one(repo, verdicts=OPEN_1)
     on_the_base(repo, "sibling.py", SIBLING_UNIT)
+    on_the_base(repo, "sibling.js", "function sibling_script() {}\n")
     merge_the_base(repo)
     write(repo, "mod.py", MOD_GROWN)
     b = commit(repo, "fix")
@@ -1235,6 +1238,23 @@ def test_a_unit_a_merge_brought_in_a_file_no_own_commit_touched_is_not_new(repo)
         repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
     )
     assert fields(record)["New units"] == "added_unit (depth 1); ADDED (depth 1)", out
+    assert "sibling.js" not in record, record
+
+
+def test_a_file_the_range_deleted_is_not_read(repo):
+    """A path an own commit deleted is not at the range's end, so it is no
+    surface: no unit, and no note that the diff-line heuristic read it,
+    which is what a deleted Python file would otherwise get, since the AST
+    has nothing at the end to read."""
+    a = round_one(repo, verdicts=OPEN_1)
+    git(repo, "rm", "-q", "tests/test_mod.py")
+    write(repo, "mod.py", MOD_GROWN)
+    b = commit(repo, "fix, and a test file removed")
+    _, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert fields(record)["New units"] == "added_unit (depth 1); ADDED (depth 1)", out
+    assert "test_mod.py" not in record, record
 
 
 def test_a_unit_a_merge_brought_into_a_file_an_own_commit_touched_is_not_new(repo):
