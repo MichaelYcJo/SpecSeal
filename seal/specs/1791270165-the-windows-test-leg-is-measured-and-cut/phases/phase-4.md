@@ -31,7 +31,7 @@ its first shape with a redirection after the subcommand holding no `&` or
 `|` and its first with one that does. It is a cover, not a draw: sorted
 keys and list order only. Twins: 870 shapes of the product's 20,832.
 `_placed` now yields `spaced_target` as a fifth value so the placement can
-be read off a shape; `_shapes` and the two cases were its only readers in
+be read off a shape; `_shapes` and the two cases were its only readers in · NAME NOT IN TREE
 the repository.
 
 **What left.** Each verb is no longer read at every placement, only at the
@@ -39,35 +39,35 @@ placements it carries in the rotation and its two per-cut shapes. A defect
 that one verb shows at one placement alone, and no other verb shows there,
 can now pass. What stays: every placement is read for some verb, every verb
 is read on both sides of a cut, and the per-verb readings in
-`test_classify_reads_no_switch_in_a_twin` are untouched. The rewrite or
+`test_classify_reads_no_switch_in_a_twin` are untouched. The rewrite or · NAME NOT IN TREE
 retirement of the case is #826's, by the owner's comment.
 
 **Seen red (§15), each through `bin/mutation-check`, `executed` 2026-10-06:**
 
 | Break | Cases run | Verdict |
 |---|---|---|
-| `_sample`'s placement loop: `chosen.add((holder, first[holder][key]))` → `pass` | `-k sample_covers` | `red` — both parameters fail on `missing` (1.6 s) |
-| `hooks/worktree-guard.py#read_switch_words`: the `--` return counts any `-b…` after it as creating, `94d7b2e0`'s reading | `-k no_twin_is_asked` | `red` — 28 shapes wrong, `git checkout -- -b y <<<word` among them (6.2 s) |
+| `_sample`'s placement loop: `chosen.add((holder, first[holder][key]))` → `pass` | `-k sample_covers` | `red` — both parameters fail on `missing` (1.6 s) · NAME NOT IN TREE |
+| `hooks/worktree-guard.py#read_switch_words`: the `--` return counts any `-b…` after it as creating, `94d7b2e0`'s reading | `-k no_twin_is_asked` | `red` — 28 shapes wrong, `git checkout -- -b y <<<word` among them (6.2 s) · NAME NOT IN TREE |
 
 Both files were restored by the tool from its own copy, and
 `git status --short` showed only the intended test edit after each.
 
 **Every unit added, broken one at a time before hand-over.** The first pass
-over the helpers found three that nothing watched: `_after_the_subcommand`
-(`at > 2` alone), `_placement` (the target-spaced axis dropped) and an
+over the helpers found three that nothing watched: `_after_the_subcommand` · NAME NOT IN TREE
+(`at > 2` alone), `_placement` (the target-spaced axis dropped) and an · NAME NOT IN TREE
 ordering helper, each `SURVIVED`. The cover case measured coverage through
-the same `_placement` the sampler used, so a dropped axis vanished from both
+the same `_placement` the sampler used, so a dropped axis vanished from both · NAME NOT IN TREE
 sides at once. The fix: the cover case reads the placement off each tuple
-directly and states `_after_the_subcommand`'s boundary values, and the
+directly and states `_after_the_subcommand`'s boundary values, and the · NAME NOT IN TREE
 ordering helper is gone, since order decided nothing a case reads
 (`sorted(chosen)` keeps the sample deterministic). Re-run with
 `-k 'sample_covers or no_twin_is_asked or no_constructed_switch'`:
 
 | Break | Verdict |
 |---|---|
-| `_after_the_subcommand` → `return at > 2` | `red` (6.1 s) |
-| `_placement` → `return op, at, glued, True` | `red` (5.1 s) |
-| `_sample`'s placement loop → `pass` | `red` (3.8 s) |
+| `_after_the_subcommand` → `return at > 2` | `red` (6.1 s) · NAME NOT IN TREE |
+| `_placement` → `return op, at, glued, True` | `red` (5.1 s) · NAME NOT IN TREE |
+| `_sample`'s placement loop → `pass` | `red` (3.8 s) · NAME NOT IN TREE |
 
 The module after that edit: `426 passed in 18.53s`, exit 0; ruff check and
 format exit 0. The two rewritten cases' anchors did not move again, so the
@@ -215,6 +215,6 @@ does, and each case still asserts it, shown by the reds above.
 
 | Removed item | Where it must land |
 |---|---|
-| The twins and switch cases' walk over every shape of `_placed` | `_sample`'s cover, held by `test_the_sample_covers_every_placement_and_every_verb`; the full walk is #826's to rewrite or retire |
+| The twins and switch cases' walk over every shape of `_placed` | `_sample`'s cover, held by `test_the_sample_covers_every_placement_and_every_verb`; the full walk is #826's to rewrite or retire · NAME NOT IN TREE |
 | 4b: the stop rebuilt by five cases, round 1 and its fix rebuilt by 35, and one sealed gate run made six times | `_stopped_runs` and `_named_and_fixed_once` in `tests/test_a_fix_of_a_fix_is_counted.py`, `a_sealed_run` in `tests/test_the_seal_is_taken_once_by_the_sealer.py`; each case's own step still runs per case · NAME NOT IN TREE |
 | 4b: the pipe case's own move of its repository under a spaced directory | `a_sealed_run`, which is built there |
