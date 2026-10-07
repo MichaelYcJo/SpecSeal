@@ -692,8 +692,9 @@ def reference_roots(home):
     existed, and no record is written or lost on it."""
     if not home:
         return ()
-    value, refusal = declared_value(home, REFERENCE_ROW)
-    if refusal is not None or not value:
+    # A refusal carries no value, so it lands with no row and an empty one.
+    value, _refusal = declared_value(home, REFERENCE_ROW)
+    if not value:
         return None
     if value.lower() == NO_REFERENCE:
         return ()

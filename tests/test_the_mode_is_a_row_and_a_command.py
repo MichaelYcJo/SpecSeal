@@ -263,6 +263,20 @@ def test_two_mode_rows_are_refused_naming_both_lines(seal, shared_repo, capsys, 
     assert state(seal, shared_repo) == before
 
 
+def test_the_writer_itself_refuses_two_mode_rows(seal, tmp_path):
+    """S2 at `write_row`, which the commands reach only after their own
+    refusal has run: a caller that writes the row directly meets the same
+    refusal, naming both lines, and the file is left as it was."""
+    home = tmp_path / "seal"
+    home.mkdir()
+    (home / "config.md").write_text(TWO_MODE_ROWS, encoding="utf-8")
+    said = seal.write_row(str(home), "shared")
+    assert said.startswith(str(home / "config.md") + " holds 2 `Mode` rows"), said
+    assert "line 5 `| Mode | local |`, line 7 `| Mode | shared |`" in said, said
+    assert said.endswith("Nothing was written"), said
+    assert (home / "config.md").read_text(encoding="utf-8") == TWO_MODE_ROWS
+
+
 def test_check_exits_2_on_two_mode_rows(seal, shared_repo, capsys):
     """S2's `--check` half: CI meets the same refusal, at exit 2, and the
     report still says where the folder is."""
