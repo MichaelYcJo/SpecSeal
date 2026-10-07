@@ -170,12 +170,27 @@ def test_the_directory_box_says_it_never_fails_a_release():
         assert page in box, f"the box does not name the {page}"
     for kind in ("portal listing", "Console listing"):
         assert kind in box, f"the box does not say which page answers for a {kind}"
-    assert "on its own" in box, (
-        "the box does not say a portal listing takes new versions from its "
-        "tracked branch by itself"
+    # Round 1's 🟡 1: under the default publish setting a person selects
+    # Publish for every version that passes, so *on its own* overstated it.
+    assert "without a resubmission" in box and "publish setting" in box, (
+        "the box does not say a portal listing picks up new versions without "
+        "a resubmission and goes live by its publish setting"
     )
     assert "resubmit" not in box.lower(), (
         "the box sends the reader to resubmit, which is wrong for both kinds of listing"
+    )
+    # Round 1's 🟡 3: the box's heading and §6's opening said the command
+    # answers for the directory, the claim this box exists to withdraw.
+    assert box.startswith(
+        "- [ ] **The marketplace files and the directory's page have been read**"
+    ), f"the box's heading still says the directory answered: {box[:80]!r}"
+    tail = flat(after_the_tag())
+    assert "names the page that answers the rest" in tail, (
+        "§6's opening still says each box carries the command that answers it"
+    )
+    # Round 1's 🟡 5: the day count was true once and is not a standing fact.
+    assert "once went twenty-eight days" in box, (
+        "the box states a day count as if it still held"
     )
 
 
@@ -249,6 +264,15 @@ def test_an_outside_directory_is_in_the_enumeration():
     assert "docs/release-checklist.md` §6" in rule, (
         "nothing points from the rule to the box that reads what is pinned"
     )
+    # Round 1's 🟡 4: the record line closing this paragraph's fold said a
+    # plugin directory pins a commit of this repository. A marketplace file
+    # is what pins, and it pins outside plugins; this repository is in neither.
+    text = flat(read(BRANCHING))
+    assert (
+        "a marketplace file pins a commit of each outside plugin's source "
+        "repository" in text
+    ), "the fold's record line does not say what pins and whose commit"
+    assert "a plugin directory pins a commit of this repository" not in text
 
 
 def test_the_fixed_name_sentence_sits_beside_it():
@@ -269,6 +293,11 @@ def test_the_fixed_name_sentence_sits_beside_it():
     assert ".claude-plugin/plugin.json` holds the one copy" in rule, (
         "the sentence says the name is fixed without saying where the one "
         "copy of it lives, so a reader cannot tell which spelling is the name"
+    )
+    # Round 1's 🟡 4: the directory keys a listing on the repository folder,
+    # not on the name; a marketplace file keys its entry on the name.
+    assert "a marketplace file keys its entry on the same name" in rule, (
+        "the sentence says what a rename breaks without naming what keys on the name"
     )
 
 
@@ -324,6 +353,11 @@ def test_the_directory_check_reads_the_marketplace_files_and_not_the_directory()
     bullet = rule[start : rule.index("- **", start)]
     assert "two marketplace files" in bullet, (
         "the bullet does not name what the command reads"
+    )
+    # Round 1's ⬜ 8: the official file calls itself curated, and only the
+    # community one is a mirror of the review pipeline.
+    assert "curated" in bullet and "mirror" in bullet, (
+        "the bullet calls both files outputs of the review pipeline"
     )
     assert "not among its answers" in bullet, (
         "the bullet does not say the directory's state is outside what the "

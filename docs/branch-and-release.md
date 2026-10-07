@@ -78,8 +78,9 @@ act, fires the note, because a note has to name a tag.
   the note as it was published, so the seal can never turn the release red.
 - **The marketplace files are read by a command that never fails a release, and
   the plugin directory by a person.** `.github/scripts/plugin_directory_check.py`
-  reads the two marketplace files on GitHub, public outputs of the directory's
-  review pipeline, and says per file whether the plugin has an entry, which
+  reads the two marketplace files on GitHub — a curated catalog that takes
+  outside plugins through the directory's submission, and a nightly mirror of
+  its review pipeline — and says per file whether the plugin has an entry, which
   commit it pins and whether that commit is on `main`. It exits 0 whatever it
   finds: those files sync on somebody else's schedule, and a red nobody here can
   act on is what `CLAUDE.md`'s first goal is against. The directory's own state —
@@ -167,8 +168,8 @@ command that produced them were recorded in phase 3 of work item
 `1790076050-the-release-tail-is-three-acts-no-document-names`, whose marker
 stands above this paragraph. The plugin directory itself, the catalog people
 browse inside Claude, holds a commit too: a plugin submitted at its developer
-portal is served from a scanned commit of the branch the submission tracks
-(`claude.com/docs/directory/publish`, read 2026-10-07).
+portal is served from a scanned commit of the branch or tag the submission
+tracks (`claude.com/docs/plugins/submit`, read 2026-10-08).
 So the rule above stopped being only about readers this repository can fix.
 Breaking it now also breaks a consumer nobody here can reach, and the people
 it reaches are people the owner cannot name — which is the same failure as
@@ -178,11 +179,11 @@ removed.
 
 **The plugin's name is fixed, and that is not a style question.** Everybody
 already running it installed it under its slug, so renaming it breaks their
-install — and a directory listing is keyed on the same name, so a rename reads
-there as the plugin having vanished rather than as the plugin having moved.
-`.claude-plugin/plugin.json` holds the one copy; nothing else in the tree
-should spell it, which is why the directory check reads the name out of that
-file instead of carrying a literal.
+install — and a marketplace file keys its entry on the same name, so a rename
+reads there as the plugin having vanished rather than as the plugin having
+moved. `.claude-plugin/plugin.json` holds the one copy; nothing else in the
+tree should spell it, which is why `plugin_directory_check.py` reads the name
+out of that file instead of carrying a literal.
 
 **This is enforced, and it was not always.** Two rulesets do it, because the
 repository-wide merge-method setting cannot: that setting is one switch for
@@ -398,7 +399,7 @@ and not a safe one: GitHub sends the SHA the push displaced, and where the
 runner cannot reach it the range fails and the run stops — which is the right
 direction, and not the same as being harmless. `DRY_RUN=1` prints what it
 would do and writes nothing.
-Enforced by: nothing — a record rather than a rule: it measures that a plugin directory pins a commit of this repository. The rule it supports, that anything reaching `main` is a merge commit, is held outside the tree by the `main` ruleset.
+Enforced by: nothing — a record rather than a rule: it measures that a marketplace file pins a commit of each outside plugin's source repository. The rule it supports, that anything reaching `main` is a merge commit, is held outside the tree by the `main` ruleset.
 
 <!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
 **One issue the tracker refuses does not leave the rest open.** The run used

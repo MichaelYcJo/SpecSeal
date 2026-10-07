@@ -33,7 +33,7 @@ These were open in #858 and are not rows. `spec.md` §*Vocabulary* and
 - **Whether to read the marketplace website or its sitemap** — no; a third
   catalog, 341 pages against 2,284 entries, SpecSeal in neither.
 - **Whether `claude.ai` enters the identifier allowlist** — yes, deliberately,
-  as the product's own address; the company's mail domain does not, because the email
+  as the product's own address; Anthropic's mail domain does not, because the team address
   stays on the docs page the box links.
 - **Which kind of listing SpecSeal has today** — a Console listing, by the
   owner's reading of the Console page on 2026-10-07 in #858. The frame could
