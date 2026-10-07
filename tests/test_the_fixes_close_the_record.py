@@ -1534,6 +1534,30 @@ def test_a_depth_two_refusal_names_the_finding_whose_fix_added_the_unit(repo):
     assert "deferred with a named answerer, or becomes an issue" in out
 
 
+def test_a_unit_one_fix_added_and_the_next_only_changed_is_the_first_fixs(repo):
+    """The per-commit reading `unit_adders` takes from `own_units` (#860)
+    knows which commit ADDED a unit and which only changed it. The second
+    fix rewrites `alpha_guard`'s body as well as adding `beta_guard`, and
+    `alpha_guard` is still the first finding's alone: a commit that changed
+    a unit did not add it, and counting it would leave the unit with two
+    candidate rows and no attribution."""
+    a = two_findings_inside_two_earlier_units(repo)
+    write(repo, "pair.py", PAIR_FIXED + ALPHA_GUARD)
+    b1 = commit(repo, "round 2's fix for 1")
+    rewritten = ALPHA_GUARD.replace("b is not None", "b is not None and b != 0")
+    write(repo, "pair.py", PAIR_FIXED + rewritten + BETA_GUARD)
+    b2 = commit(repo, "round 2's fix for 2, which also touches alpha_guard")
+    out = refused(
+        repo,
+        fix_table(f"| 1 | fixed | {b1[:7]} |\n| 2 | fixed | {b2[:7]} |\n"),
+        f"{a}..{b2}",
+        n=2,
+    )
+    line = next(ln for ln in out.splitlines() if "`alpha_guard` in pair.py" in ln)
+    assert "🔴 1" in line and "🟡 2" not in line, out
+    assert "FILE-LEVEL" not in out, out
+
+
 def test_a_depth_two_refusal_it_cannot_attribute_says_so_and_names_every_candidate(
     repo,
 ):

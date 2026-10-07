@@ -241,27 +241,37 @@ def test_a_finding_inside_a_unit_the_fixes_added_says_added(repo):
     assert row(text) == "first — 🟡 1 at mod.py#w, a unit round-1's fixes added"
 
 
+SIBLING_S = "def s():\n    return 1\n\n\n"
+
+
 @pytest.mark.parametrize(
-    "location, expected",
+    "where, location, expected",
     [
-        ("`sib.py#s`", "no"),
-        ("`mod.py#w`", "first — 🟡 1 at mod.py#w, a unit round-1's fixes added"),
+        ("sib.py", "`sib.py#s`", "no"),
+        ("mod.py", "`mod.py#s`", "no"),
+        (
+            "mod.py",
+            "`mod.py#w`",
+            "first — 🟡 1 at mod.py#w, a unit round-1's fixes added",
+        ),
     ],
+    ids=["its-own-file", "the-fixed-file", "the-fixes-own-unit"],
 )
 def test_a_unit_a_merge_brought_into_the_previous_range_is_no_fix_of_a_fix(
-    repo, location, expected
+    repo, where, location, expected
 ):
     """S4 of #860. Round 1's `Fix range` holds the branch's merge of its base,
-    which brought a sibling's `s`. A finding inside `s` is not inside
-    anything round 1's fixes wrote, so it reads `no`; a finding inside `w`,
-    which round 1's own fix added in the same range, still reads `first`
-    (`docs/the-record-layout.md` §*A range owns the commits that descend
-    from its start*)."""
+    which brought a sibling's `s` — in a file of its own, or at the top of
+    the very file round 1's fix rewrote. A finding inside `s` is not inside
+    anything round 1's fixes wrote, so it reads `no` either way; a finding
+    inside `w`, which round 1's own fix added in the same range, still reads
+    `first` (`docs/the-record-layout.md` §*A range owns the commits that
+    descend from its start*)."""
     declared(repo)
     code, out, _text, a = a_round(repo, 1, ROUND_1)
     assert code != 2, out
     git(repo, "switch", "-q", "base")
-    write(repo, "sib.py", "def s():\n    return 1\n")
+    write(repo, where, SIBLING_S + (MOD if where == "mod.py" else ""))
     commit(repo, "a sibling's squash")
     git(repo, "switch", "-q", "feature")
     git(
@@ -277,7 +287,8 @@ def test_a_unit_a_merge_brought_into_the_previous_range_is_no_fix_of_a_fix(
         "integrate the base",
         "base",
     )
-    fixed(repo, 1, a, MOD_FIXED, [1])
+    # The fix keeps whatever the merge brought into the file it rewrites.
+    fixed(repo, 1, a, (SIBLING_S if where == "mod.py" else "") + MOD_FIXED, [1])
     code, out, text, _ = a_round(repo, 2, finding(location))
     assert code != 2, out
     assert row(text) == expected, out
