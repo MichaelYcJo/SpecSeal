@@ -46,11 +46,12 @@ What it reads, for every routing declaration this pull request adds or changes:
                              `seal/pact.md` lists (`pact_notices`). This CI
                              reads one repository; `pact-check` reads them all
   a changelog fragment left  PRINTED, never refused, for a chain item: every
-  behind (#797)              first-parent commit after round 1's Target SHA
-                             that changed a path outside `seal/` and outside a
-                             `tests` directory after the item's `changelog.md`
-                             last changed, with the round whose `Fix range`
-                             holds it (`fragment_left_behind`). The exit status
+  behind (#797)              commit `<round 1's Target SHA>..HEAD` owns
+                             (`own_commits`) that changed a path outside
+                             `seal/` and outside a `tests` directory, and that
+                             no own commit changing the item's `changelog.md`
+                             descends from, with the round whose `Fix range`
+                             owns it (`fragment_left_behind`). The exit status
                              is the one the tree has without it
 
 REACHABLE, and why it is not "an ancestor of HEAD". It was, and the branching
@@ -4479,65 +4480,66 @@ def last_round_end(reader, root, rel):
     return resolves_to(root, shas[-1]) if shas else None
 
 
-def walk_tip(root, target):
-    """The commit the walk starts from: HEAD, or the pull request's own head
-    where HEAD is the merge a `pull_request` checkout makes of it.
+def own_commits(root, a, b):
+    """[(full, short, [(status, path), …])], oldest first: the commits the
+    range `a..b` owns and what each changed, or None where git fails.
 
-    `actions/checkout` with no `ref:` checks a pull request out as its head
-    already merged into the base, and that merge's FIRST parent is the base.
-    A first-parent walk from it reads the base's commits since the fork -- a
-    sibling's squash, named as *after the last round* -- and never the work
-    item's own, which sit behind the second parent (#797 round 1). So where
-    HEAD is a merge whose first parent does not descend from round 1's
-    target, the parent that does is the branch, and the walk starts there.
+    **The non-merge commits that descend from `a` and that `b` reaches**
+    (#860, #805) — `docs/the-record-layout.md` §*A range owns the commits
+    that descend from its start* owns that rule and its limit. A commit a
+    merge brought in reaches `b` only through the merge and descends from
+    `a` never, so it is not owned on whichever side the merge was made; the
+    parent order `git merge` set is not read. A start that does not reach
+    its end owns nothing, and the answer is `[]`.
 
-    A merge whose first parent DOES descend from the target is the branch's
-    own integration of its base, and HEAD stays the tip: the merge itself is
-    skipped and the sibling's commits stay off the first-parent walk.
-    """
-    line = git(root, "rev-list", "--parents", "-n", "1", "HEAD") or ""
-    parents = line.split()[1:]
-    if len(parents) > 1 and not is_ancestor(root, target, parents[0]):
-        for parent in parents[1:]:
-            if is_ancestor(root, target, parent):
-                return parent
-    return "HEAD"
+    `--no-renames`, because with rename detection a move is listed by its
+    destination alone: a behaviour file moved under `tests/` or `seal/`
+    listed only the path `behaviour_path` rejects, and was never named (#797
+    round 1). Detection also follows the reader's own `diff.renames`, so a
+    local run and CI listed different paths for one commit. Without it a
+    move is `D` of the old path and `A` of the new on every machine.
 
-
-def commits_after(root, target, tip="HEAD"):
-    """[(full, short, paths)], oldest first: the first-parent, non-merge
-    commits in `<target>..<tip>` and the paths each changed, or None.
-
-    `--no-renames`, because with rename detection `--name-only` lists a move
-    by its destination alone: a behaviour file moved under `tests/` or
-    `seal/` listed only the path `behaviour_path` rejects, and was never
-    named (#797 round 1). Detection also follows the reader's own
-    `diff.renames`, so a local run and CI listed different paths for one
-    commit. Without it both sides are listed on every machine, and a fragment
-    moved into place is still touched, since the added side is its path.
+    `-z`, so every path is verbatim: a name `core.quotePath` would quote
+    reads as the name git carries. The shape, measured on git 2.50 when this
+    was written: each commit is `\\x01<full> <short>\\0`, then a `\\n` before
+    its first entry, then `<status>\\0<path>\\0` per entry, and a commit that
+    changed nothing is its header alone. The walk is positional, so a path
+    holding `\\x01` or a newline is never read as a header.
     """
     out = git(
         root,
         "log",
-        "--first-parent",
+        "--ancestry-path",
         "--no-merges",
         "--no-renames",
-        "--name-only",
+        "--name-status",
         "-z",
         "--format=%x01%H %h",
-        f"{target}..{tip}",
+        "--reverse",
+        f"{a}..{b}",
     )
     if out is None:
         return None
     commits = []
-    for chunk in out.split("\x01")[1:]:
-        header, _, rest = chunk.partition("\0")
-        full, _, short = header.partition(" ")
-        if rest.startswith("\n"):
-            rest = rest[1:]
-        commits.append((full, short, [p for p in rest.split("\0") if p]))
-    commits.reverse()
+    tokens = out.split("\0")
+    i = 0
+    while i < len(tokens):
+        token = tokens[i].lstrip("\n")
+        if token.startswith("\x01"):
+            full, _, short = token[1:].partition(" ")
+            commits.append((full, short, []))
+            i += 1
+        elif token and commits and i + 1 < len(tokens):
+            commits[-1][2].append((token, tokens[i + 1]))
+            i += 2
+        else:
+            i += 1
     return commits
+
+
+def paths_of(changes):
+    """The paths of `own_commits`' `(status, path)` entries, in order."""
+    return [path for _status, path in changes]
 
 
 def fragment_left_behind(reader, routing, root, item, records):
@@ -4550,16 +4552,24 @@ def fragment_left_behind(reader, routing, root, item, records):
     refusal could accept short of a new record field.
 
     ONE question per work item. Round 1's `Target SHA` is where the build
-    ended, so the walk is the first-parent, non-merge commits from it to
-    the branch's tip (`walk_tip`: HEAD, or the pull request's head inside
-    CI's merge ref), and the build's own commits are never read. The fragment's last
-    change in that walk is the line: every commit after it that changed a
-    behaviour path (`behaviour_path`) is named, with the round whose `Fix
-    range` holds it, *after the last round* past the last record's end, or
-    *outside every round's fix range* for the rest. A per-range question was
-    the ticket's reading and was rejected: it keeps naming a range whose
-    fragment a later range brought along, where this one clears the moment
-    the fragment changes.
+    ended, so the walk is the commits `<target>..HEAD` owns (`own_commits`),
+    and the build's own commits are never read. A sibling's commit that a
+    merge brought in descends from the target never, so CI's merge ref, the
+    branch's own merge of its base and a branch rebuilt on the base with its
+    old tip merged in (#805) all read the item's commits and no other, and
+    nothing here reads which parent of a merge is the first. Every owned
+    commit that changed the fragment is a line: an owned commit is named when
+    it changed a behaviour path (`behaviour_path`) and no such line descends
+    from it, the line itself included. On a linear history that is every
+    commit after the fragment's last change; where history branches inside
+    the item it is a rule a person can state, where a position in a list
+    was git's tie-break between two commits neither of which descends from
+    the other. Each is named with the round whose `Fix range` owns it,
+    *after the last round* past the last record's end, or *outside every
+    round's fix range* for the rest. A per-range question was the ticket's
+    reading and was rejected: it keeps naming a range whose fragment a later
+    range brought along, where this one clears the moment the fragment
+    changes.
 
     The first SHA the row names is the build's end: a second one is a HEAD
     that moved while round 1 ran, which is after the build.
@@ -4582,8 +4592,8 @@ def fragment_left_behind(reader, routing, root, item, records):
     commit that brings it along, which is the commit the rule asks for.
 
     WHAT IT CANNOT SEE, written here rather than found later. A behaviour
-    change made only inside a merge commit's conflict resolution is skipped
-    with the merge. A test-only commit in a repository whose tests live
+    change made only inside a merge commit's conflict resolution is owned by
+    no range, and skipped with the merge. A test-only commit in a repository whose tests live
     outside a `tests` directory is named although nothing was owed — one
     line, no stop. And whether a named commit changed anything a release
     note states is a reader's judgment: the notice says nothing is owed
@@ -4598,15 +4608,23 @@ def fragment_left_behind(reader, routing, root, item, records):
         return [], []
     if CHANGELOG_FRAGMENT not in tracked_files(root, item):
         return [], []
-    tip = walk_tip(root, target)
-    commits = commits_after(root, target, tip) or []
+    commits = own_commits(root, target, "HEAD") or []
     fragment = f"{item}/{CHANGELOG_FRAGMENT}"
-    touched = [i for i, (_f, _s, paths) in enumerate(commits) if fragment in paths]
-    since = touched[-1] + 1 if touched else 0
+    carriers = [f for f, _s, changes in commits if fragment in paths_of(changes)]
+    cleared = set()
+    if carriers:
+        # Every owned commit some carrier descends from, the carriers
+        # included: `--ancestry-path` with several tips lists what any of them
+        # reaches that descends from the target -- measured on git 2.50 when
+        # this was written, and pinned by the branched-history cases.
+        out = git(root, "rev-list", "--ancestry-path", f"^{target}", *carriers)
+        if out is None:
+            return [], []
+        cleared = set(out.split())
     late = []
-    for full, short, paths in commits[since:]:
-        behaviour = [p for p in paths if behaviour_path(routing, p)]
-        if behaviour:
+    for full, short, changes in commits:
+        behaviour = [p for p in paths_of(changes) if behaviour_path(routing, p)]
+        if behaviour and full not in cleared:
             late.append((full, short, behaviour))
     if not late:
         return [], []
@@ -4614,16 +4632,15 @@ def fragment_left_behind(reader, routing, root, item, records):
     held = []
     for rel in records:
         ends = range_ends(reader, root, rel)
-        inside = git(root, "rev-list", f"{ends[0]}..{ends[1]}") if ends else None
+        inside = own_commits(root, *ends) if ends else None
         if inside is not None:
             number = routing.round_number(os.path.basename(rel))
-            held.append((number, set(inside.split())))
+            held.append((number, {full for full, _s, _c in inside}))
     end = last_round_end(reader, root, records[-1])
-    # From the walk's own tip. For every commit the walk lists `<end>..HEAD`
-    # gives the same answer, since HEAD reaches whatever the tip reaches; the
-    # tip is used so that one value says where this item's history ends.
     after = (
-        set((git(root, "rev-list", f"{end}..{tip}") or "").split()) if end else set()
+        {full for full, _s, _c in own_commits(root, end, "HEAD") or []}
+        if end
+        else set()
     )
 
     named = []

@@ -375,7 +375,8 @@ may have landed elsewhere. Nothing compares the range against the fixes, and
 nothing can here: `fix_surface` measures the surface from this same range, so
 the two agree by construction rather than by checking each other. What is
 closed is the narrower thing #344 measured, a range that stops meaning what it
-said.
+said. Which of its commits the surface reads is `docs/the-record-layout.md`
+§*A range owns the commits that descend from its start*.
 
 **The grandfathering is the checker's and not the generator's.** The table
 above is what `chain_check` does at the pull request. `round_record.py close`

@@ -91,15 +91,17 @@ the fragment nothing. 0.18.2 shipped three fragments their own review rounds had
 made false, and #795 corrected them by hand before the release.
 
 `chain-check` names the commits a fragment was left behind by. For a work item
-declared `through the review chain`, it walks the first-parent commits after
-round 1's `Target SHA`, merges skipped, and names each one that changed a path
-outside the `seal/` root and outside a `tests` directory after the fragment last
-changed. A move lists both its paths, so a file moved under `tests/` is named.
-Where the checkout is CI's, the pull request merged into its base, the walk
-starts at the pull request's own head rather than at the base. Each commit is
-attributed to the round whose `Fix range` holds it, to *after the last round*,
-or to *outside every round's fix range* for a commit between two rounds'
-ranges. It prints and never refuses, which is the measurement
+declared `through the review chain`, it reads the commits that the range from
+round 1's `Target SHA` to HEAD owns, as the next section defines them, and
+names each one that changed a path outside the `seal/` root and outside a
+`tests` directory and that no own commit changing the fragment descends from.
+On a linear history that is every commit after the fragment last changed. A
+move lists both its paths, so a file moved under `tests/` is named. CI's
+checkout, the pull request merged into its base, reads the same commits as the
+branch does, because the base's commits descend from round 1's target never.
+Each commit is attributed to the round whose `Fix range` owns it, to *after
+the last round*, or to *outside every round's fix range* for a commit between
+two rounds' ranges. It prints and never refuses, which is the measurement
 #797 took: over 42 work items a refusal would have stopped 24 runs, at least 9
 of them for a fragment that needed no change. So the notice says nothing is
 owed where the fragment still says what ships. It reaches a person at
@@ -111,6 +113,38 @@ does not descend from, and no `changelog.md` at HEAD. It cannot see a
 behaviour change made only inside a merge commit, and it names a test-only
 commit outside a `tests` directory although nothing was owed.
 Enforced by: skills/code-review/scripts/chain_check.py::fragment_left_behind, tests/test_a_fragment_left_behind_is_named.py
+
+## A range owns the commits that descend from its start
+
+**A range `a..b` owns the non-merge commits that descend from `a` and that `b`
+reaches** — `git log --ancestry-path --no-merges a..b`. A commit that a merge
+brought in reaches `b` only through the merge and descends from `a` never, so
+it is not owned, whichever side the merge was made from. Two readers walked a
+range by its shape instead, and both read a sibling's work as the item's own.
+`round-record close` diffed the range's two ends: one record's `New units`
+named 111 units, 109 of them a sibling's that a merge of the base had brought
+in (#860). The fragment notice above followed HEAD's first parent: on a branch
+rebuilt on its base with its old tip merged in, it named a sibling's squash
+and missed the item's own fix (#805). Which parent of a merge comes first is
+set by whoever ran `git merge`, and nothing here controls it. Whether a commit
+descends from the range's start is a fact git holds.
+
+`close` still measures the fix surface at the range's two ends, and keeps in
+`Contract changes` and `New units` only a unit that an owned commit added or
+changed between its parent and itself. Restricting the paths is not enough:
+in #860's range one file an owned commit touched gained 22 top-level names
+between the two ends, and 2 of them were the item's. `Fix of a fix` reads the
+previous record's range the same way, and a `fixed` row has to name one of
+the owned commits. The `Fix range` row's count stays `git rev-list --count
+a..b`, because its job is to catch an end that moved and the writer and the
+checker both read it that way. So the count and the surface read one range
+two ways.
+
+What no reader can see is a change made only inside a merge's conflict
+resolution. The merge is owned by no range, so `close` refuses a `fixed` row
+that names it. A range whose start does not reach its end owns nothing, and
+`close` refuses it rather than writing an empty surface.
+Enforced by: skills/code-review/scripts/chain_check.py::own_commits, tests/test_a_fragment_left_behind_is_named.py::test_a_branch_rebuilt_on_the_base_names_its_own_commits_and_not_the_siblings
 
 ## docs/
 
