@@ -143,9 +143,9 @@ report `hooks/dispatch.py` prepends to the same message. The harness counts
 UTF-16 units, so a character outside the BMP is two, and so does the hook.
 One message carries as many of the oldest pending stamps as fit together
 with their disc, each at the highest rung the others leave room for: its
-file's own scale, then 0.90, the one rung with a disc since #832 — the owner
-saw the § fragment on a disc smaller than 0.90's 24 cells, so the ladder
-never draws one. A seal past what one message can carry stays pending and is
+file's own scale, then 0.90, the one rung with a disc since #832 — the
+owner's disc is drawn 14 cells across at every scale, so there is no smaller
+disc to step to. A seal past what one message can carry stays pending and is
 drawn at the next turn's end, and a single stamp that does not fit with its
 disc by itself is the only one drawn as the sheet with no disc. A stamp can
 come out without its disc or a turn later, and a session that ends first

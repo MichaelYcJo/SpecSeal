@@ -314,25 +314,23 @@ def test_another_sessions_stop_leaves_its_file_alone(tmp_path):
 
 
 # The smallest panel a run could carry. Under #717's lily two of its stamps
-# shared one message with their discs; under the § of #832 no two stamps do
-# (`phases/phase-2.md` of work item 1791270164 has the sizes).
+# shared one message with their discs; under phase 2's § of #832 no two did;
+# under the owner's 14-cell disc they do again (`phases/phase-3.md` of work
+# item 1791270164 has the sizes).
 SMALL_ROWS = [("SEALED", ""), ("tree", "aaa1111"), ("", "feat/x"), ("rounds", "2")]
 
 
-def test_several_files_come_out_one_stop_each_oldest_first(tmp_path):
-    """Several pending seals come out oldest first, each stamp whole under
-    its own label and with its disc, and a file that is not a run's values
-    is skipped and left where it is rather than taking the others down.
+def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
+    """Several pending seals come out in one message, oldest first, each
+    stamp whole under its own label and with its disc, and a file that is
+    not a run's values is skipped and left where it is rather than taking
+    the others down.
 
-    Under #717's lily two small seals shared one message, the older at the
-    highest rung the newer left room for; this case was
-    `test_several_files_come_out_as_one_message_oldest_first` then. Since
-    #832 the ladder is one rung and a disc at 0.90 adds about 5,600 units
-    to its sheet, so no two stamps share a message at the real budget: the
-    smallest panel's pair is asserted over it, the first `Stop` draws the
-    older alone and the newer waits, and the next draws the newer. Several
-    blocks in one message is `admitted`'s still, at a budget a case picks
-    (`test_the_ladder_steps_down_in_order_and_ends_with_no_disc`)."""
+    #717's case, back under its own name. Phase 2 of #832 drew a disc that
+    added about 5,600 units to its sheet, so no two stamps shared a message
+    and this case pinned one `Stop` each. The owner's 14-cell disc adds
+    about 1,000, so the smallest panel's pair fits the budget again, and
+    that premise is asserted rather than assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     small = values(rows=SMALL_ROWS)
@@ -346,18 +344,16 @@ def test_several_files_come_out_one_stop_each_oldest_first(tmp_path):
     other = LABEL.replace("aaa1111", "ccc3333")
     rung = mod.SCALE_LADDER[-1]
     older, newer = (drawn(mod, who, SMALL_ROWS, rung) for who in (LABEL, other))
-    assert len(older) + 2 + len(newer) > mod.MESSAGE_BUDGET, (
-        "two stamps share one message again; this case's premise moved"
+    assert len(older) + 2 + len(newer) <= mod.MESSAGE_BUDGET, (
+        "two small stamps no longer share one message; this case's premise moved"
     )
     text = json.loads(stop(repo))["systemMessage"]
-    assert text == older, [b.split("\n", 1)[0] for b in text.split("\n\n")]
-    assert "\x1b[38;2;" in text, "the stamp lost its disc"
-    assert not os.path.exists(first) and os.path.exists(second)
-    assert mod.pending(os.path.dirname(first)) == [second, broken]
-    later = json.loads(stop(repo))["systemMessage"]
-    assert later == newer, later.split("\n", 1)[0]
+    assert text == older + "\n\n" + newer, [
+        b.split("\n", 1)[0] for b in text.split("\n\n")
+    ]
+    assert all("\x1b[38;2;" in block for block in (older, newer)), "a disc was lost"
+    assert not os.path.exists(first) and not os.path.exists(second)
     assert mod.pending(os.path.dirname(first)) == [broken]
-    assert not os.path.exists(second)
 
 
 def test_a_malformed_later_file_does_not_take_the_earlier_ones(tmp_path):
@@ -541,6 +537,81 @@ def test_the_hooks_message_is_under_the_budget_for_one_file(tmp_path):
     assert text.split("\n", 1)[0] == mod.label(full_values())
 
 
+# The owner's reference for a real run's stamp, chosen on 2026-10-07: variant
+# 2 of the sheet with the seal on its right, drawn by the orchestrating
+# session over exactly `FULL_ROWS`' text (`spec.md` S3 of work item
+# 1791270164). Transcribed from that file's half-cells, the parchment ` ` and
+# each disc colour its letter. The reference drew the sheet's left edge
+# alone, so the twin below carries the hook's frame on the other three
+# sides; every other cell is the reference's.
+REFERENCE_TWIN = (
+    ".----------------------------------------------------.",
+    "|   SEALED                                           |",
+    "|   tree     aaa1111a                                |",
+    "|            feat/12-the-branch-n...                 |",
+    "|   base     bbb2222b                                |",
+    "|            origin/release/v1.2.3                   |",
+    "|   item     #12 . 1799000000                        |",
+    "|   gate     tree 1.2.3                              |",
+    "|   suite    6621 passed, 11 skipped      mmmmmmmm   |",
+    "|            exit 0                     mm..YYYYY.mm |",
+    "|   ledger   3451 ok                   mm..YYy...yymm|",
+    "|            0 drifted . 0 broken      m...YYyyyYY..m|",
+    "|   chain    exit 0                    m....YYYYYyy.m|",
+    "|   workflow 4 of 9 not answered        m..YY...YYym |",
+    "|   rounds   2                            mm.yyymm   |",
+    "'----------------------------------------------------'",
+)
+# The disc's fourteen half-rows in the reference, from column 39 on its
+# lines 8 to 14.
+REFERENCE_DISC = (
+    "     mmmm     ",
+    "   mm....mm   ",
+    "  m..YYYYY.m  ",
+    " m..YYyyyYY.m ",
+    " m..YYy...yym ",
+    "m....YYYYY...m",
+    "m...YYyyyYY..m",
+    "m...YYy..YYy.m",
+    "m....YYYYYyy.m",
+    " m....yyyYY.m ",
+    " m..YY...YYym ",
+    "  m..YYYYYym  ",
+    "   mm.yyymm   ",
+    "     mmmm     ",
+)
+
+
+def test_a_real_runs_stamp_is_the_owners_reference_cell_for_cell():
+    """#832 S1-S4 against the picture the owner chose rather than against a
+    rule. A real run's stamp — `full_values()`'s rows at 0.90 — is the
+    reference: the same 16 x 54 sheet, the disc's grid at column 39 and
+    half-row 16, each of the disc's 196 half-cells the reference's colour or
+    the parchment, and the twin the reference's letters. The message the
+    hook prints for that file is its label and this block, and nothing
+    else."""
+    mod = stamp_module()
+    sheet = mod.compose(FULL_ROWS, 0.9)
+    assert (sheet.height, sheet.width, sheet.disc) == (16, 54, (39, 16, 14, 14))
+    assert mod.stamp(FULL_ROWS, 0.9, shape=True) == list(REFERENCE_TWIN)
+    colour = {
+        "m": (168, 26, 30),
+        ".": (120, 16, 20),
+        "Y": (240, 130, 118),
+        "y": (96, 10, 14),
+        " ": mod.PARCHMENT,
+    }
+    left, top, _, _ = sheet.disc
+    for y, said in enumerate(REFERENCE_DISC):
+        for x, letter in enumerate(said):
+            cell = sheet.cells[(top + y) // 2][left + x]
+            assert cell[(top + y) % 2] == colour[letter], (x, y, letter, cell)
+    label = mod.label(full_values())
+    assert mod.fitted([(label, FULL_ROWS, 0.9)]) == "\n".join(
+        [label, *mod.stamp(FULL_ROWS, 0.9, shape=False)]
+    )
+
+
 def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
     """A3, two files, under the owner's rule of 2026-10-02 (`questions.md`
     Q6). Two stamps of a real run's size do not fit one message together
@@ -630,15 +701,23 @@ def test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it(tmp_path):
     long list of deferral homes — is the one case the sheet is drawn with no
     disc, and it is drawn alone: the first pending file is always drawn, so
     the queue cannot stall, and the seal after it waits for the next `Stop`
-    rather than losing its disc."""
+    rather than losing its disc.
+
+    The record carries deferral homes, one at a time, until its stamp does
+    not fit with its disc: sixty did under phase 2's § of #832, and under
+    the owner's 14-cell disc sixty fit, so the count is derived and the
+    premise asserted rather than assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
-    homes = [("", f"home-{k}") for k in range(60)]
+    label = mod.label(full_values())
+    rung = mod.SCALE_LADDER[-1]
+    homes = []
+    while len(drawn(mod, label, FULL_ROWS + homes, rung)) <= mod.MESSAGE_BUDGET:
+        homes.append(("", f"home-{len(homes)}"))
     big = {**full_values(), "rows": FULL_ROWS + homes}
     oversized = mod.write_values(str(repo / ".git"), "s-1", big, now=1)
     after = mod.write_values(str(repo / ".git"), "s-1", full_values("ccc3333c"), now=2)
-    label = mod.label(big)
-    rung = mod.SCALE_LADDER[-1]
+    assert mod.label(big) == label
     assert len(drawn(mod, label, big["rows"], rung)) > mod.MESSAGE_BUDGET
     text = json.loads(stop(repo))["systemMessage"]
     assert text == drawn(mod, label, big["rows"], None), "not the sheet alone"
@@ -699,11 +778,16 @@ def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     Each block takes the highest rung the others leave room for, oldest
     first (`questions.md` Q6 of #717), and never a rung above the file's
     own scale; a newer block that does not fit beside the older waits rather
-    than shrinking, because no smaller disc is drawn."""
+    than shrinking, because no smaller disc is drawn.
+
+    Since the owner's 14-cell disc, every scale in the band draws the same
+    bytes, so the drawing has two sizes — the disc and the sheet alone — and
+    a file at 1.0 that does not fit steps to the sheet alone, as a file at
+    0.90 does."""
     mod = stamp_module()
     at = {s: drawn(mod, LABEL, ROWS, s) for s in (1.0, *mod.SCALE_LADDER, None)}
-    sizes = [len(at[s]) for s in (1.0, *mod.SCALE_LADDER, None)]
-    assert sizes == sorted(sizes, reverse=True) and len(set(sizes)) == 3, sizes
+    assert at[1.0] == at[0.9] == drawn(mod, LABEL, ROWS, 0.75), "the disc moved size"
+    assert len(at[0.9]) > len(at[None]), (len(at[0.9]), len(at[None]))
     one = [(LABEL, ROWS, 0.9)]
     assert mod.fitted(one, len(at[0.9])) == at[0.9]
     assert mod.fitted(one, len(at[0.9]) - 1) == at[None]
@@ -713,11 +797,11 @@ def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     for row in ROWS:
         if row is not None:
             assert f"{row[0]:<8} {row[1]}".strip() in bare, row
-    # A file at 1.0 steps to 0.90 where 1.0 does not fit, and keeps 1.0
-    # where it does.
+    # A file at 1.0 keeps its disc where it fits, and is the sheet alone
+    # where it does not: there is no smaller disc between.
     big = [(LABEL, ROWS, 1.0)]
     assert mod.fitted(big, len(at[1.0])) == at[1.0]
-    assert mod.fitted(big, len(at[1.0]) - 1) == at[0.9]
+    assert mod.fitted(big, len(at[1.0]) - 1) == at[None]
     # Two blocks that fit together at 0.90 are one message; where the newer
     # does not fit beside the older, it is left out rather than both losing
     # the disc or the newer shrinking.
@@ -782,10 +866,16 @@ def test_the_policy_states_the_budget_and_names_its_case():
     assert "A seal past what one message can carry stays pending" in rule
     assert "::test_seals_past_what_one_message_carries_wait_for_the_next_turn" in rule
     assert "a character outside the BMP is two" in rule
-    # #832: one rung with a disc, then the sheet alone.
+    # #832: one rung with a disc, then the sheet alone — and the reason is
+    # the owner's 14-cell disc having one size, not a smaller disc refused.
     assert "then 0.90, the one rung with a disc since #832" in rule
+    assert (
+        "the owner's disc is drawn 14 cells across at every scale, so there is "
+        "no smaller disc to step to"
+    ) in rule
     assert "does not fit with its disc by itself is the only one drawn" in rule
     assert "0.80 and 0.75" not in rule and "at 0.75 by itself" not in rule
+    assert "24 cells" not in rule and "§ fragment" not in rule
     section = text.split("## Where the stamp is drawn", 1)[1]
     assert marker in section.split("## What the runner owes", 1)[0]
 
@@ -934,7 +1024,9 @@ def test_the_sealer_is_told_the_gate_draws_nothing_and_neither_does_it():
 def test_the_default_scale_is_ninety_percent_with_its_reason_beside_it():
     """S13. `DEFAULT_SCALE` is 0.90, and the comment above it says why and
     names 0.75 as the candidate passed over, so the next reader does not
-    re-run #400's six-scale comparison to find out."""
+    re-run #400's six-scale comparison to find out. Since #832's hand-drawn
+    disc it also says the scale no longer sizes the disc, and nothing above
+    it names the 24-cell disc or a floor the owner saw it fragment at."""
     mod = stamp_module()
     assert mod.DEFAULT_SCALE == 0.90
     with open(STAMP, encoding="utf-8") as handle:
@@ -942,6 +1034,13 @@ def test_the_default_scale_is_ninety_percent_with_its_reason_beside_it():
     above = source.split("DEFAULT_SCALE = 0.90", 1)[0].rsplit("\n\n", 1)[-1]
     assert "0.75 was the other candidate" in above, above
     assert "passed over" in above, above
+    flat_above = " ".join(above.replace("#", " ").split())
+    assert (
+        "the disc is `DISC_CELLS` across at every scale in the band, so the "
+        "scale sizes nothing"
+    ) in flat_above, flat_above
+    for gone in ("24 cells", "13 lines", "accepted nothing below 24", "fragment"):
+        assert gone not in flat_above, gone
 
 
 def test_both_commands_draw_at_the_default_scale_when_given_none():
