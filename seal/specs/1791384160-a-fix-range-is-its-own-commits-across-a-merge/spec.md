@@ -29,7 +29,7 @@ what the merge brought in as the item's own.
   111 entries into `New units`, 109 of them a sibling's (#860, that item's
   `rounds/round-2-report.md` ⬜ 4). Round 2 then had 109 rows it could only
   mark ❓.
-- `skills/code-review/scripts/chain_check.py#walk_tip` reads the parent order
+- `skills/code-review/scripts/chain_check.py#walk_tip` reads the parent order · NAME NOT IN TREE
   of HEAD alone. One commit above a merge made from the base's side, the
   fragment notice walks down the base, names a sibling's squash as *after the
   last round* and misses the item's own late fix (#805, probe H of
