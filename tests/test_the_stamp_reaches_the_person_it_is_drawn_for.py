@@ -329,8 +329,9 @@ def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
     #717's case, back under its own name. Phase 2 of #832 drew a disc that
     added about 5,600 units to its sheet, so no two stamps shared a message
     and this case pinned one `Stop` each. The owner's 14-cell disc adds
-    about 1,000, so the smallest panel's pair fits the budget again, and
-    that premise is asserted rather than assumed."""
+    about 1,600 to the smallest panel's sheet, so that panel's pair fits the
+    budget again (4,158 units, `phases/phase-3.md`), and the premise is
+    asserted rather than assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     small = values(rows=SMALL_ROWS)
@@ -626,9 +627,10 @@ def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
     under the interim ring of work item 1791270164 they did
     (`phases/phase-1.md` there has the sizes). The second run therefore
     carries deferral homes, one at a time, until the pair does not fit at
-    the ladder's last rung — none under the lily or under the § at 0.90,
-    where this is the case as it stood — and the premise is asserted rather
-    than assumed."""
+    the ladder's last rung — none under the lily or under phase 2's § at
+    0.90, where this is the case as it stood, and some under the owner's
+    14-cell disc, where two real runs share a message — and the premise is
+    asserted rather than assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     label = mod.label(full_values())
