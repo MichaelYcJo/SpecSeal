@@ -35,10 +35,12 @@ and shows a preview of it, which is how every stamp from #666 to #717 reached
 the owner. So the message printed is `seal_stamp.fitted`'s: as many of the
 oldest pending blocks as fit `MESSAGE_BUDGET` together with their disc, each
 at the highest rung the others leave room for — its file's own scale, then
-down `SCALE_LADDER`. The rest stay pending for the next `Stop`, and only one
-block that does not fit at 0.75 alone is drawn without its disc. A stamp may
-therefore be drawn smaller than its file's `scale` says, or at a later
-`Stop`, and no file is claimed without its stamp being printed. The file's
+down `SCALE_LADDER`, one rung since #832. The rest stay pending for the next
+`Stop`, and only one block that does not fit with its disc alone is drawn
+without it. A stamp may therefore be drawn without its disc, or at a later
+`Stop`, but never smaller: since #832 the disc is one size at every scale,
+so a rung below the file's `scale` draws the same stamp. No file is claimed
+without its stamp being printed. The file's
 `scale` is not rewritten: it records what the gate was asked for.
 
 **Claim before print.** Each file is rendered, then renamed to `.drawn.json`

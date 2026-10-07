@@ -1,24 +1,30 @@
 #!/usr/bin/env python3
 """Draw the release's seal as a PNG, attach it, and put it in the note (#718).
 
-The 0.17.0 seal was drawn by hand: a script outside the tree read the cells
-`seal_stamp.compose` builds, painted each the way `seal_stamp.block` describes
-it, and the PNG was uploaded and edited into the note. This is that script,
-in the tree and run by the tag push.
+The 0.17.0 seal was drawn by hand, and from #718 to #832 this script drew it
+the same way: the terminal stamp's cells painted one rectangle per half-cell.
+That made every edge a staircase and the emblem a block mosaic, which is
+what #832 opened on.
 
-**One cell, one rectangle.** A cell of the letter is two halves and maybe a
-character. `paint` turns each into rectangles and text in a `CELL_W` x
-`CELL_H` pixel cell, each half `CELL_H // 2` tall, and `png` rasterises them.
-So the PNG is the terminal form at a fixed pixel size: the same cells, the
-same colours through xterm's 256-colour table (`rgb`), and transparent where
-the terminal form paints nothing. `paint` is kept free of Pillow, so the case
-that pins it against `block` runs on any interpreter, and Pillow is imported
-inside `png` alone.
+**The seal is the owner's SVG** (#832). `SVG`, `release-seal.svg` beside
+this file, is the owner's 32 x 32 seal: radial-gradient wax, a rim, a pressed
+groove, and the seal's mark with a shadow and a highlight. The owner drew a
+Georgia Bold §; the mark is the terminal stamp's placeholder, Georgia Bold's
+S, until #857 chooses it, and the release image follows the terminal's. Its
+three layers were turned into `<path>` outlines once, on a machine that has
+the face, because the runner has no Georgia and a fallback serif would draw
+a different glyph. `rasterise` hands it to `rsvg-convert` at `SEAL_PX` times
+`DENSITY` pixels square, and the note shows it `SEAL_PX` wide, so a
+high-density screen draws it sharp.
 
-**Pillow is a test-and-release dependency, never a plugin one.** The gates
-are stdlib-only (`CONTRIBUTING.md` §*Running the checks*), and nothing under
-`hooks/` or `skills/` imports this file or Pillow. The version is pinned once,
-in `.github/scripts/run_tests.py#PILLOW`.
+**`rsvg-convert` is a release dependency, never a plugin one.** It comes from
+`librsvg2-bin`, a system package the `seal` job installs with `apt-get`
+(`.github/workflows/publish-release.yml`). Nothing under `hooks/` or
+`skills/` imports this file or calls the binary, and this file imports no
+third-party module: the gates are stdlib-only (`CONTRIBUTING.md` §*Running
+the checks*). The suite reads the PNG it draws with Pillow, pinned in
+`.github/scripts/run_tests.py#PILLOW`, in one case that skips where the
+binary is absent.
 
 **The rows are a fixed set, read from what the tag carries.** The suite's
 counts come from the JUnit file the run at the tag wrote (`suite_counts`),
@@ -42,8 +48,9 @@ leaves an attached image the note does not show, which the warning names.
 `DRY_RUN=1` draws the PNG at `SEAL_PNG` (by default `seal.png` in a
 temporary directory), prints the rows and the note it would write, and
 uploads and edits nothing, so the seal of a release whose job did not run can
-be drawn by hand from a checkout at the tag, attached with
-`gh release upload` and shown with `gh release edit --notes-file`.
+be drawn by hand from a checkout at the tag, on a machine with
+`rsvg-convert`, attached with `gh release upload` and shown with
+`gh release edit --notes-file`.
 
 Environment: `TAG`, `REPO`, `GH_TOKEN`, `SUITE_XML` (the JUnit file),
 `SUITE_OUTCOME` (the suite step's outcome), `DRY_RUN`, `SEAL_PNG`.
@@ -87,12 +94,6 @@ def _module(name, path):
     return loaded
 
 
-def stamp():
-    """`skills/verify/scripts/seal_stamp.py`, whose `compose`, `block` and
-    `DEFAULT_SCALE` this draws with."""
-    return module("specseal_seal_stamp", "skills", "verify", "scripts", "seal_stamp.py")
-
-
 def publisher():
     """`.github/scripts/publish_release_note.py`, which owns the note's
     glance block, the pull request list and how a release is counted."""
@@ -101,146 +102,32 @@ def publisher():
     )
 
 
-# One cell of the letter in pixels, and the size its characters are drawn
-# at: the hand-drawn 0.17.0 seal's, which the owner saw on the release page.
-CELL_W, CELL_H = 14, 28
-FONT_SIZE = 22
-
-# xterm's 256-colour table past the sixteen system colours: a 6x6x6 cube on
-# these levels, then a ramp of 24 greys. The system colours are a terminal's
-# own choice, and the sheet uses none of them.
-CUBE_LEVELS = (0, 95, 135, 175, 215, 255)
-
-
-def rgb(colour):
-    """`colour` as an `(r, g, b)` triple: a triple as it is, and a
-    256-colour code through xterm's cube and grey ramp. Raises `ValueError`
-    for 0-15, whose values a terminal chooses."""
-    if isinstance(colour, tuple):
-        return colour
-    if 16 <= colour <= 231:
-        n = colour - 16
-        return (CUBE_LEVELS[n // 36], CUBE_LEVELS[n // 6 % 6], CUBE_LEVELS[n % 6])
-    if 232 <= colour <= 255:
-        grey = 8 + 10 * (colour - 232)
-        return (grey, grey, grey)
-    raise ValueError(f"no fixed colour for 256-colour code {colour}")
-
-
-def size(letter):
-    """The PNG's `(width, height)` in pixels for `letter`'s cells."""
-    width = max((len(line) for line in letter.cells), default=0)
-    return width * CELL_W, len(letter.cells) * CELL_H
-
-
-def paint(letter):
-    """`letter`'s cells as drawing operations, in the order they are laid.
-
-    Each is `("rect", x0, y0, x1, y1, rgb)` with the corners inclusive, or
-    `("text", cx, cy, character, rgb, bold)` centred on the cell. A cell
-    takes its background over the whole cell, then the half its half-block
-    colours, or its character; a cell `block` paints nothing gets nothing,
-    which is what leaves it transparent. The title line, the letter's
-    second, is bold, the way `compose` inks it in `TITLE`."""
-    ops, half = [], CELL_H // 2
-    for y, line in enumerate(letter.cells):
-        for x, cell in enumerate(line):
-            char, fg, bg = stamp().block(cell)
-            x0, y0 = x * CELL_W, y * CELL_H
-            x1, y1 = x0 + CELL_W - 1, y0 + CELL_H - 1
-            if bg is not None:
-                ops.append(("rect", x0, y0, x1, y1, rgb(bg)))
-            if char == "▀":
-                ops.append(("rect", x0, y0, x1, y0 + half - 1, rgb(fg)))
-            elif char == "▄":
-                ops.append(("rect", x0, y0 + half, x1, y1, rgb(fg)))
-            elif char != " ":
-                ops.append(("text", x0 + CELL_W // 2, y0 + half, char, rgb(fg), y == 1))
-    return ops
-
-
-# The faces `font` tries, in order, as `(name, regular, bold, regular index,
-# bold index)`: DejaVu Sans Mono where a Linux runner has it, Menlo on macOS,
-# Consolas on Windows. The hand-drawn seal used Menlo, which is macOS-only,
-# which is why this is a chain rather than a path.
-FACES = (
-    (
-        "DejaVu Sans Mono",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-        0,
-        0,
-    ),
-    (
-        "Menlo",
-        "/System/Library/Fonts/Menlo.ttc",
-        "/System/Library/Fonts/Menlo.ttc",
-        0,
-        1,
-    ),
-    (
-        "Consolas",
-        "C:\\Windows\\Fonts\\consola.ttf",
-        "C:\\Windows\\Fonts\\consolab.ttf",
-        0,
-        0,
-    ),
-)
-
-
-def font(image_font):
-    """`(regular, bold, name)`: the first face in `FACES` that loads at
-    `FONT_SIZE`, its bold where one loads and its regular where not, else
-    Pillow's own default at that size. `image_font` is `PIL.ImageFont`,
-    handed in so this module imports Pillow in `png` alone. `name` is what
-    the log prints, because a runner's font is a fact nobody wrote down
-    (`questions.md` Q11)."""
-    for name, regular, bold, at, bold_at in FACES:
-        try:
-            face = image_font.truetype(regular, FONT_SIZE, index=at)
-        except OSError:
-            continue
-        try:
-            heavy = image_font.truetype(bold, FONT_SIZE, index=bold_at)
-        except OSError:
-            heavy = face
-        return face, heavy, name
-    face = image_font.load_default(size=FONT_SIZE)
-    return face, face, "Pillow's default"
-
-
-def png(ops, dimensions, path):
-    """Write `ops` as an RGBA PNG of `dimensions` at `path`, transparent
-    where nothing is laid, and answer the name of the font it drew with."""
-    from PIL import Image, ImageDraw, ImageFont
-
-    image = Image.new("RGBA", dimensions, (0, 0, 0, 0))
-    pen = ImageDraw.Draw(image)
-    regular, bold, name = font(ImageFont)
-    for op in ops:
-        if op[0] == "rect":
-            _, x0, y0, x1, y1, colour = op
-            pen.rectangle([x0, y0, x1, y1], fill=colour)
-        else:
-            _, cx, cy, char, colour, heavy = op
-            face = bold if heavy else regular
-            pen.text((cx, cy), char, fill=colour, font=face, anchor="mm")
-    image.save(path, format="PNG")
-    return name
+# The owner's seal (#832), beside this file because this file is its one
+# reader. Its text is paths, so drawing it looks up no font.
+SVG = os.path.join(HERE, "release-seal.svg")
+# The seal's width and height on the release page, in CSS pixels, and how
+# many PNG pixels it is drawn with per CSS pixel. The note's `<img>` carries
+# `SEAL_PX`, and the PNG is `SEAL_PX * DENSITY` square, so a screen at twice
+# the density draws it from pixels it has rather than by stretching them.
+SEAL_PX = 160
+DENSITY = 2
 
 
 # --- the rows ------------------------------------------------------------
 #
 # A release's panel is a fixed set of rows, held here as one constant: the
 # owner's 0.17.0 seal is the drawing, and a label the code composed from free
-# text could grow past `seal_stamp.letter`'s eight-wide label column. That
-# column is `{label:<8}`, not the longest label: `deferred` is exactly eight,
-# which is the only reason the column looked set by it.
+# text could grow past the eight-wide label column the panel was drawn in, and
+# a dry run still prints the rows in. That column is `{label:<8}`, not the
+# longest label: `deferred` is exactly eight, which is the only reason the
+# column looked set by it. Since #832 the image carries no rows: they reach
+# the note as its alt text (`alt_text`).
 LABELS = ("SEALED", "tag", "PRs", "issues", "suite", "items", "capped", "deferred")
-# The widest value the panel carries before the frame would cut it,
-# `skills/verify/scripts/broad_gate.py#PANEL_VALUE_WIDTH`. Held here rather
-# than imported, because that module is the whole gate; a case holds the two
-# to one number.
+# The widest value a release's panel carries before the frame would cut it.
+# It was `skills/verify/scripts/broad_gate.py#PANEL_VALUE_WIDTH` until #832
+# widened the gate's to 41 for the open layout's 80 columns; a release's rows
+# were out of that work item's scope, so this one stays 23, and the case that
+# held the two to one number holds this one apart from the gate's.
 PANEL_VALUE_WIDTH = 23
 # What a row says when the source it is read from could not be read: the row
 # stays, because a dropped row reads as none and a 0 reads as a count
@@ -299,8 +186,10 @@ def release_rows(version, sha, pulls_n, issues_n, suite, chain):
 def alt_text(rows):
     """One sentence carrying every value of `rows`, in the shape of the alt
     text written by hand for 0.17.0's seal, for a reader whose browser does
-    not draw the image. A `]` or a line break would end the Markdown image
-    early, so neither is let through."""
+    not draw the image. No `]`, `[` or line break is let through: the text
+    was first written into a Markdown image, which any of them ends early.
+    Since #832 it sits in an `<img>`'s `alt`, and `sealed_glance` escapes it
+    for that attribute."""
     by = {}
     for label, value in rows:
         if label:
@@ -516,6 +405,28 @@ def tagged(tag):
     return out.stdout.strip()
 
 
+def rasterise(svg, png):
+    """Draw `svg` as a `SEAL_PX * DENSITY` pixel square PNG at `png` with
+    `rsvg-convert`, or raise `Refused` saying why: the SVG is not there, the
+    binary is not on `PATH` -- the `seal` job installs it, and an install
+    that failed lands here -- or it exited non-zero, with what it printed."""
+    if not os.path.isfile(svg):
+        raise Refused(f"the seal's SVG is not there: {svg}")
+    side = str(SEAL_PX * DENSITY)
+    try:
+        out = subprocess.run(
+            ["rsvg-convert", "-w", side, "-h", side, svg, "-o", png],
+            capture_output=True,
+            encoding="utf-8",
+        )
+    except FileNotFoundError as problem:
+        raise Refused(
+            "rsvg-convert is not installed (librsvg2-bin); the seal cannot be drawn"
+        ) from problem
+    if out.returncode:
+        raise Refused(f"rsvg-convert failed: {out.stderr.strip()}")
+
+
 def seal_release(tag, repo, dry):
     """Draw, attach and show the seal for `tag`, or raise `Refused` at the
     first thing that stops it -- before any write, apart from the edit."""
@@ -542,14 +453,8 @@ def seal_release(tag, repo, dry):
     # writes `ASSET` in a directory of its own; `SEAL_PNG` is a dry run's.
     path = os.environ.get("SEAL_PNG") if dry else ""
     path = path or os.path.join(tempfile.mkdtemp(prefix="release-seal-"), ASSET)
-    try:
-        letter = stamp().compose(rows, stamp().DEFAULT_SCALE)
-        used = png(paint(letter), size(letter), path)
-    except (Exception, SystemExit) as problem:
-        raise Refused(
-            f"the seal could not be drawn: {type(problem).__name__}: {problem}"
-        ) from problem
-    print(f"drew {path} with {used}")
+    rasterise(SVG, path)
+    print(f"drew {path} from {os.path.basename(SVG)} with rsvg-convert")
     try:
         body = json.loads(gh("release", "view", tag, "--repo", repo, "--json", "body"))[
             "body"
@@ -566,7 +471,7 @@ def seal_release(tag, repo, dry):
         )
     image = f"https://github.com/{repo}/releases/download/{tag}/{ASSET}"
     sealed = body.replace(
-        table, note.sealed_glance(image, alt_text(rows), work, closed, people)
+        table, note.sealed_glance(image, alt_text(rows), SEAL_PX, work, closed, people)
     )
     if dry:
         print("DRY_RUN -- nothing uploaded and nothing edited; the note would read:")

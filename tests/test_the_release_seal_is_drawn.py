@@ -1,41 +1,54 @@
 """The release seal is drawn and attached at publish time (#718).
 
 Work item 1790993139. The tag push publishes the note as it always did; a
-second job then runs the suite at the tag, draws one seal for the release from
-`seal_stamp.compose`'s letter, attaches it, and puts it where the note's glance
-table stood. Any failure leaves the note as it was.
+second job then runs the suite at the tag, draws one seal for the release,
+attaches it, and puts it where the note's glance table stood. Any failure
+leaves the note as it was.
 
-This module holds `.github/scripts/release_seal.py`: the drawing and its pin
-against the terminal form (S6, S7), the rows and their sources (S8-S11), and
-the publishing path with every way it can fail (S1-S5, S12). The pixel case
-needs Pillow, which `bin/test` installs; the case that pins `paint` against
-`block` imports nothing beyond the standard library.
+Since #832 (work item 1791270164) the seal is the owner's own SVG,
+`.github/scripts/release-seal.svg`, rasterised by `rsvg-convert` at twice
+its display size. It used to be the terminal stamp painted cell for cell,
+which is the staircase that ticket opened on.
 
-**The colours here are not read from `release_seal.rgb`.** A case that asked
-the code for the expected colour would agree with whatever the code says, so
-`XTERM` below holds the four codes the sheet uses as xterm defines them, the
-values `seal_stamp.py`'s own comments give.
+This module holds `.github/scripts/release_seal.py`: the SVG and its
+rasteriser (S6), the rows and their sources (S8-S11), and the publishing path
+with every way it can fail (S1-S5, S9, S12). The one case that runs
+`rsvg-convert` skips where it is not installed, and reads the PNG with
+Pillow, which `bin/test` installs; every other case runs a stand-in for the
+binary and imports nothing beyond the standard library.
+
+**The colours here are not read from the SVG through the code under test.**
+`LAYERS` and `RED` hold what the owner's file carried, written out, so a case
+cannot agree with whatever the tree's copy happens to say.
 """
 
 import importlib.util
+import math
 import os
-import sys
+import re
+import shutil
+import subprocess
+import xml.etree.ElementTree as ElementTree
 
 import pytest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, ".github", "scripts", "release_seal.py")
-STAMP = os.path.join(ROOT, "skills", "verify", "scripts", "seal_stamp.py")
+SVG = os.path.join(ROOT, ".github", "scripts", "release-seal.svg")
+NS = "{http://www.w3.org/2000/svg}"
 
-# The four 256-colour codes the sheet uses, as xterm's table gives them, and
-# as `seal_stamp.py` states them beside `PARCHMENT`, `SHEET_EDGE`, `INK` and
-# `TITLE`.
-XTERM = {
-    230: (255, 255, 215),
-    187: (215, 215, 175),
-    94: (135, 95, 0),
-    124: (175, 0, 0),
-}
+# The owner's three `<text>` layers of the seal's mark, as their file carried
+# them: the fill, the opacity (None where the layer had none), and the point
+# the glyph was anchored at -- the middle of its advance on `x`, its baseline
+# on `y`. The owner drew a §; the tree's copy carries each layer as a `<path>`
+# of the seal's placeholder mark, Georgia Bold's S, which #857 replaces.
+LAYERS = [
+    ("#380709", "0.9", (16.5, 21.5)),
+    ("#c42830", None, (16.0, 21.0)),
+    ("#e65a61", "0.5", (15.7, 20.7)),
+]
+# The face of the seal's mark, the layer drawn at full opacity.
+RED = (0xC4, 0x28, 0x30)
 
 # A release's rows in the shape `release_rows` returns. The version is the
 # illustrative one `tests/test_release_hygiene.py` exempts; the rest are
@@ -64,159 +77,130 @@ def seal():
     return load(SCRIPT, "specseal_release_seal_for_tests")
 
 
-def expected(stamp, cell):
-    """`(top, bottom, text)` for one cell as `block` describes it, through
-    `XTERM` rather than the code under test: each half's colour or None, and
-    `(character, ink)` where something is written."""
-
-    def colour(c):
-        return None if c is None else XTERM[c] if isinstance(c, int) else c
-
-    ch, fg, bg = stamp.block(cell)
-    if cell[2]:
-        return colour(bg), colour(bg), (ch, colour(fg))
-    if ch == "▀":
-        return colour(fg), colour(bg), None
-    if ch == "▄":
-        return colour(bg), colour(fg), None
-    return colour(bg), colour(bg), None
+def svg_tree():
+    return ElementTree.parse(SVG).getroot()
 
 
-def painted(mod, ops):
-    """`{(x, y): [top, bottom]}` over the cells the ops cover, and
-    `{(x, y): (character, colour, bold)}` for the text: each rectangle laid
-    over the halves it covers, in order, the way a raster would take it.
-    A rectangle that does not start and end on a half's edge is refused,
-    because a half that bleeds a pixel row into its neighbour is a colour
-    this map would not see."""
-    cw, ch = mod.CELL_W, mod.CELL_H
-    halves, text = {}, {}
-    for op in ops:
-        if op[0] == "rect":
-            _, x0, y0, x1, y1, rgb = op
-            assert x0 % cw == 0 and (x1 + 1) % cw == 0, op
-            assert y0 % (ch // 2) == 0 and (y1 + 1) % (ch // 2) == 0, op
-            for y in range(y0 // (ch // 2), (y1 + 1) // (ch // 2)):
-                for x in range(x0 // cw, (x1 + 1) // cw):
-                    halves.setdefault((x, y // 2), [None, None])[y % 2] = rgb
-        else:
-            _, cx, cy, char, rgb, bold = op
-            text[(cx // cw, cy // ch)] = (char, rgb, bold)
-    return halves, text
+def points(d):
+    """The `(x, y)` pairs of a path's `d`, in order: every command the
+    converter writes (`M`, `Q`, `L`, `Z`) takes absolute pairs."""
+    numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", d)]
+    return list(zip(numbers[::2], numbers[1::2], strict=True))
 
 
-# --- S7: `rgb` is xterm's table ---------------------------------------------
+# --- S6: the PNG is the owner's SVG -----------------------------------------
 
 
-def test_rgb_is_xterms_table_and_a_triple_passes_through():
-    """S7. The four codes the sheet uses map to xterm's values; a triple is
-    returned as it is; a code from the sixteen system colours, which the
-    sheet never uses and whose values a terminal chooses, is refused."""
-    mod = seal()
-    assert {code: mod.rgb(code) for code in XTERM} == XTERM
-    assert mod.rgb((168, 26, 30)) == (168, 26, 30)
-    assert mod.rgb(16) == (0, 0, 0) and mod.rgb(231) == (255, 255, 255)
-    assert mod.rgb(232) == (8, 8, 8) and mod.rgb(255) == (238, 238, 238)
-    for code in (0, 15):
-        with pytest.raises(ValueError):
-            mod.rgb(code)
-
-
-# --- S6: the PNG carries the terminal form's colours ------------------------
-
-
-def test_paint_lays_every_cell_in_the_colours_block_gives_it():
-    """S6, the half that needs no third-party module. For every cell of
-    `compose(ROWS, DEFAULT_SCALE)`, the rectangles `paint` lays over its two
-    halves are the colours `block` gives them, a half `block` leaves empty is
-    covered by nothing, and every written character but a space is drawn
-    once, in its ink, bold on the title line alone. Seen red by swapping two
-    codes in `rgb`'s table."""
-    mod = seal()
-    stamp = load(STAMP, "seal_stamp_for_the_release_seal")
-    letter = stamp.compose(ROWS, stamp.DEFAULT_SCALE)
-    halves, text = painted(mod, mod.paint(letter))
-    seen = 0
-    for y, line in enumerate(letter.cells):
-        for x, cell in enumerate(line):
-            top, bottom, said = expected(stamp, cell)
-            assert halves.get((x, y), [None, None]) == [top, bottom], (x, y, cell)
-            if said and said[0] != " ":
-                assert text.get((x, y)) == (*said, y == 1), (x, y, cell)
-                seen += 1
-            else:
-                assert (x, y) not in text, (x, y, cell)
-    assert seen == len(text) and seen > 0
-    assert mod.size(letter) == (
-        max(len(line) for line in letter.cells) * mod.CELL_W,
-        len(letter.cells) * mod.CELL_H,
+def test_the_release_seal_svg_is_the_owners_with_its_text_as_paths():
+    """S6, the half that needs neither Pillow nor the binary. The tree's SVG
+    is the owner's 32 x 32 seal: the radial gradient `sealBg` with its three
+    stops, the linear gradient `rimShade`, the wax circle with its rim and
+    the pressed groove inside it, and three `<path>` layers of the seal's
+    mark in the fills and opacities the owner's three `<text>` layers had.
+    The owner's layers drew a §; since the owner's decision of 2026-10-07
+    the glyph is the terminal's placeholder mark, Georgia Bold's S, and #857
+    replaces it in both. It holds no `<text>`, so the runner looks up no
+    font: a fallback serif would draw a different glyph. The three layers
+    are one outline, each moved by exactly the offset between the owner's
+    anchors, so a layer redrawn from another glyph or put back at another
+    point is seen, and the outline stands inside the groove. Seen red before
+    the file existed, and by one fill changed."""
+    root = svg_tree()
+    assert root.tag == f"{NS}svg" and root.get("viewBox") == "0 0 32 32"
+    assert not list(root.iter(f"{NS}text")), "the SVG still carries text"
+    radial = root.find(f"{NS}defs/{NS}radialGradient[@id='sealBg']")
+    assert [(s.get("offset"), s.get("stop-color")) for s in radial] == [
+        ("0%", "#931e24"),
+        ("70%", "#6e1418"),
+        ("100%", "#490b0e"),
+    ]
+    rim = root.find(f"{NS}defs/{NS}linearGradient[@id='rimShade']")
+    assert [s.get("stop-color") for s in rim] == ["#b83238", "#380709"]
+    wax, groove = root.findall(f"{NS}circle")
+    assert (wax.get("r"), wax.get("fill"), wax.get("stroke")) == (
+        "15",
+        "url(#sealBg)",
+        "url(#rimShade)",
     )
+    assert (groove.get("r"), groove.get("stroke"), groove.get("fill")) == (
+        "13",
+        "#40090c",
+        "none",
+    )
+    layers = root.findall(f"{NS}path")
+    assert [(p.get("fill"), p.get("opacity")) for p in layers] == [
+        (fill, opacity) for fill, opacity, _ in LAYERS
+    ]
+    outlines = [points(p.get("d")) for p in layers]
+    base, (bx, by) = outlines[1], LAYERS[1][2]
+    assert len(base) > 50, "the seal's mark is an outline of curves, not a box"
+    for outline, (_, _, (ax, ay)) in zip(outlines, LAYERS, strict=True):
+        assert len(outline) == len(base)
+        for (x, y), (x0, y0) in zip(outline, base, strict=True):
+            assert abs((x - x0) - (ax - bx)) < 0.002, (x, x0)
+            assert abs((y - y0) - (ay - by)) < 0.002, (y, y0)
+    for x, y in (pair for outline in outlines for pair in outline):
+        assert math.hypot(x - 16, y - 16) < 13 - 0.4, (x, y)
 
 
-@pytest.mark.parametrize("faces", ["the chain", "none"])
-def test_the_png_carries_the_colours_and_is_clear_where_nothing_is_painted(
-    tmp_path, monkeypatch, faces
+def test_the_rasteriser_runs_rsvg_convert_at_two_times_the_display_size(
+    monkeypatch, tmp_path
 ):
-    """S6, the pixel half. The PNG `png` writes from the fixed rows is
-    decoded, and each half of each cell is sampled on its outer row at the
-    cell's centre column, away from where a glyph is drawn: the colour
-    `block` gives that half, or alpha 0 where it gives none. In every cell
-    that carries a character other than a space, some pixel is the cell's
-    ink exactly, which is stronger than the frame's *the darkest pixel is
-    nearer the ink than the parchment*: that one passed with the ink's red
-    and green swapped, measured with `bin/mutation-check` over `rgb`'s cube
-    levels, because every stroke at this size covers whole pixels in both
-    fonts measured, Menlo and Pillow's default. The font the run used is one `font`
-    names, and it is printed for a run under `-s` (`questions.md` Q11; the
-    publishing step logs it at the tag). Seen red by swapping two codes in
-    `rgb`'s table. Run twice: with the face chain as it is, and with no face
-    loading, so Pillow's own default -- the font a runner with none of the
-    three draws with -- is held to the same pin."""
+    """S6. `rasterise` hands the SVG to `rsvg-convert` at `SEAL_PX` times
+    `DENSITY` pixels square, the PNG named after `-o`; the note shows it at
+    `SEAL_PX`, so a high-density screen draws it sharp. `SVG` is the file
+    beside the script. Seen red before `rasterise` existed, and by the
+    density dropped from the size."""
+    mod = seal()
+    seen = []
+
+    def run(args, **_):
+        seen.append(list(args))
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", run)
+    out = str(tmp_path / "seal.png")
+    mod.rasterise(mod.SVG, out)
+    assert (mod.SEAL_PX, mod.DENSITY) == (160, 2)
+    assert os.path.samefile(mod.SVG, SVG)
+    assert seen == [["rsvg-convert", "-w", "320", "-h", "320", mod.SVG, "-o", out]]
+
+
+@pytest.mark.skipif(
+    shutil.which("rsvg-convert") is None,
+    reason="rsvg-convert is not installed here; the publishing job installs it",
+)
+def test_rsvg_convert_draws_the_seal_transparent_round_and_in_its_colours(tmp_path):
+    """S6, the pixel half, on the real binary. The PNG `rasterise` writes is
+    RGBA and `SEAL_PX * DENSITY` square, clear at its four corners and solid
+    at its centre, so it sits on any page background as a disc; somewhere in
+    it a pixel is within 8 per channel of the mark's face, `RED`; and the wax
+    is lit from the upper left, as the radial gradient centred at 35 % puts
+    it, so a point of the field up and left of the mark is lighter than its
+    mirror down and right. Seen red by the face's fill changed in the SVG
+    (`questions.md` Q11 set the tolerances from this render)."""
     from PIL import Image
 
     mod = seal()
-    if faces == "none":
-        monkeypatch.setattr(mod, "FACES", ())
-    stamp = load(STAMP, "seal_stamp_for_the_pixels")
-    letter = stamp.compose(ROWS, stamp.DEFAULT_SCALE)
-    path = tmp_path / "seal.png"
-    used = mod.png(mod.paint(letter), mod.size(letter), str(path))
-    print(f"font: {used}")
-    assert used in {face[0] for face in mod.FACES} | {"Pillow's default"}, used
-    image = Image.open(path)
-    assert image.mode == "RGBA" and image.size == mod.size(letter)
+    out = tmp_path / "seal.png"
+    mod.rasterise(mod.SVG, str(out))
+    image = Image.open(out)
+    side = mod.SEAL_PX * mod.DENSITY
+    assert image.mode == "RGBA" and image.size == (side, side)
     pixels = image.load()
-    cw, ch = mod.CELL_W, mod.CELL_H
-    for y, line in enumerate(letter.cells):
-        for x, cell in enumerate(line):
-            top, bottom, said = expected(stamp, cell)
-            # A half's outer row always, and its inner row where no glyph
-            # can reach it, so a half one pixel row short or long is seen.
-            rows = [(top, y * ch), (bottom, y * ch + ch - 1)]
-            if not said:
-                rows += [(top, y * ch + ch // 2 - 1), (bottom, y * ch + ch // 2)]
-            for want, row in rows:
-                got = pixels[x * cw + cw // 2, row]
-                if want is None:
-                    assert got[3] == 0, (x, y, got)
-                else:
-                    assert got == (*want, 255), (x, y, got, want)
-            if said and said[0] != " ":
-                inked = {
-                    pixels[a, b]
-                    for a in range(x * cw, x * cw + cw)
-                    for b in range(y * ch, y * ch + ch)
-                }
-                assert (*said[1], 255) in inked, (x, y, said)
+    for corner in ((0, 0), (side - 1, 0), (0, side - 1), (side - 1, side - 1)):
+        assert pixels[corner][3] == 0, (corner, pixels[corner])
+    assert pixels[side // 2, side // 2][3] == 255
+    assert any(
+        all(abs(have - want) <= 8 for have, want in zip(pixel[:3], RED, strict=True))
+        and pixel[3] == 255
+        for pixel in (pixels[x, y] for x in range(side) for y in range(side))
+    ), "no pixel of the mark's face"
 
+    def at(x, y):
+        return sum(pixels[round(x * side / 32), round(y * side / 32)][:3])
 
-def test_the_seal_module_imports_without_pillow(monkeypatch):
-    """Pillow is imported inside `png` alone, so the rows, the alt text and
-    `paint` load on an interpreter without it, and so does the module the
-    publishing step imports before it knows whether a draw is possible."""
-    monkeypatch.setitem(sys.modules, "PIL", None)
-    mod = seal()
-    assert callable(mod.paint) and callable(mod.png)
+    assert at(8, 8) > at(24, 24), (at(8, 8), at(24, 24))
 
 
 # --- S8: the rows are fixed and fit -----------------------------------------
@@ -226,18 +210,24 @@ GATE = os.path.join(ROOT, "skills", "verify", "scripts", "broad_gate.py")
 
 def test_the_rows_are_the_fixed_set_in_order_and_fit_the_panel():
     """S8. `release_rows` returns the fixed label set in order, the tag's
-    continuation carrying `main`. Every label fits `seal_stamp.letter`'s
-    eight-wide label column -- `deferred` is exactly eight, which is the only
-    reason the column looks set by it -- and no value is wider than
-    `broad_gate.PANEL_VALUE_WIDTH`. A count of 0 still draws its row."""
+    continuation carrying `main`. Every label fits the eight-wide label
+    column a dry run prints the rows in -- `deferred` is exactly eight,
+    which is the only reason the column looks set by it -- and no value is
+    wider than the
+    release's own `PANEL_VALUE_WIDTH`, 23. A count of 0 still draws its row.
+
+    The two widths were one number until #832: `broad_gate`'s became 41 for
+    the open layout's 80 columns (S5a), and the release's rows are out of
+    that work item's scope, so the release keeps 23 and no longer follows
+    the gate's."""
     mod = seal()
     rows = mod.release_rows("1.2.3", "aaa11111bbbb", 10, 0, (7003, 66), (10, 27, 6, 13))
     assert rows == [*ROWS[:4], ("issues", "0 closed"), *ROWS[5:]], rows
     assert all(len(label) <= 8 for label in mod.LABELS), mod.LABELS
     assert [label for label, _ in rows if label] == list(mod.LABELS)
     width = load(GATE, "broad_gate_for_the_release_rows").PANEL_VALUE_WIDTH
-    assert mod.PANEL_VALUE_WIDTH == width == 23
-    assert all(len(value) <= width for _, value in rows), rows
+    assert mod.PANEL_VALUE_WIDTH == 23 < width, (mod.PANEL_VALUE_WIDTH, width)
+    assert all(len(value) <= mod.PANEL_VALUE_WIDTH for _, value in rows), rows
 
 
 def test_a_suite_wider_than_the_value_column_moves_skipped_to_its_own_row():
@@ -577,10 +567,40 @@ def note(pulls=PULLS):
     return publisher.release_body(SECTION, pulls, OWNER, REPO, TAG)
 
 
-def wired(monkeypatch, tmp_path, body=None, fails=(), pulls=PULLS, **env):
-    """The seal with a fixture suite, a fixture tree and no route to GitHub."""
+def rsvg_convert(how="draws"):
+    """`subprocess.run` as `rasterise` meets it: `draws` writes a PNG's
+    eight-byte signature where `-o` points, `fails` exits 1 with what
+    librsvg prints for a file it cannot read, and `missing` raises what
+    `subprocess.run` raises for a command that is not on `PATH`.
+
+    Every other command goes to the real `subprocess.run`, because the patch
+    reaches the module the whole process shares: the round-record readers
+    ask `git rev-parse --git-common-dir` where the `seal/` root is, and a
+    stand-in that answered them as `rsvg-convert` failed every draw."""
+    real = subprocess.run
+
+    def run(args, **kwargs):
+        if args[0] != "rsvg-convert":
+            return real(args, **kwargs)
+        if how == "missing":
+            raise FileNotFoundError(2, "No such file or directory", args[0])
+        if how == "fails":
+            return subprocess.CompletedProcess(
+                args, 1, stdout="", stderr="rsvg-convert: Error reading SVG\n"
+            )
+        with open(args[args.index("-o") + 1], "wb") as handle:
+            handle.write(b"\x89PNG\r\n\x1a\n")
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    return run
+
+
+def wired(monkeypatch, tmp_path, body=None, fails=(), pulls=PULLS, rsvg="draws", **env):
+    """The seal with a fixture suite, a fixture tree, a stand-in for
+    `rsvg-convert` and no route to GitHub."""
     mod = seal()
     hub = GitHub(mod, note(pulls) if body is None else body, fails)
+    monkeypatch.setattr(mod.subprocess, "run", rsvg_convert(rsvg))
     monkeypatch.setattr(mod, "gh", hub.gh)
     monkeypatch.setattr(mod, "tagged", lambda tag: SHA)
     monkeypatch.setattr(mod, "ROOT", tree(tmp_path, verdicts=[["deferred #12"]]))
@@ -602,11 +622,13 @@ def wired(monkeypatch, tmp_path, body=None, fails=(), pulls=PULLS, **env):
 
 
 def test_the_seal_replaces_the_glance_table_and_is_attached(monkeypatch, tmp_path):
-    """S1. The PNG is uploaded as `seal.png`, and the edited note is the
+    """S1, S7. The PNG is uploaded as `seal.png`, and the edited note is the
     published one with its glance block replaced by the heading, the image
-    at the release-download URL with its alt text, a blank line and one line
-    of the counts -- every other byte unchanged. Seen red before `main`
-    existed."""
+    at the release-download URL with its alt text and its display width
+    `SEAL_PX`, a blank line and one line of the counts -- every other byte
+    unchanged. The PNG is `DENSITY` times that width, so the width is what
+    keeps it from showing twice its size. Seen red before `main` existed,
+    and before the image carried a width."""
     mod, hub = wired(monkeypatch, tmp_path)
     assert mod.main() == 0
     (upload,) = hub.writes("upload")
@@ -620,13 +642,15 @@ def test_the_seal_replaces_the_glance_table_and_is_attached(monkeypatch, tmp_pat
     work, closed, people = publisher.tally(PULLS, OWNER)
     rows = mod.release_rows("1.2.3", SHA, 2, 2, (7003, 66), (1, 1, 1, 1))
     image = f"https://github.com/{REPO}/releases/download/{TAG}/seal.png"
-    sealed = publisher.sealed_glance(image, mod.alt_text(rows), work, closed, people)
+    sealed = publisher.sealed_glance(
+        image, mod.alt_text(rows), mod.SEAL_PX, work, closed, people
+    )
     assert body == note().replace(publisher.glance(work, closed, people), sealed)
     assert body.startswith(
-        "### 📊 At a glance\n\n![The 1.2.3 release seal: SEALED v1.2.3 at aaa11111 on "
-        "main, 2 pull requests merged, 2 issues closed, the suite at 7003 passed and "
-        "66 skipped, 1 work item over 1 review round, 1 of them capped, 1 issue "
-        f"deferred]({image})\n\n"
+        f'### 📊 At a glance\n\n<img src="{image}" alt="The 1.2.3 release seal: '
+        "SEALED v1.2.3 at aaa11111 on main, 2 pull requests merged, 2 issues "
+        "closed, the suite at 7003 passed and 66 skipped, 1 work item over 1 "
+        'review round, 1 of them capped, 1 issue deferred" width="160">\n\n'
         "🔀 Pull requests **2** · ✅ Issues closed **2** · 🙌 Outside contributors **1**"
         "\n\n### ✨ Features"
     ), body[:600]
@@ -642,10 +666,9 @@ REASONS = {
     "the JUnit file does not parse": "is not JUnit XML",
     "the suite counts a failure": "did not pass: 1 failed and 0 errors",
     "the suite counts an error": "did not pass: 0 failed and 1 errors",
-    "Pillow does not import": "could not be drawn: ModuleNotFoundError",
-    "compose raises": "could not be drawn: ValueError",
-    "compose exits": "could not be drawn: SystemExit",
-    "the PNG writer exits": "could not be drawn: SystemExit",
+    "rsvg-convert is not installed": "rsvg-convert is not installed",
+    "rsvg-convert fails": "rsvg-convert failed: rsvg-convert: Error reading SVG",
+    "the SVG is not there": "the seal's SVG is not there",
     "gh pr list fails": "gh pr list could not list",
     "gh release view fails": "gh release view failed",
     "gh release upload fails": "gh release upload failed",
@@ -656,13 +679,6 @@ REASONS = {
 }
 
 
-def broken_compose(mod, exc):
-    def compose(*_):
-        raise exc
-
-    return compose
-
-
 @pytest.mark.parametrize(
     "case",
     [
@@ -671,10 +687,9 @@ def broken_compose(mod, exc):
         "the JUnit file does not parse",
         "the suite counts a failure",
         "the suite counts an error",
-        "Pillow does not import",
-        "compose raises",
-        "compose exits",
-        "the PNG writer exits",
+        "rsvg-convert is not installed",
+        "rsvg-convert fails",
+        "the SVG is not there",
         "gh pr list fails",
         "gh release view fails",
         "gh release upload fails",
@@ -690,9 +705,15 @@ def test_any_failure_leaves_the_note_as_it_was_published(
     """S2, the case #718's box 2 asks for. Each failure, one at a time: the
     process exits 0, prints a line naming the failure and a `::warning::`
     with the same reason, and calls no `gh release edit` -- except where the
-    edit is the call that failed. Seen red by removing the guard each pins."""
-    env, fails, body, pulls = {}, (), None, PULLS
-    if case == "the suite step failed":
+    edit is the call that failed. Seen red by removing the guard each pins;
+    the three `rsvg-convert` cases (#832, S9) by `rasterise` letting the
+    error through unnamed, and by it not checking the exit code."""
+    env, fails, body, pulls, rsvg = {}, (), None, PULLS, "draws"
+    if case == "rsvg-convert is not installed":
+        rsvg = "missing"
+    elif case == "rsvg-convert fails":
+        rsvg = "fails"
+    elif case == "the suite step failed":
         env["SUITE_OUTCOME"] = "failure"
     elif case == "the JUnit file is missing":
         env["SUITE_XML"] = str(tmp_path / "absent.xml")
@@ -723,28 +744,17 @@ def test_any_failure_leaves_the_note_as_it_was_published(
         body=body if body is not None else (note() if pulls is not None else ""),
         fails=fails,
         pulls=pulls,
+        rsvg=rsvg,
         **env,
     )
-    if case == "Pillow does not import":
-        monkeypatch.setitem(sys.modules, "PIL", None)
-    elif case == "compose raises":
-        monkeypatch.setattr(
-            mod.stamp(), "compose", broken_compose(mod, ValueError("x"))
-        )
-    elif case == "compose exits":
-        monkeypatch.setattr(mod.stamp(), "compose", broken_compose(mod, SystemExit(2)))
+    if case == "the SVG is not there":
+        monkeypatch.setattr(mod, "SVG", str(tmp_path / "absent.svg"))
     elif case == "a module will not load":
 
         def publisher():
             raise ImportError("no publisher")
 
         monkeypatch.setattr(mod, "publisher", publisher)
-    elif case == "the PNG writer exits":
-
-        def png(*_):
-            raise SystemExit(1)
-
-        monkeypatch.setattr(mod, "png", png)
     assert mod.main() == 0
     out = capsys.readouterr().out.splitlines()
     warnings = [line for line in out if line.startswith("::warning::")]
@@ -802,7 +812,7 @@ def test_a_dry_run_draws_and_prints_and_writes_nothing(monkeypatch, tmp_path, ca
     assert hub.writes("upload") == [] and hub.writes("edit") == []
     out = capsys.readouterr().out
     assert "deferred 1 issue" in out and "suite    7003 passed, 66 skipped" in out, out
-    assert "![The 1.2.3 release seal: SEALED v1.2.3 at aaa11111" in out, out
+    assert 'alt="The 1.2.3 release seal: SEALED v1.2.3 at aaa11111' in out, out
     assert "::warning::" not in out, out
 
 
@@ -834,7 +844,6 @@ def test_a_refused_gh_or_git_call_is_a_reason_naming_the_call(monkeypatch):
     into `Refused` naming the call and what it printed; `tagged` does the
     same for the commit a tag names. Both are what the failure cases above
     stand in for."""
-    import subprocess
 
     mod = seal()
     seen = []
@@ -869,12 +878,19 @@ def test_the_release_tail_says_the_seal_is_a_second_act_that_never_fails_it():
     reaches `main`*: the bullet on the note says the seal job runs only on a
     release this run created, edits only a glance table still as generated,
     and cannot turn the release red, and the section's `Enforced by:` line
-    names the case that pins the fallback."""
+    names the case that pins the fallback. Since #832 it says the seal is
+    the owner's SVG drawn by `rsvg-convert`, and no longer that it is drawn
+    from the broad gate's letter; seen red by the old sentence put back."""
     text = flat("docs", "branch-and-release.md")
     bullet = text.split("**The release note publishes itself.**", 1)[1].split(
         "- **", 1
     )[0]
     assert "**Then the release's seal is attached** (#718)" in bullet
+    assert (
+        "draws the owner's seal from `.github/scripts/release-seal.svg` with "
+        "`rsvg-convert`, which the job installs (#832)" in bullet
+    )
+    assert "letter" not in bullet
     assert "runs only when this run created the release" in bullet
     assert (
         "only to one whose glance table is still exactly as it was generated" in bullet
@@ -909,3 +925,8 @@ def test_the_checklist_box_says_where_a_missing_seal_is_explained():
     # Round 2's ⬜ 12: the reasons match the refusal's three causes.
     assert "published without one" in box
     assert "the pull requests moved between the two lists" in box
+    # #832: the seal is drawn by `rsvg-convert`, so the box names the binary
+    # among the reasons and the hand-drawn route needs a machine that has it.
+    # Seen red against the box as #718 left it.
+    assert "`rsvg-convert` was not installed or could not draw the SVG" in box
+    assert "from a checkout at the tag on a machine with `rsvg-convert`" in box

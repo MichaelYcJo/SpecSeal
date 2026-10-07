@@ -86,6 +86,7 @@ not `vX.Y.Z`, or `changelog/X.Y.Z.md` is not there or carries no section for
 it.
 """
 
+import html
 import json
 import os
 import re
@@ -389,20 +390,27 @@ def glance(work, closed, people):
     return "\n".join(parts)
 
 
-def sealed_glance(image_url, alt, work, closed, people):
+def sealed_glance(image_url, alt, width, work, closed, people):
     """What replaces `glance`'s block once the release seal is attached
     (#718): the heading, the seal as an image with `alt` as its text, a blank
     line, and one line carrying every row the table had, in its order, so a
-    reader whose browser does not draw the image still has every count."""
+    reader whose browser does not draw the image still has every count.
+
+    The image is an `<img>` `width` CSS pixels wide (#832): the PNG is drawn
+    at twice that for a high-density screen, and Markdown's image syntax has
+    no width, so it would show twice its size. The URL and `alt` are escaped
+    for the attribute each sits in, so a quote in either cannot end it."""
     counts = [
         f"🔀 Pull requests **{len(work)}**",
         f"✅ Issues closed **{len(closed)}**",
     ]
     if people:
         counts.append(f"🙌 Outside contributors **{len(people)}**")
-    return "\n".join(
-        [GLANCE_HEADING, "", f"![{alt}]({image_url})", "", " · ".join(counts)]
+    image = (
+        f'<img src="{html.escape(image_url)}" alt="{html.escape(alt)}" '
+        f'width="{int(width)}">'
     )
+    return "\n".join([GLANCE_HEADING, "", image, "", " · ".join(counts)])
 
 
 def write_output(name, value):

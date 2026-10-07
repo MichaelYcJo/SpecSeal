@@ -346,11 +346,13 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
       note, the same workflow's `seal` job attaches `seal.png` and puts it
       where the glance table stood (#718). Where the note still shows the
       table, the `seal` job's log says why on a `::warning::` line: the
-      suite at the tag did not pass, a `gh` call failed, or the glance
+      suite at the tag did not pass, `rsvg-convert` was not installed or
+      could not draw the SVG (#832), a `gh` call failed, or the glance
       table was not in the note as generated -- edited before the job
       reached it, published without one, or the pull requests moved
       between the two lists. That job never fails the release.
-      To draw one by hand, from a checkout at the tag, run
+      To draw one by hand, from a checkout at the tag on a machine with
+      `rsvg-convert`, run
       `DRY_RUN=1 python3 .github/scripts/release_seal.py` with `TAG`,
       `REPO` and `SUITE_XML` set; attach the PNG it names with
       `gh release upload`, then apply the note it prints with

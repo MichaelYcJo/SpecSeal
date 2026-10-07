@@ -653,8 +653,13 @@ OUT_OF_CLASS = {
     ("skills/verify/scripts/broad_gate.py", "suite_counts"): (1, TOOL),
     ("skills/verify/scripts/deferral_check.py", "read_events"): (1, YAML),
     ("skills/verify/scripts/deferral_check.py", "runners_in"): (1, YAML),
+    # The disc's mark chart (#832): every character but `.` and `M` is refused
+    # after the split, so a line any other separator made is refused as well.
+    ("skills/verify/scripts/seal_stamp.py", "read_chart"): (
+        1,
+        "the disc's mark chart, a grid of `.` and `M`, not a document's lines",
+    ),
     ("skills/verify/scripts/payload_meter.py", "frontmatter"): (1, YAML),
-    ("skills/verify/scripts/seal_stamp.py", "<module>"): (1, "a constant"),
     ("skills/verify/scripts/session_cost.py", "open_log"): (1, TOOL),
     ("skills/verify/scripts/unverified_check.py", "overviews_at"): (1, GIT),
     ("skills/verify/scripts/unverified_check.py", "tree_at"): (1, GIT),

@@ -73,11 +73,11 @@ and the reader acts.
 **Drawn on success only, and only where a person is looking** (#400). The
 stamp — the disc and a panel carrying the tree and its branch, the base and
 the ref it came from, the work item and its pull request, the suite's counts,
-the ledger's `ok` count, how many more steps CI runs than this seal answers,
-and the round count when `--record` names a work item —
-`capped` beside it and the deferred findings' homes beneath it where the run
-ended at the cap (`rounds_rows`) — a name too long for its row continuing on
-the row beneath it (`panel`) — is
+the ledger's three counts, the chain's exit, how many more steps CI runs
+than this seal answers, and the round count when `--record` names a work
+item — `capped` beside it and the deferred findings' homes beneath it where
+the run ended at the cap (`rounds_rows`) — a list too long for its row
+continuing on the row beneath it (`panel`) — is
 `seal_stamp.stamp`'s, and it is drawn only over a written cell. On a
 terminal a recorded seal draws it once, in the form `pick_shape` chooses.
 Anywhere else a recorded seal draws nothing and prints one line beginning
@@ -263,33 +263,46 @@ QUOTED = 8
 
 NEW, ON_BASE = "new", "failing on base too"
 
-# How many columns `seal_stamp.letter` gives a panel value: `PANEL_WIDTH - 2`
-# less the `"  {label:<8} "` prefix. A longer value is cut AT THE FRAME with no
-# ellipsis, so a cut ref reads as a whole ref — and nothing prints beside the
-# row on a run where the given and resolved bases agree (A4), so there is no
-# second statement to correct it. The gate therefore elides before the frame
-# does (round 1, finding 5).
+# How many columns a panel value is given (#832, `spec.md` S5a of work item
+# 1791270164): the widest that keeps the stamp's widest line inside an
+# 80-column terminal, the floor a command line's output is held to. The open
+# layout has no frame, so the terminal is the bound: 28 columns of disc, `GAP`
+# (3) clear, a label of seven and a space, and the value — 28 + 3 + 8 + 41 =
+# 80. Before #832 it was 23, what `seal_stamp.letter`'s 36-column frame left.
+# A longer value runs past the terminal's edge or wraps into the disc's
+# column, so the gate elides before it does (round 1, finding 5 of #666): a
+# cut ref would read as a whole ref, and nothing prints beside the row on a
+# run where the given and resolved bases agree (A4).
 #
 # Stated here and measured over there, and neither may move without the other
 # going red: `test_the_panel_value_width_is_what_the_stamp_actually_gives`
-# renders a value nothing could fit and counts what survives.
-PANEL_VALUE_WIDTH = 23
+# draws a value of this width and measures the stamp's widest line.
+PANEL_VALUE_WIDTH = 41
 ELISION = "..."
+# The panel's own characters (#832 S5a, the owner's design of 2026-10-07):
+# the separator inside a value, the arrow before a deferral's homes, the mark
+# on a result row that passed and the mark on a row that is not a pass. They
+# are the owner's and not ASCII; `seal_stamp`'s letter twin, which exists for
+# a console that is not UTF-8, maps them where it writes them.
+SEP, ARROW, TICK, DOT = " · ", "→", "✓ ", "· "
 
 
-def fit(value, keep="head"):
+def fit(value, keep="head", width=None):
     """`value` as the panel can carry it: unchanged where it fits, else
-    elided to `PANEL_VALUE_WIDTH` with `ELISION` on the side that was cut.
+    elided to `width` — `PANEL_VALUE_WIDTH` unless a caller names less —
+    with `ELISION` on the side that was cut.
 
     `keep="head"` for a branch name, whose issue number leads and is what a
     reader matches to a ticket; `keep="tail"` for a ref, where the
     `origin/` a runner reads is the part a reader can infer. Every value
     `panel` returns passes through here, so no row is wider than the frame
-    and none is cut by it without a marker (#666)."""
+    and none is cut by it without a marker (#666). `width` is the room a
+    ref has beside its commit on the `base` row (#832)."""
     value = str(value)
-    if len(value) <= PANEL_VALUE_WIDTH:
+    width = PANEL_VALUE_WIDTH if width is None else width
+    if len(value) <= width:
         return value
-    room = PANEL_VALUE_WIDTH - len(ELISION)
+    room = width - len(ELISION)
     return ELISION + value[-room:] if keep == "tail" else value[:room] + ELISION
 
 
@@ -301,17 +314,19 @@ def wrapped(label, pieces):
     Q1), so a list of counts or homes continues rather than losing its tail
     to `...`; only a branch or a ref, which have no bound, are elided. Each
     piece but the first carries the separator that joins it to the one
-    before (`", #664"`). A row is broken before a piece that would not fit,
-    and keeps that separator's comma at its end so the reader sees the list
-    goes on — one column is held back for it on every piece but the last.
-    One piece wider than the frame by itself is still elided by `fit`."""
+    before (`", #664"`, or `" · 11 skipped"` since #832). A row is broken
+    before a piece that would not fit, and keeps that separator's mark — the
+    comma, or the ` ·` — at its end so the reader sees the list goes on; two
+    columns are held back for it on every piece but the last, because ` ·`
+    is two. One piece wider than the frame by itself is still elided by
+    `fit`."""
     rows, line = [], ""
     for n, piece in enumerate(pieces):
-        room = PANEL_VALUE_WIDTH - (0 if n == len(pieces) - 1 else 1)
+        room = PANEL_VALUE_WIDTH - (0 if n == len(pieces) - 1 else 2)
         if line and len(line + piece) > room:
-            lead = piece[: len(piece) - len(piece.lstrip(", "))]
+            lead = piece[: len(piece) - len(piece.lstrip(", ·"))]
             rows.append(line + lead.rstrip())
-            line = piece.lstrip(", ")
+            line = piece.lstrip(", ·")
         else:
             line += piece
     rows.append(line)
@@ -2634,7 +2649,8 @@ def coverage_line(text, given):
     no run of this pull request would ever ask.
 
     **Names here, a count on the panel** (`questions.md` W1).
-    `seal_stamp.letter` gives a panel value 23 columns, which thirteen step
+    The panel gives a value `PANEL_VALUE_WIDTH` columns (23 when this was
+    written, 41 since #832), which thirteen step
     names do not fit and a count does — and a reader who is told only a number
     has to reconstruct WHICH from two files, which is the reconstruction this
     work item exists to remove. So the panel carries the number and this
@@ -2720,9 +2736,10 @@ def ledger_counts(text):
     On a drawn panel `drifted` and `broken` are both 0 by construction: the
     gate passes `--strict`, which exits 2 on either. #666 carried them on the
     row beneath `ok` because the owner asked for it; #717's owner took that
-    row off, so `panel` prints `ok` alone, and the count that varies is
-    where it varies, at the end of the failure form's `ledger` entry
-    (`failure_lines`)."""
+    row off, and #832's owner put the three back on the one `ledger` row
+    (`spec.md` decision 6 of work item 1791270164), so `panel` prints all
+    three. The count that varies is where it varies, at the end of the
+    failure form's `ledger` entry (`failure_lines`)."""
     m = LEDGER_RE.search(text)
     return m.groups() if m else None
 
@@ -2848,15 +2865,16 @@ def deferred_home(chain, cell):
 def rounds_rows(item, record):
     """The `rounds` row and, where it has one, the row beneath it (#666).
 
-    `<R>` is the count of round records, as before. ` . capped` is appended
+    `<R>` is the count of round records, as before. ` · capped` is appended
     where the last record's `Needs a fix` begins `yes`: `seal` has already
     refused an unchecked `Pass`, so that is a record whose every finding
     closed while the reviewer's own answer still says the round needed a fix
     — the shape `skills/verify/SKILL.md` §*The broad gate* defines a run
     that ended at the cap by. The row beneath counts the verdict rows
     `chain_check.verdict_of` calls `deferred` or `deferred (no home)` and
-    lists the distinct homes after `->`, in table order, a homeless deferral
-    counted and naming none.
+    lists the distinct homes after `→`, in table order, a homeless deferral
+    counted and naming none. The two were ` . ` and `->` until #832 (`SEP`,
+    `ARROW`).
 
     Read off the table regardless of `capped`, because the two come apart in
     this tree: measured 2026-10-01 over every work item whose last record has
@@ -2881,7 +2899,7 @@ def rounds_rows(item, record):
     if needs is None or col < 0:
         return [("rounds", head)]
     if reader.visible(needs).strip().lower().startswith("yes"):
-        head += " . capped"
+        head += f"{SEP}capped"
     count, homes = 0, []
     for _line, seen in found:
         word = chain.verdict_of(seen, col)
@@ -2895,7 +2913,7 @@ def rounds_rows(item, record):
     rows = [("rounds", head)]
     if count:
         if homes:
-            pieces = [f"{count} deferred ->", f" {homes[0]}"]
+            pieces = [f"{count} deferred {ARROW}", f" {homes[0]}"]
             rows += wrapped("", pieces + [f", {home}" for home in homes[1:]])
         else:
             rows.append(("", f"{count} deferred"))
@@ -2919,13 +2937,14 @@ def pull_request(record):
 
 
 def item_value(item, pr=None):
-    """The `item` row: `#<pr> . <id>`, or `<id>` alone where the record names
+    """The `item` row: `#<pr> · <id>`, or `<id>` alone where the record names
     no pull request. `<id>` is the digits before the first `-` of the work
     item directory's name — the part every reference to a work item carries —
-    and the whole name where it has no `-`."""
+    and the whole name where it has no `-`. The separator was ` . ` until
+    #832 (`SEP`)."""
     name = os.path.basename(os.path.normpath(item))
     ident = name.split("-", 1)[0] or name
-    return f"{pr} . {ident}" if pr else ident
+    return f"{pr}{SEP}{ident}" if pr else ident
 
 
 def panel(
@@ -2940,9 +2959,8 @@ def panel(
     record=None,
 ):
     """The stamp's rows, as `(label, value)`, with `""` as the label of a row
-    that continues the one above it (#666). No row is `None` since #717: the
-    sheet draws no blank line between groups, and the values file should not
-    claim a row nothing draws.
+    that continues the one above it (#666) and `None` for the blank line
+    between the identity rows and the result rows (#832).
 
     `base` is a `Base`. `copy` is `gate_copy`'s value and None leaves the
     `gate` row out; `branch` is `branch_name`'s, None on a detached HEAD;
@@ -2952,54 +2970,68 @@ def panel(
       SEALED
       tree      <tree>
                 <branch>                   absent on a detached HEAD
-      base      <base commit>
-                <Base.ref>                 absent where the ref IS the commit
-      item      #<pr> . <id>               absent without --record
+      base      <commit>  <Base.ref>       the commit alone where the ref IS it
+      item      #<pr> · <id>               absent without --record
       gate      tree <version>             only where `gate_copy` says so
-      suite     <pytest counts | exit N>   counts wrapped onto `""` rows
-      ledger    <N> ok                     exit N where there is no total
-      CI also   <n> more steps             absent without a hygiene workflow
-      rounds    <R>[ . capped]             absent without --record
-                <k> deferred -> <homes>    only where k > 0 (`rounds_rows`)
+      (blank)                              `None`
+      suite     ✓ <pytest counts>          joined by ` · `, wrapped onto `""`
+                                           rows; `exit N` where there are none
+      ledger    ✓ <ok> ok · <d> drifted · <b> broken   `exit N` with no total
+      chain     ✓ exit <code>              read off the chain's own check
+      CI also   · <n> more steps           absent without a hygiene workflow
+      rounds    <R>[ · capped]             absent without --record
+                <k> deferred → <homes>     only where k > 0 (`rounds_rows`)
 
-    **A drawn panel says only what a `SEALED` stamp can say** (#717). It is
-    drawn on success alone, so every arm's exit is 0 and, under `--strict`,
-    the ledger's drifted and broken counts are 0 too. `chain exit 0`, the
-    suite's `exit 0` beneath its counts and `0 drifted . 0 broken` beneath
-    `ok` said again what `SEALED` says, and the owner took them off. The
-    counts stay, and so does `exit N` where a row has no count to print,
-    because then it is the only statement of what that arm did. The failure
-    form keeps every arm's exit code (`failure_lines`).
+    **The result rows carry a `✓`, and the blank before them is a row**
+    (#832, `spec.md` decision 6 of work item 1791270164, the owner's design
+    of 2026-10-07). #717's owner had taken `chain exit 0`, the suite's
+    `exit 0` and the ledger's `0 drifted . 0 broken` off the panel, because
+    a panel drawn on success alone says again what `SEALED` says, and the
+    sheet drew no blank line. The owner's newer design shows them, so they
+    are back in one shape: a `✓` where the arm's count or exit was read, the
+    ledger's three counts on its one row, `chain ✓ exit <code>`, and a dim
+    `·` before `CI also`'s value, the mark of a row that is not a pass.
+    `exit N` stays where a row has no count to print, because then it is the
+    only statement of what that arm did. The failure form keeps every arm's
+    exit code (`failure_lines`). The drawing does not know which label
+    starts the result rows, so the blank before them is `None` here rather
+    than a rule there; an older values file without one draws without it.
+
+    **The values are the owner's characters** — ` · ` (`SEP`), `→`
+    (`ARROW`), `✓ ` (`TICK`) and `· ` (`DOT`). They were ASCII, ` . ` and
+    `->`, until #832, for the letter twin's console that is not UTF-8
+    (`seal_stamp.pick_shape`), where `·` and `→` print as `?`. That console
+    is served where it is drawn for: the twin maps the four to ASCII as it
+    writes them, and the values stay what the owner chose.
 
     **The panel keeps its width, and nothing on it is cut by the frame.**
-    `seal_stamp.letter` gives a value `PANEL_VALUE_WIDTH` columns and cuts at
-    the frame with no marker, and the owner chose continuation rows over a
-    wider stamp (`questions.md` Q1). So a name goes on the row under its
-    label, where it has the whole width; a list — the suite's counts, the
-    deferred homes — continues on further rows (`wrapped`, round 1's 🟡 1);
-    and every value passes through `fit` on the way out, which elides only a
-    name: a branch keeps its HEAD, whose issue number is what a reader
-    matches to a ticket, and a ref keeps its TAIL, because for the
+    A value is given `PANEL_VALUE_WIDTH` columns, the widest that keeps the
+    stamp inside 80, and the owner chose continuation rows over a wider
+    stamp (`questions.md` Q1 of #666). So the branch goes on the row under
+    its label, where it has the whole width; a list — the suite's counts,
+    the deferred homes — continues on further rows (`wrapped`, round 1's
+    🟡 1); and every value passes through `fit` on the way out, which elides
+    only a name: a branch keeps its HEAD, whose issue number is what a
+    reader matches to a ticket, and a ref keeps its TAIL, because for the
     `origin/<base>` a runner reads the prefix is the part a reader can infer.
-    Where step 1 lands on a second remote the prefix is NOT inferable, and the
-    line the gate prints is what names that ref in full — it fires whenever
-    the given and resolved commits differ (`questions.md` W1, round 1 finding
-    5); the `SEALED` line names it in full as well.
+    The ref shares the `base` row with its commit since #832, two spaces
+    after it, so it is elided to the room the commit leaves. Where step 1
+    lands on a second remote the prefix is NOT inferable, and the line the
+    gate prints is what names that ref in full — it fires whenever the given
+    and resolved commits differ (`questions.md` W1, round 1 finding 5); the
+    `SEALED` line names it in full as well.
 
-    **Where the moved-base line does not fire, the ref row is the only
-    statement a reader gets.** A4 keeps the line silent where the two bases
-    agree, so a fork whose base and `origin`'s name one commit renders a long
-    `other/…` ref as its tail with the remote hidden — the stated cost of
-    keeping the tail (`phases/phase-3.md`, round 2 finding 13).
-
-    **Separators are ASCII** — ` . ` and `->` — because the letter twin exists
-    for a console that is not UTF-8 (`seal_stamp.pick_shape`), where `·` and
-    `→` print as `?`.
+    **Where the moved-base line does not fire, the ref on the `base` row is
+    the only statement a reader gets.** A4 keeps the line silent where the
+    two bases agree, so a fork whose base and `origin`'s name one commit
+    renders a long `other/…` ref as its tail with the remote hidden — the
+    stated cost of keeping the tail (`phases/phase-3.md`, round 2 finding
+    13).
 
     Two rows left with #666, and why: `from` became the row under `base`,
-    and `row` — the exit code the repository's row came back with —
-    continued under `suite` until #717 took it off. NOT `("lint", "clean")`
-    either: the row is
+    which #832 folded into the `base` row, and `row` — the exit code the
+    repository's row came back with — continued under `suite` until #717
+    took it off. NOT `("lint", "clean")` either: the row is
     one shell command line and nothing in it says which part is a linter
     (`templates/config.md` §*Broad gate*), so `clean` over a row with no
     linter in it is the sealer's stamp asserting a check that never ran.
@@ -3008,28 +3040,36 @@ def panel(
     rows = [("SEALED", ""), ("tree", tree)]
     if branch:
         rows.append(("", fit(branch)))
-    rows.append(("base", base.commit))
-    if not stamp.ref_is_commit(base.ref, base.commit):
-        rows.append(("", fit(base.ref, keep="tail")))
+    if stamp.ref_is_commit(base.ref, base.commit):
+        rows.append(("base", base.commit))
+    else:
+        room = PANEL_VALUE_WIDTH - len(f"{base.commit}  ")
+        ref = fit(base.ref, keep="tail", width=room)
+        rows.append(("base", f"{base.commit}  {ref}"))
     if item is not None:
         rows.append(("item", item_value(item, pr)))
     if copy:
         rows.append(("gate", copy))
+    rows.append(None)
     counts = suite_counts(checks[SUITE].text)
     if counts:
         first, *more = counts.split(", ")
-        rows += wrapped(SUITE, [first, *(f", {part}" for part in more)])
+        rows += wrapped(SUITE, [TICK + first, *(SEP + part for part in more)])
     else:
         rows.append((SUITE, f"exit {checks[SUITE].code}"))
     ledger = ledger_counts(checks[LEDGER].text)
     if ledger:
-        rows.append((LEDGER, f"{ledger[0]} ok"))
+        ok, drifted, broken = ledger
+        said = f"{ok} ok{SEP}{drifted} drifted{SEP}{broken} broken"
+        rows.append((LEDGER, TICK + said))
     else:
         rows.append((LEDGER, f"exit {checks[LEDGER].code}"))
+    rows.append((CHAIN_NAME, f"{TICK}exit {checks[CHAIN_NAME].code}"))
     # What this seal did NOT answer, which a reader otherwise reconstructs
-    # from two files (#468). A COUNT, because a panel value is 23 columns and
-    # a step name is a sentence — the names go to stderr beside the command
-    # line, where `coverage_line` puts them (`questions.md` W1).
+    # from two files (#468). A COUNT, because a panel value is
+    # `PANEL_VALUE_WIDTH` columns and a step name is a sentence — the names
+    # go to stderr beside the command line, where `coverage_line` puts them
+    # (`questions.md` W1).
     #
     # Absent where the repository has no such workflow, which is the ordinary
     # case away from this one: the partition describes SpecSeal's own CI, the
@@ -3043,13 +3083,15 @@ def panel(
     # `CI also  <n> more steps` is the owner's wording (#717). The total it
     # was `<n> of` left the panel for the stderr line, which says it beside
     # the names; the row still prints at 0, because a row that goes quiet
-    # reads as a gate that stopped looking.
+    # reads as a gate that stopped looking. The dim `·` before the count is
+    # the owner's mark for a row that is not a pass (#832); the label stays
+    # `CI also`, seven columns already (`questions.md` Q15 of 1791270164).
     if job_steps(workflow, RELEASE_JOB) if workflow else []:
         short = len(unanswered(workflow, base.given))
-        rows.append(("CI also", f"{short} more steps"))
+        rows.append(("CI also", f"{DOT}{short} more steps"))
     if item is not None:
         rows += rounds_rows(item, record)
-    return [(label, fit(value)) for label, value in rows]
+    return [None if row is None else (row[0], fit(row[1])) for row in rows]
 
 
 def failure_lines(check, verdicts=None, unplaced=0, unended=0):

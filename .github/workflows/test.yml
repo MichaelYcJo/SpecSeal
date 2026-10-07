@@ -110,7 +110,7 @@ jobs:
       # markdown-it-py is the parser the suite's CommonMark oracle reads
       # (#667), pinned: `.github/scripts/run_tests.py#MARKDOWN_IT` is the one
       # place the version is chosen, and a case holds this line to it.
-      # Pillow draws the release seal and its pixel case decodes it (#718),
+      # Pillow decodes the release seal in its pixel case (#718, #832),
       # pinned in `run_tests.py#PILLOW` and held to this line the same way, so
       # the pin runs on all three operating systems.
       # cmarkgfm is GitHub's renderer, which the table walker's oracle reads

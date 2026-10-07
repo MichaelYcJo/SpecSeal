@@ -433,8 +433,8 @@ over a question nobody was asking while CI refused the same commit (#423).
 Where resolving moves the answer the gate prints one line naming both refs,
 both commits and the distance, and runs anyway; where the two agree it prints
 nothing. It never fetches, so a remote-tracking ref is only as fresh as the
-last fetch — which is why the stamp's panel names the ref on the row under
-the commit rather than the commit alone, and the `SEALED` line names it as
+last fetch — which is why the stamp's panel names the ref beside the commit
+on the `base` row rather than the commit alone, and the `SEALED` line names it as
 `<ref> @ <commit>`.
 
 **What the sealer's seal covers is declared rather than remembered.** The arms
@@ -451,10 +451,11 @@ until somebody classifies it, and a row naming a step that was renamed away
 fails it too.
 
 **A seal says what it did not answer.** Where the repository being gated has
-that workflow, the panel carries a `CI also` row — *<n> more steps* — and the
+that workflow, the panel carries a `CI also` row — *· <n> more steps* — and the
 names of those steps go to stderr beside the line that names the
-repository's own command, with the total they are counted out of. The count is on the panel because a panel
-value is 23 columns and a step name is a sentence; the names are printed
+repository's own command, with the total they are counted out of. The dim
+`·` is the owner's mark for a row that is not a pass (#832). The count is on the panel because a panel
+value is 41 columns and a step name is a sentence; the names are printed
 because a number alone sends the reader back to the two files this
 declaration exists to stop them opening. A repository with no such workflow
 sees neither, and nothing else about its run changes. Both are counted over
@@ -462,7 +463,7 @@ the steps CI runs for the base (#666): a step CI does not ask of this pull
 request — four of SpecSeal's run only on a pull request into `main`, and two
 are skipped there — is neither answered nor unanswered, so the count leaves
 it out and the line says how many it left out and why. A feature seal of
-SpecSeal itself reads `CI also  4 more steps`, and the line says they are
+SpecSeal itself reads `CI also · 4 more steps`, and the line says they are
 four of the nine CI runs for that base (#717); before #666 the panel read
 `8 of 13`, over four steps no run of that pull request would ask.
 

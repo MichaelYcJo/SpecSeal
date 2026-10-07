@@ -1,10 +1,10 @@
 """The seal is taken once, by the sealer, and this is what it prints.
 
 Issue #30. Part 1 pins the stamp module, `skills/verify/scripts/seal_stamp.py`:
-the disc is computed from a chart, so it cannot be off centre; a letter twin
-exists for a console that cannot draw half-blocks, and it has the block form's
-footprint; colour is emitted at transitions, never per cell; the panel beside
-the disc is data; the chart has a floor; and the failure form carries no
+the disc is computed and the disc's mark placed on it from one hand-drawn
+chart, so it cannot be off centre; a letter twin exists for a console that cannot draw
+half-blocks, and it has the block form's footprint; colour is emitted at transitions, never per cell; the panel beside
+the disc is data; the scale has a floor; and the failure form carries no
 drawing at all, because a picture that says *sealed* beside a word that says
 *not* is the two-things-disagreeing defect this repository keeps paying for.
 
@@ -26,6 +26,7 @@ import ast
 import importlib.util
 import io
 import json
+import math
 import ntpath
 import os
 import re
@@ -48,19 +49,21 @@ GENERATOR = os.path.join(ROOT, "skills", "code-review", "scripts", "round_record
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
 READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
 
-# The shape `broad_gate.panel` returns since #717: a heading row and `(label,
-# value)` pairs, `""` labelling a row that continues the one above, and no
-# blank row. A file in the older shape, blanks and all, is drawn by the hook's
-# cases in `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py`.
-# Values are neutral.
+# The shape `broad_gate.panel` returns since #832: a heading row and `(label,
+# value)` pairs, `""` labelling a row that continues the one above, the
+# base's ref beside its commit, and one `None` before the result rows. A file
+# in an older shape is drawn by the hook's cases in
+# `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py`. Values are
+# neutral.
 ROWS = [
     ("SEALED", ""),
     ("tree", "c46fd2d"),
     ("", "feat/12-a-branch"),
-    ("base", "1e2bed9"),
-    ("", "origin/base"),
-    ("suite", "768 passed, 1 skipped"),
-    ("ledger", "187 ok"),
+    ("base", "1e2bed9  origin/base"),
+    None,
+    ("suite", "✓ 768 passed · 1 skipped"),
+    ("ledger", "✓ 187 ok · 0 drifted · 0 broken"),
+    ("chain", "✓ exit 0"),
     ("rounds", "4"),
 ]
 
@@ -135,8 +138,7 @@ class Stream:
 
 def visible(line):
     """A line's width as a person sees it: colour codes removed and nothing
-    else. The sheet's last cell on a row is a painted space, which `ink`'s
-    `rstrip` would take off one form and not the other (#717)."""
+    else."""
     return len(SGR.sub("", line))
 
 
@@ -145,9 +147,10 @@ def test_the_twin_and_the_block_form_have_equal_width_and_height(scale):
     """S5. A twin that is a different size is a different drawing, and the
     reader on a cp949 console would be looking at something nobody measured.
     Compared row by row on visible width, at full scale, at every rung the
-    hook can step down to, and with no disc (#717's A10). The twin's first
-    line is the sheet's top, `.---.`, where the block form paints the blank
-    first line of parchment between its two edge cells."""
+    hook can step down to, and with no disc (#717's A10). #832 took the
+    sheet away, so there is no top edge to compare; the twin maps the
+    owner's `·`, `✓`, `─` and `→` one character for one, which is what keeps
+    the widths equal on the rows that carry them."""
     mod = module()
     blocks = mod.stamp(ROWS, scale=scale, shape=False)
     letters = mod.stamp(ROWS, scale=scale, shape=True)
@@ -157,13 +160,6 @@ def test_the_twin_and_the_block_form_have_equal_width_and_height(scale):
     widths = [(visible(b), visible(t)) for b, t in zip(blocks, letters, strict=True)]
     assert all(b == t for b, t in widths), (
         f"the twin's rows differ in width from the block form's: {widths}"
-    )
-    top = letters[0]
-    assert re.fullmatch(r"\.-+\.", top), (
-        f"the twin's first line is not the top: {top!r}"
-    )
-    assert visible(blocks[0]) == len(top) and not SGR.sub("", blocks[0]).strip(), (
-        f"the block form's first line is not blank parchment: {blocks[0]!r}"
     )
     assert not any(SGR.search(line) for line in letters), (
         "the letter twin carries colour codes, which is the one thing the "
@@ -266,258 +262,643 @@ def test_the_disc_is_symmetric_because_it_is_computed():
             )
 
 
-# --- colour at transitions -------------------------------------------------
+# --- the lean writer (#832 S11) --------------------------------------------
+
+SGR_RUN = re.compile(r"\x1b\[[0-9;]*m\x1b\[")
+RESET = "\x1b[0m"
 
 
-def test_a_coloured_row_carries_fewer_colour_sequences_than_cells():
-    """#30 §*Output size*: a code per cell was 282 KB for one seal. Emitting at
-    transitions is what makes the colour form printable, and every row is
-    held to it — the disc's rows, where the lily's edges change colour most,
-    and every line of the letter (#717)."""
-    mod = module()
-    w, h, px = mod.build(1.0)
-    for y in range(0, h, 2):
-        line = mod.colour_row(mod.disc_cells(px, w, y))
-        sequences = len(SGR.findall(line))
-        assert sequences < w, f"row {y}: {sequences} colour sequences for {w} cells"
-    for line in mod.stamp(ROWS, 0.9, shape=False):
-        sequences = len(SGR.findall(line))
-        assert sequences < visible(line), f"{sequences} sequences: {line!r}"
+def state_changes(cells):
+    """How many SGRs `spec.md` S11 of work item 1791270164 says one line of
+    `cells` writes, counted here from the cells rather than by the writer:
+    one per cell whose `(foreground, background, style)` differs from what
+    is set. An empty cell or a blank with no background shows no foreground
+    and no style, so it keeps those as set — but not a background, which
+    would paint it, so a blank after the disc is a change of background."""
+    state, changes = (None, None, None), 0
+    for char, fg, bg, style in cells:
+        if char in (None, " "):
+            assert bg is None, "a space carries a background"
+            fg, style = state[0], state[2]
+        if (fg, bg, style) != state:
+            changes += 1
+            state = (fg, bg, style)
+    return changes
 
 
-# --- the letter: a sheet with the disc pressed on its corner (#717) ----------
-
-
-def disc_at(cell):
-    """True where either half of a cell is the disc's: its colours are
-    truecolour triples, and the sheet's are 256-colour codes."""
-    return isinstance(cell[0], tuple) or isinstance(cell[1], tuple)
-
-
-def test_the_text_is_written_on_a_sheet_one_blank_line_inside_it():
-    """A9's sheet. The sheet's first and last lines are blank parchment
-    between two edge cells — the last one where the disc does not cover it —
-    and the text starts on the second line, three cells in from the left
-    edge. A cell carrying text is parchment on both halves, so nothing of
-    the disc stands on a character."""
-    mod = module()
-    sheet = mod.compose(mod.SAMPLE_ROWS, 0.9)
-    cells, width, height = sheet.cells, sheet.width, sheet.height
-    for ln in (0, height - 1):
-        for x, cell in enumerate(cells[ln][:width]):
-            if disc_at(cell):
-                continue
-            edge = x in (0, width - 1)
-            want = mod.SHEET_EDGE if edge else mod.PARCHMENT
-            assert cell[:3] == (want, want, None), (ln, x, cell)
-    first = [x for x, cell in enumerate(cells[1]) if cell[2]]
-    assert first[0] == mod.TEXT_LEFT == 3, first
-    said = "".join(cells[1][x][2][0] for x in first)
-    assert said.strip() == "SEALED", said
-    texts = 0
-    for line in cells:
-        for cell in line:
-            if cell[2]:
-                texts += 1
-                assert cell[:2] == (mod.PARCHMENT, mod.PARCHMENT), cell
-    assert texts, "no cell carries text"
-    # Every row of the panel is on the sheet, one line each, in order.
-    rows = [row for row in mod.SAMPLE_ROWS if row]
-    assert height == len(rows) + 2, (height, len(rows))
-    for k, (label, value) in enumerate(rows, 1):
-        line = "".join(cell[2][0] if cell[2] else " " for cell in cells[k])
-        assert f"{label:<8} {value}".strip() in line, (k, line)
-    # One of `letter`'s two leading spaces is kept, so a label stands four in.
-    assert "".join(cells[1][x][2][0] for x in first).startswith(" SEALED"), said
-    # Every line of the sheet is the sheet's width where the disc does not
-    # carry it further: nothing is padded past the edge, nothing stripped.
-    for ln in range(height):
-        beyond = [cell for cell in cells[ln][width:] if disc_at(cell)]
-        assert len(cells[ln]) == width if not beyond else len(cells[ln]) > width, ln
-    # Where the text and not the disc sets the width (no disc at all), the
-    # edge stands two cells past the longest line: one of parchment, then it.
-    bare = mod.compose(mod.SAMPLE_ROWS, None)
-    longest = max(len(t) for t in mod.sheet_text(mod.SAMPLE_ROWS))
-    assert bare.width == mod.TEXT_LEFT + longest + 2, (bare.width, longest)
-
-
-@pytest.mark.parametrize("scale", [0.9, 0.8, 0.75])
-def test_the_disc_hangs_over_the_corner_two_clear_cells_from_the_text(scale):
-    """A9's disc. It hangs below the sheet's last line and right of its
-    edge, and on every text line the two cells after the last character are
-    parchment wherever the disc stands further along that line — on every
-    line, not only the disc's equator, which is where the prototype's own
-    collision test looked (`spec.md` §*What was measured*)."""
-    mod = module()
-    sheet = mod.compose(mod.SAMPLE_ROWS, scale)
-    cells, width, height = sheet.cells, sheet.width, sheet.height
-    assert any(disc_at(cell) for line in cells[height:] for cell in line), (
-        "the disc does not hang below the sheet"
-    )
-    assert any(disc_at(cell) for line in cells for cell in line[width:]), (
-        "the disc does not hang over the sheet's right edge"
-    )
-    assert any(disc_at(cell) for line in cells[:height] for cell in line[:width]), (
-        "the disc is tucked under the sheet rather than pressed over it"
-    )
-    for ln in range(1, height - 1):
-        line = cells[ln]
-        ends = [x for x, cell in enumerate(line) if cell[2] and cell[2][0] != " "]
-        wax = [x for x, cell in enumerate(line) if disc_at(cell)]
-        if not ends or not wax:
+def what_a_terminal_shows(line):
+    """`line` as a terminal reads it: each character with the foreground,
+    the background and the intensity the SGRs before it left set. `32` sets
+    the foreground to the terminal's own green, written `"green"` here."""
+    fg = bg = weight = None
+    shown = []
+    for token in re.findall(r"\x1b\[[0-9;]*m|.", line):
+        if not token.startswith("\x1b["):
+            shown.append((token, fg, bg, weight))
             continue
-        end = ends[-1]
-        assert wax[0] > end + mod.GAP == end + 2, (scale, ln, end, wax[0])
-        for x in range(end + 1, end + 1 + mod.GAP):
-            assert line[x][:3] == (mod.PARCHMENT, mod.PARCHMENT, None), (ln, x)
-    # The disc's centre line is the sheet's last line and, where it sets the
-    # width, its centre column is the sheet's right edge: half below, half
-    # over. The letter ends at the disc's lowest line, with no empty line.
-    rows_on = [ln for ln, line in enumerate(cells) if any(map(disc_at, line))]
-    cols_on = [x for line in cells for x, cell in enumerate(line) if disc_at(cell)]
-    assert abs((rows_on[0] + rows_on[-1]) / 2 - (height - 1)) <= 1, (rows_on, height)
-    assert abs((min(cols_on) + max(cols_on)) / 2 - (width - 1)) <= 1, (cols_on, width)
-    assert rows_on[-1] == len(cells) - 1, "an empty line ends the letter"
+        parts = token[2:-1].split(";")
+        while parts:
+            part = parts.pop(0)
+            if part in ("38", "48"):
+                rgb, parts = tuple(int(v) for v in parts[1:4]), parts[4:]
+                fg, bg = (rgb, bg) if part == "38" else (fg, rgb)
+            elif part == "0":
+                fg = bg = weight = None
+            elif part in ("1", "2"):
+                weight = {"1": "bold", "2": "dim"}[part]
+            elif part == "22":
+                weight = None
+            elif part in ("32", "39"):
+                fg = "green" if part == "32" else None
+            elif part == "49":
+                bg = None
+    return shown
+
+
+def test_a_line_writes_one_sgr_per_change_and_no_reset_inside_it():
+    """#832 S11, the owner's lean encoding (`frames.py#encode`): a code only
+    where the foreground, the background or the style of the next visible
+    cell differs from what is set; every part of one change in one SGR, so
+    no two are adjacent, and no part twice in one; no reset inside a line,
+    and `\\x1b[0m` closing a line that wrote a code. A blank keeps the
+    foreground and the style as set and writes nothing, unless a background
+    is still set from the disc, which it ends. Read over a real run's stamp,
+    with its disc and without (whose blank lines write nothing at all), and
+    over the disc alone, against the count of changes taken from
+    `compose`'s cells here.
+
+    #30 §*Output size* found a code per cell 282 KB for one seal; the
+    writer before this one reset over every cell nothing covered. A real
+    run's block with its label is held under 5,500 UTF-16 units: the owner's
+    reference was 5,119 for rows of the same length."""
+    mod, cases = module(), hook_cases()
+    letter = mod.compose(cases.FULL_ROWS, 0.9)
+    lines = mod.stamp(cases.FULL_ROWS, 0.9, shape=False)
+    w, h, px = mod.build(0.9)
+    alone = [mod.disc_cells(px, w, y) for y in range(0, h, 2)]
+    bare = mod.compose(cases.FULL_ROWS, None).cells
+    assert [] in bare, "the block with no disc has no blank line to read"
+    pairs = [
+        *zip(letter.cells, lines, strict=True),
+        *zip(bare, mod.stamp(cases.FULL_ROWS, None), strict=True),
+        *((cells, mod.colour_row(cells)) for cells in alone),
+    ]
+    for cells, line in pairs:
+        assert not SGR_RUN.search(line), f"two SGRs side by side: {line!r}"
+        body = line.removesuffix(RESET)
+        assert RESET not in body, f"a reset inside a line: {line!r}"
+        written = len(SGR.findall(body))
+        assert written == state_changes(cells), (written, state_changes(cells), line)
+        assert line.endswith(RESET) == (written > 0), line
+        # And what a terminal shows is the cells: a blank paints nothing, and
+        # every other character is in its cell's colours and style.
+        shown = what_a_terminal_shows(body)
+        assert len(shown) == len(cells), (len(shown), len(cells))
+        for (char, fg, bg, style), seen in zip(cells, shown, strict=True):
+            if char in (None, " "):
+                assert seen[0] == " " and seen[2] is None, ("a painted blank", seen)
+                continue
+            colour = "green" if style == "green" else fg
+            weight = style if style in ("bold", "dim") else None
+            assert seen == (char, colour, bg, weight), (seen, (char, fg, bg, style))
+        for found in SGR.finditer(body):
+            parts = found.group(0)[2:-1].split(";")
+            bare_parts = []
+            while parts:
+                part = parts.pop(0)
+                if part in ("38", "48"):
+                    parts = parts[4:]
+                else:
+                    bare_parts.append(part)
+            assert len(bare_parts) == len(set(bare_parts)), found.group(0)
+    label = mod.label(cases.full_values())
+    size = len("\n".join([label, *lines]).encode("utf-16-le")) // 2
+    assert size < 5500, size
+
+
+@pytest.mark.parametrize("mark", ["✓", "·"])
+def test_a_mark_leading_a_continuation_row_beside_the_disc_is_drawn_in_its_style(
+    mark,
+):
+    """#832 S11. A `""` label is spaces, and a space keeps the foreground as
+    set, so on a continuation row beside the disc the disc's last colour is
+    still set when the value's mark is the first cell to change it. Each mark
+    `text_lines` styles is drawn in its own style there: the `✓` green, the
+    `·` dim. A `39` written after `32` in one SGR takes the green back off,
+    and the terminal drew that tick in its own colour (round 1's 🟡 2)."""
+    mod = module()
+    rows = [
+        ("SEALED", ""),
+        ("tree", "aaa1111"),
+        None,
+        ("suite", "x"),
+        ("", f"{mark} 3 passed"),
+    ]
+    letter = mod.compose(rows, 0.9)
+    marks = 0
+    for cells, line in zip(letter.cells, mod.stamp(rows, 0.9), strict=True):
+        shown = what_a_terminal_shows(line.removesuffix(RESET))
+        for (char, fg, bg, style), seen in zip(cells, shown, strict=True):
+            if char != mark:
+                continue
+            marks += 1
+            assert any(cell[1] in mod.KEY for cell in cells), "no disc on the row"
+            colour = "green" if style == "green" else fg
+            weight = style if style in ("bold", "dim") else None
+            assert seen == (char, colour, bg, weight), (line, seen)
+    assert marks == 1, marks
+
+
+# --- the open layout: the disc at the left, the text at the right (#832) ----
+
+
+HOOK_CASES = os.path.join(
+    ROOT, "tests", "test_the_stamp_reaches_the_person_it_is_drawn_for.py"
+)
+
+
+def hook_cases():
+    """The hook's case module, for its `FULL_ROWS` — `full_values()`'s rows,
+    a real run's — and its four-row `SMALL_ROWS`, so the layout case reads
+    the panels those cases draw rather than copies of them."""
+    return _load("specseal_hook_cases_for_their_rows", HOOK_CASES)
+
+
+# The disc's nine colours and the title's red as `spec.md` §*Data &
+# interfaces* of work item 1791270164 gives them — the owner's, from
+# `seal28.py` and `frames.py` — written out so the cases below do not read
+# them from the module they check.
+WAX_EDGE, RIM_LIT, RIM_MID, RIM_DARK = (
+    (150, 24, 28),
+    (208, 68, 64),
+    (160, 30, 34),
+    (96, 10, 14),
+)
+FIELD, FACE, LIGHT, INNER, DROP = (
+    (112, 16, 20),
+    (186, 38, 42),
+    (222, 86, 78),
+    (90, 8, 12),
+    (84, 8, 12),
+)
+NINE = (WAX_EDGE, RIM_LIT, RIM_MID, RIM_DARK, FIELD, FACE, LIGHT, INNER, DROP)
+TITLE_RED = (196, 40, 44)
+EMPTY = (None, None, None, None)
+
+
+def owners_disc(chart, x, y):
+    """The colour of the disc's cell `(x, y)` by the owner's rule, rebuilt
+    here from the chart alone (`seal28.py#seal`): outside past 13.8 cells
+    from the centre (13.5, 13.5); the wax edge past 12.8; the rim past 10.8,
+    lit where `lit` is under -0.35, dark over 0.35, mid between; the groove
+    past 9.8, dark where `lit` is under 0 and lit otherwise; then, in the
+    field, the disc's mark's highlight, inner shadow or face, its drop
+    shadow, or the field. `lit` is -1 at the upper left and +1 at the lower
+    right."""
+
+    def on(cx, cy):
+        return 0 <= cx < 28 and 0 <= cy < 28 and chart[cy][cx] == "M"
+
+    dx, dy = x - 13.5, y - 13.5
+    d = math.hypot(dx, dy)
+    lit = (dx + dy) / (abs(dx) + abs(dy))
+    if d > 13.8:
+        return None
+    if d > 12.8:
+        return WAX_EDGE
+    if d > 10.8:
+        return RIM_LIT if lit < -0.35 else RIM_DARK if lit > 0.35 else RIM_MID
+    if d > 9.8:
+        return RIM_DARK if lit < 0 else RIM_LIT
+    if on(x, y):
+        if not on(x - 1, y - 1):
+            return LIGHT
+        return INNER if not on(x + 1, y + 1) else FACE
+    return DROP if on(x - 1, y - 1) else FIELD
+
+
+def disc_cell(top, bottom):
+    """One cell of the disc as `spec.md` §*Data & interfaces* writes it."""
+    if top and bottom:
+        return ("▀", top, bottom, None)
+    if top:
+        return ("▀", top, None, None)
+    if bottom:
+        return ("▄", bottom, None, None)
+    return EMPTY
+
+
+def trimmed(cells):
+    """`cells` without the blank cells at their end."""
+    cells = list(cells)
+    while cells and cells[-1][0] in (None, " ") and cells[-1][2] is None:
+        cells.pop()
+    return cells
+
+
+@pytest.mark.parametrize(
+    "which", ["FULL_ROWS", "SAMPLE_ROWS", "SMALL_ROWS", "OLD_ROWS", "none"]
+)
+def test_the_disc_stands_left_of_the_open_text_block_each_centred(which, monkeypatch):
+    """#832 S3, the owner's layout of 2026-10-07 (`frames.py#design_open`).
+    No parchment, no edge, no frame, and no background on any cell outside
+    the disc. The disc stands at the left, 28 columns and 14 lines; the text
+    block begins `GAP` (3) columns right of it; each is centred on the
+    taller one's height. A cell inside the circle is its colour on both
+    halves, every other cell of the disc's columns is empty, and no line
+    runs past its own last visible cell. The rule is rebuilt here and every
+    cell of `compose` is compared with it, over a real run's panel, the
+    sample's, the four-row panel whose text the disc outgrows, an older
+    gate's long panel that outgrows the disc, and none."""
+    mod, cases = module(), hook_cases()
+    rows = {
+        "FULL_ROWS": cases.FULL_ROWS,
+        "SAMPLE_ROWS": mod.SAMPLE_ROWS,
+        "SMALL_ROWS": cases.SMALL_ROWS,
+        "OLD_ROWS": cases.OLD_ROWS,
+        "none": [],
+    }[which]
+    n, disc_lines, gap = 28, 14, 3
+    assert (n, disc_lines, gap) == (mod.DISC_CELLS, mod.DISC_LINES, mod.GAP)
+    text = mod.text_lines(rows)
+    height = max(len(text), disc_lines)
+    top_disc, top_text = (height - disc_lines) // 2, (height - len(text)) // 2
+    if which == "SMALL_ROWS":
+        assert (height, top_text) == (14, 4), (height, top_text)
+    if which == "OLD_ROWS":
+        assert (height, top_disc) == (19, 2), (height, top_disc)
+    letter = mod.compose(rows, 0.9)
+    assert (letter.height, letter.disc) == (height, (0, 2 * top_disc, n, n))
+    assert len(letter.cells) == height
+    for ln, line in enumerate(letter.cells):
+        k = ln - top_disc
+        if 0 <= k < disc_lines:
+            want = [
+                disc_cell(
+                    owners_disc(mod.CHART, x, 2 * k),
+                    owners_disc(mod.CHART, x, 2 * k + 1),
+                )
+                for x in range(n)
+            ]
+        else:
+            want = [EMPTY] * n
+        t = ln - top_text
+        if 0 <= t < len(text) and text[t]:
+            want += [EMPTY] * gap + text[t]
+        assert line == trimmed(want), (which, ln)
+        for cell in line:
+            if cell[0] not in HALF_BLOCKS:
+                assert cell[2] is None, ("a background outside the circle", ln, cell)
+    assert letter.width == max(len(line) for line in letter.cells)
+    # With no disc, the last rung `fitted` steps down to, the block stands at
+    # column 0 and sets the height alone.
+    bare = mod.compose(rows, None)
+    assert bare.disc is None and bare.height == len(text)
+    assert bare.cells == [trimmed(line) for line in text]
+    if text:
+        assert letter.width == n + gap + max(len(line) for line in text)
+        # `GAP` is the clear columns between the disc and the text, nothing else.
+        monkeypatch.setattr(mod, "GAP", 0)
+        assert mod.compose(rows, 0.9).width == letter.width - gap
 
 
 def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
-    """A9's colours, read off the encoded lines. The title is 124, the ink
-    94, the sheet 230 and its edge 187, as 256-colour codes; every truecolour
-    code is one of the disc's five; nothing of the rope, the outer red band
-    or the gold is left. A sheet line whose last cell is painted ends with
-    that cell and a reset — its trailing spaces are the sheet, not padding."""
+    """#832 S4a, the colours on the wire, read off the encoded lines. The
+    only colour parts are truecolour over exactly the nine triples of
+    `DISC_COLOURS` and the title's red; every other part is a style or a
+    return to the terminal's own — `1`, `2`, `22`, `32`, `39`, `49` — and
+    the line's closing `0`. No 256-colour part is left with the sheet, and
+    nothing of the rope, the gold, the 24-cell rim's ends, the lily or the
+    14-cell disc. The name still says four codes and five colours, the
+    sheet's and the 14-cell disc's, because a released ledger row cites it."""
     mod = module()
     lines = mod.stamp(mod.SAMPLE_ROWS, 0.9, shape=False)
     text = "\n".join(lines)
-    title = text.index("SEALED")
-    assert text.rfind("\x1b[38;5;124m", 0, title) > text.rfind(
-        "\x1b[38;5;94m", 0, title
-    )
-    assert "\x1b[38;5;94m" in text and "\x1b[48;5;230m" in text
-    assert "\x1b[48;5;187m" in text
-    triples = {
-        tuple(int(v) for v in m.groups())
-        for m in re.finditer(r"\x1b\[[34]8;2;(\d+);(\d+);(\d+)m", text)
-    }
-    assert triples and triples <= set(mod.DISC_COLOURS), triples
-    assert set(mod.DISC_COLOURS) == {
+    triples, others = set(), set()
+    for found in re.finditer(r"\x1b\[([0-9;]*)m", text):
+        parts = found.group(1).split(";")
+        while parts:
+            part = parts.pop(0)
+            if part in ("38", "48"):
+                assert parts[0] == "2", found.group(0)
+                triples.add(tuple(int(v) for v in parts[1:4]))
+                parts = parts[4:]
+            else:
+                others.add(part)
+    assert mod.DISC_COLOURS == NINE, mod.DISC_COLOURS
+    assert mod.TITLE_RED == TITLE_RED
+    assert triples == set(NINE) | {TITLE_RED}, triples
+    assert others == {"0", "1", "2", "22", "32", "39", "49"}, others
+    assert ";5;" not in text
+    assert text.index("\x1b[1;38;2;196;40;44mSEALED") >= 0
+    for gone in (
+        "ROPE_L",
+        "ROPE_D",
+        "WAX_L",
+        "GOLD",
+        "LILY_FACE",
+        "LILY_LIGHT",
+        "LILY_SHADOW",
+        "RIM_LIGHT",
+        "EMBLEM_D",
+        "WAX_M",
+        "MARK",
+        "MARK_SHADOW",
+        "PARCHMENT",
+        "SHEET_EDGE",
+        "INK",
+        "TITLE",
+    ):
+        assert not hasattr(mod, gone), gone
+    for old in (
+        (232, 226, 196),
+        (168, 158, 122),
+        (206, 46, 48),
+        (200, 150, 30),
+        (226, 82, 74),
+        (214, 70, 66),
+        (104, 12, 16),
         (168, 26, 30),
         (120, 16, 20),
-        (226, 82, 74),
-        (96, 10, 14),
-        (186, 34, 38),
-    }
-    for gone in ("ROPE_L", "ROPE_D", "WAX_L", "GOLD"):
-        assert not hasattr(mod, gone), gone
-    for old in ((232, 226, 196), (168, 158, 122), (206, 46, 48), (200, 150, 30)):
+        (240, 130, 118),
+    ):
         assert ";".join(map(str, old)) not in text, old
-    sheet = mod.compose(mod.SAMPLE_ROWS, 0.9)
-    assert visible(lines[0]) == sheet.width, (visible(lines[0]), sheet.width)
-    assert lines[0].endswith(" \x1b[0m"), repr(lines[0][-12:])
-    # The owner's disc: its edge from 0.78 of the radius and nothing past 0.84.
-    assert (mod.FIELD_EDGE, mod.WAX_EDGE) == (0.78, 0.84)
 
 
 def test_the_title_is_the_sheets_first_line_whatever_a_value_says():
-    """Round 1's ⬜ 5. The title's 124 was keyed on a line READING `SEALED`,
-    so a continuation row carrying that value — a branch named `SEALED` —
-    was inked as a second title. It is keyed on the panel's first row now:
-    that line alone is 124, and every other line is ink, whatever it says."""
+    """Round 1's ⬜ 5. The title's colour was keyed on a line READING
+    `SEALED`, so a continuation row carrying that value — a branch named
+    `SEALED` — was inked as a second title. It is keyed on the panel's first
+    row: since #832 that row is `text_lines`' first line, bold in the seal's
+    red, and no other line carries the red or the bold, whatever it says. A
+    panel without that first row draws no title. The name keeps the sheet,
+    which #832 retired, because a released ledger row cites it."""
     mod = module()
     rows = [("SEALED", ""), ("tree", "aaa1111"), ("", "SEALED"), ("rounds", "2")]
-    cells = mod.compose(rows, 0.9).cells
-    inks = [{c[2][1] for c in line if c[2] and c[2][0] != " "} for line in cells]
-    assert inks[1] == {mod.TITLE}, inks[1]
-    assert inks[3] == {mod.INK}, "a continuation reading SEALED is inked as the title"
-    assert all(ink <= {mod.INK} for k, ink in enumerate(inks) if k != 1), inks
+    lines = mod.text_lines(rows)
+    titled = [k for k, line in enumerate(lines) if any(c[1] == TITLE_RED for c in line)]
+    assert titled == [0], titled
+    assert not any(c[3] == "bold" for line in lines[1:] for c in line), lines
+    assert "".join(c[0] for c in lines[3]).endswith("SEALED"), lines[3]
+    untitled = mod.text_lines(rows[1:])
+    assert not any(c[1] or c[3] == "bold" for line in untitled for c in line)
+    # The title row is `("SEALED", "")` exactly: a first row that says more is
+    # a row, and a first row that is a blank is a blank.
+    valued = mod.text_lines([("SEALED", "v1.2.3"), ("tree", "aaa1111")])
+    assert "".join(c[0] for c in valued[0]) == "SEALED  v1.2.3", valued[0]
+    assert mod.text_lines([None, ("tree", "a")])[0] == []
 
 
-@pytest.mark.parametrize("scale", [0.9, 0.8, 0.75])
-def test_the_lily_is_lit_from_the_upper_left(scale):
-    """#717's lily, one colour pressed into the wax: a lily cell whose
-    up-left neighbour is not lily is its highlight, one whose down-right
-    neighbour is not lily is its shadow (where the up-left one is), and
-    every other lily cell is its face. Read off `build` cell by cell, at
-    every rung, so a light swapped for a shadow or a neighbour taken from
-    the wrong side is red."""
+def test_the_disc_is_lit_from_the_upper_left():
+    """#832 S2a, the owner's frame of 2026-10-07: the rim is lit from the
+    upper left in three steps and the groove inside it the other way, and
+    the disc's mark is lit the same way — a highlight where the cell up-left
+    is not the mark, an inner shadow where the cell down-right is not, a
+    drop shadow on the field cell down-right of it. Read from `build` by
+    each cell's own geometry and the chart, at every scale of the band,
+    because the disc has one size. `lit` is -1 at the upper left and +1 at
+    the lower right."""
     mod = module()
+    n = mod.DISC_CELLS
+    c, r = (n - 1) / 2, n / 2
+
+    def on(x, y):
+        return 0 <= x < n and 0 <= y < n and mod.CHART[y][x] == "M"
+
+    for scale in (1.0, 0.9, 0.75):
+        w, h, px = mod.build(scale)
+        seen = set()
+        for y in range(h):
+            for x in range(w):
+                colour = px(x, y)
+                dx, dy = x - c, y - c
+                d, lit = math.hypot(dx, dy), (dx + dy) / (abs(dx) + abs(dy))
+                if colour is None or d > r - mod.WAX_INSET:
+                    continue
+                if d > r - mod.RIM_INSET:
+                    want = (
+                        RIM_LIT if lit < -0.35 else RIM_DARK if lit > 0.35 else RIM_MID
+                    )
+                elif d > r - mod.GROOVE_INSET:
+                    want = RIM_DARK if lit < 0 else RIM_LIT
+                elif on(x, y) and not on(x - 1, y - 1):
+                    want = LIGHT
+                elif on(x, y):
+                    want = INNER if not on(x + 1, y + 1) else FACE
+                else:
+                    want = DROP if on(x - 1, y - 1) else FIELD
+                assert colour == want, (scale, x, y, colour, want)
+                seen.add(colour)
+        assert {RIM_LIT, RIM_MID, RIM_DARK, LIGHT, INNER, DROP} <= seen, seen
+
+
+@pytest.mark.parametrize("scale", [1.0, 0.9, 0.75])
+def test_the_disc_is_twenty_eight_cells_in_the_frames_nine_colours(scale):
+    """#832 S2, the owner's frame of 2026-10-07. `build` returns 28 x 28 at
+    every scale in the band, and every cell is exactly one of nine colours
+    or nothing. The frame's counts, which no chart moves: 176 outside, 84
+    of the wax edge, 98 lit, 30 mid and 96 dark over the rim and the groove,
+    and 300 inside the groove — split over the field and the disc's mark by
+    the rule in `spec.md` §*Data & interfaces*, rebuilt here from the chart
+    (`owners_disc`) and compared cell for cell. No count of the mark's own
+    is pinned: the mark is a placeholder (#857)."""
+    mod = module()
+    assert (mod.DISC_CELLS, mod.DISC_LINES) == (28, 14)
+    insets = (mod.EDGE_INSET, mod.WAX_INSET, mod.RIM_INSET, mod.GROOVE_INSET)
+    assert (*insets, mod.LIT_AT) == (0.2, 1.2, 3.2, 4.2, 0.35)
     w, h, px = mod.build(scale)
-    lily = {mod.LILY_FACE, mod.LILY_LIGHT, mod.LILY_SHADOW}
-    seen = set()
+    assert (w, h) == (28, 28), (w, h)
+    cells = [px(x, y) for y in range(h) for x in range(w)]
+    frame = {c: cells.count(c) for c in (None, WAX_EDGE, RIM_LIT, RIM_MID, RIM_DARK)}
+    assert list(frame.values()) == [176, 84, 98, 30, 96], frame
+    assert sum(c in (FIELD, FACE, LIGHT, INNER, DROP) for c in cells) == 300
     for y in range(h):
         for x in range(w):
-            here = px(x, y)
-            if here not in lily:
-                continue
-            seen.add(here)
-            up_left, down_right = px(x - 1, y - 1), px(x + 1, y + 1)
-            if here == mod.LILY_LIGHT:
-                assert up_left not in lily, (x, y)
-            else:
-                assert up_left in lily, (x, y, here)
-                assert (down_right not in lily) == (here == mod.LILY_SHADOW), (x, y)
-    assert seen == lily, seen
+            assert px(x, y) == owners_disc(mod.CHART, x, y), (scale, x, y)
+    assert set(cells) - {None} == set(mod.DISC_COLOURS)
+    for x, y in ((-1, 0), (0, -1), (28, 14), (14, 28)):
+        assert px(x, y) is None, (x, y)
 
 
-def test_the_twin_writes_the_discs_five_letters_over_the_sheets_frame():
-    """#717's A10 for the characters. `KEY` gives the disc's five colours
-    five letters, the field keeping `.`; a cell whose top half is the disc's
-    is that colour's letter whatever the sheet is beneath it, so the disc
-    overrides the frame where it covers it; the sheet's last line is its
-    bottom, `'---`, and every other line of it is edged with `|`."""
+def test_the_disc_mark_is_one_chart_file_read_as_data(tmp_path):
+    """#832 S1. The disc's mark is one file beside the module,
+    `seal-mark.txt`: 28 lines of 28 characters over `.M`, read at import by
+    `read_chart` with its encoding named, so changing the mark is changing
+    that file alone (#857). Every `M` stands inside the groove, in the
+    field. A file of another shape — 27 lines, a 29-character line, a
+    character outside `.M`, an `M` outside the field — is refused with one
+    sentence naming the path and the fault. Nothing here asserts which
+    letter the chart draws."""
     mod = module()
-    assert set(mod.KEY) == set(mod.DISC_COLOURS)
-    assert len(set(mod.KEY.values())) == 5 and mod.KEY[mod.FIELD] == ".", mod.KEY
-    sheet = mod.compose(mod.SAMPLE_ROWS, 0.9)
+    path = os.path.join(ROOT, "skills", "verify", "scripts", "seal-mark.txt")
+    assert os.path.samefile(mod.CHART_PATH, path), mod.CHART_PATH
+    with open(path, encoding="utf-8") as handle:
+        lines = tuple(handle.read().splitlines())
+    assert mod.CHART == lines == mod.read_chart(path)
+    assert len(lines) == 28 and all(len(line) == 28 for line in lines)
+    assert set("".join(lines)) <= set(".M")
+    marked = [
+        (x, y) for y, line in enumerate(lines) for x, ch in enumerate(line) if ch == "M"
+    ]
+    assert marked, "the chart marks nothing"
+    for x, y in marked:
+        assert math.hypot(x - 13.5, y - 13.5) <= 14 - mod.GROOVE_INSET, (x, y)
+    on_the_rim = [list(line) for line in lines]
+    on_the_rim[13][1] = "M"
+    for name, chart, fault in (
+        ("short", lines[:27], "27 lines"),
+        ("wide", (lines[0] + ".", *lines[1:]), "line 1 is 29 characters"),
+        ("stray", (lines[0][:-1] + "x", *lines[1:]), "line 1 carries 'x'"),
+        ("rim", ["".join(line) for line in on_the_rim], "line 14 marks column 2"),
+    ):
+        broken = tmp_path / f"{name}.txt"
+        broken.write_text("\n".join(chart) + "\n", encoding="utf-8")
+        with pytest.raises(ValueError) as refused:
+            mod.read_chart(str(broken))
+        said = str(refused.value)
+        assert said.startswith(f"seal-stamp: the disc's mark chart {broken} "), said
+        assert fault in said and said.endswith("Nothing was drawn."), said
+    copy = tmp_path / "copy.txt"
+    copy.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert mod.read_chart(str(copy)) == lines
+    # An editor that saves with a byte-order mark hands over the same chart;
+    # read as plain UTF-8 the mark was a character of line 1, refused as a
+    # 29-character line, which sent a person to look for a dot that is not
+    # there (round 1's ⬜ 7).
+    marked_copy = tmp_path / "bom.txt"
+    marked_copy.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
+    assert mod.read_chart(str(marked_copy)) == lines
+
+
+def test_the_stamp_module_imports_with_pillow_blocked():
+    """#832 S1: the disc and its chart are stdlib-only, because the gate, the
+    hook and the command load this file where Pillow is absent."""
+    script = (
+        "import sys, importlib.util\n"
+        "sys.modules['PIL'] = None\n"
+        f"spec = importlib.util.spec_from_file_location('s', {SCRIPT!r})\n"
+        "mod = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(mod)\n"
+        "mod.build(0.75)\n"
+    )
+    r = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=120,
+    )
+    assert r.returncode == 0, r.stderr
+
+
+def test_the_twin_writes_the_discs_nine_letters_and_the_text_in_ascii():
+    """#717's A10 for the characters, with #832's nine colours (S4). `KEY`
+    gives each disc colour its letter — capitals lit, lower case shadow, `m`
+    and `.` #30's for the wax and the field, `Y` and `y` #717's for the lit
+    and the shadowed mark — and a half-block cell's letter is its top half's
+    colour's, else its bottom's. The text is itself, with the owner's four
+    characters mapped one for one (`·` `.`, `✓` `+`, `─` `-`, `→` `>`), so
+    every twin line is ASCII and keeps the block form's footprint; an empty
+    cell is a space."""
+    mod = module()
+    letters = {
+        WAX_EDGE: "m",
+        RIM_LIT: "M",
+        RIM_MID: "n",
+        RIM_DARK: "N",
+        FIELD: ".",
+        FACE: "X",
+        LIGHT: "Y",
+        INNER: "x",
+        DROP: "y",
+    }
+    assert letters == mod.KEY, mod.KEY
+    assert len(set(mod.KEY.values())) == 9, mod.KEY
+    ascii_ = {"·": ".", "✓": "+", "─": "-", "→": ">"}
+    assert ascii_ == mod.TWIN_ASCII, mod.TWIN_ASCII
+    letter = mod.compose(mod.SAMPLE_ROWS, 0.9)
     twin = mod.stamp(mod.SAMPLE_ROWS, 0.9, shape=True)
-    for line, said in zip(sheet.cells, twin, strict=True):
+    seen = set()
+    for line, said in zip(letter.cells, twin, strict=True):
+        assert said.isascii(), said
         for cell, char in zip(line, said, strict=True):
-            if isinstance(cell[0], tuple):
-                assert char == mod.KEY[cell[0]], (cell, char)
-            elif isinstance(cell[1], tuple):
-                assert char == mod.KEY[cell[1]], (cell, char)
-    bottom = twin[sheet.height - 1]
-    assert bottom.startswith("'---"), bottom
-    for said in twin[1 : sheet.height - 1]:
-        assert said.startswith("|"), said
+            if cell[0] in HALF_BLOCKS:
+                want = letters[cell[1]]
+            elif cell[0] is None:
+                want = " "
+            else:
+                want = ascii_.get(cell[0], cell[0])
+            assert char == want, (cell, char)
+            seen.add(char)
+    assert set(letters.values()) | set("+->") <= seen, seen
+    assert "2 deferred > #56" in "\n".join(twin)
 
 
-# --- the panel -------------------------------------------------------------
-
-
-def test_the_panel_renders_its_rows_and_its_blanks():
-    """The panel is data — `(label, value)` rows with `None` for a blank — so
-    what the seal reports is a list the gate fills, not a string it formats.
-    Every label and value lands on its own line, and every `None` is a line
-    carrying nothing but the frame. `panel` returns no `None` since #717,
-    and a values file an older gate wrote still carries them, so the blank
-    is planted here rather than taken from `ROWS`."""
+@pytest.mark.parametrize("value", ["a▀b▄c", "▀", "▄ x"])
+def test_a_half_block_in_a_value_is_text_in_the_twin(value):
+    """#832 S4. A disc cell is a half-block in a disc colour; a value that
+    carries `▀` or `▄` — a branch name may, since git allows UTF-8 in a ref,
+    and `panel` puts the branch on a row — is text, written as itself, as
+    the twin before #832 wrote every text cell. Keyed on the character
+    alone, the twin looked up the text's foreground, None, and raised
+    `KeyError` after the gate had written the cell (round 1's 🟡 5)."""
     mod = module()
-    rows = [ROWS[0], None, *ROWS[1:]]
-    panel = mod.letter(rows)
-    body = panel[2:-2]  # inside the border and its two padding lines
-    assert len(body) == len(rows), f"{len(body)} panel lines for {len(rows)} rows"
-    for row, line in zip(rows, body, strict=True):
-        if row is None:
-            assert line.strip("| ") == "", f"a None row rendered as {line!r}"
-            continue
-        label, value = row
-        assert label in line and value in line, f"{row} rendered as {line!r}"
-    width = {len(line) for line in panel}
-    assert len(width) == 1, f"the panel's lines are not one width: {sorted(width)}"
-    # #666: a `""` label continues the row above it — its value starts in the
-    # same column as the labelled row's value, and nothing stands before it.
-    tree, branch = body[2], body[3]
-    assert branch.index("feat/12-a-branch") == tree.index("c46fd2d"), (tree, branch)
-    assert branch[1 : branch.index("feat/")].strip() == "", branch
+    twin = mod.stamp([("SEALED", ""), ("tree", value)], 0.9, shape=True)
+    assert any(line.endswith(f"tree    {value}") for line in twin), twin
+
+
+# --- the panel's text -------------------------------------------------------
+
+
+def test_the_text_lines_are_a_red_title_a_rule_and_the_rows_under_it():
+    """#832 S3a, the owner's text block of 2026-10-07. The panel's first row,
+    `("SEALED", "")`, is the title: `SEALED ` bold in the seal's red, then a
+    dim rule of thirty `─`, the owner's reference's own length. Then a blank
+    line, then one line per row: the label padded to seven columns and a
+    space, dim; the value in the terminal's own foreground, a leading `✓`
+    green and a leading `·` dim. A `None` row is a blank line, and a `""`
+    label stands its value under the value above it. The panel is data —
+    `(label, value)` rows and `None` — so what the seal reports is a list the
+    gate fills, not a string it formats."""
+    mod, cases = module(), hook_cases()
+    assert (mod.LABEL_WIDTH, mod.RULE_WIDTH) == (7, 30)
+    title = [(ch, TITLE_RED, None, "bold") for ch in "SEALED "]
+    title += [("─", None, None, "dim")] * 30
+    for rows in (mod.SAMPLE_ROWS, cases.REFERENCE_ROWS, ROWS):
+        lines = mod.text_lines(rows)
+        assert lines[0] == title, lines[0]
+        assert lines[1] == [] and len(lines) == 1 + len(rows), rows
+        for row, line in zip(rows[1:], lines[2:], strict=True):
+            if row is None:
+                assert line == [], line
+                continue
+            label, value = row
+            head = f"{label:<7} "
+            assert "".join(c[0] for c in line) == head + value, (row, line)
+            assert all(c[1:] == (None, None, "dim") for c in line[: len(head)])
+            said = line[len(head) :]
+            assert all(c[1:3] == (None, None) for c in said), said
+            styles = [c[3] for c in said]
+            first = (
+                {"✓": "green", "·": "dim"}.get(value[:1]) if value[1:2] == " " else None
+            )
+            assert styles[:1] == [first], (row, styles)
+            assert set(styles[1:]) <= {None}, (row, styles)
+    # Only a mark followed by a space is a mark: `·x` and a bare `✓` are text.
+    for value in ("·x", "✓", "✓x"):
+        (line,) = mod.text_lines([("x", value)])
+        assert [c[3] for c in line[8:]] == [None] * len(value), (value, line)
+    # A `""` label puts its value in the column of the value above it.
+    branch = ["".join(c[0] for c in line) for line in mod.text_lines(ROWS)][3]
+    tree = ["".join(c[0] for c in line) for line in mod.text_lines(ROWS)][2]
+    assert branch.index("feat/12-a-branch") == tree.index("c46fd2d") == 8
 
 
 # --- the floor -------------------------------------------------------------
 
 
 def test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence():
-    """#30 §*Size*: 75 % is the floor the issue measured — at 60 % the band
-    closes, at 50 % the lily reads as a cross. The floor is let through; a
+    """#30 §*Size*: 75 % is the floor the issue measured on #717's lily — at
+    60 % the band closed, at 50 % the lily read as a cross. The floor is let through; a
     scale under it is refused with a sentence naming both numbers, and the
     command exits 2 with nothing drawn, because a seal nobody can read is the
     counterfeit `verify` names."""
@@ -532,9 +913,21 @@ def test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence():
     with pytest.raises(ValueError, match=r"1\.0") as too_large:
         mod.stamp(ROWS, scale=1.5)
     assert "1.5" in str(too_large.value), (
-        "the chart is one cell per stitch and does not enlarge; a scale above "
-        "1.0 is refused with a sentence naming the scale asked for"
+        "a scale above 1.0 is refused with a sentence naming the scale asked for"
     )
+    # #832: the disc is one size at every scale of the band, so neither
+    # sentence may give a disc's size as its reason.
+    both = sentence + " " + str(too_large.value)
+    assert "scale 0.5 is under the floor of 0.75." in sentence, sentence
+    assert "scale 1.5 is above 1.0." in str(too_large.value), too_large.value
+    assert both.count("The disc is drawn at one size whatever the scale") == 2, both
+    assert "a values file and `--scale` may carry" in str(too_large.value)
+    for gone in ("too few cells", "a larger disc", "measured up to it", "stitch"):
+        assert gone not in both, (gone, both)
+    # The command's own help says the same: the band, and one disc size.
+    told = " ".join(run_wrapper("--help").stdout.split())
+    assert "a scale in the band 0.75-1.0" in told, told
+    assert "the disc is one size at every scale" in told, told
     out = run_wrapper("--shape", "--scale", "0.5")
     assert out.returncode == 2, f"exit {out.returncode}; stderr {out.stderr!r}"
     assert "0.75" in out.stderr, f"the command's refusal names no floor: {out.stderr!r}"
@@ -1205,8 +1598,9 @@ def test_the_gate_takes_the_invoked_path_out_of_the_environment(
 
 
 def test_the_gate_row_fits_the_panel_for_a_nine_character_version(tmp_path):
-    """A10's width. `plugin ` is seven columns and `PANEL_VALUE_WIDTH` is 23,
-    so a nine-character version fits with room; a version that would not is
+    """A10's width. `plugin ` is seven columns and `PANEL_VALUE_WIDTH` is 41
+    since #832 (23 before it), so a nine-character version fits with room;
+    a version that would not is
     elided at the frame (`fit`), never widening the row."""
     gate = gate_module()
     fake = tmp_path / "plugin"
@@ -2764,21 +3158,22 @@ def test_the_values_file_holds_this_runs_panel(a_sealed_run):
     row, because the fixture ships no gate; `from` and `row` are gone. No
     `CI also` row: the fixture has no workflow.
 
-    #717's A6: the panel says only what a `SEALED` stamp can say. `chain`,
-    the suite's `exit` row and the ledger's `drifted` row are gone, because
-    a drawn panel is green by construction and `SEALED` already says each;
-    and so is every blank, because the sheet draws none and the values file
-    should not claim a row nothing draws."""
+    #717's A6 took `chain`, the suite's `exit` row, the ledger's `drifted`
+    row and every blank off the panel. #832's S5a, the owner's design of
+    2026-10-07, puts the result rows back in one shape: the base's ref
+    beside its commit, a blank before the results, a `✓` on each result
+    row, the ledger's three counts on one row and `chain ✓ exit 0`."""
     repo, _out, values = a_sealed_run
     assert values["rows"] == [
         ("SEALED", ""),
         ("tree", short(repo, "HEAD")),
         ("", "feature"),
-        ("base", short(repo, "base")),
-        ("", "base"),
+        ("base", f"{short(repo, 'base')}  base"),
         ("item", "1799000000"),
-        ("suite", "1 passed"),
-        ("ledger", "0 ok"),
+        None,
+        ("suite", "✓ 1 passed"),
+        ("ledger", "✓ 0 ok · 0 drifted · 0 broken"),
+        ("chain", "✓ exit 0"),
         ("rounds", "2"),
     ], values["rows"]
     assert values["scale"] == module().DEFAULT_SCALE == 0.90, values["scale"]
@@ -2993,7 +3388,7 @@ def test_the_pull_request_the_record_names_reaches_the_values_file(repo, tmp_pat
     values = module().read_values(path)
     assert values["pr"] == "#12"
     # A7 on the panel: the pull request leads the `item` row.
-    assert row_of(values, "item") == "#12 . 1799000000", values["rows"]
+    assert row_of(values, "item") == "#12 · 1799000000", values["rows"]
 
 
 def test_a_detached_head_names_the_tree_alone(repo, tmp_path):
@@ -3141,22 +3536,29 @@ def test_no_value_on_the_panel_is_wider_than_the_frame_gives(tmp_path):
     assert all(label == "" for label, _value in rows[at + 1 :]), rows[at:]
     assert "67890 skipped" in " ".join(values), values
     assert "12 xfailed" in " ".join(values), values
+    # #832's S5a: the ref stands on the `base` row beside its commit, two
+    # spaces after it, elided at its head to the room the commit leaves.
+    (joined,) = [value for label, value in (r for r in rows if r) if label == "base"]
+    commit_, ref = joined.split("  ", 1)
+    assert commit_ == "1e2bed90", joined
     elided = [
-        v for v in values if v.endswith(gate.ELISION) or v.startswith(gate.ELISION)
+        v
+        for v in (*values, ref)
+        if v.endswith(gate.ELISION) or v.startswith(gate.ELISION)
     ]
     assert len(elided) == 2, f"only the branch and the ref are elided: {elided}"
     assert all(len(v) <= gate.PANEL_VALUE_WIDTH for v in values), [
         v for v in values if len(v) > gate.PANEL_VALUE_WIDTH
     ]
+    assert len(joined) == gate.PANEL_VALUE_WIDTH, joined
     branch = rows[rows.index(("tree", "c46fd2db")) + 1]
     assert branch[0] == "" and branch[1].endswith(gate.ELISION), branch
     assert LONG_BRANCH.startswith(branch[1][: -len(gate.ELISION)]), branch
-    ref = rows[rows.index(("base", "1e2bed90")) + 1]
-    assert ref[0] == "" and ref[1].startswith(gate.ELISION), ref
-    assert LONG_REF.endswith(ref[1][len(gate.ELISION) :]), ref
-    assert ("item", "#12345 . 1799000000") in rows, rows
+    assert ref.startswith(gate.ELISION), ref
+    assert LONG_REF.endswith(ref[len(gate.ELISION) :]), ref
+    assert ("item", "#12345 · 1799000000") in rows, rows
     drawn = "\n".join(module().stamp(rows, shape=True))
-    assert branch[1] in drawn and ref[1] in drawn, drawn
+    assert branch[1] in drawn and ref in drawn, drawn
     assert "/v1.2.3-hotfix" in drawn, "the ref's tail did not survive the frame"
 
 
@@ -3204,10 +3606,12 @@ def test_the_widest_panel_the_tree_can_produce_fits_at_the_first_rung(tmp_path):
         pr="#12345",
         record=record_of(tmp_path, capped_record(verdicts=verdicts)),
     )
-    beneath = " ".join(value for label, value in rows if label == "")
+    # The blank before the result rows is `None` since #832's S5a.
+    named = [row for row in rows if row]
+    beneath = " ".join(value for label, value in named if label == "")
     for home in EIGHT_HOMES:
         assert home in beneath, (home, rows)
-    assert any(label == "CI also" for label, _ in rows), rows
+    assert any(label == "CI also" for label, _ in named), rows
     values = {
         "tree": "c46fd2db",
         "base": "1e2bed90",
@@ -3226,31 +3630,44 @@ def test_a_list_too_long_for_its_row_continues_beneath_it():
     """Round 1's 🟡 1. `wrapped` breaks a list after a separator, keeps the
     separator at the end of the row it leaves, and puts the rest on `""`
     rows; a list that fits stays one row, at the frame's full width; and one
-    part wider than the frame is the only thing `fit` elides."""
+    part wider than the frame is the only thing `fit` elides.
+
+    #832's S5a: at `PANEL_VALUE_WIDTH` 41, and over the owner's separators —
+    the suite's counts joined by ` · ` behind a `✓`, the homes after `→` —
+    a row broken before a ` · ` piece keeps the `·` at its end, as one
+    broken before a `, ` piece keeps the comma."""
     gate = gate_module()
+    assert gate.PANEL_VALUE_WIDTH == 41
     assert gate.wrapped(
-        "suite", ["12345 passed", ", 67890 skipped", ", 12 xfailed"]
+        "suite", ["✓ 12345 passed", " · 67890 skipped", " · 12 xfailed"]
     ) == [
-        ("suite", "12345 passed,"),
-        ("", "67890 skipped,"),
+        ("suite", "✓ 12345 passed · 67890 skipped ·"),
         ("", "12 xfailed"),
     ]
-    assert gate.wrapped("suite", ["5081 passed", ", 10 skipped"]) == [
-        ("suite", "5081 passed, 10 skipped")
+    assert gate.wrapped("suite", ["✓ 5081 passed", " · 10 skipped"]) == [
+        ("suite", "✓ 5081 passed · 10 skipped")
     ]
-    assert gate.wrapped("", ["3 deferred ->", " seal/follow-up.md", ", #664"]) == [
-        ("", "3 deferred ->"),
-        ("", "seal/follow-up.md, #664"),
+    assert gate.wrapped(
+        "", ["3 deferred →", " seal/follow-up.md", ", #664", ", docs/the-broad-gate.md"]
+    ) == [
+        ("", "3 deferred → seal/follow-up.md, #664,"),
+        ("", "docs/the-broad-gate.md"),
     ]
     # A row that would fill the frame exactly is broken one piece early when
     # more follow, so the comma it ends with is not cut by `fit`.
-    assert gate.wrapped("x", ["a" * 20, ", b", ", c"]) == [
-        ("x", "a" * 20 + ","),
+    assert gate.wrapped("x", ["a" * 38, ", b", ", c"]) == [
+        ("x", "a" * 38 + ","),
         ("", "b, c"),
     ]
-    assert gate.wrapped("", ["1 deferred ->", " " + "x" * 30]) == [
-        ("", "1 deferred ->"),
-        ("", gate.fit("x" * 30)),
+    # ` ·` is two columns, so two are held back: a row that would reach 40
+    # before a ` · ` piece breaks there, and its ` ·` is not cut by `fit`.
+    assert gate.wrapped("x", ["a" * 36, " · b", " · c"]) == [
+        ("x", "a" * 36 + " ·"),
+        ("", "b · c"),
+    ]
+    assert gate.wrapped("", ["1 deferred →", " " + "x" * 50]) == [
+        ("", "1 deferred →"),
+        ("", gate.fit("x" * 50)),
     ]
 
 
@@ -3259,11 +3676,11 @@ def test_a_list_too_long_for_its_row_continues_beneath_it():
     [
         (
             "768 passed, 1 skipped in 9.1s\n",
-            [("suite", "768 passed, 1 skipped")],
+            [("suite", "✓ 768 passed · 1 skipped")],
         ),
         (
-            "12345 passed, 67890 skipped in 9.1s\n",
-            [("suite", "12345 passed,"), ("", "67890 skipped")],
+            "12345 passed, 67890 skipped, 12 xfailed in 9.1s\n",
+            [("suite", "✓ 12345 passed · 67890 skipped ·"), ("", "12 xfailed")],
         ),
         ("no summary here\n", [("suite", "exit 0")]),
     ],
@@ -3273,7 +3690,8 @@ def test_the_suite_carries_its_counts_and_nothing_under_them(suite, rows):
     #666 wraps them, and the row after the last counts row is the ledger's
     label — not `exit 0`, which a `SEALED` stamp already says. Where there
     are no counts the row reads `exit N`, which is then the only statement
-    of what the suite did."""
+    of what the suite did. #832's S5a: the counts stand behind a `✓` and are
+    joined by ` · `, the owner's design of 2026-10-07."""
     gate = gate_module()
     panel = gate.panel(
         "c46fd2db",
@@ -3286,12 +3704,12 @@ def test_the_suite_carries_its_counts_and_nothing_under_them(suite, rows):
     assert panel[at + len(rows)][0] == gate.LEDGER, panel
 
 
-def test_the_ledger_carries_its_ok_count_and_nothing_beneath():
-    """#717's A8, `ledger`, read from one `total:` line: `<N> ok`, and the
-    row after it is the next label — `CI also` where a workflow is given —
-    rather than `<D> drifted . <B> broken`, which under `--strict` is 0 and
-    0 on every drawn panel. A ledger output with no total line reads
-    `exit N`, as the suite does."""
+def test_the_ledger_carries_its_three_counts_on_one_row():
+    """#717's A8, `ledger`, read from one `total:` line — and #832's S5a, the
+    owner's design of 2026-10-07, which puts back the counts #717 took off:
+    `✓ <ok> ok · <d> drifted · <b> broken` on the one row, and the row
+    after it the chain's, then `CI also` where a workflow is given. A ledger
+    output with no total line reads `exit N`, as the suite does."""
     gate = gate_module()
     base = gate.Base("base", "1e2bed90", "base", "1e2bed90")
     workflow = (
@@ -3305,9 +3723,9 @@ def test_the_ledger_carries_its_ok_count_and_nothing_beneath():
         None,
         workflow,
     )
-    at = rows.index(("ledger", "187 ok"))
-    assert rows[at + 1][0] == "CI also", rows
-    assert not any("drifted" in row[1] for row in rows), rows
+    at = rows.index(("ledger", "✓ 187 ok · 3 drifted · 4 broken"))
+    assert [row[0] for row in rows[at + 1 : at + 3]] == ["chain", "CI also"], rows
+    assert sum("drifted" in row[1] for row in rows if row) == 1, rows
     bare = gate.panel("c46fd2db", base, checks_with(gate), None)
     assert ("ledger", "exit 0") in bare, bare
 
@@ -3336,25 +3754,81 @@ def test_a_failing_ledger_ends_with_its_total_line(tmp_path):
 
 def test_a_base_that_is_its_own_commit_has_no_ref_row_under_it():
     """A3 on the panel. A bare SHA given as `--base` resolves to itself, so
-    the row under `base` would repeat the commit; `ref_is_commit` — the one
-    reading the lines use too — leaves it out. A branch-named base keeps
-    its row."""
+    the ref would repeat the commit; `ref_is_commit` — the one reading the
+    lines use too — leaves it out. A branch-named base keeps its ref.
+
+    #832's S5a: the ref stands on the `base` row, two spaces after the
+    commit, and no `""` row follows `base` either way — the name says the
+    row #666 put there, which a released ledger row cites."""
     gate = gate_module()
     sha = "1e2bed90" + "a" * 32
     bare = gate.panel(
         "c46fd2db", gate.Base(sha, "1e2bed90", sha, "1e2bed90"), checks_with(gate), None
     )
     at = bare.index(("base", "1e2bed90"))
-    # The next label, and no `""` row: #717 took the blank that used to
-    # follow, so the row after `base` is the suite's own.
-    assert bare[at + 1] == ("suite", "exit 0"), bare
+    # The blank before the result rows: no item and no gate row here.
+    assert bare[at + 1] is None, bare
     named = gate.panel(
         "c46fd2db",
         gate.Base("base", "1e2bed90", "base", "1e2bed90"),
         checks_with(gate),
         None,
     )
-    assert named[named.index(("base", "1e2bed90")) + 1] == ("", "base"), named
+    at = named.index(("base", "1e2bed90  base"))
+    assert named[at + 1] is None, named
+    assert not any(row and row[1] == "base" for row in named), named
+
+
+def test_the_result_rows_carry_a_tick_and_a_blank_row_stands_before_them(tmp_path):
+    """#832's S5a, the owner's design of 2026-10-07, in `panel` — the one
+    place that owns the rows. The identity rows (`tree` and its branch,
+    `base` with its ref, `item`, `gate`) are followed by one `None`, and
+    then the result rows: the suite's counts behind a `✓`, the ledger's three
+    counts behind one, `chain ✓ exit <code>` read off the chain's own check,
+    and `CI also` behind a `·`, the owner's mark for a row that is not a
+    pass. `rounds` comes last, ` · capped` beside it and its homes after
+    `→`. The values are the owner's characters: the twin is what maps them
+    for a console that is not UTF-8 (S4).
+
+    The suite's and the ledger's checks exit 5 here and the chain's 0, so a
+    `chain` row that read another arm's exit says 5."""
+    gate = gate_module()
+    workflow = (
+        "jobs:\n  release:\n    steps:\n"
+        "      - name: a declared review chain has the round record it claimed\n"
+    )
+    checks = checks_with(
+        gate, "1 passed in 1s\n", "total: 1 ok · 0 drifted · 0 broken\n", code=5
+    )
+    checks[gate.CHAIN_NAME] = gate.Check(gate.CHAIN_NAME, 0, "", "chain.txt")
+    rows = gate.panel(
+        "c46fd2db",
+        gate.Base("release/x", "1e2bed90", "origin/release/x", "1e2bed90"),
+        checks,
+        str(tmp_path / "1799000000-an-item"),
+        workflow,
+        copy="tree 1.2.3",
+        branch="feature",
+        pr="#12",
+        record=record_of(tmp_path, capped_record()),
+    )
+    assert rows == [
+        ("SEALED", ""),
+        ("tree", "c46fd2db"),
+        ("", "feature"),
+        ("base", "1e2bed90  origin/release/x"),
+        ("item", "#12 · 1799000000"),
+        ("gate", "tree 1.2.3"),
+        None,
+        ("suite", "✓ 1 passed"),
+        ("ledger", "✓ 1 ok · 0 drifted · 0 broken"),
+        ("chain", "✓ exit 0"),
+        ("CI also", "· 0 more steps"),
+        ("rounds", "0 · capped"),
+        ("", "2 deferred → #664"),
+    ], rows
+    said = "".join(value for row in rows if row for value in row)
+    assert " . " not in said and "->" not in said, said
 
 
 def test_a_run_with_no_record_has_no_item_and_no_rounds():
@@ -3379,7 +3853,7 @@ def test_the_item_row_is_the_id_alone_without_a_pull_request(tmp_path):
     gate = gate_module()
     item = str(tmp_path / "1790815615-the-seal-names-what-it-sealed")
     assert gate.item_value(item) == "1790815615"
-    assert gate.item_value(item, "#666") == "#666 . 1790815615"
+    assert gate.item_value(item, "#666") == "#666 · 1790815615"
     assert gate.item_value(str(tmp_path / "plain")) == "plain"
 
 
@@ -3398,7 +3872,9 @@ def test_the_documents_say_where_the_panel_now_carries_each_name():
     verify = " ".join(
         read_document(os.path.join("skills", "verify", "SKILL.md")).split()
     )
-    assert "names the ref on the row under the commit" in verify
+    # #832's S5a: the ref stands beside the commit on the `base` row.
+    assert "names the ref beside the commit on the `base` row" in verify
+    assert "names the ref on the row under the commit" not in verify
     sealer = " ".join(sealer_text().split())
     assert "The stamp carries a `gate` row only where the copy that ran is not" in (
         sealer
@@ -3420,11 +3896,13 @@ def test_the_documents_say_where_the_panel_now_carries_each_name():
     above = source.split("GATE_REL = ", 1)[0][-1500:].splitlines()
     comment = " ".join(" ".join(line.lstrip("# ") for line in above).split())
     assert "or where no invoked copy was handed over to compare" in comment
-    # Phase 3's row.
+    # Phase 3's row, in #832's separators; and the ref beside its commit.
     assert (
-        "`rounds` row reads `<R> . capped` where the last record's `Needs a fix`"
+        "`rounds` row reads `<R> · capped` where the last record's `Needs a fix`"
         in (sealer)
     )
+    assert "the `base` row carries the ref beside the commit it came from" in sealer
+    assert "the row under `base` carries the ref" not in sealer
     assert "counts the findings closed `deferred` and names their homes" in sealer
 
 
@@ -3453,21 +3931,31 @@ def test_the_sample_carries_every_row_the_panel_can(tmp_path):
     sample = [None if row is None else row[0] for row in module().SAMPLE_ROWS]
     assert sample == labels, (sample, labels)
     # #717's A19, positively: the sequence itself, so the two lists cannot
-    # agree by losing the same row.
+    # agree by losing the same row. #832's S5a: the ref beside the commit,
+    # a blank before the result rows, and `chain` back among them.
     assert labels == [
         "SEALED",
         "tree",
         "",
         "base",
-        "",
         "item",
         "gate",
+        None,
         "suite",
         "ledger",
+        "chain",
         "CI also",
         "rounds",
         "",
     ], labels
+    # And the sample's values are in the shapes `panel` writes them in.
+    for row, sample in zip(rows, module().SAMPLE_ROWS, strict=True):
+        if row is None:
+            continue
+        for mark in ("✓ ", "· "):
+            assert row[1].startswith(mark) == sample[1].startswith(mark), (row, sample)
+        for mark in ("→", "  "):
+            assert (mark in row[1]) == (mark in sample[1]), (row, sample)
 
 
 def test_the_docstrings_describe_the_letter_and_the_rows_it_carries():
@@ -3475,31 +3963,79 @@ def test_the_docstrings_describe_the_letter_and_the_rows_it_carries():
     module's docstring describes the letter and the twin's characters rather
     than a rope and golds; the gate's module docstring and `panel`'s row
     diagram list the rows the panel carries now; the comment above
-    `SAMPLE_ROWS` says which rows left."""
+    `SAMPLE_ROWS` says which rows left. #832, the owner's frame and layout
+    of 2026-10-07: the disc at the left and the text beside it with nothing
+    painted outside the disc, the disc's mark a chart in a file of its own,
+    the twin's letters the nine colours', and nothing names the parchment
+    sheet, the 14-cell disc's four colours, the vector source, the area
+    sampler, the corner overhang, a fleur-de-lis, a chart of stitches or the
+    interim ring."""
     stamp = " ".join(
         read_document(
             os.path.join("skills", "verify", "scripts", "seal_stamp.py")
         ).split()
     )
     assert (
-        "written on a parchment sheet, with a wax disc pressed over the sheet's "
-        "lower right corner"
+        "Two things side by side on the terminal's own background, and nothing "
+        "else: at the left a wax disc with the disc's mark pressed into it"
     ) in stamp
-    assert "`m` the wax's edge, `.` the field and `G Y y` the lily's face" in stamp
+    assert "a 28 x 28 chart in `seal-mark.txt` beside this file, read as data" in stamp
+    assert "every cell exactly one of nine colours" in stamp
+    assert "`m` its wax edge, `M n N` its rim lit, mid and dark, `.` its field" in (
+        stamp
+    )
+    assert "nothing outside the disc is painted" in stamp
+    for gone in (
+        "lower right corner",
+        "`M n` the rim's",
+        "EMBLEM_D",
+        "by area",
+        "hangs",
+        "half on and half off",
+        "LILY_",
+        "RIM_LIGHT",
+        "RING_INSET",
+        "24 cells",
+        "nearest",
+        "14 cells across",
+        "four colours",
+        "against its right edge",
+        "parchment sheet, with",
+        "`m` the disc's ring",
+        "PARCHMENT",
+        "SHEET_EDGE",
+        "TEXT_LEFT",
+        "PANEL_WIDTH",
+    ):
+        assert gone not in stamp, gone
+    assert "fleur-de-lis" not in stamp and "stitch" not in stamp
+    assert "cell's centre" not in stamp and "INTERIM" not in stamp
     assert "`o O` rope" not in stamp and "the lily's golds" not in stamp
-    assert "Since #717 there is no blank row in it, no `chain`" in stamp
+    assert "Since #832 it carries the blank row, `chain` and the ledger's" in stamp
+    assert "Since #717 there is no blank row in it, no `chain`" not in stamp
     gate = " ".join(
         read_document(
             os.path.join("skills", "verify", "scripts", "broad_gate.py")
         ).split()
     )
+    # #832's S5a: the module docstring and `panel`'s row diagram name the
+    # rows the owner's design of 2026-10-07 put back.
     assert (
-        "the ledger's `ok` count, how many more steps CI runs than this seal answers"
+        "the ledger's three counts, the chain's exit, how many more steps CI "
+        "runs than this seal answers"
     ) in gate
-    assert "the chain's exit, and the round count" not in gate
-    assert "CI also <n> more steps absent without a hygiene workflow" in gate
+    assert "the ledger's `ok` count, how many more steps" not in gate
+    assert "CI also · <n> more steps absent without a hygiene workflow" in gate
+    assert "chain ✓ exit <code> read off the chain's own check" in gate
     assert "workflow <n> of <m> not answered" not in gate
-    assert "**A drawn panel says only what a `SEALED` stamp can say** (#717)" in gate
+    assert "**A drawn panel says only what a `SEALED` stamp can say** (#717)" not in (
+        gate
+    )
+    assert "**The result rows carry a `✓`, and the blank before them is a row**" in (
+        gate
+    )
+    assert "**Separators are ASCII**" not in gate
+    assert "No row is `None` since #717" not in gate
 
 
 def test_the_documents_name_the_ci_also_row():
@@ -3507,12 +4043,16 @@ def test_the_documents_name_the_ci_also_row():
     §*A seal says what it did not answer* and `agents/sealer.md` named the
     `workflow` row and its `<n> of <total> not answered` reading; both name
     the `CI also` row and its `<n> more steps` now, and the denominator is
-    said to be on the stderr line."""
+    said to be on the stderr line. #832's S5a: the row's value leads with a
+    dim `·`, the owner's mark for a row that is not a pass, and the value
+    column is 41 wide."""
     verify = " ".join(
         read_document(os.path.join("skills", "verify", "SKILL.md")).split()
     )
-    assert "the panel carries a `CI also` row — *<n> more steps* —" in verify
-    assert "A feature seal of SpecSeal itself reads `CI also 4 more steps`" in verify
+    assert "the panel carries a `CI also` row — *· <n> more steps* —" in verify
+    assert "A feature seal of SpecSeal itself reads `CI also · 4 more steps`" in verify
+    assert "value is 41 columns and a step name is a sentence" in verify
+    assert "value is 23 columns" not in verify
     assert "the panel carries a `workflow` row" not in verify
     sealer = " ".join(sealer_text().split())
     assert "On any base the `CI also` count leaves out the steps" in sealer
@@ -3562,21 +4102,23 @@ def rounds_of(tmp_path, text, rounds=3):
     "text, rows",
     [
         # A10's own shape: capped, two deferrals to one home.
-        (capped_record(), [("rounds", "3 . capped"), ("", "2 deferred -> #664")]),
-        # Two homes, in table order.
+        (capped_record(), [("rounds", "3 · capped"), ("", "2 deferred → #664")]),
+        # Three homes, in table order.
         (
             capped_record(
                 verdicts=(
                     "| 🟡 1 | a | `f.py:1` | deferred seal/follow-up.md | why |\n"
                     "| 🟡 2 | b | `f.py:2` | deferred #664 | why |\n"
                     "| 🟡 3 | c | `f.py:3` | deferred #664 | why |\n"
+                    "| 🟡 4 | d | `f.py:4` | deferred docs/the-broad-gate.md | why |\n"
                 )
             ),
-            # Too long for one row: it continues beneath (round 1's 🟡 1).
+            # Too long for one row: it continues beneath (round 1's 🟡 1),
+            # at #832's width of 41.
             [
-                ("rounds", "3 . capped"),
-                ("", "3 deferred ->"),
-                ("", "seal/follow-up.md, #664"),
+                ("rounds", "3 · capped"),
+                ("", "4 deferred → seal/follow-up.md, #664,"),
+                ("", "docs/the-broad-gate.md"),
             ],
         ),
         # A bare `deferred` is counted and names no home.
@@ -3587,11 +4129,11 @@ def rounds_of(tmp_path, text, rounds=3):
                     "| 🟡 2 | b | `f.py:2` | deferred | why |\n"
                 )
             ),
-            [("rounds", "3 . capped"), ("", "2 deferred -> #664")],
+            [("rounds", "3 · capped"), ("", "2 deferred → #664")],
         ),
         (
             capped_record(verdicts="| 🟡 1 | a | `f.py:1` | deferred | why |\n"),
-            [("rounds", "3 . capped"), ("", "1 deferred")],
+            [("rounds", "3 · capped"), ("", "1 deferred")],
         ),
         # A run that ended with nothing needing a fix and nothing deferred.
         (
@@ -3602,7 +4144,7 @@ def rounds_of(tmp_path, text, rounds=3):
         ),
         # A deferral by choice on a record that needed no fix: counted, not
         # capped (`questions.md` Q2's measurement found ten of these).
-        (capped_record(needs="no"), [("rounds", "3"), ("", "2 deferred -> #664")]),
+        (capped_record(needs="no"), [("rounds", "3"), ("", "2 deferred → #664")]),
         # Half an answer is no answer: no table, or no `Needs a fix` row.
         (capped_record(verdicts=""), [("rounds", "3")]),
         (capped_record(needs=None), [("rounds", "3")]),
@@ -3704,7 +4246,7 @@ def test_a_capped_run_is_sealed_with_its_deferral_on_the_stamp(repo, tmp_path):
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
     (path,) = values_files(repo)
     rows = module().read_values(path)["rows"]
-    assert rows[-2:] == [("rounds", "1 . capped"), ("", "1 deferred -> #999")], rows
+    assert rows[-2:] == [("rounds", "1 · capped"), ("", "1 deferred → #999")], rows
 
 
 # --- S2 not sealed -----------------------------------------------------------
@@ -8867,11 +9409,12 @@ def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(a_sealed_run
     is. Since #666 the exit code continued under `suite` rather than on a
     `row` of its own, and since #717 it is not on the panel at all: a drawn
     panel's row came back 0 by construction, which `SEALED` says, so the row
-    after the counts is the ledger's."""
+    after the counts is the ledger's. #832 puts a `✓` on both rows, and the
+    ledger's carries its three counts."""
     _repo, _out, values = a_sealed_run
     rows = values["rows"]
-    at = rows.index(("suite", "1 passed"))
-    assert rows[at + 1] == ("ledger", "0 ok"), rows
+    at = rows.index(("suite", "✓ 1 passed"))
+    assert rows[at + 1] == ("ledger", "✓ 0 ok · 0 drifted · 0 broken"), rows
     assert not any("clean" in cell for row in values["rows"] if row for cell in row), (
         "the seal still asserts a linter over a row that has none in it"
     )
