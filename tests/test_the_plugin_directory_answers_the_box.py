@@ -1,10 +1,23 @@
-"""#417: the checklist box asking whether the release reached the directory
-has a command behind it, and that command never fails a release.
+"""#417 and #858: the checklist box asking whether the release reached the
+directory has a command behind it, that command never fails a release, and it
+says nothing about a directory it did not read.
 
-  A6  per directory: listed or not, which commit is pinned, and whether that
-      commit is an ancestor of `main`
+  A6  per marketplace file: an entry or not, which commit is pinned, and
+      whether that commit is an ancestor of `main`
   A7  absence and a failed fetch are reports, and both exit 0. The only
       non-zero exit is a malformed argument, which is the author's
+  #858 A1  the run claims nothing about the directory -- the catalog people
+      browse inside Claude, which no script can read -- tells nobody to
+      submit or resubmit, and closes by naming the page a person opens for
+      each kind of listing
+  #858 A3  an absent entry is one line: which file, over how many entries,
+      and no act
+
+**The marketplace files are not the directory.** They are the two public
+`.claude-plugin/marketplace.json` files the command reads, outputs of the
+review pipeline and nothing more; *listed* is a word about the directory, so
+no line here says it (`seal/specs/1791384161-the-plugin-directory-check-reads-the-directory/spec.md`
+§*Vocabulary*).
 
 **Nothing here reaches the network.** `fetch` is replaced at the module, and
 the fixtures below are the four `source` shapes measured over the two real
@@ -17,7 +30,7 @@ reader is about, and the shapes are what these carry.
 reader most easily loses. A commit this clone does not have is not a commit
 that is unreachable — and reporting the two as one turns an unfetched
 checkout into a stale-pin warning at the exact moment somebody is deciding
-whether to resubmit. `test_a_commit_this_clone_does_not_have_is_not_called_unreachable`
+whether a file is behind. `test_a_commit_this_clone_does_not_have_is_not_called_unreachable`
 is that case, and it builds a real repository to have an ancestry to ask
 about.
 
@@ -25,7 +38,10 @@ about.
 script with the one behaviour it pins removed; the mutations and what each
 case said were recorded in
 phase 3 of work item `1790076050-the-release-tail-is-three-acts-no-document-names`,
-whose rule `docs/branch-and-release.md` §*Cutting a release* now carries.
+whose rule `docs/branch-and-release.md` §*Cutting a release* now carries. The
+#858 cases and the pins they moved were run red against the command as #417
+left it, and with each new line removed, in phase 1 of work item
+`1791384161-the-plugin-directory-check-reads-the-directory`.
 """
 
 import importlib.util
@@ -53,12 +69,13 @@ def checker():
 SHA = "0123456789abcdef0123456789abcdef01234567"
 
 
-def directory(*entries):
-    """A directory file in the shape both real ones have."""
-    return json.dumps({"name": "a-directory", "plugins": list(entries)})
+def marketplace(*entries):
+    """A marketplace file in the shape both real ones have."""
+    return json.dumps({"name": "a-marketplace", "plugins": list(entries)})
 
 
-def listed(sha=SHA, **source):
+def pinning(sha=SHA, **source):
+    """This plugin's entry, pointing outward and pinning `sha`."""
     body = {"source": "url", "url": "https://github.com/example-org/kit.git"}
     if sha is not None:
         body["sha"] = sha
@@ -73,57 +90,69 @@ def other(name):
 # --- A6: the three facts the box asks for ----------------------------------
 
 
-def test_a_listed_entry_reports_its_pinned_commit(tmp_path):
+def test_an_entry_reports_its_pinned_commit(tmp_path):
     """A6's first two facts, asserted on the line that carries them.
 
     The commit is named twice — once as *what is pinned* and once inside the
     ancestry sentence below it — so a check for the hash anywhere in the
     report passes with the first line gutted. Measured: dropping the hash
-    from the `listed,` line left this case green until it was pinned to that
+    from the entry line left this case green until it was pinned to that
     line. The first line is the one the box is read for, because the ancestry
     sentence is absent whenever the clone cannot answer.
     """
     mod = checker()
     out = mod.line(
         "official",
-        "example-org/directory",
-        directory(other("a"), listed(), other("b")),
+        "example-org/marketplace",
+        marketplace(other("a"), pinning(), other("b")),
         None,
         NAME,
         str(tmp_path),
         "main",
     )
     head = out[0]
-    assert "listed" in head and "not listed" not in head
+    assert "an entry" in head and "not an entry" not in head
     assert SHA[:12] in head, (
-        "the line that says the plugin is listed does not say which commit "
+        "the line that says the file has an entry does not say which commit "
         f"the entry pins: {head!r}"
     )
-    assert mod.pinned(listed()) == (
+    assert mod.pinned(pinning()) == (
         SHA,
         "https://github.com/example-org/kit.git",
     )
 
 
-def test_an_absent_entry_says_so_and_says_how_many_it_read(tmp_path):
-    """A6's other shape. The count is what tells a reader the file was read at
-    all — *not listed* over an empty list and over 310 entries are different
-    facts, and only one of them is about this plugin."""
+def test_an_absent_entry_names_the_file_and_its_count_and_no_act(tmp_path):
+    """#858 A3, and A6's other shape. The count is what tells a reader the
+    file was read at all — *not an entry* over an empty list and over 310
+    entries are different facts, and only one of them is about this plugin.
+
+    The line is the whole answer for that file. It used to be followed by an
+    instruction to submit through a short link, about a directory nothing here
+    had read; the owner's Console page said *published* while this said *not
+    listed* in both files (#858). An absent entry in a marketplace file is a
+    fact about that file, and a second line is where an act would come back.
+    """
     mod = checker()
-    out = "\n".join(
-        mod.line(
-            "community",
-            "example-org/directory",
-            directory(other("a"), other("b")),
-            None,
-            NAME,
-            str(tmp_path),
-            "main",
-        )
+    out = mod.line(
+        "community",
+        "example-org/marketplace",
+        marketplace(other("a"), other("b")),
+        None,
+        NAME,
+        str(tmp_path),
+        "main",
     )
-    assert "not listed" in out
-    assert "2 entries" in out, "a `not listed` that does not say over how many"
-    assert mod.PORTAL in out, "it does not say what to do about it"
+    assert len(out) == 1, (
+        f"an absent entry is followed by more than its own line: {out!r}"
+    )
+    assert "not an entry" in out[0]
+    assert "2 entries" in out[0], "a `not an entry` that does not say over how many"
+    assert "example-org/marketplace" in out[0], "the line does not say which file"
+    assert "listed" not in out[0], (
+        "the line speaks of a listing, which is the directory's word, about a "
+        "marketplace file"
+    )
 
 
 @pytest.mark.parametrize(
@@ -159,21 +188,22 @@ def test_an_entry_that_pins_no_commit_is_read_rather_than_raised_on(tmp_path, so
     out = "\n".join(
         mod.line(
             "official",
-            "example-org/directory",
-            directory(entry),
+            "example-org/marketplace",
+            marketplace(entry),
             None,
             NAME,
             str(tmp_path),
             "main",
         )
     )
-    assert "listed" in out and "not listed" not in out
+    assert "an entry" in out and "not an entry" not in out
     assert "pinning no commit" in out
 
 
 def test_a_commit_this_clone_does_not_have_is_not_called_unreachable(tmp_path):
     """The third ancestry value. Folding *unknown here* into *not reachable*
-    would tell a reader to resubmit because their checkout was not fetched."""
+    would tell a reader a file is behind because their checkout was not
+    fetched."""
     mod = checker()
     repo = tmp_path / "r"
     repo.mkdir()
@@ -198,8 +228,8 @@ def test_a_commit_this_clone_does_not_have_is_not_called_unreachable(tmp_path):
     reachable = "\n".join(
         mod.line(
             "official",
-            "example-org/directory",
-            directory(listed(sha=head)),
+            "example-org/marketplace",
+            marketplace(pinning(sha=head)),
             None,
             NAME,
             str(repo),
@@ -210,8 +240,8 @@ def test_a_commit_this_clone_does_not_have_is_not_called_unreachable(tmp_path):
     unknown = "\n".join(
         mod.line(
             "official",
-            "example-org/directory",
-            directory(listed()),
+            "example-org/marketplace",
+            marketplace(pinning()),
             None,
             NAME,
             str(repo),
@@ -230,7 +260,7 @@ def test_a_failed_fetch_is_a_report(tmp_path):
     out = "\n".join(
         mod.line(
             "community",
-            "example-org/directory",
+            "example-org/marketplace",
             None,
             "HTTP 503",
             NAME,
@@ -242,13 +272,13 @@ def test_a_failed_fetch_is_a_report(tmp_path):
     assert "not a reason to stop" in out
 
 
-def test_a_payload_that_is_not_a_directory_is_a_report(tmp_path):
+def test_a_payload_that_is_not_a_marketplace_file_is_a_report(tmp_path):
     mod = checker()
     for payload in ("<html>a login page</html>", json.dumps({"message": "Not Found"})):
         out = "\n".join(
             mod.line(
                 "official",
-                "example-org/directory",
+                "example-org/marketplace",
                 payload,
                 None,
                 NAME,
@@ -263,7 +293,7 @@ def test_a_payload_that_is_not_a_directory_is_a_report(tmp_path):
     "outcome",
     [
         pytest.param((None, "HTTP 503"), id="both fetches fail"),
-        pytest.param((directory(other("a")), None), id="absent from both"),
+        pytest.param((marketplace(other("a")), None), id="absent from both"),
     ],
 )
 def test_the_run_exits_zero_on_absence_and_on_a_failed_fetch(
@@ -277,11 +307,61 @@ def test_the_run_exits_zero_on_absence_and_on_a_failed_fetch(
     out = capsys.readouterr().out
     assert "specseal" in out, "the run does not say which plugin it asked about"
     assert out.count("official") and out.count("community"), (
-        "a directory is missing from the report"
+        "a marketplace file is missing from the report"
     )
-    assert "readable from nowhere public" in out, (
+    assert "was not read" in out, (
         "the run does not say what it cannot answer, which is the half a "
         "reader would otherwise take it to have answered"
+    )
+
+
+# --- #858 A1: nothing here claims what the directory holds ------------------
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        pytest.param((marketplace(other("a")), None), id="no entry"),
+        pytest.param((marketplace(pinning()), None), id="an entry pinning a commit"),
+        pytest.param((None, "HTTP 503"), id="a failed fetch"),
+    ],
+)
+def test_the_run_claims_nothing_about_the_directory_and_names_the_pages(
+    monkeypatch, capsys, outcome
+):
+    """#858 A1. The directory is measured unreachable from a script, so the
+    run says that and names the page a person opens, by the kind of listing
+    each answers for. Whatever the files hold, nothing printed says the plugin
+    is or is not listed, and nothing sends the reader to submit or resubmit —
+    on the portal nothing is resubmitted, and a Console listing takes no new
+    version (`spec.md` §*Vocabulary*, three facts from the docs)."""
+    mod = checker()
+    assert not hasattr(mod, "PORTAL"), (
+        "the short link that answers 302 to a documentation page is still a "
+        "constant here"
+    )
+    monkeypatch.setattr(mod, "fetch", lambda url: outcome)
+    assert mod.main(["--root", ROOT]) == 0
+    out = capsys.readouterr().out
+    assert "submit" not in out.lower(), (
+        f"the run tells the reader to submit or resubmit:\n{out}"
+    )
+    assert "listed" not in out, (
+        f"the run says the plugin is or is not listed, about a directory it "
+        f"did not read:\n{out}"
+    )
+    closing = out[out.index("was not read") :] if "was not read" in out else ""
+    assert closing, f"the run does not say the directory was not read:\n{out}"
+    assert "Submissions" in closing, (
+        "the closing lines do not name the portal's Submissions page"
+    )
+    assert "Console" in closing, "the closing lines do not name the Console page"
+    assert mod.SUBMISSIONS_PAGE in closing and mod.CONSOLE_PAGE in closing, (
+        "the closing lines name the pages without the addresses a person opens"
+    )
+    assert "on its own" in closing, (
+        "the closing lines do not say a portal listing takes new versions from "
+        "its tracked branch on its own"
     )
 
 
@@ -299,8 +379,8 @@ def test_a_malformed_argument_is_the_only_non_zero_exit():
 def test_the_name_comes_from_the_manifest_rather_than_a_literal():
     """A literal would be a second place the name is written down, and the
     name is the one thing that cannot change any more — users have the plugin
-    installed under it. A rename then shows up as *not listed* rather than as
-    a check grading a name nobody uses."""
+    installed under it. A rename then shows up as *not an entry* rather than
+    as a check grading a name nobody uses."""
     mod = checker()
     assert mod.plugin_name(ROOT) == "specseal"
     source = open(SCRIPT, encoding="utf-8").read()
@@ -310,7 +390,7 @@ def test_the_name_comes_from_the_manifest_rather_than_a_literal():
     )
 
 
-def test_it_reads_the_path_the_directories_actually_have():
+def test_it_reads_the_path_the_marketplace_files_actually_have():
     """Measured 2026-09-22: the root `marketplace.json` that #417 and
     `spec.md` both name is 404 in both repositories, and the file is under
     `.claude-plugin/`. A reader at the ticket's path reports *could not be

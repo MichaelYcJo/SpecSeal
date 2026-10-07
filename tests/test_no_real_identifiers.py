@@ -21,6 +21,12 @@ ALLOWED_DOMAINS = (
     "github.com",
     "arxiv.org",
     "claude.com",  # official docs this plugin is built against
+    # The product's own address. The developer portal there is the one page
+    # where the directory's state is readable -- to a person, since it answers
+    # a challenge page to any script -- so the command that cannot read it
+    # names it (#858). The mail domain beside it is not allowed: the address a
+    # move is emailed to stays on the documentation page the box links.
+    "claude.ai",
     # The W3C's SVG namespace host. Every SVG carries the namespace URI in its
     # `xmlns`, and a renderer recognises an SVG by that namespace, so it can
     # be neither removed nor replaced with example.com: it is an identifier,
