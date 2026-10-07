@@ -149,8 +149,8 @@ through `jobs`, and `tests/test_a_workflow_is_read_the_one_way.py` drives
 cases follow.
 
 **The ledger.** `seal/releases/0.20.0.md` is frozen. S1, S2 and S8 anchor
-`.github/workflows/test.yml#pytest@f453cc43` (S8 also
-`tests/test_a_slow_case_names_itself.py#test_every_pytest_leg_has_a_timeout_and_the_job_reads_it@b32fe58d`,
+`.github/workflows/test.yml#pytest`, released at hash `f453cc43` (S8 also
+`tests/test_a_slow_case_names_itself.py#test_every_pytest_leg_has_a_timeout_and_the_job_reads_it`, released at `b32fe58d`,
 S2 the floor case and the pins case of the cheap-twice module), and S4
 anchors the shard module's three cases. Editing the job drifts the first
 three, which `evidence-check --reverify --into seal/ledger/1791384162-the-macos-test-leg-runs-in-shards.md --checked <date>`
