@@ -103,12 +103,15 @@ jobs:
       # image carries no SVG renderer, so `librsvg2-bin` is installed here,
       # without the packages apt recommends, after the package lists are
       # refreshed: an image's lists can name a version the mirror has since
-      # dropped. Before the suite, so the suite at the tag runs the one case
-      # that draws with the real binary; an install that fails costs the
-      # image, and the draw's `::warning::` says so.
+      # dropped. `;` rather than `&&`: `apt-get update` exits non-zero when
+      # any one list fails, a third-party list `librsvg2-bin` does not come
+      # from included, and the install is still worth trying then. Before the
+      # suite, so the suite at the tag runs the one case that draws with the
+      # real binary; an install that fails costs the image, and the draw's
+      # `::warning::` says so.
       - name: install rsvg-convert
         continue-on-error: true
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends librsvg2-bin
+        run: sudo apt-get update; sudo apt-get install -y --no-install-recommends librsvg2-bin
       # `test.yml`'s ubuntu leg, plus the JUnit file the counts are read from.
       # No token is in this step's environment, and the checkout left none in
       # `.git/config`.
