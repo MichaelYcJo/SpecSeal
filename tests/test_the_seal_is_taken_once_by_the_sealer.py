@@ -4882,6 +4882,9 @@ def test_the_failure_form_counts_the_lines_of_the_record_here_it_passed_over():
     said = gate.UNREAD_HERE.format(count=2)
     assert said in lines, lines
     assert lines.index(said) > lines.index("  tests/test_a.py  new"), lines
+    # A record was left, so the form says why no count follows and never
+    # that no pytest left one.
+    assert gate.NO_RECORD_HERE not in lines, lines
     record.unread = 0
     assert said not in gate.failure_lines(check, None, record)
     assert not any(
