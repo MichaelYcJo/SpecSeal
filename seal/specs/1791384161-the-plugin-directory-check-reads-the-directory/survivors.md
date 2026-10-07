@@ -2,7 +2,8 @@
 
 `survivor-check --range f105d83b..HEAD`, run in round 1's fix pass, named
 four places still carrying wording the range removed. The docstring's
-*outputs of that pipeline* was corrected in the same pass. The three below
+*outputs of that pipeline* was corrected in the same pass. The other three,
+in the two rows below because two of them quote one sentence of `spec.md`,
 are the frame's own text as approved: `spec.md` is the contract the build was
 framed against, and `plan.md`'s Delivers cell is what the owner approved at
 0fb6fd0c. Neither is rewritten to match the build. Where the build departs
