@@ -136,6 +136,13 @@ def pytest_matrix(text):
     `ValueError` naming its line rather than skipped, and so is a workflow
     with no `pytest` job, a job with no single `include:`, or one with no
     entry under it.
+
+    **`include:` has to be the matrix's only key.** GitHub runs each entry
+    as a job of its own only where the matrix has no other key: beside a base
+    axis an entry is merged into the axis' combinations, and an `exclude:`
+    takes combinations away, so the entries read here would no longer be the
+    jobs. A sibling key under `matrix:` is refused naming its line, and so is
+    an `include:` that is not a key of the job's `matrix:`.
     """
     job = jobs("\n".join(code_lines(text))).get("pytest")
     if job is None:
@@ -144,14 +151,35 @@ def pytest_matrix(text):
     heads = [i for i, ln in enumerate(lines) if ln.strip() == "include:"]
     if len(heads) != 1:
         raise ValueError(f"the `pytest` job has {len(heads)} `include:` keys, not one")
-    head = len(lines[heads[0]]) - len(lines[heads[0]].lstrip(" "))
+
+    def indent(line):
+        return len(line) - len(line.lstrip(" "))
+
+    head = indent(lines[heads[0]])
+    parent = next(
+        (
+            i
+            for i in range(heads[0] - 1, -1, -1)
+            if lines[i].strip() and indent(lines[i]) < head
+        ),
+        None,
+    )
+    if parent is None or lines[parent].strip() != "matrix:":
+        raise ValueError("the `pytest` job's `include:` is not a key of its `matrix:`")
+    floor = indent(lines[parent])
     entries = []
-    for line in lines[heads[0] + 1 :]:
+    for line in lines[parent + 1 :]:
         if not line.strip():
             continue
-        indent = len(line) - len(line.lstrip(" "))
-        if indent < head or (indent == head and not line.lstrip().startswith("-")):
+        if indent(line) <= floor:
             break
+        if indent(line) == head and not line.lstrip().startswith("-"):
+            if line.strip() == "include:":
+                continue
+            raise ValueError(
+                "a `matrix:` key beside `include:` changes which jobs the "
+                f"entries are, and this reader does not read it: {line.strip()!r}"
+            )
         m = _FLOW_ITEM.match(line)
         if not m:
             raise ValueError(
@@ -165,8 +193,8 @@ def pytest_matrix(text):
 
 
 # A matrix in this repository's shape, with a commented entry, a trailing
-# comment, a single-quoted value, a value holding a `#`, a sibling key that
-# ends `include:` and a second job's matrix. Neutral values
+# comment, a single-quoted value, a value holding a `#`, a key of the job
+# that ends the matrix and a second job's matrix. Neutral values
 # only (`CONTRIBUTING.md` §*House rules*, *No real identifiers*).
 MATRIX = """\
 name: tests
@@ -176,14 +204,13 @@ jobs:
     runs-on: ubuntu-latest
   pytest:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - { os: ubuntu-latest, python: "3.12", timeout: 15 }
           # - { os: macos-latest, python: "3.12", timeout: 35 }
           - { os: macos-latest, python: "3.12", split: "--splits 2 --group 1", timeout: 5 }  # one
           - { os: example-os, python: '3.12', note: "a # b" }
-        exclude:
-          - { os: example-os, python: "3.12" }
     runs-on: ${{ matrix.os }}
     steps:
       - run: pytest tests/ ${{ matrix.split }}
@@ -236,6 +263,35 @@ def test_an_include_item_this_reader_does_not_own_is_refused_by_its_line(item):
     with pytest.raises(ValueError) as caught:
         pytest_matrix(text)
     assert item.splitlines()[0].strip() in str(caught.value), caught.value
+
+
+@pytest.mark.parametrize(
+    "sibling",
+    ['python: ["3.12", "3.13"]', "exclude:\n          - { os: example-os }"],
+    ids=["base-axis", "exclude"],
+)
+@pytest.mark.parametrize("where", ["before", "after"])
+def test_a_matrix_key_beside_include_is_refused_by_its_line(sibling, where):
+    """Round 1's 🟡 1. GitHub runs each `include:` entry as a job of its own
+    only where the matrix has no other key; beside a base axis an entry is
+    merged into the axis' combinations, so three shards can become fewer jobs
+    while every entry still reads as a shard."""
+    if where == "before":
+        old, new = "      matrix:\n", f"      matrix:\n        {sibling}\n"
+    else:
+        old = "    runs-on: ${{ matrix.os }}\n"
+        new = f"        {sibling}\n{old}"
+    text = MATRIX.replace(old, new, 1)
+    assert text != MATRIX
+    with pytest.raises(ValueError, match="beside `include:`") as caught:
+        pytest_matrix(text)
+    assert sibling.splitlines()[0] in str(caught.value), caught.value
+
+
+def test_an_include_that_is_not_the_matrixs_own_is_refused():
+    text = MATRIX.replace("      matrix:\n", "      other:\n", 1)
+    with pytest.raises(ValueError, match="not a key of its `matrix:`"):
+        pytest_matrix(text)
 
 
 def test_a_workflow_with_no_entry_to_read_is_refused():
