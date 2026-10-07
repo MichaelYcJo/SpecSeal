@@ -1,29 +1,34 @@
 #!/usr/bin/env python3
 """seal-stamp — the drawing the broad gate prints when it was earned.
 
-Issue #30 §*What it prints*, redrawn by #717 and #832. A letter: what the
-gate read — the tree and its branch, the base and its ref, the work item, the
-suite's counts, the ledger's, the steps CI also runs, the rounds
-(`broad_gate.panel` owns the list) — written on a parchment sheet, with a wax
-disc pressed into the sheet against its right edge and the disc's mark
-pressed into the wax. The disc is COMPUTED — `hypot` for its edge — and only
-the disc's mark is authored: the owner's chart of the section sign, §, held
-below as data (`CHART`, ten rows of seven cells), placed on the disc by two
-computed offsets. Four hand-typed discs came before #30's and every one was
-lopsided; a circle that is calculated cannot be off centre. #717 took off
-the rope ring and the outer red band and pressed the disc's mark in one red
-lit from the upper left, and the owner chose that drawing, its colours and
-its scale from renderings. #832 replaced #717's chart of a lily, and the
-owner chose the § from renderings looked at in their own terminal: a disc
-14 cells across and 7 lines, every cell exactly one of four colours — the
-ring, the field, the disc's mark and its one-cell shadow — with no blend.
+Issue #30 §*What it prints*, redrawn by #717 and #832. Two things side by
+side on the terminal's own background, and nothing else: at the left a wax
+disc with the disc's mark pressed into it, and three columns right of it
+the panel's text — a bold red `SEALED` and a dim rule, then what the gate
+read: the tree and its branch, the base and its ref, the work item, the
+suite's counts, the ledger's, the chain's exit, the steps CI also runs, the
+rounds (`broad_gate.panel` owns the list). The disc is COMPUTED — `hypot`
+for its edge, its rim and its groove — and only the disc's mark is
+authored: a 28 x 28 chart in `seal-mark.txt` beside this file, read as data
+(`read_chart`). Four hand-typed discs came before #30's and every one was
+lopsided; a circle that is calculated cannot be off centre. #832's owner
+settled the frame on 2026-10-07 — 28 cells across and 14 lines, a wax edge,
+a rim lit from the upper left in three steps and a groove lit the other way,
+every cell exactly one of nine colours — and left the disc's mark a
+placeholder S until #857 chooses one: changing it is changing that file
+alone. The same day the owner retired the parchment sheet #717 wrote the
+text on, so nothing outside the disc is painted and the stamp reads in the
+terminal's own theme.
 
 Two forms, one drawing (`compose`). The block form is half-block characters,
-the disc in truecolour and the sheet in 256-colour codes, emitted only where
-the colour changes (a code per cell was 282 KB for one seal). The letter twin
-is the same footprint as letters — the sheet's edge `|`, its top `.---.` and
-its bottom `'---'`, the text as itself, `m` the disc's ring, `.` its field
-and `Y y` the disc's mark and its shadow — for a console that cannot render
+the disc in truecolour and the text in the terminal's own colours and
+styles, and it writes a code only where the colour or the style changes:
+one SGR per change and no reset inside a line (a code per cell was 282 KB
+for one seal). The letter twin is the same footprint as letters — `KEY`
+for the disc, `m` its wax edge, `M n N` its rim lit, mid and dark, `.` its
+field, `X Y x` the disc's mark's face, highlight and inner shadow and `y`
+its drop shadow; the text as itself, with the owner's `·`, `✓`, `─` and
+`→` written `.`, `+`, `-` and `>` — for a console that cannot render
 half-blocks, and for `seal-stamp` on a pipe. The twin is chosen when
 stdout is not a UTF-8 terminal, or on `--shape`. An agent's report carries
 neither: since #400 the gate draws nothing on a pipe.
@@ -34,8 +39,8 @@ instead, so `admitted` carries as many of the oldest stamps as fit with
 their disc, each at the highest rung of `SCALE_LADDER` the others leave room
 for — one rung since #832, 0.90, because the disc has one size — and leaves
 the rest for the next `Stop`.
-Only one stamp that does not fit with its disc alone is drawn as the sheet
-with no disc.
+Only one stamp that does not fit with its disc alone is drawn as the text
+block with no disc.
 
 The stamp prints on success only. The failure form, `not_sealed`, is the words
 `NOT SEALED`, the branch and the tree, the base's ref and its commit
@@ -63,11 +68,11 @@ Usage:
 The gate imports `stamp(rows, scale, shape)`, `not_sealed(tree, base,
 failures, branch, ref)`, `sealed_names`, `pick_shape(stream)`,
 `is_terminal(stream)` and `write_values`;
-the hook imports `pending`, `read_values`, `claim` and `stamp`; and
-`.github/scripts/release_seal.py`, which the tag push runs, imports
-`compose`, `block` and `DEFAULT_SCALE` to draw a release's seal as a PNG,
-one cell to one rectangle (#718). That script is the repository's own and
-the plugin ships nothing that runs it. The command
+the hook imports `pending`, `read_values`, `claim` and `stamp`.
+`.github/scripts/release_seal.py`, which the tag push runs, drew a
+release's seal from this module's cells as a PNG, one cell to one rectangle
+(#718), until #832 drew it from the owner's SVG instead. That script is the
+repository's own and the plugin ships nothing that runs it. The command
 exists so a person can see the drawing without running a gate, and so a
 values file no hook drew can still be drawn by hand.
 
@@ -123,43 +128,57 @@ if _refusal:
 
 # --- the disc's colours --------------------------------------------------
 #
-# The owner's of 2026-10-07 (#832, `spec.md` decision 4 of work item
-# 1791270164), chosen from renderings looked at in their own terminal: `WAX_M`
-# the ring, `FIELD` the field — both #717's — `MARK` the disc's mark and
-# `MARK_SHADOW` the disc's mark's shadow, one cell down-right of it. Every cell
-# of the disc is exactly one of them (`build`); the owner saw a highlight and
-# mid tones and refused both. They are truecolour, the one part of the letter
-# drawn that way.
-WAX_M = (168, 26, 30)
-FIELD = (120, 16, 20)
-MARK = (240, 130, 118)
-MARK_SHADOW = (96, 10, 14)
-DISC_COLOURS = (WAX_M, FIELD, MARK, MARK_SHADOW)
+# The owner's frame of 2026-10-07 (#832, `spec.md` decision 5 of work item
+# 1791270164), named as the owner's `seal28.py` names them: `WAX_EDGE`; the
+# rim, lit from the upper left in three steps, `RIM_LIT`, `RIM_MID` and
+# `RIM_DARK`, whose lit and dark the groove inside it takes the other way
+# round; `FIELD`; and the disc's mark in the red lily's three tones — `FACE`,
+# `LIGHT` where the cell up-left of the disc's mark is the field, `INNER`
+# where the cell down-right is — with `DROP`, the shadow the disc's mark
+# casts on the field down-right of it. No mid tones and no blend: every
+# cell of the disc is exactly one of these nine (`build`), and with
+# `TITLE_RED` they are the only colours the stamp sets.
+WAX_EDGE = (150, 24, 28)
+RIM_LIT = (208, 68, 64)
+RIM_MID = (160, 30, 34)
+RIM_DARK = (96, 10, 14)
+FIELD = (112, 16, 20)
+FACE = (186, 38, 42)
+LIGHT = (222, 86, 78)
+INNER = (90, 8, 12)
+DROP = (84, 8, 12)
+DISC_COLOURS = (WAX_EDGE, RIM_LIT, RIM_MID, RIM_DARK, FIELD, FACE, LIGHT, INNER, DROP)
 
-# The sheet's colours, as 256-colour codes (#717): the parchment and its
-# one-cell edge, the ink, and the red of the `SEALED` title. A code is a
-# shorter sequence than a triple, and the sheet is most of the letter's cells.
-PARCHMENT = 230  # (255, 255, 215) in the 256-colour cube
-SHEET_EDGE = 187  # (215, 215, 175)
-INK = 94  # (135, 95, 0)
-TITLE = 124  # (175, 0, 0)
+# `SEALED` is bold and in this red, the owner's `frames.py`'s `RED`. The rest
+# of the text is in the terminal's own colours (`STYLE_CODES`), since #832
+# retired the parchment sheet and its four 256-colour codes.
+TITLE_RED = (196, 40, 44)
 
-# The letter for each disc colour in the twin (#832): `m` the ring and `.`
-# the field, as before #717; `Y` the disc's mark and `y` its shadow. Every
-# disc cell is exactly one of these colours, so a cell's letter is a lookup
-# (`letter_row`).
+# The letter for each disc colour in the twin (#832): capitals lit and lower
+# case shadow — `m` the wax edge and `.` the field, as #30 had them; `M n N`
+# the rim lit, mid and dark; `X` the disc's mark's face, and `Y` and `y` its
+# highlight and its drop shadow, as #717 had them; `x` its inner shadow. The
+# framer chose them (`spec.md` §*Data & interfaces*): the twin is for a
+# console that cannot draw half-blocks, and no decision of the owner's names
+# its letters. Every disc cell is exactly one of these colours, so a cell's
+# letter is a lookup (`letter_row`).
 KEY = {
-    WAX_M: "m",
+    WAX_EDGE: "m",
+    RIM_LIT: "M",
+    RIM_MID: "n",
+    RIM_DARK: "N",
     FIELD: ".",
-    MARK: "Y",
-    MARK_SHADOW: "y",
+    FACE: "X",
+    LIGHT: "Y",
+    INNER: "x",
+    DROP: "y",
 }
 
 
 # #30 §*Size* measured the floor on the lily's chart: at 75 % the lily was
 # still legible, at 60 % its band closed up and its foot became a blob, and at
 # 50 % it read as a cross. The band stays where #30 put it, 0.75 to 1.0, as
-# what a values file and `--scale` may carry: since #832's hand-drawn disc
+# what a values file and `--scale` may carry: since #832's disc of one size
 # the scale no longer sizes the disc, and a scale outside the band is refused
 # (`check_scale`) because no gate writes one, not because of what it would
 # draw.
@@ -176,9 +195,9 @@ SCALE_CEILING = 1.0
 # from renderings at 0.85 and 0.90 with the disc pressed on the sheet; the
 # rope this paragraph names is gone. Those readings were of the lily, which
 # #832 withdrew. #832 kept 0.90 as the scale a values file carries, and since
-# the owner's hand-drawn disc of 2026-10-07 the disc is `DISC_CELLS` across
-# at every scale in the band, so the scale sizes nothing: a chart drawn by
-# hand has one size.
+# the owner's disc of 2026-10-07 the disc is `DISC_CELLS` across
+# at every scale in the band, so the scale sizes nothing: the disc's mark is
+# a chart, and a chart has one size.
 #
 # 0.75 was the other candidate, passed over rather than missed: under #400's
 # disc it was the only legal scale where the disc (then 17 lines) and the
@@ -226,8 +245,8 @@ MESSAGE_BUDGET = MESSAGE_LIMIT - MESSAGE_RESERVE
 # block that does not fit alone is drawn with no disc (`admitted`). One rung
 # since #832: the owner's disc is drawn `DISC_CELLS` across at every scale,
 # so there is no smaller disc to step to, and a block that does not fit with
-# its disc at 0.90 is the sheet alone. Each rung is inside `check_scale`'s
-# band, so a step down cannot be refused.
+# its disc at 0.90 is the text block alone. Each rung is inside
+# `check_scale`'s band, so a step down cannot be refused.
 SCALE_LADDER = (0.90,)
 
 SCALE_REFUSED = (
@@ -270,34 +289,70 @@ def check_scale(scale):
 
 
 # The disc's numbers (#832), in cells of the terminal's grid, where a cell is
-# one column by one half-row and so square. `DISC_CELLS` is the owner's of
-# 2026-10-07: the disc is 14 cells across and so `DISC_LINES` lines tall, at
-# every scale, because the disc's mark is a chart drawn by hand for that size
-# and a hand-drawn chart has one size. A cell more than `EDGE_INSET` inside
-# the radius is on the disc, and one no more than `RING_INSET` inside it is
-# the ring.
-DISC_CELLS = 14
+# one column by one half-row and so square. The owner's frame of 2026-10-07:
+# the disc is 28 cells across and so `DISC_LINES` lines tall at every scale,
+# because the disc's mark is a chart drawn for that grid and a chart has one
+# size. Measured inward from the radius, a cell more than `EDGE_INSET` inside
+# it is on the disc; one no more than `WAX_INSET` inside it is the wax edge,
+# no more than `RIM_INSET` the rim, no more than `GROOVE_INSET` the groove,
+# and the rest the field. `LIT_AT` is where the rim turns from mid to lit on
+# one side and to dark on the other.
+DISC_CELLS = 28
 DISC_LINES = DISC_CELLS // 2
 EDGE_INSET = 0.2
-RING_INSET = 1.2
+WAX_INSET = 1.2
+RIM_INSET = 3.2
+GROOVE_INSET = 4.2
+LIT_AT = 0.35
 
-# The disc's mark: the owner's chart of the section sign for a disc of
-# `DISC_CELLS`, ten rows of seven, `M` a cell of the disc's mark (#832,
-# `spec.md` §*Data & interfaces* of work item 1791270164). It is copied
-# character for character from the chart the owner chose; it is data, not a
-# drawing anybody re-derives, and `build` places it by two computed offsets.
-CHART = (
-    ".MMMMM.",
-    "MM...MM",
-    "MM.....",
-    ".MMMMM.",
-    "MM...MM",
-    "MM...MM",
-    ".MMMMM.",
-    ".....MM",
-    "MM...MM",
-    ".MMMMM.",
+# The disc's mark (#832): one chart in a file beside this one, `DISC_CELLS`
+# lines of `DISC_CELLS` characters over `.M`, `M` a cell of the disc's mark.
+# It is the owner's placeholder S, Georgia Bold fitted to the grid, until
+# #857 chooses the stamp's mark for good — and changing the disc's mark is
+# replacing that file and nothing else, which is why it is data read here
+# rather than a tuple typed into this module. A candidate in
+# `assets/seals/candidates/` is the same `.M` text.
+CHART_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seal-mark.txt")
+CHART_MALFORMED = (
+    "seal-stamp: the disc's mark chart {path} is not {n} lines of {n} "
+    "characters over `.M` with every `M` inside the disc's field ({fault}). "
+    "Nothing was drawn."
 )
+
+
+def read_chart(path):
+    """The chart at `path` as a tuple of its lines, or `ValueError` with
+    `CHART_MALFORMED` naming the path and the first fault: a count of lines
+    that is not `DISC_CELLS`, a line of another length, a character outside
+    `.M`, or an `M` outside the field — more than `GROOVE_INSET` short of
+    the radius, where `build` would draw the rim over it and the disc's mark
+    would lose a cell nobody sees go."""
+    with open(path, encoding="utf-8") as handle:
+        lines = handle.read().splitlines()
+    n = DISC_CELLS
+    c, field = (n - 1) / 2, n / 2 - GROOVE_INSET
+    fault = None if len(lines) == n else f"{len(lines)} lines"
+    for y, line in enumerate(lines):
+        if fault:
+            break
+        stray = sorted(set(line) - set(".M"))
+        outside = [
+            x
+            for x, char in enumerate(line)
+            if char == "M" and math.hypot(x - c, y - c) > field
+        ]
+        if len(line) != n:
+            fault = f"line {y + 1} is {len(line)} characters"
+        elif stray:
+            fault = f"line {y + 1} carries {stray[0]!r}"
+        elif outside:
+            fault = f"line {y + 1} marks column {outside[0] + 1}, outside the field"
+    if fault:
+        raise ValueError(CHART_MALFORMED.format(path=path, n=n, fault=fault))
+    return tuple(lines)
+
+
+CHART = read_chart(CHART_PATH)
 
 
 def build(scale=1.0):
@@ -305,39 +360,50 @@ def build(scale=1.0):
     every scale in the band, and `px(x, y)`, a cell's colour or None.
 
     The centre is `c = (DISC_CELLS - 1) / 2` on both axes and the radius
-    `r = DISC_CELLS / 2`. A cell at distance `d` from the centre is None past
-    `r - EDGE_INSET`, the ring `WAX_M` past `r - RING_INSET`, and otherwise
-    in the field: `MARK` under an `M` of `CHART` — placed
-    `(DISC_CELLS - rows) // 2` rows down and `(DISC_CELLS - columns + 1) //
-    2` columns in — then `MARK_SHADOW` where the cell one up-left is under
-    an `M`, so the disc is lit from the upper left, then `FIELD`. Every cell
-    is exactly one of the four colours (#832, the owner's of 2026-10-07).
-    `scale` is checked against the band and sizes nothing."""
+    `r = DISC_CELLS / 2`. A cell `dx, dy` from the centre at distance `d` is,
+    from the outside in: None past `r - EDGE_INSET`; `WAX_EDGE` past
+    `r - WAX_INSET`; the rim past `r - RIM_INSET` — `RIM_LIT` where `lit =
+    (dx + dy) / (|dx| + |dy|)` is under `-LIT_AT`, `RIM_DARK` where it is
+    over `LIT_AT`, `RIM_MID` between, `lit` being -1 at the upper left and
+    +1 at the lower right; the groove past `r - GROOVE_INSET`, lit the
+    other way — `RIM_DARK` where `lit` is under 0, else `RIM_LIT`; then the
+    field. In the field a cell under an `M` of `CHART` is `LIGHT` where the
+    cell up-left is not under one, else `INNER` where the cell down-right is
+    not, else `FACE`; a cell not under one whose up-left is, is `DROP`; the
+    rest are `FIELD`. Every cell is exactly one of the nine colours (#832,
+    the owner's frame of 2026-10-07). `lit` is read only past the groove's
+    inner edge, where `d` is never 0, so it needs no guard. `scale` is
+    checked against the band and sizes nothing."""
     refusal = check_scale(scale)
     if refusal:
         raise ValueError(refusal)
     n = DISC_CELLS
     c, r = (n - 1) / 2, n / 2
-    rows, columns = len(CHART), len(CHART[0])
-    top, left = (n - rows) // 2, (n - columns + 1) // 2
 
     def on(x, y):
-        gx, gy = x - left, y - top
-        return 0 <= gy < rows and 0 <= gx < columns and CHART[gy][gx] == "M"
+        return 0 <= x < n and 0 <= y < n and CHART[y][x] == "M"
 
     def px(x, y):
         if not (0 <= x < n and 0 <= y < n):
             return None
-        d = math.hypot(x - c, y - c)
+        dx, dy = x - c, y - c
+        d = math.hypot(dx, dy)
         if d > r - EDGE_INSET:
             return None
-        if d > r - RING_INSET:
-            return WAX_M
+        if d > r - WAX_INSET:
+            return WAX_EDGE
+        if d > r - GROOVE_INSET:
+            lit = (dx + dy) / (abs(dx) + abs(dy))
+            if d <= r - RIM_INSET:
+                return RIM_DARK if lit < 0 else RIM_LIT
+            if lit < -LIT_AT:
+                return RIM_LIT
+            return RIM_DARK if lit > LIT_AT else RIM_MID
         if on(x, y):
-            return MARK
-        if on(x - 1, y - 1):
-            return MARK_SHADOW
-        return FIELD
+            if not on(x - 1, y - 1):
+                return LIGHT
+            return INNER if not on(x + 1, y + 1) else FACE
+        return DROP if on(x - 1, y - 1) else FIELD
 
     return n, n, px
 
@@ -345,247 +411,208 @@ def build(scale=1.0):
 # --- the two row writers -------------------------------------------------
 #
 # Both walk the same cells, so the two forms have one footprint: one
-# character per cell, the block form's a half-block or a space and the twin's
-# a letter. A cell is `(top, bottom, text, frame)`: the colours of its two
-# halves — a disc colour as a triple, a sheet colour as a 256-colour code, or
-# None for nothing — the `(character, colour)` written on it or None, and the
-# twin's character for the sheet there or None off it (`compose`).
+# character per cell. A cell is `(char, fg, bg, style)` (#832): the
+# character, or None for an empty cell; `fg` and `bg` a triple — one of the
+# disc's colours or `TITLE_RED` — or None for the terminal's own; `style`
+# None, `"dim"`, `"bold"` or `"green"`. A disc cell is `▀` with its top
+# half's colour as the foreground and its bottom half's as the background,
+# or `▄` in its bottom half's colour where the top half is off the disc.
+# Nothing but a disc cell has a background.
 
 RESET = "\x1b[0m"
+EMPTY = (None, None, None, None)
+HALF_BLOCKS = ("▀", "▄")
+# The code each text style is written as: the terminal's own dim, bold and
+# green. `22;39` ends any of them — 22 the intensity, 39 the foreground,
+# which the green set.
+STYLE_CODES = {"dim": "2", "bold": "1", "green": "32"}
+# The owner's characters the letter twin writes in ASCII, one for one, so a
+# console that is not UTF-8 is handed a printable line as wide as the block
+# form's (#832).
+TWIN_ASCII = {"·": ".", "✓": "+", "─": "-", "→": ">"}
 
 
-def sgr(ground, colour):
-    """A colour sequence: `ground` 38 for the foreground, 48 for the
-    background. A triple is truecolour; an int is a 256-colour code (#717)."""
-    if isinstance(colour, int):
-        return f"\x1b[{ground};5;{colour}m"
-    r, g, b = colour
-    return f"\x1b[{ground};2;{r};{g};{b}m"
+def disc_cell(top, bottom):
+    """The cell over two half-rows of the disc, `top` and `bottom` each a
+    colour or None."""
+    if top and bottom:
+        return ("▀", top, bottom, None)
+    if top:
+        return ("▀", top, None, None)
+    if bottom:
+        return ("▄", bottom, None, None)
+    return EMPTY
 
 
 def disc_cells(px, w, y):
     """One line of cells over the disc alone: row `y` on top, `y + 1`
-    below, nothing written and no sheet."""
-    return [(px(x, y), px(x, y + 1), None, None) for x in range(w)]
+    below."""
+    return [disc_cell(px(x, y), px(x, y + 1)) for x in range(w)]
 
 
-def block(cell):
-    """`(character, foreground, background)` for one cell of the block form.
-
-    Text is its character in its colour on parchment. A cell nothing covers
-    is a bare space. One half outside everything is a half-block in the
-    other half's colour with no background; two halves of one colour are a
-    space painted that colour; two colours are an upper half-block with the
-    bottom one as its background."""
-    top, bottom, text, _frame = cell
-    if text:
-        return text[0], text[1], PARCHMENT
-    if top is None and bottom is None:
-        return " ", None, None
-    if top is None:
-        return "▄", bottom, None
-    if bottom is None:
-        return "▀", top, None
-    if top == bottom:
-        return " ", None, top
-    return "▀", top, bottom
+def colour_code(ground, colour):
+    """One colour's part of an SGR: `ground` 38 for the foreground, 48 for
+    the background; a triple is truecolour, None the terminal's own."""
+    if colour is None:
+        return "39" if ground == 38 else "49"
+    r, g, b = colour
+    return f"{ground};2;{r};{g};{b}"
 
 
 def colour_row(cells):
-    """One line of the block form, emitting a colour only where it changes.
-
-    A painted space keeps the foreground it was handed, because it draws
-    none. A cell nothing covers resets both, so no colour bleeds past the
-    letter, and so does the line's end. Trailing cells nothing covers are
-    `compose`'s to leave off; a painted one at the end is the sheet, and it
-    is kept with its colour rather than stripped as padding."""
-    out, fg, bg = [], None, None
-    for cell in cells:
-        ch, want_fg, want_bg = block(cell)
-        if want_fg is None and want_bg is None:
-            if fg is not None or bg is not None:
-                out.append(RESET)
-                fg = bg = None
-            out.append(ch)
-            continue
-        if want_fg is not None and want_fg != fg:
-            out.append(sgr(38, want_fg))
-            fg = want_fg
-        if want_bg != bg:
-            out.append("\x1b[49m" if want_bg is None else sgr(48, want_bg))
-            bg = want_bg
-        out.append(ch)
-    return "".join(out) + (RESET if fg is not None or bg is not None else "")
+    """One line of the block form, lean (#832, `spec.md` S11, after the
+    owner's `frames.py#encode`). A code only where the next visible cell's
+    foreground, background or style differs from what is set; every part of
+    that change in one SGR; no reset inside the line, and `RESET` at its end
+    where it wrote a code. An empty cell, and a space with no background, is
+    written as a space that keeps the foreground and the style as they are
+    set, because a space shows neither — but a background paints it, so a
+    background still set from the disc ends there with `49`. A style that
+    ends is written `22;39` first, which takes the foreground back to the
+    terminal's own as well; the foreground is not written for a green cell,
+    whose colour is its style."""
+    out, state, wrote = [], (None, None, None), False
+    for char, fg, bg, style in cells:
+        if char in (None, " ") and bg is None:
+            char, fg, style = " ", state[0], state[2]
+        if (fg, bg, style) != state:
+            parts, shown = [], state[0]
+            if style != state[2]:
+                if state[2]:
+                    parts.append("22;39")
+                    shown = None
+                if style:
+                    parts.append(STYLE_CODES[style])
+            if fg != shown and style != "green":
+                parts.append(colour_code(38, fg))
+            if bg != state[1]:
+                parts.append(colour_code(48, bg))
+            if parts:
+                out.append(f"\x1b[{';'.join(parts)}m")
+                wrote = True
+            state = (fg, bg, style)
+        out.append(char)
+    return "".join(out) + (RESET if wrote else "")
 
 
 def letter_row(cells):
-    """One line of the letter twin over the same cells: the character
-    written there; else the `KEY` letter of the top half's colour, else of
-    the bottom half's, so a disc cell overrides the sheet's frame as it
-    covers it in colour; else the sheet's own character; else a space. Every
-    disc cell is exactly one palette colour (#832), so the letter is a
+    """One line of the letter twin over the same cells (#832, `spec.md`
+    S4): a half-block's `KEY` letter — its foreground's, which is the top
+    half's colour on `▀` and the bottom half's on `▄` — the text's own
+    character with `TWIN_ASCII` applied, and a space for an empty cell.
+    Every disc cell is exactly one palette colour, so the letter is a
     lookup."""
     out = []
-    for top, bottom, text, frame in cells:
-        if text:
-            out.append(text[0])
-            continue
-        out.append(KEY.get(top) or KEY.get(bottom) or frame or " ")
+    for char, fg, _bg, _style in cells:
+        if char in HALF_BLOCKS:
+            out.append(KEY[fg])
+        else:
+            out.append(TWIN_ASCII.get(char, char or " "))
     return "".join(out)
-
-
-# --- the panel -----------------------------------------------------------
-
-# Wide enough that a value gets `broad_gate.PANEL_VALUE_WIDTH` columns: the
-# frame's two edges and the `"  {label:<8} "` prefix's eleven, then 41 (#832,
-# phase 5 of work item 1791270164; 36 and 23 before it).
-PANEL_WIDTH = 54
-
-
-def letter(rows, width=PANEL_WIDTH):
-    """The panel carrying the stamp's numbers, framed in letters. Nothing
-    draws the frame since #717: `compose` takes the inner lines, without the
-    frame and without the blank ones, and writes them on the sheet. This is
-    still the one place a value's width is decided, which
-    `broad_gate.PANEL_VALUE_WIDTH` is measured against.
-
-    `rows` is a list of `(label, value)` pairs with `None` for a blank line,
-    so what the stamp reports is data the gate fills rather than a string it
-    formats. A pair whose label is `""` is a continuation: its value lands in
-    the value column under the row above it. A value longer than the panel is
-    cut at the frame, which is why `broad_gate.fit` elides before it does."""
-    inner = width - 2
-    out = ["." + "-" * inner + ".", "|" + " " * inner + "|"]
-    for row in rows:
-        if row is None:
-            out.append("|" + " " * inner + "|")
-            continue
-        label, value = row
-        out.append("|" + f"  {label:<8} {value}".ljust(inner)[:inner] + "|")
-    out.append("|" + " " * inner + "|")
-    out.append("'" + "-" * inner + "'")
-    return out
 
 
 def strip_ansi(s):
     return re.sub(r"\x1b\[[0-9;]*m", "", s)
 
 
-# --- the letter: the text on a sheet, the disc pressed into it -------------
+# --- the stamp: the disc at the left, the text block at the right ---------
 #
-# #717, the owner's choice from rendered prototypes: the panel's text written
-# on parchment, the sheet one blank line taller than the text at its top and
-# its bottom. #832, the owner's layout of 2026-10-07: the disc stands inside
-# the sheet against its right edge, its last line the sheet's second-to-last,
-# and the sheet keeps its height and widens to the right to hold it.
+# #832, the owner's layout of 2026-10-07 (`spec.md` decision 6 of work item
+# 1791270164, the owner's `frames.py#design_open`): no parchment, no edge, no
+# frame and no background outside the disc, the text in the terminal's own
+# colours. #717's sheet, which the text was written on, is retired.
 
-# The column the text starts in: the edge, then two cells of parchment. Each
-# text line keeps one leading space of `letter`'s, so a label stands four in.
-TEXT_LEFT = 3
-# Columns the sheet is widened past the first width at which no character
-# stands under the disc's square; the disc moves with the right edge, so on
-# the line whose text reaches furthest under it this is the number of clear
-# cells between the text and the square (#832, the owner's variant 2).
+# The columns a label is padded to before the one space ahead of its value:
+# the owner's seven, which `CI also` fills.
+LABEL_WIDTH = 7
+# The dim `─` rule after the title: the owner's reference's thirty.
+RULE_WIDTH = 30
+# The panel's first row, which is drawn as the title rather than as a row.
+TITLE_ROW = ("SEALED", "")
+# The mark that leads a value and the style it is drawn in: a result row
+# that passed, green, and a row that is not a pass, dim (#832).
+VALUE_MARKS = {"✓": "green", "·": "dim"}
+# The clear columns between the disc's last column and the text block's
+# first (#832, the owner's three).
 GAP = 3
 
 # `disc` is where the disc's grid stands, `(left, top, w, h)`: `left` and
-# `w` in cells, `top` and `h` in half-rows from the letter's first line, or
+# `w` in cells, `top` and `h` in half-rows from the stamp's first line, or
 # None with no disc — what a case reads to find the disc without
 # re-deriving the layout (#832).
 Letter = collections.namedtuple("Letter", "cells width height disc")
 
 
-def sheet_text(rows):
-    """The lines the sheet carries: `letter`'s inner lines without the
-    frame, without every blank one — a `None` row an older values file may
-    carry draws no line — and with one of their two leading spaces."""
-    inner = [line[1:-1].rstrip() for line in letter(rows)[1:-1]]
-    return [t[1:] if t.startswith("  ") else t for t in inner if t.strip()]
+def text_cells(text, style=None, fg=None):
+    """`text` as cells in one style and foreground, with no background."""
+    return [(char, fg, None, style) for char in text]
+
+
+def text_lines(rows):
+    """The text block of `rows`, as lines of cells (#832, `spec.md` S3a).
+
+    Where the first row is the panel's title row, `("SEALED", "")`, the
+    first line is `SEALED ` bold in `TITLE_RED` and a dim rule of
+    `RULE_WIDTH` `─`, and the second is blank; rows without it draw no
+    title. Then one line per row: the label padded to `LABEL_WIDTH` and a
+    space, dim, and the value in the terminal's own foreground — a leading
+    `✓ ` with the `✓` green, a leading `· ` with the `·` dim. A `None` row
+    is a blank line; a `""` label is seven spaces and one, so its value
+    stands under the value above it. The rows are drawn as given:
+    `broad_gate.panel` owns their shape, and a values file an older gate
+    wrote draws its older rows in this layout."""
+    rows, lines = list(rows), []
+    if rows and rows[0] is not None and tuple(rows[0]) == TITLE_ROW:
+        title = text_cells("SEALED ", "bold", TITLE_RED)
+        lines += [title + text_cells("─" * RULE_WIDTH, "dim"), []]
+        rows = rows[1:]
+    for row in rows:
+        if row is None:
+            lines.append([])
+            continue
+        label, value = row
+        mark = VALUE_MARKS.get(value[:1]) if value[1:2] == " " else None
+        lines.append(
+            text_cells(f"{label:<{LABEL_WIDTH}} ", "dim")
+            + text_cells(value[:1], mark)
+            + text_cells(value[1:])
+        )
+    return lines
 
 
 def compose(rows, scale):
-    """The letter of `rows` as cells (see the writers above), with the
-    sheet's own width and height and where the disc stands: `Letter(cells,
-    width, height, disc)`.
+    """The stamp of `rows` as lines of cells (see the writers above), with
+    its width and height and where the disc stands: `Letter(cells, width,
+    height, disc)` (#832, `spec.md` S3, the owner's layout of 2026-10-07).
 
-    The sheet is the text with a blank line above and below it, and its
-    right edge two cells past the longest line. The disc at `scale` — None
-    leaves it off, which is the last rung `fitted` steps down to — stands
-    inside the sheet (#832, the owner's layout of 2026-10-07): its last line
-    is the sheet's second-to-last and its last column the one before the
-    right edge. The sheet keeps its height, or takes `DISC_LINES + 2` where
-    the text is shorter than that, which no gate writes; it widens one
-    column at a time until no character stands under the disc's square — its
-    `DISC_CELLS` columns on its `DISC_LINES` lines — and then `GAP` columns
-    more, the disc moving with the edge. A cell inside the circle is the
-    disc's colour; a cell of the square outside it, and every other cell, is
-    the sheet's. Nothing stands below or right of the sheet."""
-    text = sheet_text(rows)
-    lines, longest = len(text), max((len(t) for t in text), default=0)
-    width = TEXT_LEFT + longest + 2
+    The disc at `scale` — None leaves it off, which is the last rung
+    `fitted` steps down to — stands at column 0, `DISC_CELLS` wide and
+    `DISC_LINES` tall, and the text block (`text_lines`) begins `GAP`
+    columns right of it, or at column 0 with no disc. The height is the
+    taller one's, and each is centred on it. A cell inside the circle is its
+    colour on both halves; every other cell of the disc's columns is empty,
+    and nothing outside the disc has a background. No line runs past its
+    own last visible cell, so the width is the longest line's."""
+    text = text_lines(rows)
     if scale is None:
-        n, px = 0, None
-        height = lines + 2
+        n, tall, px = 0, 0, None
     else:
         n, _, px = build(scale)
-        height = max(lines + 2, DISC_LINES + 2)
-    top = height - 1 - DISC_LINES
-
-    def clear(width):
-        """No character under the disc's square, and the square inside the
-        sheet's edge. The square runs to the column before the edge, and no
-        line reaches past it, so a character at or right of its first column
-        is under it."""
-        left = width - 1 - n
-        if left < 1:
-            return False
-        for ln in range(top, top + DISC_LINES):
-            said = text[ln - 1] if 0 < ln <= lines else ""
-            for k, char in enumerate(said):
-                if char != " " and TEXT_LEFT + k >= left:
-                    return False
-        return True
-
-    if px:
-        while not clear(width):
-            width += 1
-        width += GAP
-    left = width - 1 - n
-
-    def colour(x, y):
-        dx, dy = x - left, y - 2 * top
-        on_disc = px(dx, dy) if px and 0 <= dx < n and 0 <= dy < n else None
-        if on_disc is not None:
-            return on_disc
-        return SHEET_EDGE if x in (0, width - 1) else PARCHMENT
-
-    def frame(x, ln):
-        side = x in (0, width - 1)
-        if ln == 0:
-            return "." if side else "-"
-        if ln == height - 1:
-            return "'" if side else "-"
-        return "|" if side else " "
-
+        tall = DISC_LINES
+    height = max(len(text), tall)
+    top_disc, top_text = (height - tall) // 2, (height - len(text)) // 2
     cells = []
     for ln in range(height):
-        said = text[ln - 1] if 0 < ln <= lines else ""
-        line = []
-        for x in range(width):
-            top_half, bottom_half = colour(x, 2 * ln), colour(x, 2 * ln + 1)
-            char = None
-            if (
-                TEXT_LEFT <= x < TEXT_LEFT + len(said)
-                and top_half == bottom_half == PARCHMENT
-            ):
-                # The title is the panel's first row, not a line that reads
-                # `SEALED`: keyed on the value, a branch named `SEALED` on a
-                # continuation row was inked as a second title (round 1's ⬜ 5).
-                ink = TITLE if ln == 1 else INK
-                char = (said[x - TEXT_LEFT], ink)
-            line.append((top_half, bottom_half, char, frame(x, ln)))
+        k, t = ln - top_disc, ln - top_text
+        line = disc_cells(px, n, 2 * k) if 0 <= k < tall else [EMPTY] * n
+        said = text[t] if 0 <= t < len(text) else []
+        if said:
+            line += [EMPTY] * (GAP if px else 0) + said
+        while line and line[-1][0] in (None, " ") and line[-1][2] is None:
+            line.pop()
         cells.append(line)
-    where = (left, 2 * top, n, n) if px else None
+    width = max((len(line) for line in cells), default=0)
+    where = (0, 2 * top_disc, n, n) if px else None
     return Letter(cells, width, height, where)
 
 
@@ -593,11 +620,10 @@ def compose(rows, scale):
 
 
 def stamp(rows, scale=1.0, shape=False):
-    """The lines of the stamp: the letter of `rows` with the disc pressed
-    into it (#717, #832). `shape` picks the letter twin. Raises
-    `ValueError` with the refusal sentence for a scale outside the band.
-    `scale` None is the sheet with no disc, the last rung `fitted` steps
-    down to."""
+    """The lines of the stamp: the disc beside the text block of `rows`
+    (#717, #832). `shape` picks the letter twin. Raises `ValueError` with
+    the refusal sentence for a scale outside the band. `scale` None is the
+    text block with no disc, the last rung `fitted` steps down to."""
     writer = letter_row if shape else colour_row
     return [writer(line) for line in compose(rows, scale).cells]
 
@@ -615,16 +641,17 @@ def admitted(blocks, budget=MESSAGE_BUDGET):
     the highest rung the others leave room for: its own scale first, then
     each of `SCALE_LADDER`, never above its own scale. Since #832 the ladder
     is one rung, 0.90: the owner's disc is one size at every scale, so a
-    block steps from its disc straight to the sheet alone. The blocks past
-    those are not drawn here; the hook leaves their files pending, and the
-    next `Stop` draws them whole.
+    block steps from its disc straight to the text block alone. The blocks
+    past those are not drawn here; the hook leaves their files pending, and
+    the next `Stop` draws them whole.
 
     The rung with no disc is for one block alone, the oldest, when it does
     not fit with its disc by itself; it is returned whatever its size, because
     nothing comes after it. So the first block is always drawn and the queue
-    cannot stall. A sheet with no disc is about 70 characters a row with its
-    colour codes (2,071 for the widest panel this tree can produce, measured
-    2026-10-02), its width bounded by `broad_gate.PANEL_VALUE_WIDTH`.
+    cannot stall. A text block with no disc is about 50 characters a row with
+    its codes (925 with its label for the widest panel this tree can
+    produce, measured 2026-10-07), its width bounded by
+    `broad_gate.PANEL_VALUE_WIDTH`.
 
     A size is counted in UTF-16 units, which is what the harness counts
     (`MESSAGE_LIMIT`): a character outside the BMP is two. `budget` is a

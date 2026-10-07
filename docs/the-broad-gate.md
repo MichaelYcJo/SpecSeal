@@ -144,10 +144,12 @@ UTF-16 units, so a character outside the BMP is two, and so does the hook.
 One message carries as many of the oldest pending stamps as fit together
 with their disc, each at the highest rung the others leave room for: its
 file's own scale, then 0.90, the one rung with a disc since #832 — the
-owner's disc is drawn 14 cells across at every scale, so there is no smaller
-disc to step to. A seal past what one message can carry stays pending and is
-drawn at the next turn's end, and a single stamp that does not fit with its
-disc by itself is the only one drawn as the sheet with no disc. A stamp can
+owner's disc is drawn 28 cells across at every scale, so there is no smaller
+disc to step to. That disc is most of a stamp's size, so one real run's
+stamp goes out per message and a second waits for the next turn. A seal past
+what one message can carry stays pending and is drawn at the next turn's
+end, and a single stamp that does not fit with its disc by itself is the
+only one drawn as the text block with no disc. A stamp can
 come out without its disc or a turn later, and a session that ends first
 leaves it for `seal-stamp --from`. The gate's own terminal
 drawing and `seal-stamp` are not budgeted, because neither is a hook's
@@ -162,10 +164,10 @@ the right payload. A screenshot of the probe proved once that such bytes
 render unfolded, in colour, after the turn's final text. Whether a given
 run's stamp was seen, and whether the orchestrator wrote its result in the
 turn the stamp closed, are read by the person and by nobody else. So is how
-the sheet reads on a light background as well as a dark one. Its parchment
-and its edge are painted, and on white they are 1.02 and 1.48 to 1 against
-the screen where on black they are 20.5 and 14.2; those figures are
-arithmetic, and the owner reads the first real seal on each background.
+the stamp reads on a light background as well as a dark one. Nothing outside
+the disc is painted, so its text is in the terminal's own colours and theme —
+dim labels, a green `✓`, the title in the seal's red — and the owner reads
+the first real seal on each background.
 **Nor is the hook's silence where it cannot draw.** It draws nothing and
 says nothing where the main session's `python3` is under 3.12, the floor
 `seal_stamp.py` refuses below (macOS ships 3.9); where that session's

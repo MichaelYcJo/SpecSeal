@@ -1045,15 +1045,25 @@ def ref_row_of(mod, ref, given="release/x"):
 
 def test_the_panel_value_width_is_what_the_stamp_actually_gives():
     """Two statements of one fact, and neither may move without the other
-    going red. `broad_gate` has to know where the frame cuts in order to
-    elide before it, and `seal_stamp.letter` is what decides — measured here
-    by rendering a value nothing could fit rather than by restating the
-    formula."""
-    rendered = stamp_module().letter([("", "x" * 200)])[2]
-    assert rendered.count("x") == gate_module().PANEL_VALUE_WIDTH, (
-        f"the panel gives a value {rendered.count('x')} columns and "
-        f"broad_gate elides at {gate_module().PANEL_VALUE_WIDTH}"
-    )
+    going red. `broad_gate` elides a value at `PANEL_VALUE_WIDTH`, and the
+    stamp is what decides how wide a value can be — measured here by
+    drawing one rather than by restating the formula.
+
+    Before #832 the decider was `seal_stamp.letter`'s frame, which cut a
+    value at 23 columns. The open layout has no frame (S5a of work item
+    1791270164), so the bound is the terminal: a value of exactly
+    `PANEL_VALUE_WIDTH` under a seven-column label, beside the disc, makes
+    the stamp's widest line exactly 80 columns, whole — one column more
+    would run past an 80-column terminal."""
+    stamp, width = stamp_module(), gate_module().PANEL_VALUE_WIDTH
+    rows = [("SEALED", ""), ("CI also", "x" * width)]
+    for shape in (False, True):
+        lines = [stamp.strip_ansi(line) for line in stamp.stamp(rows, 0.9, shape)]
+        widest = max(len(line) for line in lines)
+        assert widest == 80, (
+            f"a value of {width} columns makes the stamp {widest} wide, not 80"
+        )
+        assert any(line.endswith(" " + "x" * width) for line in lines), lines
 
 
 def test_a_ref_too_long_for_the_panel_says_it_was_cut(tmp_path):
@@ -1073,8 +1083,10 @@ def test_a_ref_too_long_for_the_panel_says_it_was_cut(tmp_path):
     # #832's S5a: the ref shares the `base` row with the commit, so it is
     # elided to the room the commit and the two spaces leave.
     assert len("bbbbbbb  " + shown) == mod.PANEL_VALUE_WIDTH, shown
-    rendered = stamp_module().letter([("", shown)])[2]
-    assert "hotfix" in rendered, f"the marker cost the tail its place: {rendered!r}"
+    rendered = "\n".join(
+        stamp_module().stamp([("base", "bbbbbbb  " + shown)], 0.9, True)
+    )
+    assert shown in rendered, f"the marker cost the tail its place: {rendered!r}"
 
 
 def test_a_ref_that_fits_is_left_exactly_as_it_is(tmp_path):

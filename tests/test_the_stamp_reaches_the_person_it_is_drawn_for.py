@@ -23,22 +23,17 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 STAMP = os.path.join(ROOT, "skills", "verify", "scripts", "seal_stamp.py")
 GATE = os.path.join(ROOT, "skills", "verify", "scripts", "broad_gate.py")
 
-# A panel in the shape `broad_gate.panel` returns. Neutral values.
+# A panel in the shape `broad_gate.panel` returns since #832. Neutral values.
 ROWS = [
     ("SEALED", ""),
-    None,
     ("tree", "aaa1111"),
     ("", "feat/x"),
-    ("base", "bbb2222"),
-    ("", "origin/base"),
-    ("item", "#12 . 1799000000"),
+    ("base", "bbb2222  origin/base"),
+    ("item", "#12 · 1799000000"),
     None,
-    ("suite", "3 passed"),
-    ("", "exit 0"),
-    ("ledger", "4 ok"),
-    ("", "0 drifted . 0 broken"),
-    ("chain", "exit 0"),
-    None,
+    ("suite", "✓ 3 passed"),
+    ("ledger", "✓ 4 ok · 0 drifted · 0 broken"),
+    ("chain", "✓ exit 0"),
     ("rounds", "2"),
 ]
 
@@ -315,23 +310,23 @@ def test_another_sessions_stop_leaves_its_file_alone(tmp_path):
 
 # The smallest panel a run could carry. Under #717's lily two of its stamps
 # shared one message with their discs; under phase 2's § of #832 no two did;
-# under the owner's 14-cell disc they do again (`phases/phase-3.md` of work
-# item 1791270164 has the sizes).
+# under the owner's 14-cell disc they did again; under the owner's 28-cell
+# disc of 2026-10-07 no two do (`phases/phase-6.md` of work item 1791270164
+# has the sizes).
 SMALL_ROWS = [("SEALED", ""), ("tree", "aaa1111"), ("", "feat/x"), ("rounds", "2")]
 
 
-def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
-    """Several pending seals come out in one message, oldest first, each
-    stamp whole under its own label and with its disc, and a file that is
-    not a run's values is skipped and left where it is rather than taking
+def test_several_files_come_out_one_stop_each_oldest_first(tmp_path):
+    """Several pending seals come out one `Stop` at a time, oldest first,
+    each stamp whole under its own label and with its disc, and a file that
+    is not a run's values is skipped and left where it is rather than taking
     the others down.
 
-    #717's case, back under its own name. Phase 2 of #832 drew a disc that
-    added about 5,600 units to its sheet, so no two stamps shared a message
-    and this case pinned one `Stop` each. The owner's 14-cell disc adds
-    about 1,600 to the smallest panel's sheet, so that panel's pair fits the
-    budget again (4,158 units, `phases/phase-3.md`), and the premise is
-    asserted rather than assumed."""
+    Phase 2's name for #717's case, back with the owner's 28-cell disc of
+    2026-10-07: the disc alone is most of a stamp's size, so even the
+    smallest panel's pair is over the budget together (9,488 units,
+    `phases/phase-6.md`), and the newer waits for the next `Stop` rather
+    than losing its disc. The premise is asserted rather than assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     small = values(rows=SMALL_ROWS)
@@ -345,16 +340,16 @@ def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
     other = LABEL.replace("aaa1111", "ccc3333")
     rung = mod.SCALE_LADDER[-1]
     older, newer = (drawn(mod, who, SMALL_ROWS, rung) for who in (LABEL, other))
-    assert len(older) + 2 + len(newer) <= mod.MESSAGE_BUDGET, (
-        "two small stamps no longer share one message; this case's premise moved"
+    assert len(older) + 2 + len(newer) > mod.MESSAGE_BUDGET, (
+        "two small stamps share one message again; this case's premise moved"
     )
-    text = json.loads(stop(repo))["systemMessage"]
-    assert text == older + "\n\n" + newer, [
-        b.split("\n", 1)[0] for b in text.split("\n\n")
-    ]
+    assert json.loads(stop(repo))["systemMessage"] == older
+    assert not os.path.exists(first) and os.path.exists(second)
+    assert json.loads(stop(repo))["systemMessage"] == newer
     assert all("\x1b[38;2;" in block for block in (older, newer)), "a disc was lost"
-    assert not os.path.exists(first) and not os.path.exists(second)
+    assert not os.path.exists(second)
     assert mod.pending(os.path.dirname(first)) == [broken]
+    assert stop(repo) == "", "the broken file was drawn"
 
 
 def test_a_malformed_later_file_does_not_take_the_earlier_ones(tmp_path):
@@ -473,12 +468,31 @@ def test_the_hook_is_registered_for_stop_and_nothing_else():
 
 # --- #717: the hook's whole message is held under a budget --------------------
 
+# What `broad_gate.panel` returns for a real run since #832 — `full_values()`'s
+# run, with values as long as a real run's: its branch elided at
+# `PANEL_VALUE_WIDTH`, the base's ref beside its commit, the result rows behind
+# a `✓`. Neutral values.
+FULL_ROWS = [
+    ("SEALED", ""),
+    ("tree", "aaa1111a"),
+    ("", "feat/12-the-branch-names-the-work-item..."),
+    ("base", "bbb2222b  origin/release/v1.2.3"),
+    ("item", "#12 · 1799000000"),
+    ("gate", "tree 1.2.3"),
+    None,
+    ("suite", "✓ 6621 passed · 11 skipped"),
+    ("ledger", "✓ 3451 ok · 0 drifted · 0 broken"),
+    ("chain", "✓ exit 0"),
+    ("CI also", "· 4 more steps"),
+    ("rounds", "2"),
+]
+
 # A panel in the shape the gate wrote from #666 to #717, with values as long as
 # a real run's. Its 0.90 drawing under its label was over the harness's limit,
 # which put every stamp drawn from #666 on behind a 2 KB preview of a file.
 # Neutral values; a file in this shape may still be pending when a newer hook
-# draws it, which is why the case keeps it rather than following `panel`.
-FULL_ROWS = [
+# draws it, which is why a case keeps it rather than following `panel`.
+OLD_ROWS = [
     ("SEALED", ""),
     None,
     ("tree", "aaa1111a"),
@@ -538,75 +552,126 @@ def test_the_hooks_message_is_under_the_budget_for_one_file(tmp_path):
     assert text.split("\n", 1)[0] == mod.label(full_values())
 
 
-# The owner's reference for a real run's stamp, chosen on 2026-10-07: variant
-# 2 of the sheet with the seal on its right, drawn by the orchestrating
-# session over exactly `FULL_ROWS`' text (`spec.md` S3 of work item
-# 1791270164). Transcribed from that file's half-cells, the parchment ` ` and
-# each disc colour its letter. The reference drew the sheet's left edge
-# alone, so the twin below carries the hook's frame on the other three
-# sides; every other cell is the reference's.
+# The rows the owner's chosen reference was drawn over: the orchestrating
+# session's `frames.py`'s `ROWS`, behind the panel's title row, which
+# `frames.py#design_open` drew from a constant. They are the panel's shape
+# with one difference the real panel does not have — a `flow` row where the
+# panel carries `CI also` (`questions.md` Q15 of work item 1791270164) — and
+# they stay here as data, because the owner's picture was drawn over them.
+REFERENCE_ROWS = [
+    ("SEALED", ""),
+    ("tree", "aaa1111a"),
+    ("", "feat/12-the-branch-names-the-work-item"),
+    ("base", "bbb2222b  origin/release/v1.2.3"),
+    ("item", "#12 · 1799000000"),
+    ("gate", "tree 1.2.3"),
+    None,
+    ("suite", "✓ 6621 passed · 11 skipped"),
+    ("ledger", "✓ 3451 ok · 0 drifted · 0 broken"),
+    ("chain", "✓ exit 0"),
+    ("flow", "· 4 of 9 not answered"),
+    ("rounds", "2"),
+]
+# The owner's reference for a real run's stamp, chosen on 2026-10-07: design 3
+# of `frames.py`, `~/Desktop/specseal-frame-3-open.ans` on the owner's
+# machine (`spec.md` decision 6 and S3 of work item 1791270164). Transcribed
+# from that file's SGR stream and half-blocks by a script that read no line
+# of `seal_stamp.py`: each disc cell its top half's letter (its bottom
+# half's where the top is off the disc), the text as the twin writes it, and
+# each line without the blank cells the reference carries past its end.
 REFERENCE_TWIN = (
-    ".----------------------------------------------------.",
-    "|   SEALED                                           |",
-    "|   tree     aaa1111a                                |",
-    "|            feat/12-the-branch-n...                 |",
-    "|   base     bbb2222b                                |",
-    "|            origin/release/v1.2.3                   |",
-    "|   item     #12 . 1799000000                        |",
-    "|   gate     tree 1.2.3                              |",
-    "|   suite    6621 passed, 11 skipped      mmmmmmmm   |",
-    "|            exit 0                     mm..YYYYY.mm |",
-    "|   ledger   3451 ok                   mm..YYy...yymm|",
-    "|            0 drifted . 0 broken      m...YYyyyYY..m|",
-    "|   chain    exit 0                    m....YYYYYyy.m|",
-    "|   workflow 4 of 9 not answered        m..YY...YYym |",
-    "|   rounds   2                            mm.yyymm   |",
-    "'----------------------------------------------------'",
+    "        mmmmmmmmmmmm           SEALED ------------------------------",
+    "     mmmMMMMMMMMMMMMmmm",
+    "   mmMMMMNNN....NNNnnnnmm      tree    aaa1111a",
+    "  mmMMNN............NMnnmm             feat/12-the-branch-names-the-work-item",
+    " mMMMN....YYxyyyXXYy..MnnNm    base    bbb2222b  origin/release/v1.2.3",
+    "mmMMN....YXXy.....xy...MNNmm   item    #12 . 1799000000",
+    "mMMN.....YXXXXYY...y....MNNm   gate    tree 1.2.3",
+    "mMMN.......xxXXXXXX.....MNNm",
+    "mMMNN....Y.....yXXXxy..MMNNm   suite   + 6621 passed . 11 skipped",
+    " mMMN....YX......Yxxy..MNNm    ledger  + 3451 ok . 0 drifted . 0 broken",
+    "  mnnNN..YyxxYYYYxyy.MMNNm     chain   + exit 0",
+    "   mnnnMM..........MMNNNm      flow    . 4 of 9 not answered",
+    "     mmnnNNMMMMMMNNNNmm        rounds  2",
+    "        mmmNNNNNNmmm",
 )
-# The disc's fourteen half-rows in the reference, from column 39 on its
-# lines 8 to 14.
+# The disc's twenty-eight half-rows in the reference, columns 0 to 27 of its
+# fourteen lines, each half its colour's letter and a space off the disc.
 REFERENCE_DISC = (
-    "     mmmm     ",
-    "   mm....mm   ",
-    "  m..YYYYY.m  ",
-    " m..YYyyyYY.m ",
-    " m..YYy...yym ",
-    "m....YYYYY...m",
-    "m...YYyyyYY..m",
-    "m...YYy..YYy.m",
-    "m....YYYYYyy.m",
-    " m....yyyYY.m ",
-    " m..YY...YYym ",
-    "  m..YYYYYym  ",
-    "   mm.yyymm   ",
-    "     mmmm     ",
+    "           mmmmmm           ",
+    "        mmmMMMMMMmmm        ",
+    "      mmMMMMMMMMMMMMmm      ",
+    "     mmMMMMNNNNNNMMnnmm     ",
+    "    mMMMMNNN....NNNnnnnm    ",
+    "   mMMMNN..........NNnnnm   ",
+    "  mmMMNN............NMnnmm  ",
+    "  mMMNN....YYYYYY.Y..MMnnm  ",
+    " mMMMN....YYxyyyXXYy..MnnNm ",
+    " mMMN....YYxyy...Xxy...MNNm ",
+    " mMMN....YXXy.....xy...MNNm ",
+    "mMMNN....YXXX.....Yy...MMNNm",
+    "mMMN.....YXXXXYY...y....MNNm",
+    "mMMN......XXXXXXXY......MNNm",
+    "mMMN.......xxXXXXXX.....MNNm",
+    "mMMN........yyxXXXXx....MNNm",
+    "mMMNN....Y.....yXXXxy..MMNNm",
+    " mMMN....Yy......XXxy..MNNm ",
+    " mMMN....YX......Yxxy..MNNm ",
+    " mMnnN...YXX....YYxyy.MNNNm ",
+    "  mnnNN..YyxxYYYYxyy.MMNNm  ",
+    "  mmnnMM..y.yyyyyyy.MMNNmm  ",
+    "   mnnnMM..........MMNNNm   ",
+    "    mnnnnMMM....MMMNNNNm    ",
+    "     mmnnNNMMMMMMNNNNmm     ",
+    "      mmNNNNNNNNNNNNmm      ",
+    "        mmmNNNNNNmmm        ",
+    "           mmmmmm           ",
 )
+# The reference's colours by letter, the owner's `seal28.py`'s nine.
+REFERENCE_COLOURS = {
+    "m": (150, 24, 28),
+    "M": (208, 68, 64),
+    "n": (160, 30, 34),
+    "N": (96, 10, 14),
+    ".": (112, 16, 20),
+    "X": (186, 38, 42),
+    "Y": (222, 86, 78),
+    "x": (90, 8, 12),
+    "y": (84, 8, 12),
+    " ": None,
+}
 
 
 def test_a_real_runs_stamp_is_the_owners_reference_cell_for_cell():
     """#832 S1-S4 against the picture the owner chose rather than against a
-    rule. A real run's stamp — `full_values()`'s rows at 0.90 — is the
-    reference: the same 16 x 54 sheet, the disc's grid at column 39 and
-    half-row 16, each of the disc's 196 half-cells the reference's colour or
-    the parchment, and the twin the reference's letters. The message the
-    hook prints for that file is its label and this block, and nothing
-    else."""
+    rule: the stamp over the rows the reference was drawn over is the
+    reference — 14 lines, the disc's grid at column 0 and half-row 0, each of
+    its 784 half-cells the reference's colour or off the disc, the twin the
+    reference's letters line for line, and the block form's text, codes
+    stripped, the twin's with the owner's characters in place. The block
+    form leads its `·` dim where the reference left it plain, which is the
+    owner's decision 6's wording, and the reference is a picture of it.
+
+    A real run's message is its label and its block and nothing else."""
     mod = stamp_module()
-    sheet = mod.compose(FULL_ROWS, 0.9)
-    assert (sheet.height, sheet.width, sheet.disc) == (16, 54, (39, 16, 14, 14))
-    assert mod.stamp(FULL_ROWS, 0.9, shape=True) == list(REFERENCE_TWIN)
-    colour = {
-        "m": (168, 26, 30),
-        ".": (120, 16, 20),
-        "Y": (240, 130, 118),
-        "y": (96, 10, 14),
-        " ": mod.PARCHMENT,
-    }
-    left, top, _, _ = sheet.disc
+    letter = mod.compose(REFERENCE_ROWS, 0.9)
+    assert (letter.height, letter.width, letter.disc) == (14, 77, (0, 0, 28, 28))
+    assert mod.stamp(REFERENCE_ROWS, 0.9, shape=True) == list(REFERENCE_TWIN)
     for y, said in enumerate(REFERENCE_DISC):
-        for x, letter in enumerate(said):
-            cell = sheet.cells[(top + y) // 2][left + x]
-            assert cell[(top + y) % 2] == colour[letter], (x, y, letter, cell)
+        line = letter.cells[y // 2]
+        for x, key in enumerate(said):
+            # A line ends at its last visible cell, so past it is off the disc.
+            char, fg, bg, _style = line[x] if x < len(line) else (None,) * 4
+            top, bottom = (fg, bg) if char == "▀" else (bg, fg)
+            half = top if y % 2 == 0 else bottom
+            assert half == REFERENCE_COLOURS[key], (x, y, key, char, fg, bg)
+    blocks = [mod.strip_ansi(line) for line in mod.stamp(REFERENCE_ROWS, 0.9)]
+    ascii_ = str.maketrans({"·": ".", "✓": "+", "─": "-", "→": ">"})
+    for line, twin in zip(blocks, REFERENCE_TWIN, strict=True):
+        assert len(line) == len(twin), (line, twin)
+        text = line.translate(ascii_)
+        same = zip(text, twin, strict=True)
+        assert all(a == b for a, b in same if a not in "▀▄"), (line, twin)
     label = mod.label(full_values())
     assert mod.fitted([(label, FULL_ROWS, 0.9)]) == "\n".join(
         [label, *mod.stamp(FULL_ROWS, 0.9, shape=False)]
@@ -748,29 +813,34 @@ def test_a_character_outside_the_bmp_is_counted_as_two():
     assert mod.fitted([(lone, ROWS, 0.9)]) == drawn(mod, lone, ROWS, 0.9)
 
 
-def test_a_values_file_from_an_older_gate_draws_every_row_and_skips_its_blanks(
+def test_a_values_file_from_an_older_gate_draws_every_row_in_the_new_layout(
     tmp_path,
 ):
     """A13. A file the gate wrote from #666 to #717 carries `null` blanks, a
     `chain` row, `exit 0` under the suite and `0 drifted . 0 broken` under
-    the ledger, and may still be pending when this hook draws it. Every row
-    it carries is drawn on the sheet as text, one line each and in order;
-    its blanks draw no line; and it opens with `label(values)`. At this
-    file's size that is the 0.90 drawing — the letter is what brought #666's
-    full row set back under the budget."""
+    the ledger, the base's ref on a row of its own and ` . ` between parts,
+    and may still be pending when this hook draws it. Since #832 nothing
+    converts it (`spec.md` §*Out* of work item 1791270164): every row it
+    carries is drawn as text in the open layout, one line each and in order,
+    its blanks as blank lines, under `label(values)`, at 0.90 with its disc.
+    #717's name for this case said the blanks drew no line, which the sheet
+    did; the open layout draws them, as `panel`'s own `None` is drawn."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
-    mod.write_values(str(repo / ".git"), "s-1", full_values())
+    old = {**full_values(), "rows": OLD_ROWS}
+    mod.write_values(str(repo / ".git"), "s-1", old)
     text = json.loads(stop(repo))["systemMessage"]
     label, *lines = text.split("\n")
-    assert label == mod.label(full_values())
-    assert lines == mod.stamp(FULL_ROWS, 0.9, shape=False), "not the 0.90 letter"
-    sheet = mod.compose(FULL_ROWS, 0.9)
-    rows = [row for row in FULL_ROWS if row is not None]
-    assert sheet.height == len(rows) + 2, "a blank row drew a line"
-    for k, (name, value) in enumerate(rows, 1):
-        said = "".join(cell[2][0] if cell[2] else " " for cell in sheet.cells[k])
-        assert f"{name:<8} {value}".strip() in said, (k, said)
+    assert label == mod.label(old)
+    assert lines == mod.stamp(OLD_ROWS, 0.9, shape=False), "not the 0.90 drawing"
+    said = [mod.strip_ansi(line)[31:] for line in lines]
+    rows = OLD_ROWS[1:]
+    assert len(said) == max(14, 2 + len(rows)), len(said)
+    top = (len(said) - 2 - len(rows)) // 2
+    assert said[top].startswith("SEALED ─"), said[top]
+    for k, row in enumerate(rows, top + 2):
+        want = "" if row is None else f"{row[0]:<7} {row[1]}".rstrip()
+        assert said[k] == want, (k, said[k], want)
 
 
 def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
@@ -796,9 +866,9 @@ def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     assert mod.fitted(one, 0) == at[None], "the last rung is the last"
     bare = mod.strip_ansi(at[None])
     assert "▀" not in bare and "▄" not in bare, "the last rung drew a disc"
-    for row in ROWS:
+    for row in ROWS[1:]:
         if row is not None:
-            assert f"{row[0]:<8} {row[1]}".strip() in bare, row
+            assert f"{row[0]:<7} {row[1]}".strip() in bare, row
     # A file at 1.0 keeps its disc where it fits, and is the sheet alone
     # where it does not: there is no smaller disc between.
     big = [(LABEL, ROWS, 1.0)]
@@ -848,19 +918,23 @@ def test_the_policy_states_the_budget_and_names_its_case():
     """A18. `docs/the-broad-gate.md` §*Where the stamp is drawn* carries the
     budget rule under #717's marker, and its `Enforced by:` line names A3's
     case; the marker stands a second time over the paragraph nothing
-    enforces, which now says the sheet's background is the owner's reading,
-    with the contrast figures beside it. #832: the rule names the one rung
-    with a disc and the sheet alone after it, and no longer the two rungs
-    the owner refused."""
+    enforces. #832: the rule names the one rung with a disc and the text
+    block alone after it, the owner's disc 28 cells across, and one real
+    run to a message; the unchecked paragraph says nothing outside the disc
+    is painted, so the stamp is read in the terminal's own theme, where it
+    gave the parchment's contrast figures before decision 6 of work item
+    1791270164 retired the sheet."""
     text = flat("docs", "the-broad-gate.md")
     marker = "<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->"
     assert text.count(marker) == 2, "the rule and the unchecked half, one marker each"
     unchecked = text.split(marker)[2]
     assert "**What the person's screen shows is not checked" in unchecked
-    assert "So is how the sheet reads on a light background as well as a dark one." in (
-        unchecked
-    )
-    assert "on white they are 1.02 and 1.48 to 1" in unchecked
+    assert (
+        "So is how the stamp reads on a light background as well as a dark one. "
+        "Nothing outside the disc is painted, so its text is in the terminal's "
+        "own colours and theme"
+    ) in unchecked
+    assert "1.02 and 1.48" not in unchecked and "parchment" not in unchecked
     rule = text.split(marker)[1].split("<!--", 1)[0]
     assert "**The hook holds its whole message under a budget named in the code" in rule
     assert "::test_the_hooks_message_is_under_the_budget_for_one_file" in rule
@@ -868,16 +942,19 @@ def test_the_policy_states_the_budget_and_names_its_case():
     assert "A seal past what one message can carry stays pending" in rule
     assert "::test_seals_past_what_one_message_carries_wait_for_the_next_turn" in rule
     assert "a character outside the BMP is two" in rule
-    # #832: one rung with a disc, then the sheet alone — and the reason is
-    # the owner's 14-cell disc having one size, not a smaller disc refused.
+    # #832: one rung with a disc, then the text block alone — and the reason
+    # is the owner's 28-cell disc having one size, not a smaller disc refused.
     assert "then 0.90, the one rung with a disc since #832" in rule
     assert (
-        "the owner's disc is drawn 14 cells across at every scale, so there is "
+        "the owner's disc is drawn 28 cells across at every scale, so there is "
         "no smaller disc to step to"
     ) in rule
+    assert "one real run's stamp goes out per message" in rule
     assert "does not fit with its disc by itself is the only one drawn" in rule
+    assert "as the text block with no disc" in rule
     assert "0.80 and 0.75" not in rule and "at 0.75 by itself" not in rule
     assert "24 cells" not in rule and "§ fragment" not in rule
+    assert "14 cells" not in rule and "sheet" not in rule
     section = text.split("## Where the stamp is drawn", 1)[1]
     assert marker in section.split("## What the runner owes", 1)[0]
 
