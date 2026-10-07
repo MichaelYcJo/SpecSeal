@@ -696,7 +696,10 @@ def test_the_seal_job_installs_rsvg_convert_before_the_suite_and_the_draw():
     The package lists are refreshed first, and the refresh does not gate
     the install: `apt-get update` exits non-zero when any one list fails,
     a third-party list the package does not come from included, so `&&`
-    after it skipped an install that would have worked (round 1's ⬜ 8)."""
+    after it skipped an install that would have worked (round 1's ⬜ 8). A
+    bare `;` skipped it too, because a step with no `shell:` runs under
+    `bash -e`, so the refresh is followed by `|| true` (round 2's 🟡 2).
+    Seen red against the `;` step."""
     held = steps(job(workflow(), "seal"))
     installs = [
         at
@@ -710,7 +713,7 @@ def test_the_seal_job_installs_rsvg_convert_before_the_suite_and_the_draw():
     (at,) = installs
     assert any(line.strip() == "continue-on-error: true" for line in held[at])
     run = next(line for line in held[at] if "librsvg2-bin" in line)
-    assert "sudo apt-get update;" in run, run
+    assert "sudo apt-get update || true;" in run, run
     assert "apt-get update &&" not in run, run
     suite = next(
         n for n, step in enumerate(held) if any("--junitxml" in s for s in step)
