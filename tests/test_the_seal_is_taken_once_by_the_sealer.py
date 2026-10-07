@@ -463,6 +463,10 @@ def test_the_disc_sits_inside_the_sheet_against_its_right_edge_three_clear_of_th
     small = mod.compose(cases.SMALL_ROWS, 0.9)
     assert (small.height, small.disc[1]) == (9, 2), (small.height, small.disc)
     assert mod.compose(cases.SMALL_ROWS, None).height == 6
+    # A panel with no text at all, which no gate writes either, still keeps
+    # the square inside the sheet's left edge, here with `GAP` at 0.
+    empty = mod.compose([], 0.9)
+    assert (empty.width, empty.disc[0]) == (n + 2, 1), (empty.width, empty.disc)
     assert mod.compose(rows, None).disc is None
 
 
