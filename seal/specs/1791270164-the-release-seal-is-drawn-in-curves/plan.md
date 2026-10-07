@@ -5,6 +5,7 @@ artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
 Approved 2026-10-06 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
+Approved 2026-10-07 by the orchestrating session under the owner's `automation` answer and their seal decision of that day, when `smith` was spawned for the reframe.
 
 ## Summary
 
