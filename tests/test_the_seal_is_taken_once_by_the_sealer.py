@@ -709,6 +709,8 @@ def test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence():
     # #832: the disc is one size at every scale of the band, so neither
     # sentence may give a disc's size as its reason.
     both = sentence + " " + str(too_large.value)
+    assert "scale 0.5 is under the floor of 0.75." in sentence, sentence
+    assert "scale 1.5 is above 1.0." in str(too_large.value), too_large.value
     assert both.count("The disc is drawn at one size whatever the scale") == 2, both
     assert "a values file and `--scale` may carry" in str(too_large.value)
     for gone in ("too few cells", "a larger disc", "measured up to it", "stitch"):

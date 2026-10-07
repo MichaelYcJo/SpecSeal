@@ -530,14 +530,16 @@ def compose(rows, scale):
 
     def clear(width):
         """No character under the disc's square, and the square inside the
-        sheet's edge."""
+        sheet's edge. The square runs to the column before the edge, and no
+        line reaches past it, so a character at or right of its first column
+        is under it."""
         left = width - 1 - n
         if left < 1:
             return False
         for ln in range(top, top + DISC_LINES):
             said = text[ln - 1] if 0 < ln <= lines else ""
             for k, char in enumerate(said):
-                if char != " " and left <= TEXT_LEFT + k < left + n:
+                if char != " " and TEXT_LEFT + k >= left:
                     return False
         return True
 
