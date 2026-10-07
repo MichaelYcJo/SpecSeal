@@ -1428,8 +1428,15 @@ def line_ending(lines):
 
 
 def table_span(lines):
-    """(index of the `Mode` row or -1, index just past the first table's last
-    row or -1) — one pass, reading exactly what `config_rows` reads.
+    """(the index of every `Mode` row, in order, index just past the first
+    table's last row or -1) — one pass, reading exactly what `config_rows`
+    reads.
+
+    **Every `Mode` row, not the first** (#867). A row written twice has no
+    value (`hooks/config.py#config_value`), so the writer has no row to
+    overwrite: it used to set the first, because the reader read the first,
+    and the file then said two things for good. `with_row` refuses such a
+    file and names each line, from this list.
 
     **Including the fence rule**, which is why this walk goes through
     `hooks/config.py#unfenced` rather than stripping each line for itself. A
@@ -1442,7 +1449,7 @@ def table_span(lines):
     endings, so their join is the file, and the walk reads that where GFM
     breaks a line (#667 round 1, 🟡 1).
     """
-    seen_header, mode_at, end = False, -1, -1
+    seen_header, modes, end = False, [], -1
     for i, line in unfenced(lines, "".join(lines)):
         if not seen_header:
             if CONFIG_HEADER.match(line):
@@ -1458,30 +1465,52 @@ def table_span(lines):
                 break
             continue
         end = i + 1
-        # The FIRST match, because `config_rows` reads the first. A reader
+        # Every match, because the reader counts every one (#867). A reader
         # and a writer that disagree about which row is the row leave a file
         # two rows deep that no command can bring into agreement.
-        if mode_at < 0 and match.group("item").strip() == ROW_ITEM:
-            mode_at = i
-    return mode_at, end
+        if repo_config.unescaped(match.group("item").strip()) == ROW_ITEM:
+            modes.append(i)
+    return modes, end
+
+
+def doubled_modes(lines):
+    """The sentence a file holding more than one `Mode` row is refused in,
+    naming each line by its number and as written, or "" where it holds one
+    or none. LINES keep their endings, as `table_span` reads them. It opens
+    lower-case and ends with no full stop, so it reads after the path."""
+    modes, _end = table_span(lines)
+    if len(modes) < 2:
+        return ""
+    named = ", ".join(f"line {i + 1} `{lines[i].strip()}`" for i in modes)
+    return (
+        f"holds {len(modes)} `{ROW_ITEM}` rows ({named}), and a row written "
+        "twice has no value, so writing over one of them would leave the file "
+        "saying two things — delete all but one and run this command again"
+    )
 
 
 def with_row(text, value):
-    """TEXT with the `Mode` row set to VALUE, every other line's bytes kept.
+    """(TEXT with the `Mode` row set to VALUE, every other line's bytes kept,
+    "") — or (None, the refusal) where TEXT holds more than one `Mode` row.
 
     Three cases, and the file is a person's in all three: an existing row is
     replaced where it stands, a table with no such row gains one at its end,
     and a file with no such table at all gets one appended after a blank
-    line. Nothing is re-wrapped, re-ordered, or re-ended.
+    line. Nothing is re-wrapped, re-ordered, or re-ended. A fourth, two rows
+    or more, is refused rather than resolved (#867): no row of them is the
+    answer, so there is none to replace, and adding one more is a third.
     """
     row = f"| {ROW_ITEM} | {value} |"
     lines = text.splitlines(keepends=True)
     ending = line_ending(lines)
-    mode_at, end = table_span(lines)
+    doubled = doubled_modes(lines)
+    if doubled:
+        return None, doubled
+    modes, end = table_span(lines)
 
-    if mode_at >= 0:
-        lines[mode_at] = row + ending_of(lines[mode_at], ending)
-        return "".join(lines)
+    if modes:
+        lines[modes[0]] = row + ending_of(lines[modes[0]], ending)
+        return "".join(lines), ""
     if end >= 0:
         # **The line above the insertion point may carry no ending.** Where
         # the first table's last row is the file's last line and the file
@@ -1495,14 +1524,14 @@ def with_row(text, value):
         if end == len(lines) and lines and not lines[-1].endswith(("\n", "\r")):
             lines[-1] += ending
         lines.insert(end, row + ending)
-        return "".join(lines)
+        return "".join(lines), ""
 
     if lines and not lines[-1].endswith(("\n", "\r")):
         lines[-1] += ending
     if lines:
         lines.append(ending)
     lines.extend([f"| Item | Value |{ending}", f"|---|---|{ending}", row + ending])
-    return "".join(lines)
+    return "".join(lines), ""
 
 
 def write_row(home, value):
@@ -1529,11 +1558,13 @@ def write_row(home, value):
     except (OSError, ValueError) as exc:
         return f"{path} could not be read: {exc}"
 
-    new = (
-        NEW_CONFIG.format(item=ROW_ITEM, value=value)
+    new, doubled = (
+        (NEW_CONFIG.format(item=ROW_ITEM, value=value), "")
         if text is None
         else with_row(text, value)
     )
+    if doubled:
+        return f"{path} {doubled}. Nothing was written"
     # **The row is not written until it reads back.** `table_span` skips
     # fenced lines, so a file whose table is swallowed by a fence nobody
     # closed has no table this walk can see -- and `with_row` then appends
@@ -1931,8 +1962,25 @@ def say_report(repo, home, shared, local, current, kind, value):
             f"  row:    {value} — which is not a mode. The two values are "
             f"`{LOCAL}` and `{SHARED}`."
         )
+    elif kind == "refused":
+        print(f"  row:    refused  ({display(repo, config_path(home))})")
     else:
         print(f"  row:    not declared  ({display(repo, config_path(home))})")
+
+
+def mode_refusal(home):
+    """The sentence `seal mode` refuses the root's `config.md` in, or "":
+    the reader's own sentence for a file that will not read, and for a
+    `Mode` row written twice the writer's, which names each line (#867).
+    Read through `hooks/config.py#config_text`, the one place the file is
+    opened to tell absent from unreadable."""
+    text, refused = repo_config.config_text(home)
+    if refused:
+        return refused
+    if text is None:
+        return ""
+    doubled = doubled_modes(text.splitlines(keepends=True))
+    return f"{config_path(home)} {doubled}" if doubled else ""
 
 
 def mode_report(args, repo, home, shared, local, current):
@@ -1945,8 +1993,19 @@ def mode_report(args, repo, home, shared, local, current):
     it cannot be wrong; nothing falls back to a default, because there is
     none. `--check` writes nothing at all: it runs in CI, and a check that
     mutates the tree it checks is not a check.
+
+    **A refused file is reported and exits 2, with or without `--check`**
+    (#867): a `config.md` that is there and will not read, or a `Mode` row
+    written twice. The folder is still reported, because where things stand
+    does not need the row; nothing is written, because a row written into a
+    file nobody can read, or beside one that already disagrees, cannot make
+    it agree.
     """
     kind, value = declared(home)
+    if kind == "refused":
+        say_report(repo, home, shared, local, current, kind, value)
+        print(f"\n{mode_refusal(home) or value}. Nothing was written.")
+        return 2
     if kind == "none" and not args.check:
         failed = write_row(home, current)
         if failed:
@@ -2050,6 +2109,13 @@ def refusals(repo, home, shared, local, wanted):
     source = shared if wanted == LOCAL else local
     destination = local if wanted == LOCAL else shared
     found = []
+
+    # The row this switch ends by writing is refused before anything moves
+    # (#867): a `config.md` that will not read, or one holding two `Mode`
+    # rows, would stop `write_row` after the folder had already gone.
+    refused = mode_refusal(home)
+    if refused:
+        found.append(refused)
 
     gitlinks, unreadable = gitlinks_under_root(repo)
     if gitlinks is None:
@@ -2299,6 +2365,12 @@ def mode(args, cwd):
         kind, value = declared(home)
         if kind == "mode":
             wanted = value
+        elif kind == "refused":
+            print(
+                f"{mode_refusal(home) or value}, so there is nothing to apply. "
+                "Nothing was moved."
+            )
+            return 2
         else:
             named = (
                 f"names `{value}`, which is not a mode"

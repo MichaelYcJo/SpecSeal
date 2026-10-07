@@ -137,14 +137,17 @@ def test_a_row_that_will_not_parse_is_refused_and_never_read_as_absent():
     for value, said in cases.items():
         _, _, refusals = config.pact_declaration(table(("Pact", value)))
         assert len(refusals) == 1 and said in refusals[0], (value, refusals)
-    _, _, refusals = config.pact_declaration(
+    # A `Pact` row written twice has no value, as a doubled `Pact notify` has
+    # none, in the one sentence every config row is refused in (#867): its
+    # first row is not the answer, so it lists no pact. Seen red against the
+    # first-wins reader, which listed `a`.
+    pacts, notify, refusals = config.pact_declaration(
         table(
             ("Pact", "git@example.com:org/a.git"), ("Pact", "git@example.com:org/b.git")
         )
     )
-    assert refusals == [
-        "`Pact` appears 2 times — list every pact in one row, separated by `;`"
-    ]
+    assert (pacts, notify) == ([], None)
+    assert refusals == ["`Pact` appears 2 times — one value"]
 
 
 def test_an_unreadable_config_is_no_declaration(tmp_path):
@@ -813,19 +816,20 @@ def test_s5_a_plain_row_in_a_fence_or_a_comment_is_refused_and_not_read(below):
 
 def test_a_refusal_comes_after_a_doubled_pact_and_before_the_entries():
     """Data: one refusal per refused line, in file order, after the
-    doubled-`Pact` refusal and before the entry refusals."""
-    text = (
-        CONFIG_TOP
-        + "| Pact | orders-api |\n| Pact | git@example.com:org/b.git |\n"
-        + "\n"
-        + PLAIN
-        + "\n**Pact**: x |\n"
-    )
-    _pacts, notify, refusals = config.pact_declaration(text)
+    doubled-`Pact` refusal and before the entry refusals. A doubled `Pact`
+    has no value since #867, so its entries are not read and refuse nothing;
+    the entry refusal is held with one `Pact` row instead."""
+    tail = "\n" + PLAIN + "\n**Pact**: x |\n"
+    text = CONFIG_TOP + "| Pact | orders-api |\n| Pact | git@example.com:org/b.git |\n"
+    _pacts, notify, refusals = config.pact_declaration(text + tail)
     assert notify is None
     assert refusals[0].startswith("`Pact` appears 2 times")
-    assert refusals[1:3] == [refused(PLAIN), refused("**Pact**: x |")]
-    assert "is not a remote URL" in refusals[3] and len(refusals) == 4
+    assert refusals[1:] == [refused(PLAIN), refused("**Pact**: x |")]
+    _pacts, notify, refusals = config.pact_declaration(
+        CONFIG_TOP + "| Pact | orders-api |\n" + tail
+    )
+    assert refusals[:2] == [refused(PLAIN), refused("**Pact**: x |")]
+    assert "is not a remote URL" in refusals[2] and len(refusals) == 3
 
 
 def test_config_rows_is_the_indexed_walk_without_its_places():

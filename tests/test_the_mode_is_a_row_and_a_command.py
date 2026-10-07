@@ -230,20 +230,47 @@ def test_a_stage_that_fails_is_not_reported_as_staged(seal, local_repo, capsys):
     assert "record nothing" in out
 
 
-def test_two_mode_rows_converge(seal, shared_repo, capsys):
-    """Round 1's 🟡 5. The reader took the first `Mode` row and the writer
-    wrote the last, so a file with two of them disagreed with itself and no
-    number of runs closed it."""
+TWO_MODE_ROWS = (
+    "# Repository config\n\n| Item | Value |\n|---|---|\n"
+    "| Mode | local |\n| Record language | Korean |\n| Mode | shared |\n"
+)
+
+
+@pytest.mark.parametrize(
+    "args", [["mode", "shared"], ["mode", "local"], ["mode"], ["mode", "--apply"]]
+)
+def test_two_mode_rows_are_refused_naming_both_lines(seal, shared_repo, capsys, args):
+    """S2 of #867, which replaces round 1's 🟡 5 of #104. The reader took the
+    first `Mode` row and the writer wrote the first, so two runs agreed with
+    each other and the file still said two things: the row a person reads
+    lower down was never the answer. A row written twice has no value
+    (`hooks/config.py#config_value`), so the writer has no row to overwrite.
+    Every form of the command refuses, names both lines, and writes and
+    moves nothing. Seen red against the first-wins writer: each form exited
+    0."""
     config = shared_repo / "seal" / "config.md"
-    config.write_text(
-        "# Repository config\n\n| Item | Value |\n|---|---|\n"
-        "| Mode | local |\n| Mode | local |\n",
-        encoding="utf-8",
-    )
-    code, out = run(seal, ["mode", "shared"], shared_repo, capsys)
-    assert code == 0, out
+    config.write_text(TWO_MODE_ROWS, encoding="utf-8")
+    git(shared_repo, "add", "-A")
+    git(shared_repo, "commit", "-qm", "two mode rows")
+    before = state(seal, shared_repo)
+
+    code, out = run(seal, args, shared_repo, capsys)
+
+    assert code != 0, out
+    assert "line 5 `| Mode | local |`" in out, out
+    assert "line 7 `| Mode | shared |`" in out, out
+    assert config.read_text(encoding="utf-8") == TWO_MODE_ROWS
+    assert state(seal, shared_repo) == before
+
+
+def test_check_exits_2_on_two_mode_rows(seal, shared_repo, capsys):
+    """S2's `--check` half: CI meets the same refusal, at exit 2, and the
+    report still says where the folder is."""
+    (shared_repo / "seal" / "config.md").write_text(TWO_MODE_ROWS, encoding="utf-8")
     code, out = run(seal, ["mode", "--check"], shared_repo, capsys)
-    assert code == 0, out
+    assert code == 2, out
+    assert "folder: shared" in out and "row:    refused" in out, out
+    assert "holds 2 `Mode` rows" in out, out
 
 
 def test_check_does_not_pass_when_the_repository_cannot_be_resolved(
@@ -637,7 +664,13 @@ def test_an_existing_row_keeps_the_rest_of_the_file(local_repo, seal, capsys):
 def test_a_row_that_cannot_be_written_still_reports(shape, local_repo, seal, capsys):
     """S2c. A person asked where things stand, and that answer does not need
     the write. Failing the report would make an unwritable config a reason
-    not to answer a question."""
+    not to answer a question.
+
+    Since #867 a `config.md` that is there and will not read is refused by
+    the reader rather than read as no row, so the command no longer tries
+    the write: it still reports the folder, names the path, and exits 2,
+    the exit every command gives that refusal. Both shapes here are such a
+    file -- a directory, and a symbolic link to nothing."""
     _repo, home, _s, _l, _m = seal.resolve(str(local_repo))
     path = os.path.join(home, "config.md")
     if shape == "a directory":
@@ -647,9 +680,10 @@ def test_a_row_that_cannot_be_written_still_reports(shape, local_repo, seal, cap
 
     code, out = run(seal, ["mode"], local_repo, capsys)
 
-    assert code == 0, out
-    assert "could not be written" in out, out
+    assert code == 2, out
+    assert path + " is there and cannot be read" in out, out
     assert "folder:" in out and "local" in out
+    assert "Nothing was written" in out, out
 
 
 def test_check_writes_nothing_even_when_the_row_is_absent(local_repo, seal, capsys):

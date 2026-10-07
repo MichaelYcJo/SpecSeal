@@ -29,8 +29,12 @@ is the root itself* is the clause. The `Mode` row decides nothing about opting
 in -- it RECORDS an answer -- and putting it in that module would read as the
 clause being softened.
 
-Everything here fails toward "nothing is declared". A file that cannot be read
-is not an answer somebody gave.
+Everything here fails toward "nothing is declared" -- except where a written
+row would be read as absent. A file that is there and cannot be read, and a
+row written twice, are refused by `config_text` and `config_value` rather than
+read as nothing (#867); a hook reads a refusal as nothing it can act on and
+says nothing, and a command prints it and exits 2. `config_text`'s docstring
+says which caller is which kind.
 """
 
 import os
@@ -487,6 +491,115 @@ def refused_row(text):
     return refused[0][0] if refused else None
 
 
+def config_text(home):
+    """(text, refusal) for `<home>/config.md` — the one place the file is
+    opened, and the one place an absent file is told from an unreadable one.
+
+      (None, None)     there is no file at that name: nothing is declared
+      (text, None)     the file, read as UTF-8
+      (None, refusal)  the file is there and cannot be read as text -- a
+                       directory of that name, a permission this process
+                       does not have, bytes that do not decode -- and
+                       REFUSAL is a sentence naming the path and why
+
+    **Two states, and only the second is refused** (#867). An absent file is
+    what every repository had before it wrote a row, so it declares nothing,
+    everywhere. A file that is there and will not read is not a repository
+    that answered nothing: it is one whose answer nobody can read. What a
+    caller does with that is its own kind's call, and every caller asks this
+    reader rather than opening the file a second time to find out:
+
+      - a hook that may not stop -- `hooks/mode-gate.py`,
+        `hooks/evidence-advisor.py` -- reads a refusal as nothing it can act
+        on and says nothing, because a gate that refuses wrongly is an outage
+        nobody can get past (`CONTRIBUTING.md` §*What a change to a gate must
+        carry*);
+      - a command a person runs prints the sentence and exits 2 with nothing
+        judged, the shape a non-numeric `Ledger frozen from` already takes
+        (`templates/config.md` §*The ledger freeze*), because a command that
+        reads a written row as absent turns the freeze off on a decode error.
+
+    HOME is the seal root; a falsy one is no file. A name that `lexists` but
+    will not open -- a symbolic link to nowhere -- is the second state: the
+    name is there."""
+    if not home:
+        return None, None
+    path = config_path(home)
+    if not os.path.lexists(path):
+        return None, None
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read(), None
+    except (OSError, ValueError) as exc:
+        return None, unreadable_config(path, exc)
+
+
+def unreadable_config(path, exc):
+    """The sentence `config_text` refuses an unreadable PATH in. It opens
+    with the path and ends with no full stop, so it reads after a command's
+    own prefix."""
+    why = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
+    return (
+        f"{path} is there and cannot be read as UTF-8 text ({why}), so no row "
+        "of it can be read — a config that is absent declares nothing, and "
+        "one that will not read is refused rather than read as absent"
+    )
+
+
+def doubled_row(item, count):
+    """The sentence `config_value` refuses a row written COUNT times in. It
+    is the sentence `pact_declaration` has refused a doubled `Pact notify`
+    in since round 1 of PR #756, made the one sentence for every item."""
+    return f"`{item}` appears {count} times — one value"
+
+
+def config_value(text, item):
+    """(value, refusal) for ITEM in the `| Item | Value |` table of TEXT —
+    the one answer every reader of one config row gives (#867).
+
+      (None, None)     no row names ITEM, or TEXT is None (no file)
+      (value, None)    one row: its value, stripped and unescaped as
+                       `config_rows` returns it, "" where it is empty
+      (None, refusal)  ITEM is written more than once, and REFUSAL says so
+
+    **A row written twice has no value**, not its first and not its last.
+    `pact_declaration` refused a doubled `Pact notify` with *its first row is
+    not the answer* (round 1 of PR #756, yellow 2) and `docs/the-pact.md`
+    ratified it; every other reader here took the first, the checker took
+    the last, and `seal mode` wrote the first. Three answers to one file is a
+    file a person edits on the row they see while another one answers. So
+    the one answer is a refusal, and what a caller does with it is its own
+    kind's -- `config_text` says which kind does which.
+
+    The rows are `config_rows`', so a row is a row only where that walk takes
+    it: one written below the table's end, in a fence or in a closed comment
+    is not counted, which is what keeps a fenced example from doubling the
+    live row."""
+    if text is None:
+        return None, None
+    return value_of(config_rows(text), item)
+
+
+def value_of(rows, item):
+    """`config_value` over ROWS already walked, as `(item, value)` pairs --
+    the rule itself, for a caller that holds the rows and would otherwise
+    walk the file once per item (`pact_declaration`)."""
+    values = [value for found, value in rows if found == item]
+    if len(values) > 1:
+        return None, doubled_row(item, len(values))
+    return (values[0], None) if values else (None, None)
+
+
+def declared_value(home, item):
+    """(value, refusal) for ITEM in `<home>/config.md`: `config_text`, then
+    `config_value`, so an unreadable file and a doubled row reach the caller
+    the same way -- as a refusal it acts on by its own kind."""
+    text, refusal = config_text(home)
+    if refusal is not None:
+        return None, refusal
+    return config_value(text, item)
+
+
 def declared_mode(home):
     """(kind, value) for the `Mode` row — what the repository SAYS it wants.
 
@@ -497,28 +610,30 @@ def declared_mode(home):
       "mode"     `local` or `shared`, lowercased
       "unknown"  a row is there and its value is not a mode — a claim nobody
                  can act on, which is not the same as no claim
+      "refused"  the file is there and will not read, or the row is written
+                 more than once; VALUE is `declared_value`'s sentence
 
     **There is no default.** Every other item in `config.md` falls back to
     what every repository got before the row existed; for the mode that is
     *the folder decides*, so an absent row is filled in from the folder by
     `seal mode` rather than assumed here. A default of `shared` would report
     every undeclared local-mode repository as lying.
+
+    **`refused` is not `none`** (#867). An unreadable file used to fold into
+    `none`, and `hooks/mode-gate.py` opened the file a second time to tell
+    the two apart. A doubled row was read first-wins here and by the writer.
+    Now the reader tells them apart once: the gate says nothing on a refusal,
+    and `seal mode` prints it and writes nothing, because writing a row into
+    a file whose rows disagree, or that nobody can read, cannot make it
+    agree.
     """
-    try:
-        with open(config_path(home), encoding="utf-8") as handle:
-            text = handle.read()
-    except (OSError, ValueError):
-        # Unreadable is one of the four, not a failure: `IsADirectoryError`
-        # and a file this locale cannot decode both land here, and neither is
-        # a reason to stop answering where the folder is.
+    value, refusal = declared_value(home, ROW_ITEM)
+    if refusal is not None:
+        return "refused", refusal
+    lowered = (value or "").lower()
+    if not lowered:
         return "none", ""
-    for item, value in config_rows(text):
-        if item == ROW_ITEM:
-            lowered = value.lower()
-            if not lowered:
-                return "none", ""
-            return ("mode", lowered) if lowered in MODES else ("unknown", value)
-    return "none", ""
+    return ("mode", lowered) if lowered in MODES else ("unknown", value)
 
 
 # --- the reference roots (#688) -------------------------------------------
@@ -567,31 +682,30 @@ def reference_roots(home):
     alone no longer does, so a top-level `specs/<x>/` is never a retired
     work item there. A person
     joining a project runs the bootstrap, which creates the root, before any
-    check reads the tree."""
+    check reads the tree.
+
+    **A refusal reads as the default** (#867): a file that will not read, as
+    before, and a `Reference specs` row written twice, which `config_value`
+    gives no value. Its two callers, `unverified-check` and the survivor
+    sweep, are not among the commands `config_text` names as refusing: what
+    a refusal costs them is the reading every repository had before the row
+    existed, and no record is written or lost on it."""
     if not home:
         return ()
-    try:
-        with open(config_path(home), encoding="utf-8") as handle:
-            text = handle.read()
-    except (OSError, ValueError):
+    value, refusal = declared_value(home, REFERENCE_ROW)
+    if refusal is not None or not value:
         return None
-    for item, value in config_rows(text):
-        if item != REFERENCE_ROW:
-            continue
-        if not value:
-            return None
-        if value.lower() == NO_REFERENCE:
-            return ()
-        out = []
-        for entry in value.split(","):
-            prefix = entry.strip().replace("\\", "/")
-            while prefix.startswith("./"):
-                prefix = prefix[2:]
-            prefix = prefix.strip("/")
-            if prefix and not inside_the_root(prefix) and prefix not in out:
-                out.append(prefix)
-        return tuple(out)
-    return None
+    if value.lower() == NO_REFERENCE:
+        return ()
+    out = []
+    for entry in value.split(","):
+        prefix = entry.strip().replace("\\", "/")
+        while prefix.startswith("./"):
+            prefix = prefix[2:]
+        prefix = prefix.strip("/")
+        if prefix and not inside_the_root(prefix) and prefix not in out:
+            out.append(prefix)
+    return tuple(out)
 
 
 def under_reference_root(rel, roots):
@@ -852,14 +966,14 @@ def pact_declaration(text):
     loses a record that cannot be recovered.
     """
     rows = indexed_config_rows(text)
-    pact_rows = [value for _i, item, value in rows if item == PACT_ROW]
-    notify_rows = [value for _i, item, value in rows if item == PACT_NOTIFY_ROW]
-    refusals = []
-    if len(pact_rows) > 1:
-        refusals.append(
-            f"`{PACT_ROW}` appears {len(pact_rows)} times — list every pact in "
-            f"one row, separated by `{PACT_SEPARATOR}`"
-        )
+    pairs = [(item, value) for _i, item, value in rows]
+    # A row written twice has no value, by `value_of`'s rule and in its
+    # sentence (#867): the first row is not the answer, so a caller that read
+    # it would rule `always` in or out on a row the signer also contradicted
+    # (round 1 of PR #756, yellow 2) -- and a doubled `Pact` lists no pact.
+    value, doubled_pact = value_of(pairs, PACT_ROW)
+    written, doubled_notify = value_of(pairs, PACT_NOTIFY_ROW)
+    refusals = [doubled_pact] if doubled_pact else []
     not_read = pact_lines_not_read(text, rows)
     # Where a line is refused only because the file holds an HTML table
     # cell's tag, the sentence says so (round 2 of PR #793, yellow 2).
@@ -867,7 +981,6 @@ def pact_declaration(text):
     refusals.extend(
         pact_line_refusal(line, cell and not names_a_pact(line)) for line in not_read
     )
-    value = pact_rows[0] if pact_rows else ""
     if not value:
         return [], None, refusals
     pacts, refused = remote_entries(
@@ -877,20 +990,15 @@ def pact_declaration(text):
         named=True,
     )
     refusals.extend(refused)
-    if len(notify_rows) > 1:
-        # Refused, and no value: the first row is not the answer, so a
-        # caller that read it would rule `always` in or out on a row the
-        # signer also contradicted (round 1 of PR #756, yellow 2).
-        refusals.append(
-            f"`{PACT_NOTIFY_ROW}` appears {len(notify_rows)} times — one value"
-        )
+    if doubled_notify:
+        refusals.append(doubled_notify)
         return pacts, None, refusals
-    notify = " ".join(notify_rows[0].split()).lower() if notify_rows else ""
+    notify = " ".join((written or "").split()).lower()
     if not notify:
         notify = NOTIFY_DEFAULT
     elif notify not in NOTIFY_VALUES:
         refusals.append(
-            f"`{PACT_NOTIFY_ROW} | {notify_rows[0]}` is not one of "
+            f"`{PACT_NOTIFY_ROW} | {written}` is not one of "
             + ", ".join(f"`{v}`" for v in NOTIFY_VALUES)
         )
         notify = None
@@ -1002,15 +1110,16 @@ def declared_pacts(home):
     repository, and a signer whose written rows read as absent is the
     silence `pact_declaration` exists to end. So no file is no row, and a
     file that will not read is None, which `pact-check` refuses as
-    `UNREADABLE`."""
-    path = config_path(home)
-    if not os.path.lexists(path):
-        return [], None, []
-    try:
-        with open(path, encoding="utf-8") as handle:
-            text = handle.read()
-    except (OSError, ValueError):
+    `UNREADABLE`.
+
+    Since #867 every command reading a row takes this reader's side, and
+    `config_text` is where the two states are told apart for all of them;
+    this is that answer in the shape `pact-check` has always read."""
+    text, refusal = config_text(home)
+    if refusal is not None:
         return None
+    if text is None:
+        return [], None, []
     return pact_declaration(text)
 
 
