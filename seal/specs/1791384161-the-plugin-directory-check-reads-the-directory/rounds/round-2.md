@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 875 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `38abbcc700a773fd8edd55db0968dfcf8de19f67..a8a315f863f5273fc63423cb129472aad713f1db`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | yes — ⬜ 2: a `plugin.json` whose top level is not an object still ends in a `TypeError` traceback and exit 1. The default root never reaches it. |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -34,11 +34,11 @@ Verifying round 2 of round 1's fixes, the range f105d83b..fb256f54 plus the clos
 | 🟢 | round 1's finding 7 is closed — `spec.md` and `questions.md` say *Anthropic's mail domain* | `seal/specs/1791384161-the-plugin-directory-check-reads-the-directory/spec.md:60` | confirmed | read; the overview row recording it is stale, ⬜ 5 |
 | 🟢 | round 1's finding 8 is closed — the bullet says curated catalog and nightly mirror, and the third-reader sentence says *branch or tag* | `docs/branch-and-release.md:81` | confirmed | read; executed: the A7 case red against `f105d83b`; the same omission elsewhere is ⬜ 4 |
 | 🟢 | the three excused survivors are rightly left as the approved frame | `seal/specs/1791384161-the-plugin-directory-check-reads-the-directory/survivors.md` | confirmed | executed: survivor-check exit 1 with three places, exit 0 with the exemption; read: `spec.md:36` carries the right fact, settle treats a retired spec as instructing nobody |
-| ⬜ 1 | The host rule admits a share link spelled with a port, an escaped slash or a query, and `/directory` matches as a prefix | `tests/test_no_real_identifiers.py:72` | open | executed probe: five such plants admitted; the proposed rule refuses four and keeps the tree clean |
-| ⬜ 2 | A manifest whose top level is not an object ends in a `TypeError` traceback and exit 1 | `.github/scripts/plugin_directory_check.py:297` | open | executed probe: `[]` and `null` raise `TypeError`; the default root never reaches it |
-| ⬜ 3 | The new `--root` case pins exit 2 and not the error line its docstring and the changelog promise | `tests/test_the_plugin_directory_answers_the_box.py:384` | open | read: the case asserts only the code; contract §14 |
-| ⬜ 4 | The closing line, the box and the changelog say *tracked branch* where the docs say *branch or tag* | `.github/scripts/plugin_directory_check.py:278` | open | read; the docstring at line 29 and the third-reader sentence already say *branch or tag* |
-| ⬜ 5 | `overview.md:17` still says *the company's mail domain*, `overview.md:21` names §*Vocabulary* instead of §*Scope* 1–2, A5 and §*Data & interfaces*, and `survivors.md:5` says three rows over two | `seal/specs/1791384161-the-plugin-directory-check-reads-the-directory/overview.md:21` | open | read; a correction to the run's paperwork, outside `Needs a fix` |
+| ⬜ 1 | The host rule admits a share link spelled with a port, an escaped slash or a query, and `/directory` matches as a prefix | `tests/test_no_real_identifiers.py:72` | answered | a note, left as it stands: the rule refuses every form round 1's 🟡 2 named and every tracked reference passes; the port, escaped-slash, query and prefix spellings are a narrower case of the same class, recorded here and in the pull request body; executed probe: five such plants admitted; the proposed rule refuses four and keeps the tree clean |
+| ⬜ 2 | A manifest whose top level is not an object ends in a `TypeError` traceback and exit 1 | `.github/scripts/plugin_directory_check.py:297` | answered | a note, left as it stands: only a hand-given `--root` whose `plugin.json` top level is `[]` or `null` reaches it, and the default root never does; recorded here and in the pull request body as a known limit; executed probe: `[]` and `null` raise `TypeError`; the default root never reaches it |
+| ⬜ 3 | The new `--root` case pins exit 2 and not the error line its docstring and the changelog promise | `tests/test_the_plugin_directory_answers_the_box.py:384` | answered | a note, left as it stands: the case pins the exit code, and the error line is argparse's own `parser.error` shape, read by round 2 over five root shapes; read: the case asserts only the code; contract §14 |
+| ⬜ 4 | The closing line, the box and the changelog say *tracked branch* where the docs say *branch or tag* | `.github/scripts/plugin_directory_check.py:278` | answered | a note, left as it stands: *tracked branch* is the docs' own name for the field when it holds a branch, and the docstring and the third-reader sentence already say *branch or tag*; read; the docstring at line 29 and the third-reader sentence already say *branch or tag* |
+| ⬜ 5 | `overview.md:17` still says *the company's mail domain*, `overview.md:21` names §*Vocabulary* instead of §*Scope* 1–2, A5 and §*Data & interfaces*, and `survivors.md:5` says three rows over two | `seal/specs/1791384161-the-plugin-directory-check-reads-the-directory/overview.md:21` | answered | corrected at a8a315f8 — a correction to the run's records (`overview.md`, `survivors.md`), outside `Needs a fix`; read; a correction to the run's paperwork, outside `Needs a fix` |
 | ❓ | That SpecSeal's listing is a Console listing, and that the Console page the command prints is where it appears | `docs/release-checklist.md:378` | ❓ out of verified scope | a logged-in page; the repository owner answers it (`overview.md` §*Not verified*), carried from round 1 |
 
 ## Paste-ready fixes
