@@ -50,14 +50,10 @@ jobs:
         # run:
         #   ubuntu  9 m 03 s, run 37469595104 (7 m 58 s in 37458654434,
         #           6 m 40 s in 37457228586, 5 m 40 s in 37465328899) -> 15
-        #   macOS, per shard: not yet measured. Each of the three shards
-        #          carries the budget of the unsharded leg it replaced,
-        #          20 m 52 s in run 37469595104 (19 m 52 s in 37457228586,
-        #          16 m 27 s in 37458654434, 17 m 38 s in 37465328899),
-        #          until the first run of the shards gives the figure the
-        #          rule reads (work item 1791384162, phase 2): a budget
-        #          guessed from arithmetic could fail the very run that
-        #          measures it                                       -> 35
+        #   macOS, per shard: 6 m 56 s, group 3 of run 37700567455, the
+        #          first run of the three shards (the other two 5 m 22 s and
+        #          6 m 24 s; the unsharded leg they replaced took 15 m 25 s
+        #          to 20 m 52 s and ran under 35)                     -> 15
         #   Windows, per shard: 10 m 34 s, group 3 of run 37469595104 (the
         #          other shards there 9 m 27 s to 10 m 15 s; 5 m 38 s to
         #          10 m 03 s in the sharded run 37465328899)          -> 20
@@ -84,10 +80,12 @@ jobs:
           # of 1.45 for the slowest group (the file gives three groups of
           # 2,513 s, 2,517 s and 2,505 s), in
           # `seal/specs/1791384162-the-macos-test-leg-runs-in-shards/plan.md`.
-          # ubuntu stays one job.
-          - { os: macos-latest, python: "3.12", split: "--splits 3 --group 1", timeout: 35 }
-          - { os: macos-latest, python: "3.12", split: "--splits 3 --group 2", timeout: 35 }
-          - { os: macos-latest, python: "3.12", split: "--splits 3 --group 3", timeout: 35 }
+          # Measured in run 37700567455: the slowest macOS shard took 6 m 56 s,
+          # and the three ran 12,827 cases between them, ubuntu's count at
+          # the same SHA. ubuntu stays one job.
+          - { os: macos-latest, python: "3.12", split: "--splits 3 --group 1", timeout: 15 }
+          - { os: macos-latest, python: "3.12", split: "--splits 3 --group 2", timeout: 15 }
+          - { os: macos-latest, python: "3.12", split: "--splits 3 --group 3", timeout: 15 }
           - { os: windows-latest, python: "3.12", split: "--splits 4 --group 1", timeout: 20 }
           - { os: windows-latest, python: "3.12", split: "--splits 4 --group 2", timeout: 20 }
           - { os: windows-latest, python: "3.12", split: "--splits 4 --group 3", timeout: 20 }
