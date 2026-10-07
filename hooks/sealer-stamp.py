@@ -37,8 +37,9 @@ oldest pending blocks as fit `MESSAGE_BUDGET` together with their disc, each
 at the highest rung the others leave room for — its file's own scale, then
 down `SCALE_LADDER`, one rung since #832. The rest stay pending for the next
 `Stop`, and only one block that does not fit with its disc alone is drawn
-without it. A stamp may therefore be drawn smaller than its file's `scale`
-says, or without its disc, or at a later `Stop`, and no file is claimed
+without it. A stamp may therefore be drawn without its disc, or at a later
+`Stop`, but never smaller: since #832 the disc is one size at every scale,
+so a rung below the file's `scale` draws the same stamp. No file is claimed
 without its stamp being printed. The file's
 `scale` is not rewritten: it records what the gate was asked for.
 

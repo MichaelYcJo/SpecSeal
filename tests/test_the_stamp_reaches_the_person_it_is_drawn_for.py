@@ -308,11 +308,13 @@ def test_another_sessions_stop_leaves_its_file_alone(tmp_path):
     assert mod.pending(os.path.dirname(path)) == [path]
 
 
-# The smallest panel a run could carry. Under #717's lily two of its stamps
-# shared one message with their discs; under phase 2's § of #832 no two did;
-# under the owner's 14-cell disc they did again; under the owner's 28-cell
-# disc of 2026-10-07 no two do (`phases/phase-6.md` of work item 1791270164
-# has the sizes).
+# The smallest panel a run could carry. Whether two of its stamps share one
+# message is the disc's mark's to say, not this module's: under #717's lily
+# they did; under phase 2's § of #832 they did not; under the owner's 14-cell
+# disc they did again; under the S of 2026-10-07 they do not, and under the
+# archived key they do (`phases/phase-6.md` of work item 1791270164 and round
+# 1's report there have the sizes). A case that needs a pair over the budget
+# grows this panel until it is.
 SMALL_ROWS = [("SEALED", ""), ("tree", "aaa1111"), ("", "feat/x"), ("rounds", "2")]
 
 
@@ -322,14 +324,23 @@ def test_several_files_come_out_one_stop_each_oldest_first(tmp_path):
     is not a run's values is skipped and left where it is rather than taking
     the others down.
 
-    Phase 2's name for #717's case, back with the owner's 28-cell disc of
-    2026-10-07: the disc alone is most of a stamp's size, so even the
-    smallest panel's pair is over the budget together (9,488 units,
-    `phases/phase-6.md`), and the newer waits for the next `Stop` rather
-    than losing its disc. The premise is asserted rather than assumed."""
+    Phase 2's name for #717's case. The pair has to be over the budget
+    together for the newer to wait for the next `Stop` rather than share the
+    message, and whether a small pair is depends on the disc's mark, which
+    #857 replaces by changing `seal-mark.txt` alone. So the panel is grown
+    by deferral homes, one at a time, until the pair does not fit — none
+    under the S, some under the archived key — and the premise is asserted
+    rather than assumed (round 1's 🟡 3)."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
-    small = values(rows=SMALL_ROWS)
+    other = LABEL.replace("aaa1111", "ccc3333")
+    rung = mod.SCALE_LADDER[-1]
+    rows = list(SMALL_ROWS)
+    while sum(len(drawn(mod, who, rows, rung)) for who in (LABEL, other)) + 2 <= (
+        mod.MESSAGE_BUDGET
+    ):
+        rows.append(("", f"home-{len(rows)}"))
+    small = values(rows=rows)
     first = mod.write_values(str(repo / ".git"), "s-1", small, now=1)
     second = mod.write_values(
         str(repo / ".git"), "s-1", {**small, "tree": "ccc3333"}, now=2
@@ -337,12 +348,11 @@ def test_several_files_come_out_one_stop_each_oldest_first(tmp_path):
     broken = os.path.join(os.path.dirname(first), "3-ddd4444.json")
     with open(broken, "w", encoding="utf-8") as handle:
         handle.write("not json")
-    other = LABEL.replace("aaa1111", "ccc3333")
-    rung = mod.SCALE_LADDER[-1]
-    older, newer = (drawn(mod, who, SMALL_ROWS, rung) for who in (LABEL, other))
+    older, newer = (drawn(mod, who, rows, rung) for who in (LABEL, other))
     assert len(older) + 2 + len(newer) > mod.MESSAGE_BUDGET, (
-        "two small stamps share one message again; this case's premise moved"
+        "the grown pair shares one message; this case's premise moved"
     )
+    assert len(older) <= mod.MESSAGE_BUDGET, "the grown stamp lost its disc alone"
     assert json.loads(stop(repo))["systemMessage"] == older
     assert not os.path.exists(first) and os.path.exists(second)
     assert json.loads(stop(repo))["systemMessage"] == newer
@@ -536,20 +546,28 @@ def test_the_budget_is_named_and_derived_from_the_measured_limit():
     assert mod.MESSAGE_LIMIT <= 10090, "above a size the harness has persisted"
     assert mod.MESSAGE_LIMIT == 10000, "not the number the probe measured"
     assert mod.MESSAGE_BUDGET <= mod.MESSAGE_LIMIT - 1000, mod.MESSAGE_BUDGET
-    assert mod.SCALE_LADDER == (0.90,), "#832: one rung, then the sheet alone"
+    assert mod.SCALE_LADDER == (0.90,), "#832: one rung, then the text block alone"
     assert all(mod.check_scale(rung) is None for rung in mod.SCALE_LADDER)
 
 
 def test_the_hooks_message_is_under_the_budget_for_one_file(tmp_path):
     """A3, one file. A run's values at a real run's size, drawn by the hook
     through `dispatch.py stop`: the printed `systemMessage` is no longer than
-    `MESSAGE_BUDGET`, and it still opens with the file's label."""
+    `MESSAGE_BUDGET`, it still opens with the file's label, and it is the
+    stamp WITH its disc at 0.90. Under the budget by itself is what
+    `admitted` guarantees whatever the stamp's size, by dropping the disc
+    from a block that does not fit with it, so without the last assertion a
+    stamp grown past the budget passed here as the text block alone (round
+    1's 🟡 4)."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     mod.write_values(str(repo / ".git"), "s-1", full_values())
     text = json.loads(stop(repo))["systemMessage"]
     assert len(text) <= mod.MESSAGE_BUDGET, len(text)
     assert text.split("\n", 1)[0] == mod.label(full_values())
+    assert text == drawn(mod, mod.label(full_values()), FULL_ROWS, 0.9), (
+        "a real run's stamp no longer fits the budget with its disc"
+    )
 
 
 # The rows the owner's chosen reference was drawn over: the orchestrating
@@ -765,8 +783,8 @@ def test_seals_past_what_one_message_carries_wait_for_the_next_turn(tmp_path):
 def test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it(tmp_path):
     """A4's last rung, under the owner's rule. A record whose stamp does not
     fit the budget with its disc at the ladder's last rung by itself — a
-    long list of deferral homes — is the one case the sheet is drawn with no
-    disc, and it is drawn alone: the first pending file is always drawn, so
+    long list of deferral homes — is the one case the text block is drawn
+    with no disc, and it is drawn alone: the first pending file is always drawn, so
     the queue cannot stall, and the seal after it waits for the next `Stop`
     rather than losing its disc.
 
@@ -787,7 +805,7 @@ def test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it(tmp_path):
     assert mod.label(big) == label
     assert len(drawn(mod, label, big["rows"], rung)) > mod.MESSAGE_BUDGET
     text = json.loads(stop(repo))["systemMessage"]
-    assert text == drawn(mod, label, big["rows"], None), "not the sheet alone"
+    assert text == drawn(mod, label, big["rows"], None), "not the text block alone"
     assert "\x1b[38;2;" not in text, "the oversized seal drew a disc"
     assert os.path.exists(mod.drawn_path(oversized)) and os.path.exists(after)
     later = json.loads(stop(repo))["systemMessage"]
@@ -799,7 +817,7 @@ def test_a_character_outside_the_bmp_is_counted_as_two():
     `systemMessage` in UTF-16 units, so 5,001 U+1D54F (10,002 units) were
     persisted where 4,999 were shown. Python's `len` counts each as one, so
     a label of them fitted a rung the harness would not. A budget between
-    the two counts steps the block down — since #832 to the sheet alone,
+    the two counts steps the block down — since #832 to the text block alone,
     the one step after 0.90."""
     mod = stamp_module()
     label = LABEL + " " + "\U0001d54f" * 50
@@ -853,8 +871,8 @@ def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     than shrinking, because no smaller disc is drawn.
 
     Since the owner's 14-cell disc, every scale in the band draws the same
-    bytes, so the drawing has two sizes — the disc and the sheet alone — and
-    a file at 1.0 that does not fit steps to the sheet alone, as a file at
+    bytes, so the drawing has two sizes — the disc and the text block alone —
+    and a file at 1.0 that does not fit steps to the text block alone, as a file at
     0.90 does."""
     mod = stamp_module()
     at = {s: drawn(mod, LABEL, ROWS, s) for s in (1.0, *mod.SCALE_LADDER, None)}
@@ -869,7 +887,7 @@ def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     for row in ROWS[1:]:
         if row is not None:
             assert f"{row[0]:<7} {row[1]}".strip() in bare, row
-    # A file at 1.0 keeps its disc where it fits, and is the sheet alone
+    # A file at 1.0 keeps its disc where it fits, and is the text block alone
     # where it does not: there is no smaller disc between.
     big = [(LABEL, ROWS, 1.0)]
     assert mod.fitted(big, len(at[1.0])) == at[1.0]
