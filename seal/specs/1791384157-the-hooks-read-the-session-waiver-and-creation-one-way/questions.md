@@ -15,6 +15,9 @@ reopens them; each has its grounds in `spec.md` In or `plan.md` Alternatives.
   #834 part 8 is why (a) is refused (the family did not converge on
   prediction), and the Premise is why (b) is (both measured commands switch
   HEAD silently in an ACTIVE tree). Decided (c), `spec.md` In 5.
+  **Confirmed by the repository owner on 2026-10-08:** (c) — an unquoted
+  brace expansion in a git word is an unrecognised shape, and the guard
+  stops on it.
 - **How far the consolidation goes** (#868's last paragraph). The four facts
   with a measured or traced disagreement, and the copies a change to one of
   them touches (`crg.git`); the listed-for-scope copies stay (`spec.md`
