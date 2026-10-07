@@ -630,9 +630,18 @@ def test_a_signer_with_no_seal_root_is_one_sided(world):
     ) in out, out
 
 
-def test_a_signer_config_that_will_not_read_is_unreadable(world):
-    (world["web"] / "seal" / "config.md").unlink()
-    (world["web"] / "seal" / "config.md").mkdir()
+@pytest.mark.parametrize("shape", ["directory", "undecodable"])
+def test_a_signer_config_that_will_not_read_is_unreadable(world, shape):
+    """S3 of #867 holds for `pact-check` unchanged: both unreadable shapes,
+    a directory and bytes that do not decode, reach it as `UNREADABLE` at
+    exit 2 through `hooks/config.py#config_text`."""
+    config = world["web"] / "seal" / "config.md"
+    text = config.read_bytes()
+    config.unlink()
+    if shape == "directory":
+        config.mkdir()
+    else:
+        config.write_bytes(text + b"| Record language | \xff |\n")
     code, out = run(world)
     assert code == 2, out
     # Relative to the signer's checkout and in POSIX form: the sentence

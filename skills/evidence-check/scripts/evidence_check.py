@@ -3822,65 +3822,130 @@ def reverify(
 FROZEN_ROW = "Ledger frozen from"
 CONFIG_READER = os.path.join(HERE, "..", "..", "..", "hooks", "config.py")
 CONFIG_HEADER_RE = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
+# A line of a two-cell row's SHAPE, which `notify_may_be_always` judges a
+# line by on its own; an empty item is that shape too.
 CONFIG_ROW_RE = re.compile(
     r"^\|\s*(?P<item>(?:[^|\\]|\\.)*?)\s*\|\s*(?P<value>(?:[^|\\]|\\.)*?)\s*\|\s*$"
 )
+# The vendored copy's twin of `hooks/config.py#CONFIG_ROW` and
+# `#CONFIG_SEPARATOR`, spelled as that file spells them (#867): the row's item
+# takes at least one character, so `|| x |` is no row in either reader.
+# `tests/test_evidence_check.py#test_the_vendored_config_rule_agrees_with_the_shared_one`
+# holds the two readers equal over the config table's own shapes.
+VENDORED_CONFIG_ROW_RE = re.compile(
+    r"^\|\s*(?P<item>(?:[^|\\]|\\.)+?)\s*\|\s*(?P<value>(?:[^|\\]|\\.)*?)\s*\|\s*$"
+)
+RULE_LINE_RE = re.compile(r"^\|[\s:|-]+\|$")
 
 
 def vendored_config_rows(text):
     """`hooks/config.py#config_rows`, for a copy with no `hooks/` beside it:
-    the `(item, value)` rows under the first `| Item | Value |` header, up to
-    the first line that is not one. It does not know fences or comments, which
-    the plugin's reader does; a vendored copy reads a CI checkout's config,
-    where the table is the file's own."""
+    the `(item, value)` rows under the first `| Item | Value |` header, with
+    the stop rule that reader keeps — a header or a separator above the first
+    row is the table's furniture and below it ends the table, and so does any
+    other line once a row was found.
+
+    **It does not know fences or comments**, which the plugin's reader does;
+    a vendored copy reads a CI checkout's config, where the table is the
+    file's own. That is the one way the two differ, and the equality case's
+    table holds no fence and no comment for that reason. Every other shape
+    it reads as the reader does: until #867 a stray separator or a second
+    header was stepped past here, so the rows of a second table were read as
+    this one's, and an empty item was a row."""
     found, seen = [], False
     for line in gfm_lines(text):
         if not seen:
             seen = bool(CONFIG_HEADER_RE.match(line))
             continue
-        if RULE_LINE_RE.match(line.strip()):
+        if CONFIG_HEADER_RE.match(line) or RULE_LINE_RE.match(line.strip()):
+            if found:
+                break
             continue
-        m = CONFIG_ROW_RE.match(line)
+        m = VENDORED_CONFIG_ROW_RE.match(line)
         if not m:
             if found:
                 break
             continue
         found.append(
-            (m.group("item").replace("\\|", "|"), m.group("value").replace("\\|", "|"))
+            (
+                m.group("item").strip().replace("\\|", "|"),
+                m.group("value").strip().replace("\\|", "|"),
+            )
         )
     return found
 
 
-RULE_LINE_RE = re.compile(r"^\|[\s:|-]+\|$")
+def vendored_config_value(rows, item):
+    """`hooks/config.py#value_of`, for a copy with no `hooks/` beside it: no
+    row is `(None, None)`, one row is `(its value, None)`, and a row written
+    more than once has no value and the reader's own sentence."""
+    values = [value for found, value in rows if found == item]
+    if len(values) > 1:
+        return None, f"`{item}` appears {len(values)} times — one value"
+    return (values[0], None) if values else (None, None)
+
+
+def vendored_config_text(home):
+    """`hooks/config.py#config_text`, for a copy with no `hooks/` beside it:
+    `(None, None)` for no file, `(text, None)` for a file read strictly as
+    UTF-8, and `(None, the reader's sentence)` for one that is there and
+    will not read."""
+    path = os.path.join(home, "config.md")
+    if not os.path.lexists(path):
+        return None, None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read(), None
+    except (OSError, ValueError) as exc:
+        why = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
+        return None, (
+            f"{path} is there and cannot be read as UTF-8 text ({why}), so no "
+            "row of it can be read — a config that is absent declares "
+            "nothing, and one that will not read is refused rather than read "
+            "as absent"
+        )
 
 
 @functools.cache
-def config_reader():
-    """`config_rows`: the one reader of `seal/config.md`,
-    `hooks/config.py#config_rows`, where this is the plugin's own copy -- told
-    apart the way `shared_reader` tells it -- and the vendored one where it is
-    not."""
+def config_rule():
+    """`(config_text, config_rows, value_of)`: the one reader of
+    `seal/config.md`, `hooks/config.py`, where this is the plugin's own copy
+    -- told apart the way `shared_reader` tells it -- and the vendored twins
+    where it is not."""
     skill = os.path.join(HERE, "..", "SKILL.md")
     if os.path.isfile(CONFIG_READER) and os.path.isfile(skill):
         spec = importlib.util.spec_from_file_location("specseal_config", CONFIG_READER)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        return module.config_rows
-    return vendored_config_rows
+        return module.config_text, module.config_rows, module.value_of
+    return vendored_config_text, vendored_config_rows, vendored_config_value
 
 
 def frozen_from(root):
     """`(cutoff, refusal)`: the `Ledger frozen from` value as a whole number,
     or None where the row is absent or empty, and a sentence where the value
-    is not a work-item id. `0` is a value: it binds every work item."""
-    path = os.path.join(seal_home(root), "config.md")
-    text = read(path)
+    is not a work-item id. `0` is a value: it binds every work item.
+
+    **The freeze never turns off because the file could not be read**
+    (#867). A `config.md` that is there and will not read, and a `Ledger
+    frozen from` row written twice, are refusals, the shape a non-numeric
+    value already took: `--reverify` exits 2 naming them and writes nothing.
+    Before, an unreadable file read as no row, so the freeze was off and a
+    released row was re-stamped in place."""
+    home = seal_home(root)
+    path = os.path.join(home, "config.md")
+    text_of, rows_of, value_of = config_rule()
+    text, refusal = text_of(home)
+    if refusal is not None:
+        return None, refusal
     if text is None:
         return None, None
-    values = [value for item, value in config_reader()(text) if item == FROZEN_ROW]
-    if not values or not values[-1].strip():
+    value, refusal = value_of(rows_of(text), FROZEN_ROW)
+    if refusal is not None:
+        return None, f"{display_name(path, root)}: {refusal}"
+    if value is None or not value.strip():
         return None, None
-    value = values[-1].strip()
+    value = value.strip()
     if not value.isdigit():
         return None, (
             f"the `{FROZEN_ROW}` row of {display_name(path, root)} holds "
@@ -4509,7 +4574,7 @@ PACT_CHANGE_UNDONE = (
 @functools.cache
 def plugin_module(path, name):
     """The plugin's own module at PATH, or None for a vendored copy, told
-    apart as `config_reader` tells it: the module and this skill's `SKILL.md`
+    apart as `config_rule` tells it: the module and this skill's `SKILL.md`
     both beside this script, where the plugin ships them."""
     skill = os.path.join(HERE, "..", "SKILL.md")
     if not (os.path.isfile(path) and os.path.isfile(skill)):

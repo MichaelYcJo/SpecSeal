@@ -627,7 +627,14 @@ def anchored_rows(root, work_item_ids):
     # checker itself, over the same files, rather than worked out here.
     view = checker.family_view([under(root, rel) for rel in sources], root, {})
     superseded = {key for top in view.superseded for key in view.families.get(top, [])}
-    frozen = checker.frozen_from(root)[0] is not None
+    # A refusal -- a `config.md` that will not read, a freeze row written
+    # twice or not a number -- keeps the freeze ON (#867): the advice a
+    # released row then gets is a `Corrected ·` row in a fragment, which is
+    # right in a frozen repository and harmless in one that is not, where
+    # the in-place edit it would otherwise get is a write a frozen file
+    # refuses.
+    cutoff, refused = checker.frozen_from(root)
+    frozen = cutoff is not None or refused is not None
     found = []
     for rel in sources:
         with open(under(root, rel), encoding="utf-8") as f:

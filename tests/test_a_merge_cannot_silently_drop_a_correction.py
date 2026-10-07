@@ -44,6 +44,7 @@ import pathlib
 import re
 import subprocess
 
+import pytest
 from conftest import on_disk, step_running
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -1558,6 +1559,56 @@ def test_a_freeze_row_that_is_not_an_id_is_refused_and_nothing_is_judged(tmp_pat
     head = branch_that(root, start, {"x.txt": "x\n"})
     code, out = check(root, f"{start}...{head}")
     assert code == 2, out
+
+
+def test_a_freeze_row_written_twice_is_refused_and_nothing_is_judged(tmp_path, capsys):
+    """S1 of #867, `correction-check`'s half. A `Ledger frozen from` row
+    written twice has no value: the range is refused at exit 2 naming the row
+    and the count, and no report is printed. Seen red against the last-wins
+    reader, which read the second value and judged the range."""
+    root, start = repo_at(
+        tmp_path,
+        {
+            "seal/config.md": frozen_config("1500000000")
+            + "| Ledger frozen from | 0 |\n",
+            RELEASED: RELEASED_TEXT,
+        },
+    )
+    head = branch_that(root, start, {RELEASED: RELEASED_TEXT.replace("Read.", "x")})
+    code, out = check(root, f"{start}...{head}")
+    said = capsys.readouterr().err
+    assert code == 2, out + said
+    assert out == "", out
+    assert "`Ledger frozen from` appears 2 times — one value" in said, said
+    assert "seal/config.md at " in said, said
+
+
+@pytest.mark.parametrize("shape", ["directory", "undecodable"])
+def test_an_unreadable_config_at_the_tip_is_refused_not_read_as_no_row(
+    tmp_path, capsys, shape
+):
+    """S3 of #867, `correction-check`'s half. `git show` printed a tree's
+    listing at exit 0 and decoded a blob with replacement characters, so a
+    `seal/config.md` that is a directory, or that holds bytes that do not
+    decode, could read as no freeze row and a range editing a released file
+    pass. It is refused at exit 2 naming the path and the commit. Seen red
+    against the `git show` reader."""
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT})
+    run(root, "checkout", "-q", "-b", "work", start)
+    write(root, RELEASED, RELEASED_TEXT.replace("Read.", "x"))
+    if shape == "directory":
+        write(root, "seal/config.md/README.md", "not a config\n")
+    else:
+        (pathlib.Path(root) / "seal" / "config.md").write_bytes(
+            b"# config\n\n| Item | Value |\n|---|---|\n"
+            b"| Record language | \xff\xfe |\n| Ledger frozen from | 1500000000 |\n"
+        )
+    write(root, ROUTING_AT.format(1500000001), "| Review | straight to the PR |\n")
+    head = commit(root, "the branch's work")
+    code, out = check(root, f"{start}...{head}")
+    said = capsys.readouterr().err
+    assert code == 2, out + said
+    assert "seal/config.md at " in said and "is there and cannot be read" in said, said
 
 
 def correction_merge(tmp, base, ours, theirs, resolution, files=None):

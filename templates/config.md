@@ -28,6 +28,20 @@ once the row exists. The section on it below says how the command fills it in.
 over a command nobody chose seals nothing. The section on it below says why
 there is no default.
 
+**A row written twice has no value, and a file that will not read is
+refused rather than read as absent.** One reader answers every row of this
+file, `hooks/config.py`. A row written more than once in the table is
+neither its first nor its last: it is refused in the sentence
+"`<item>` appears N times — one value". A file that is there and cannot be
+read as UTF-8 text — a directory of that name, or bytes another encoding
+wrote — is refused naming its path; a file that is absent still declares
+nothing. A command a person runs — `evidence-check --reverify`,
+`correction-check`, `fold-check`, `broad-gate`, `seal mode`, `pact-check` —
+prints the refusal and exits 2 with nothing judged, as it does for a value it
+cannot parse. A hook says nothing: the mode gate is silent rather than
+asking, and the commit advisor keeps naming the frozen repair. Delete the
+extra row, or write the file as UTF-8.
+
 | Item | Value |
 |---|---|
 | Commit and pull request language | English |
@@ -509,6 +523,9 @@ an id rather than a date or a commit.
 
 **An absent row means not frozen, and that is the default every installed
 copy keeps.** A value that is not a whole number is refused: both commands
-exit 2 naming the row, and nothing is written. Lowering the value to `0` once
+exit 2 naming the row, and nothing is written. So is the row written twice,
+and so is a `config.md` that is there and will not read: the freeze never
+turns off because the file could not be read, which is the one direction
+that re-stamps a released row in place. Lowering the value to `0` once
 no branch below it is open exempts nobody who still exists, so it needs no
 follow-up.

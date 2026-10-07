@@ -439,6 +439,15 @@ left. What a citing row is, and how the checker reads a released row with
 the rows that cite it, is `docs/the-evidence-ledger.md` §*A released row is
 read again in the branch's fragment*.
 
+The row is read by `seal/config.md`'s one reader, `hooks/config.py`, or by
+its twins in a vendored copy, and the freeze never turns off because the
+file could not be read. A `Ledger frozen from` row written twice has no
+value, and a `config.md` that is there and will not read as UTF-8 text is
+not read as absent: `--reverify` and `correction-check` both exit 2 naming
+the row and the count, or the path, and write and judge nothing — the
+shape a value that is not a whole number already takes
+(`templates/config.md` §*The ledger freeze*).
+
 A row citing a range that spans several definitions becomes several
 coordinates, one per definition. That is not a loss: it is the row saying which
 pieces of code it is actually about.

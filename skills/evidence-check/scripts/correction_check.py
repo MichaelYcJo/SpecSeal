@@ -926,16 +926,60 @@ RELEASE_FILE = re.compile(r"^seal/releases/(\d+\.\d+\.\d+)\.md$")
 BASE_VERSION = re.compile(r"release/v(\d+\.\d+\.\d+)$")
 
 
+def config_at(root, rev):
+    """`(text, refusal)` for `seal/config.md` as REV holds it — the two
+    states `hooks/config.py#config_text` tells apart on disk, told apart for
+    a blob (#867).
+
+      (None, None)     REV holds nothing at that path: nothing is declared
+      (text, None)     a blob that decodes as UTF-8
+      (None, refusal)  something is there and will not read as text — a
+                       tree of that name, or bytes that do not decode — in
+                       the reader's own sentence, naming the path and REV
+
+    `git show` alone could not tell them apart: it prints a tree's listing
+    at exit 0, and it decoded with `errors="replace"`, so neither was ever
+    refused and a decode error read whatever rows survived it."""
+    spec = f"{rev}:{CONFIG}"
+    kind = git(root, "cat-file", "-t", spec)
+    if kind is None:
+        return None, None
+    where = f"{CONFIG} at {rev[:12]}"
+    if kind.strip() != "blob":
+        return None, config.unreadable_config(
+            where, OSError(0, f"a {kind.strip()} in git, not a file")
+        )
+    out = subprocess.run(
+        ["git", "-C", root, "cat-file", "blob", spec], capture_output=True
+    )
+    if out.returncode != 0:
+        return None, config.unreadable_config(
+            where, OSError(0, out.stderr.decode("utf-8", "replace").strip())
+        )
+    try:
+        return out.stdout.decode("utf-8"), None
+    except UnicodeDecodeError as undecodable:
+        return None, config.unreadable_config(where, undecodable)
+
+
 def cutoff_at(root, rev):
     """The `Ledger frozen from` value at REV, or None where the row is absent
-    or empty. A value that is not a whole number is `Refused`."""
-    text = git(root, "show", f"{rev}:{CONFIG}")
+    or empty. A value that is not a whole number is `Refused`, and so is a
+    `config.md` that is there and will not read, and a row written twice
+    (#867): the freeze arm never turns off because the file could not be
+    read, which is the one direction that passes a pull request editing a
+    frozen file."""
+    text, refusal = config_at(root, rev)
+    if refusal is not None:
+        raise Refused(refusal)
     if text is None:
         return None
-    values = [v for item, v in config.config_rows(text) if item == FROZEN_ROW]
-    if not values or not values[-1].strip():
+    value, refusal = config.value_of(config.config_rows(text), FROZEN_ROW)
+    if refusal is not None:
+        raise Refused(f"{CONFIG} at {rev[:12]}: {refusal}")
+    if value is None or not value.strip():
         return None
-    value = values[-1].strip()
+    value = value.strip()
     if not value.isdigit():
         raise Refused(
             f"the `{FROZEN_ROW}` row of {CONFIG} holds `{value}`, which is not a "

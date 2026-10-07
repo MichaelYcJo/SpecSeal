@@ -488,30 +488,28 @@ def seal_home(root):
     return located(root)[0]
 
 
-def config_rows(home):
-    """Every `| Item | Value |` row of `<home>/config.md`, through the one
-    table reader, `hooks/config.py#config_rows`. No root, no file or a file
-    that will not read is no row at all, as every reader of it fails."""
-    if not home:
-        return []
-    try:
-        with open(os.path.join(home, CONFIG), encoding="utf-8") as f:
-            text = f.read()
-    except (OSError, ValueError):
-        return []
+def config_reader():
+    """`hooks/config.py`, the one reader of `seal/config.md`, or exit 2."""
     return load(
         CONFIG_READER,
         "specseal_config_for_folds",
         "it is what reads the rows of seal/config.md",
-    ).config_rows(text)
+    )
 
 
-def row_value(rows, item):
-    """The row's value, or None where it is absent or empty."""
-    for name, value in rows:
-        if name == item:
-            return value or None
-    return None
+def config_rows(home):
+    """Every `| Item | Value |` row of `<home>/config.md`, through the one
+    table reader, `hooks/config.py#config_rows`. No root and no file are no
+    row at all; a file that is there and will not read is `Unusable`, in the
+    reader's own sentence (#867), because reading it as no row turned every
+    check this command runs off at exit 0."""
+    if not home:
+        return []
+    reader = config_reader()
+    text, refused = reader.config_text(home)
+    if refused is not None:
+        raise Unusable(refused)
+    return [] if text is None else reader.config_rows(text)
 
 
 def parse_over(value):
@@ -533,9 +531,20 @@ def parse_over(value):
 
 def declared(home):
     """`(cutoff, ceiling, over, digests)` as the root's `config.md` states
-    them, None for a row that is absent, or `Unusable` naming the row."""
+    them, None for a row that is absent or empty, or `Unusable` naming the
+    row. Each value is the reader's own answer, `hooks/config.py#value_of`,
+    so a row written twice is `Unusable` rather than its first (#867); the
+    local reader this module used to keep took the first."""
     rows = config_rows(home)
-    cutoff = row_value(rows, SHAPE_ROW)
+    reader = config_reader()
+
+    def stated(item):
+        value, refused = reader.value_of(rows, item)
+        if refused is not None:
+            raise Unusable(refused)
+        return value or None
+
+    cutoff = stated(SHAPE_ROW)
     if cutoff is not None:
         if not WHOLE.fullmatch(cutoff):
             raise Unusable(
@@ -544,7 +553,7 @@ def declared(home):
                 "statement)"
             )
         cutoff = int(cutoff)
-    ceiling = row_value(rows, CEILING_ROW)
+    ceiling = stated(CEILING_ROW)
     if ceiling is not None:
         if not WHOLE.fullmatch(ceiling) or int(ceiling) < 1:
             raise Unusable(
@@ -552,7 +561,7 @@ def declared(home):
                 "positive whole number of lines"
             )
         ceiling = int(ceiling)
-    over, digests = parse_over(row_value(rows, OVER_ROW))
+    over, digests = parse_over(stated(OVER_ROW))
     return cutoff, ceiling, over, digests
 
 

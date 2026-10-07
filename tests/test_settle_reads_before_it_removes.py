@@ -2154,6 +2154,29 @@ def test_under_the_freeze_a_released_row_is_answered_by_a_correction(tree):
     assert "REMOVED" not in text.split("seal/releases/0.4.0.md:5")[1], text
 
 
+@pytest.mark.parametrize("shape", ["doubled", "directory"])
+def test_a_freeze_row_nobody_can_read_keeps_the_freeze_on(tree, shape):
+    """#867: the freeze arm never turns off because the file could not be
+    read. A `Ledger frozen from` row written twice, or a `config.md` that is
+    a directory, is a refusal, and `settle` reads a refusal as frozen: the
+    released row is still answered by a `Corrected ·` row and never edited
+    in place. The directory shape was seen red against `frozen_from(root)[0]
+    is not None`, which read it as no freeze; the doubled shape held there
+    only because the checker took the last row, which carried a value."""
+    fold(tree, "1700000001-alpha")
+    released_anchor(tree)
+    config = tree / "seal" / "config.md"
+    if shape == "doubled":
+        config.write_text(FREEZE + "| Ledger frozen from | 2 |\n", encoding="utf-8")
+    else:
+        config.unlink()
+        config.mkdir()
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert "Corrected ·" in text and "-fold.md" in text, text
+    assert "REMOVED" not in text.split("seal/releases/0.4.0.md:5")[1], text
+
+
 def test_a_correction_in_the_fold_fragment_lets_the_directory_go(tree):
     """Once the fold's fragment holds a `Corrected ·` row citing the released
     row, the guard no longer holds the directory, and the checker reads no

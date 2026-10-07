@@ -823,6 +823,93 @@ def test_a_freeze_row_that_is_not_an_id_is_refused(repo):
     assert "Ledger frozen from" in out.stderr
 
 
+def unreadable_config(repo, shape):
+    """`seal/config.md` in one of the two unreadable shapes that hold on
+    macOS, Linux and Windows alike: a directory of that name, and a file
+    whose bytes do not decode as UTF-8 although its table would parse."""
+    path = repo / "seal" / "config.md"
+    if path.exists():
+        path.unlink()
+    if shape == "directory":
+        path.mkdir()
+    else:
+        path.write_bytes(
+            b"# config\n\n| Item | Value |\n|---|---|\n"
+            b"| Record language | \xff\xfe |\n| Ledger frozen from | 1 |\n"
+        )
+    return path
+
+
+@pytest.mark.parametrize("args", [["--reverify"], ["--reverify", "--into", INTO]])
+def test_a_freeze_row_written_twice_is_refused_and_nothing_is_written(repo, args):
+    """S1 of #867, the command half. A `Ledger frozen from` row written twice
+    has no value: `--reverify` exits 2 naming the row and the count, and
+    writes no ledger file. Seen red against the last-wins reader, which read
+    the second value and went on."""
+    (repo / "seal" / "config.md").write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n"
+        "| Ledger frozen from | 1 |\n| Ledger frozen from | 0 |\n",
+        encoding="utf-8",
+    )
+    two_drifted_rows(repo)
+    before = digests(repo)
+    out = run([*args, "--checked", "2026-02-01", "."], repo)
+    assert out.returncode == 2, out.stdout + out.stderr
+    assert "`Ledger frozen from` appears 2 times — one value" in out.stderr
+    assert "seal/config.md" in out.stderr, out.stderr
+    assert digests(repo) == before
+    assert not (repo / "seal" / "ledger").exists()
+
+
+@pytest.mark.parametrize("shape", ["directory", "undecodable"])
+def test_an_unreadable_config_keeps_the_freeze_on_and_is_refused(repo, shape):
+    """S3 of #867, the checker's half. A `config.md` that is there and will
+    not read used to read as no row, so the freeze was off and `--reverify`
+    re-stamped every released row in place -- the permissive direction on
+    the one row whose loss cannot be recovered. It is refused at exit 2
+    naming the path, and nothing is written. Seen red against the lenient
+    read."""
+    two_drifted_rows(repo)
+    path = unreadable_config(repo, shape)
+    before = digests(repo)
+    out = run(["--reverify", "--checked", "2026-02-01", "."], repo)
+    assert out.returncode == 2, out.stdout + out.stderr
+    assert f"{path} is there and cannot be read" in out.stderr, out.stderr
+    assert digests(repo) == before
+
+
+@pytest.mark.parametrize("shape", ["directory", "undecodable"])
+def test_the_commit_advisor_says_nothing_about_an_unreadable_config(repo, shape):
+    """S3 of #867, the hook's half. The advisor quotes no refusal and does
+    not stop: it prints the BROKEN row it always printed, and keeps the
+    freeze on, so the repair it names is never the in-place re-stamp that
+    `--reverify` would refuse."""
+    released(
+        repo,
+        ["| R1 · gone | `src/service.py#gone@abcdef12` | read | 2026-01-01 | |"],
+    )
+    unreadable_config(repo, shape)
+    import json
+
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    out = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "hooks", "evidence-advisor.py")],
+        input=json.dumps(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "git commit -m x"},
+                "cwd": str(repo),
+            }
+        ),
+        capture_output=True,
+        encoding="utf-8",
+    )
+    assert out.returncode == 0, out.stderr
+    assert "BROKEN" in out.stdout, out.stdout + out.stderr
+    assert "cannot be read" not in out.stdout + out.stderr
+    assert "--into" in out.stdout, out.stdout
+
+
 def test_the_commit_advisor_names_into_where_the_ledger_is_frozen(repo):
     """D4: the post-commit advisor prints the same repair. Under the freeze a
     released row is not re-anchored in place, so the line names `--into`."""
