@@ -142,10 +142,10 @@ hook; `MESSAGE_BUDGET` keeps 1,000 characters of it back for the gate-failure
 report `hooks/dispatch.py` prepends to the same message. The harness counts
 UTF-16 units, so a character outside the BMP is two, and so does the hook.
 One message carries as many of the oldest pending stamps as fit together
-with their disc, each at the highest rung the others leave room for: its
-file's own scale, then 0.90, the one rung with a disc since #832 — the
-owner's disc is drawn 28 cells across at every scale, so there is no smaller
-disc to step to. That disc is most of a stamp's size, so one real run's
+with their disc. A stamp has two rungs, with its disc and then without it:
+the owner's disc is drawn 28 cells across and has one size, so there is no
+smaller disc to step to, and since #853 no scale either. That disc is most
+of a stamp's size, so one real run's
 stamp goes out per message and a second waits for the next turn. A seal past
 what one message can carry stays pending and is drawn at the next turn's
 end, and a single stamp that does not fit with its disc by itself is the
@@ -172,9 +172,11 @@ the first real seal on each background.
 says nothing where the main session's `python3` is under 3.12, the floor
 `seal_stamp.py` refuses below (macOS ships 3.9); where that session's
 working directory is outside the clone the run sealed; or where its plugin
-predates the hook. So every `SEALED` line that names a values file names
-`seal-stamp --from <path>` too, and a stamp that did not appear is drawn by
-hand from it, once.
+predates the hook. A hook older than #853 is silent over a values file a
+newer gate wrote, too: it refuses a file that carries no `scale`, and leaves
+it pending until the plugin is updated. So every `SEALED` line that names a
+values file names `seal-stamp --from <path>` too, and a stamp that did not
+appear is drawn by hand from it, once.
 Enforced by: nothing — no case, hook or workflow can observe a screen; the
 owner reads it on the first real run after a change to this surface.
 

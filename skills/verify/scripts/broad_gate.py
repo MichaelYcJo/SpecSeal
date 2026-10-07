@@ -145,11 +145,12 @@ so; the exit is the arms' own.
 
 Usage:
   broad-gate --base <ref> [--root DIR] [--record <item>] [--shape]
-             [--scale 0.9] [--keep-output DIR]
+             [--keep-output DIR]
   broad-gate --preflight --base <ref> [--root DIR] [--keep-output DIR]
 
 Exit codes: 0 sealed · 1 not sealed · 2 refused — no row, no repository, a
-base that does not resolve, a scale outside the band, a `seal` the record
+base that does not resolve, a copy of the plugin whose sibling will not
+load (a malformed `seal-mark.txt` among them), a `seal` the record
 refused; nothing ran on 2 except where the refusal names what ran. Under
 `--preflight`: 0 every record arm passed and `seal --check` refused nothing
 or was not asked · 1 an arm failed or `seal --check` refused · 2 refused,
@@ -347,12 +348,25 @@ class Refused(Exception):
 
 
 def load(path, name):
-    """Import a sibling script by path."""
+    """Import a sibling script by path, or raise `Refused`: where the file is
+    not there, and where executing it raises (#869) — `seal_stamp.py` reads
+    its disc's mark chart at import and raises `CHART_MALFORMED`'s sentence
+    for one that is not in shape, which then ends the gate at exit 2 with
+    that sentence and nothing run, rather than in a traceback. The
+    exception's own sentence is what the person reads; one with none is
+    named by its type. A `SystemExit` — a sibling's interpreter floor — is
+    no `Exception` and keeps its own exit."""
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None or not os.path.isfile(path):
         raise Refused(f"cannot load {path} — this copy of the plugin is missing it")
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception as exc:
+        said = str(exc) or type(exc).__name__
+        raise Refused(
+            f"broad-gate: {path} will not load, so nothing ran: {said}"
+        ) from exc
     return mod
 
 
@@ -3466,11 +3480,6 @@ def gate(args, console_wants_letters, terminal=False):
     asked = ""
     if args.preflight:
         asked = load(ROUTING, "specseal_routing_for_broad_gate").item_dir(root, branch)
-    # `stamp` refuses a scale outside the band with a sentence; asked before
-    # anything runs, so a refused scale is exit 2 with nothing spent.
-    refused = stamp.check_scale(args.scale)
-    if refused:
-        raise Refused(f"broad-gate: {refused}")
 
     keep = args.keep_output or tempfile.mkdtemp(prefix="broad-gate-")
     os.makedirs(keep, exist_ok=True)
@@ -3684,9 +3693,7 @@ def gate(args, console_wants_letters, terminal=False):
         # Done-when says no other path draws a stamp, so a run without
         # `--record` signals on a terminal too.
         shape = args.shape or console_wants_letters
-        sys.stdout.write(
-            "\n" + "\n".join(stamp.stamp(rows, args.scale, shape)) + "\n\n"
-        )
+        sys.stdout.write("\n" + "\n".join(stamp.stamp(rows, shape)) + "\n\n")
         if uncommitted:
             sys.stdout.write(uncommitted + "\n")
         return 0
@@ -3698,7 +3705,6 @@ def gate(args, console_wants_letters, terminal=False):
             base,
             item,
             rows,
-            args.scale,
             branch=branch,
             pr=pull_request(record),
         )
@@ -3785,7 +3791,7 @@ def common_dir(root):
     return os.path.normpath(os.path.join(root, common.strip()))
 
 
-def signal(stamp, root, tree, base, item, rows, scale, branch=None, pr=None):
+def signal(stamp, root, tree, base, item, rows, branch=None, pr=None):
     """The one line a sealed run prints where nobody can see a drawing.
 
     It starts with `SEALED` and carries `<branch> @ <tree> against <ref> @
@@ -3800,7 +3806,10 @@ def signal(stamp, root, tree, base, item, rows, scale, branch=None, pr=None):
     The values file carries `branch` and `pr` beside the keys it always had,
     which `seal_stamp.label` reads for the line above the drawing; a hook
     older than this gate ignores both and draws the rows under its own
-    label."""
+    label. It carries no `scale` since #853: the disc has one size. A hook
+    older than #853 refuses a file without one and leaves it pending, which
+    the `SEALED` line's `seal-stamp --from` draws (`docs/the-broad-gate.md`
+    §*Where the stamp is drawn*)."""
     head = f"SEALED   {stamp.sealed_names(tree, base.commit, branch, base.ref)}"
     if item is None:
         return head + NOTHING_RECORDED
@@ -3813,7 +3822,6 @@ def signal(stamp, root, tree, base, item, rows, scale, branch=None, pr=None):
         "pr": pr,
         "item": item,
         "session": session or None,
-        "scale": scale,
         "rows": rows,
     }
     common = common_dir(root)
@@ -3860,12 +3868,6 @@ def main(argv=None, console_wants_letters=None, console_is_terminal=None):
     )
     parser.add_argument(
         "--shape", action="store_true", help="the letter twin, whatever the console"
-    )
-    parser.add_argument(
-        "--scale",
-        type=float,
-        default=stamp.DEFAULT_SCALE,
-        help=f"the chart's scale (default {stamp.DEFAULT_SCALE})",
     )
     parser.add_argument(
         "--keep-output",

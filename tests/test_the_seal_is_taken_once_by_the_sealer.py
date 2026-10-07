@@ -4,7 +4,7 @@ Issue #30. Part 1 pins the stamp module, `skills/verify/scripts/seal_stamp.py`:
 the disc is computed and the disc's mark placed on it from one hand-drawn
 chart, so it cannot be off centre; a letter twin exists for a console that cannot draw
 half-blocks, and it has the block form's footprint; colour is emitted at transitions, never per cell; the panel beside
-the disc is data; the scale has a floor; and the failure form carries no
+the disc is data; the disc has one size; and the failure form carries no
 drawing at all, because a picture that says *sealed* beside a word that says
 *not* is the two-things-disagreeing defect this repository keeps paying for.
 
@@ -23,6 +23,7 @@ builds them.
 
 import argparse
 import ast
+import hashlib
 import importlib.util
 import io
 import json
@@ -142,20 +143,20 @@ def visible(line):
     return len(SGR.sub("", line))
 
 
-@pytest.mark.parametrize("scale", [1.0, 0.9, 0.8, 0.75, None])
-def test_the_twin_and_the_block_form_have_equal_width_and_height(scale):
+@pytest.mark.parametrize("disc", [True, False], ids=["with-its-disc", "no-disc"])
+def test_the_twin_and_the_block_form_have_equal_width_and_height(disc):
     """S5. A twin that is a different size is a different drawing, and the
     reader on a cp949 console would be looking at something nobody measured.
-    Compared row by row on visible width, at full scale, at every rung the
-    hook can step down to, and with no disc (#717's A10). #832 took the
+    Compared row by row on visible width, with the disc and without it, the
+    two rungs the hook can step between (#717's A10, #853). #832 took the
     sheet away, so there is no top edge to compare; the twin maps the
     owner's `·`, `✓`, `─` and `→` one character for one, which is what keeps
     the widths equal on the rows that carry them."""
     mod = module()
-    blocks = mod.stamp(ROWS, scale=scale, shape=False)
-    letters = mod.stamp(ROWS, scale=scale, shape=True)
+    blocks = mod.stamp(ROWS, shape=False, disc=disc)
+    letters = mod.stamp(ROWS, shape=True, disc=disc)
     assert len(blocks) == len(letters), (
-        f"{len(blocks)} block rows against {len(letters)} letter rows at {scale}"
+        f"{len(blocks)} block rows against {len(letters)} letter rows ({disc})"
     )
     widths = [(visible(b), visible(t)) for b, t in zip(blocks, letters, strict=True)]
     assert all(b == t for b, t in widths), (
@@ -168,28 +169,6 @@ def test_the_twin_and_the_block_form_have_equal_width_and_height(scale):
     assert not any(c in line for line in letters for c in HALF_BLOCKS), (
         "the letter twin still carries a half-block character"
     )
-
-
-def test_a_scale_that_is_not_a_number_is_refused_before_anything_runs():
-    """A round 1 record correction. `check_scale` compared with `<` and `>`,
-    and NaN compares False with both — so `--scale nan` passed the band, every
-    check ran, the cell was written, and `stamp` then raised `ValueError:
-    cannot convert float NaN to integer`. `broad_gate.main` catches `Refused`
-    alone, so that arrived as a traceback after the write."""
-    mod = module()
-    refusal = mod.check_scale(float("nan"))
-    assert refusal is not None, (
-        "a scale that is not a number passes the band and fails after the "
-        "cell is written"
-    )
-    # A round 2 correction. The first repair sent NaN down the below-the-floor
-    # branch, so the sentence read *scale nan is under the floor of 0.75*.
-    # NaN is not under the floor; it is not on the line at all, and a reader
-    # told to raise it raises a number that fails the same way.
-    assert "is not a number" in refusal, refusal
-    assert "under the floor" not in refusal, refusal
-    assert mod.check_scale(1.0) is None and mod.check_scale(0.75) is None
-    assert mod.check_scale(0.5) is not None and mod.check_scale(1.5) is not None
 
 
 def test_the_failure_form_lines_up_the_widest_check_name():
@@ -207,18 +186,17 @@ def test_the_failure_form_lines_up_the_widest_check_name():
     assert len(columns) == 1, f"the first lines do not share a column:\n{out}"
 
 
-@pytest.mark.parametrize("scale", [0.75, 0.8, 0.9])
-def test_the_disc_draws_the_same_bytes_in_every_process(scale):
+def test_the_disc_draws_the_same_bytes_in_every_process():
     """Round 1's 🟡 6. `shrink` resolved a tie between two chart colours with
     `max(set(ink), key=ink.count)`, and a set of strings iterates in an order
     that moves with PYTHONHASHSEED — so the same scale drew differently from
     one process to the next. Measured over five seeds at 0.75: two distinct
-    renderings.
+    renderings. There is one disc since #853, and it is held the same way.
 
     This module's opening argument is that four hand-typed discs were
     lopsided and a circle that is calculated cannot be off centre. A
-    calculated circle that is not reproducible gives that argument back at
-    every scale but 1.0, and any case that ever pins bytes below 1.0 flakes.
+    calculated circle that is not reproducible gives that argument back, and
+    any case that pins its bytes flakes.
 
     Run in child processes, because the seed is fixed before the interpreter
     starts and cannot be changed from inside one."""
@@ -227,7 +205,7 @@ def test_the_disc_draws_the_same_bytes_in_every_process(scale):
         f"spec = importlib.util.spec_from_file_location('s', {SCRIPT!r})\n"
         "mod = importlib.util.module_from_spec(spec)\n"
         "spec.loader.exec_module(mod)\n"
-        f"sys.stdout.write(chr(10).join(mod.stamp({ROWS!r}, {scale!r}, True)))\n"
+        f"sys.stdout.write(chr(10).join(mod.stamp({ROWS!r}, True)))\n"
     )
     seen = set()
     for seed in ("0", "1", "2", "12345", "99999"):
@@ -242,24 +220,19 @@ def test_the_disc_draws_the_same_bytes_in_every_process(scale):
         )
         assert r.returncode == 0, r.stderr
         seen.add(r.stdout)
-    assert len(seen) == 1, (
-        f"scale {scale} drew {len(seen)} distinct discs across five hash seeds"
-    )
+    assert len(seen) == 1, f"{len(seen)} distinct discs across five hash seeds"
 
 
 def test_the_disc_is_symmetric_because_it_is_computed():
     """#30 §*How it is drawn*: four hand-typed discs were lopsided; a computed
     one cannot be. Every twin row has the same left and right margin."""
     mod = module()
-    for scale in (1.0, *mod.SCALE_LADDER):
-        w, h, px = mod.build(scale)
-        for y in range(0, h, 2):
-            line = mod.letter_row(mod.disc_cells(px, w, y))
-            left = len(line) - len(line.lstrip())
-            right = len(line) - len(line.rstrip())
-            assert left == right, (
-                f"{scale}, row {y}: {left} blank on the left, {right} on the right"
-            )
+    w, h, px = mod.build()
+    for y in range(0, h, 2):
+        line = mod.letter_row(mod.disc_cells(px, w, y))
+        left = len(line) - len(line.lstrip())
+        right = len(line) - len(line.rstrip())
+        assert left == right, f"row {y}: {left} blank on the left, {right} on the right"
 
 
 # --- the lean writer (#832 S11) --------------------------------------------
@@ -332,15 +305,15 @@ def test_a_line_writes_one_sgr_per_change_and_no_reset_inside_it():
     run's block with its label is held under 5,500 UTF-16 units: the owner's
     reference was 5,119 for rows of the same length."""
     mod, cases = module(), hook_cases()
-    letter = mod.compose(cases.FULL_ROWS, 0.9)
-    lines = mod.stamp(cases.FULL_ROWS, 0.9, shape=False)
-    w, h, px = mod.build(0.9)
+    letter = mod.compose(cases.FULL_ROWS)
+    lines = mod.stamp(cases.FULL_ROWS, shape=False)
+    w, h, px = mod.build()
     alone = [mod.disc_cells(px, w, y) for y in range(0, h, 2)]
-    bare = mod.compose(cases.FULL_ROWS, None).cells
+    bare = mod.compose(cases.FULL_ROWS, disc=False).cells
     assert [] in bare, "the block with no disc has no blank line to read"
     pairs = [
         *zip(letter.cells, lines, strict=True),
-        *zip(bare, mod.stamp(cases.FULL_ROWS, None), strict=True),
+        *zip(bare, mod.stamp(cases.FULL_ROWS, disc=False), strict=True),
         *((cells, mod.colour_row(cells)) for cells in alone),
     ]
     for cells, line in pairs:
@@ -394,9 +367,9 @@ def test_a_mark_leading_a_continuation_row_beside_the_disc_is_drawn_in_its_style
         ("suite", "x"),
         ("", f"{mark} 3 passed"),
     ]
-    letter = mod.compose(rows, 0.9)
+    letter = mod.compose(rows)
     marks = 0
-    for cells, line in zip(letter.cells, mod.stamp(rows, 0.9), strict=True):
+    for cells, line in zip(letter.cells, mod.stamp(rows), strict=True):
         shown = what_a_terminal_shows(line.removesuffix(RESET))
         for (char, fg, bg, style), seen in zip(cells, shown, strict=True):
             if char != mark:
@@ -527,7 +500,7 @@ def test_the_disc_stands_left_of_the_open_text_block_each_centred(which, monkeyp
         assert (height, top_text) == (14, 4), (height, top_text)
     if which == "OLD_ROWS":
         assert (height, top_disc) == (19, 2), (height, top_disc)
-    letter = mod.compose(rows, 0.9)
+    letter = mod.compose(rows)
     assert (letter.height, letter.disc) == (height, (0, 2 * top_disc, n, n))
     assert len(letter.cells) == height
     for ln, line in enumerate(letter.cells):
@@ -550,16 +523,16 @@ def test_the_disc_stands_left_of_the_open_text_block_each_centred(which, monkeyp
             if cell[0] not in HALF_BLOCKS:
                 assert cell[2] is None, ("a background outside the circle", ln, cell)
     assert letter.width == max(len(line) for line in letter.cells)
-    # With no disc, the last rung `fitted` steps down to, the block stands at
+    # With no disc, the rung `fitted` steps down to, the block stands at
     # column 0 and sets the height alone.
-    bare = mod.compose(rows, None)
+    bare = mod.compose(rows, disc=False)
     assert bare.disc is None and bare.height == len(text)
     assert bare.cells == [trimmed(line) for line in text]
     if text:
         assert letter.width == n + gap + max(len(line) for line in text)
         # `GAP` is the clear columns between the disc and the text, nothing else.
         monkeypatch.setattr(mod, "GAP", 0)
-        assert mod.compose(rows, 0.9).width == letter.width - gap
+        assert mod.compose(rows).width == letter.width - gap
 
 
 def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
@@ -572,7 +545,7 @@ def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
     14-cell disc. The name still says four codes and five colours, the
     sheet's and the 14-cell disc's, because a released ledger row cites it."""
     mod = module()
-    lines = mod.stamp(mod.SAMPLE_ROWS, 0.9, shape=False)
+    lines = mod.stamp(mod.SAMPLE_ROWS, shape=False)
     text = "\n".join(lines)
     triples, others = set(), set()
     for found in re.finditer(r"\x1b\[([0-9;]*)m", text):
@@ -655,9 +628,8 @@ def test_the_disc_is_lit_from_the_upper_left():
     the disc's mark is lit the same way — a highlight where the cell up-left
     is not the mark, an inner shadow where the cell down-right is not, a
     drop shadow on the field cell down-right of it. Read from `build` by
-    each cell's own geometry and the chart, at every scale of the band,
-    because the disc has one size. `lit` is -1 at the upper left and +1 at
-    the lower right."""
+    each cell's own geometry and the chart. `lit` is -1 at the upper left
+    and +1 at the lower right."""
     mod = module()
     n = mod.DISC_CELLS
     c, r = (n - 1) / 2, n / 2
@@ -665,37 +637,33 @@ def test_the_disc_is_lit_from_the_upper_left():
     def on(x, y):
         return 0 <= x < n and 0 <= y < n and mod.CHART[y][x] == "M"
 
-    for scale in (1.0, 0.9, 0.75):
-        w, h, px = mod.build(scale)
-        seen = set()
-        for y in range(h):
-            for x in range(w):
-                colour = px(x, y)
-                dx, dy = x - c, y - c
-                d, lit = math.hypot(dx, dy), (dx + dy) / (abs(dx) + abs(dy))
-                if colour is None or d > r - mod.WAX_INSET:
-                    continue
-                if d > r - mod.RIM_INSET:
-                    want = (
-                        RIM_LIT if lit < -0.35 else RIM_DARK if lit > 0.35 else RIM_MID
-                    )
-                elif d > r - mod.GROOVE_INSET:
-                    want = RIM_DARK if lit < 0 else RIM_LIT
-                elif on(x, y) and not on(x - 1, y - 1):
-                    want = LIGHT
-                elif on(x, y):
-                    want = INNER if not on(x + 1, y + 1) else FACE
-                else:
-                    want = DROP if on(x - 1, y - 1) else FIELD
-                assert colour == want, (scale, x, y, colour, want)
-                seen.add(colour)
-        assert {RIM_LIT, RIM_MID, RIM_DARK, LIGHT, INNER, DROP} <= seen, seen
+    w, h, px = mod.build()
+    seen = set()
+    for y in range(h):
+        for x in range(w):
+            colour = px(x, y)
+            dx, dy = x - c, y - c
+            d, lit = math.hypot(dx, dy), (dx + dy) / (abs(dx) + abs(dy))
+            if colour is None or d > r - mod.WAX_INSET:
+                continue
+            if d > r - mod.RIM_INSET:
+                want = RIM_LIT if lit < -0.35 else RIM_DARK if lit > 0.35 else RIM_MID
+            elif d > r - mod.GROOVE_INSET:
+                want = RIM_DARK if lit < 0 else RIM_LIT
+            elif on(x, y) and not on(x - 1, y - 1):
+                want = LIGHT
+            elif on(x, y):
+                want = INNER if not on(x + 1, y + 1) else FACE
+            else:
+                want = DROP if on(x - 1, y - 1) else FIELD
+            assert colour == want, (x, y, colour, want)
+            seen.add(colour)
+    assert {RIM_LIT, RIM_MID, RIM_DARK, LIGHT, INNER, DROP} <= seen, seen
 
 
-@pytest.mark.parametrize("scale", [1.0, 0.9, 0.75])
-def test_the_disc_is_twenty_eight_cells_in_the_frames_nine_colours(scale):
-    """#832 S2, the owner's frame of 2026-10-07. `build` returns 28 x 28 at
-    every scale in the band, and every cell is exactly one of nine colours
+def test_the_disc_is_twenty_eight_cells_in_the_frames_nine_colours():
+    """#832 S2, the owner's frame of 2026-10-07. `build` returns 28 x 28,
+    and every cell is exactly one of nine colours
     or nothing. The frame's counts, which no chart moves: 176 outside, 84
     of the wax edge, 98 lit, 30 mid and 96 dark over the rim and the groove,
     and 300 inside the groove — split over the field and the disc's mark by
@@ -706,7 +674,7 @@ def test_the_disc_is_twenty_eight_cells_in_the_frames_nine_colours(scale):
     assert (mod.DISC_CELLS, mod.DISC_LINES) == (28, 14)
     insets = (mod.EDGE_INSET, mod.WAX_INSET, mod.RIM_INSET, mod.GROOVE_INSET)
     assert (*insets, mod.LIT_AT) == (0.2, 1.2, 3.2, 4.2, 0.35)
-    w, h, px = mod.build(scale)
+    w, h, px = mod.build()
     assert (w, h) == (28, 28), (w, h)
     cells = [px(x, y) for y in range(h) for x in range(w)]
     frame = {c: cells.count(c) for c in (None, WAX_EDGE, RIM_LIT, RIM_MID, RIM_DARK)}
@@ -714,7 +682,7 @@ def test_the_disc_is_twenty_eight_cells_in_the_frames_nine_colours(scale):
     assert sum(c in (FIELD, FACE, LIGHT, INNER, DROP) for c in cells) == 300
     for y in range(h):
         for x in range(w):
-            assert px(x, y) == owners_disc(mod.CHART, x, y), (scale, x, y)
+            assert px(x, y) == owners_disc(mod.CHART, x, y), (x, y)
     assert set(cells) - {None} == set(mod.DISC_COLOURS)
     for x, y in ((-1, 0), (0, -1), (28, 14), (14, 28)):
         assert px(x, y) is None, (x, y)
@@ -779,7 +747,7 @@ def test_the_stamp_module_imports_with_pillow_blocked():
         f"spec = importlib.util.spec_from_file_location('s', {SCRIPT!r})\n"
         "mod = importlib.util.module_from_spec(spec)\n"
         "spec.loader.exec_module(mod)\n"
-        "mod.build(0.75)\n"
+        "mod.build()\n"
     )
     r = subprocess.run(
         [sys.executable, "-c", script],
@@ -815,8 +783,8 @@ def test_the_twin_writes_the_discs_nine_letters_and_the_text_in_ascii():
     assert len(set(mod.KEY.values())) == 9, mod.KEY
     ascii_ = {"·": ".", "✓": "+", "─": "-", "→": ">"}
     assert ascii_ == mod.TWIN_ASCII, mod.TWIN_ASCII
-    letter = mod.compose(mod.SAMPLE_ROWS, 0.9)
-    twin = mod.stamp(mod.SAMPLE_ROWS, 0.9, shape=True)
+    letter = mod.compose(mod.SAMPLE_ROWS)
+    twin = mod.stamp(mod.SAMPLE_ROWS, shape=True)
     seen = set()
     for line, said in zip(letter.cells, twin, strict=True):
         assert said.isascii(), said
@@ -842,7 +810,7 @@ def test_a_half_block_in_a_value_is_text_in_the_twin(value):
     alone, the twin looked up the text's foreground, None, and raised
     `KeyError` after the gate had written the cell (round 1's 🟡 5)."""
     mod = module()
-    twin = mod.stamp([("SEALED", ""), ("tree", value)], 0.9, shape=True)
+    twin = mod.stamp([("SEALED", ""), ("tree", value)], shape=True)
     assert any(line.endswith(f"tree    {value}") for line in twin), twin
 
 
@@ -893,45 +861,141 @@ def test_the_text_lines_are_a_red_title_a_rule_and_the_rows_under_it():
     assert branch.index("feat/12-a-branch") == tree.index("c46fd2d") == 8
 
 
-# --- the floor -------------------------------------------------------------
+# --- the scale, retired (#853) ---------------------------------------------
+
+# SHA-256, first sixteen hex digits, of what 5623d728's `seal_stamp.py` drew
+# over `SAMPLE_ROWS` at its default scale, 0.90 — the block form, the letter
+# twin, the text block with no disc — and of `fitted` over two blocks labelled
+# `first` and `second` at three budgets: the default, room for both with
+# their disc, and 50, under which the first is drawn alone with no disc.
+# Captured with the scale-era call spelling before the first edit
+# (`phases/phase-5.md` of 1791384158 holds the command).
+DRAWN_AT_5623D728 = {
+    "block": "4413e52ec47d938e",
+    "letters": "6273c12623355d89",
+    "no-disc": "15eb7013e91ac03c",
+    "fitted-default": "fc1c76e9e55a1444",
+    "fitted-two": "e0dcadd4a5a511c8",
+    "fitted-alone-no-disc": "76f216e7da17dfb8",
+}
 
 
-def test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence():
-    """#30 §*Size*: 75 % is the floor the issue measured on #717's lily — at
-    60 % the band closed, at 50 % the lily read as a cross. The floor is let through; a
-    scale under it is refused with a sentence naming both numbers, and the
-    command exits 2 with nothing drawn, because a seal nobody can read is the
-    counterfeit `verify` names."""
+def test_the_stamp_draws_byte_for_byte_what_it_drew_at_the_default_scale():
+    """S13 (#853). The disc had one size at every scale since #832, so taking
+    the scale away moves no byte: `stamp` with the disc and without it, in
+    both forms, and `fitted` stepping a block from its disc to the text block
+    alone, draw what the module drew at 0.90 before #853."""
     mod = module()
-    assert mod.stamp(ROWS, scale=0.75), "the floor itself was refused"
-    with pytest.raises(ValueError) as refused:
-        mod.stamp(ROWS, scale=0.5)
-    sentence = str(refused.value)
-    assert "0.75" in sentence and "0.5" in sentence, (
-        f"the refusal names neither the floor nor the scale asked for: {sentence!r}"
+
+    def h(text):
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+    rows = mod.SAMPLE_ROWS
+    one = "\n".join(["first", *mod.stamp(rows)])
+    size = len(one.encode("utf-16-le")) // 2
+    blocks = [("first", rows), ("second", rows)]
+    drawn = {
+        "block": h("\n".join(mod.stamp(rows))),
+        "letters": h("\n".join(mod.stamp(rows, shape=True))),
+        "no-disc": h("\n".join(mod.stamp(rows, disc=False))),
+        "fitted-default": h(mod.fitted(blocks)),
+        "fitted-two": h(mod.fitted(blocks, budget=2 * size + 10)),
+        "fitted-alone-no-disc": h(mod.fitted(blocks, budget=50)),
+    }
+    assert drawn == DRAWN_AT_5623D728, drawn
+
+
+@pytest.mark.parametrize("preflight", [False, True], ids=["seal", "preflight"])
+def test_a_malformed_mark_chart_is_a_refusal_before_anything_runs(
+    repo, tmp_path, preflight
+):
+    """S14 (#869). A copy of the plugin whose `seal-mark.txt` has 27 lines:
+    `seal_stamp.py` raises `CHART_MALFORMED`'s sentence at import, and the
+    gate's `load` turns it into a refusal — exit 2, the sentence with the
+    path on stderr, and nothing run: no output kept, no worktree added. It
+    ended in a traceback and exit 1."""
+    scripts = tmp_path / "plugin" / "skills" / "verify" / "scripts"
+    shutil.copytree(os.path.dirname(GATE), scripts)
+    chart = scripts / "seal-mark.txt"
+    lines = chart.read_text(encoding="utf-8").splitlines()
+    chart.write_text("\n".join(lines[:27]) + "\n", encoding="utf-8")
+    keep = tmp_path / "out"
+    preflight_flag = ["--preflight"] if preflight else []
+    out = subprocess.run(
+        [
+            sys.executable,
+            str(scripts / "broad_gate.py"),
+            "--base",
+            "base",
+            "--root",
+            str(repo),
+            "--keep-output",
+            str(keep),
+            *preflight_flag,
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
     )
-    with pytest.raises(ValueError, match=r"1\.0") as too_large:
-        mod.stamp(ROWS, scale=1.5)
-    assert "1.5" in str(too_large.value), (
-        "a scale above 1.0 is refused with a sentence naming the scale asked for"
-    )
-    # #832: the disc is one size at every scale of the band, so neither
-    # sentence may give a disc's size as its reason.
-    both = sentence + " " + str(too_large.value)
-    assert "scale 0.5 is under the floor of 0.75." in sentence, sentence
-    assert "scale 1.5 is above 1.0." in str(too_large.value), too_large.value
-    assert both.count("The disc is drawn at one size whatever the scale") == 2, both
-    assert "a values file and `--scale` may carry" in str(too_large.value)
-    for gone in ("too few cells", "a larger disc", "measured up to it", "stitch"):
-        assert gone not in both, (gone, both)
-    # The command's own help says the same: the band, and one disc size.
-    told = " ".join(run_wrapper("--help").stdout.split())
-    assert "a scale in the band 0.75-1.0" in told, told
-    assert "the disc is one size at every scale" in told, told
-    out = run_wrapper("--shape", "--scale", "0.5")
+    assert out.returncode == 2, (out.returncode, out.stdout, out.stderr)
+    assert "Traceback" not in out.stderr, out.stderr
+    said = module().CHART_MALFORMED.format(path=chart, n=28, fault="27 lines")
+    assert said in out.stderr, out.stderr
+    assert not keep.exists(), sorted(os.listdir(keep))
+    worktrees = git(repo, "worktree", "list").stdout.strip().splitlines()
+    assert len(worktrees) == 1, worktrees
+
+
+def test_a_sibling_that_raises_at_import_is_refused_with_its_own_sentence(tmp_path):
+    """S14's unit (#869). `load` turns an exception a sibling raises while
+    it is executed into `Refused`, naming the path and carrying the
+    exception's own sentence, or its type where the sentence is empty; a
+    sibling's `SystemExit` — an interpreter floor — keeps its own exit."""
+    gate = gate_module()
+    for body, said in (
+        (
+            "raise ValueError('the chart is not in shape')\n",
+            "the chart is not in shape",
+        ),
+        ("raise KeyError()\n", "KeyError"),
+    ):
+        sibling = tmp_path / "sibling.py"
+        sibling.write_text(body, encoding="utf-8")
+        with pytest.raises(gate.Refused) as refused:
+            gate.load(str(sibling), "specseal_sibling_under_test")
+        assert str(refused.value) == (
+            f"broad-gate: {sibling} will not load, so nothing ran: {said}"
+        ), refused.value
+    sibling.write_text("raise SystemExit(3)\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        gate.load(str(sibling), "specseal_sibling_under_test")
+
+
+def test_no_scale_is_left_to_ask_for():
+    """S13 (#853). The band, its three refusals, the ladder, the default and
+    `check_scale` are gone from the module; `seal-stamp --scale 0.9` is
+    refused by its parser, exit 2 with nothing drawn, and so is `broad-gate
+    --scale 0.9`, before anything runs; neither command's help names a
+    scale."""
+    mod = module()
+    left = [name for name in vars(mod) if "SCALE" in name or name == "check_scale"]
+    assert left == [], left
+    out = run_wrapper("--shape", "--scale", "0.9")
     assert out.returncode == 2, f"exit {out.returncode}; stderr {out.stderr!r}"
-    assert "0.75" in out.stderr, f"the command's refusal names no floor: {out.stderr!r}"
-    assert not out.stdout, f"something was drawn under a refused scale: {out.stdout!r}"
+    assert "unrecognized arguments: --scale" in out.stderr, out.stderr
+    assert not out.stdout, out.stdout
+    assert "scale" not in run_wrapper("--help").stdout
+    gate = subprocess.run(
+        [sys.executable, GATE, "--base", "x", "--scale", "0.9", "--root", ROOT],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=120,
+        env={**os.environ, "SPECSEAL_BROAD_GATE_INVOKED_AS": GATE},
+    )
+    assert gate.returncode == 2, (gate.returncode, gate.stderr)
+    assert "unrecognized arguments: --scale" in gate.stderr, gate.stderr
 
 
 # --- the failure form ------------------------------------------------------
@@ -3151,9 +3215,8 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(a_sealed_run):
 
 def test_the_values_file_holds_this_runs_panel(a_sealed_run):
     """S2 and S13 of 1790562543. The file holds the rows `panel` returned for
-    this run — in `panel`'s order — and the scale the run was given, which
-    with no `--scale` is `seal_stamp.DEFAULT_SCALE`. Nothing downstream
-    re-derives a row: the drawing is these values.
+    this run — in `panel`'s order — and, since #853, no scale. Nothing
+    downstream re-derives a row: the drawing is these values.
 
     #666's A5: the whole sequence, positively, so a row that went missing
     cannot pass by being absent. The branch continues under `tree` and the
@@ -3180,7 +3243,8 @@ def test_the_values_file_holds_this_runs_panel(a_sealed_run):
         ("chain", "✓ exit 0"),
         ("rounds", "2"),
     ], values["rows"]
-    assert values["scale"] == module().DEFAULT_SCALE == 0.90, values["scale"]
+    # #853: the disc has one size, and the file carries no scale.
+    assert "scale" not in values, values
     assert values["session"] == "s-1" and values["item"] == str(repo / ITEM)
     assert (values["tree"], values["base"]) == (
         short(repo, "HEAD"),
@@ -3594,10 +3658,11 @@ def test_the_widest_panel_the_tree_can_produce_fits_at_the_first_rung(tmp_path):
     branch, a ref under a second remote, five-digit counts in three parts —
     plus the `gate` row, this repository's own hygiene workflow and a capped
     record deferring to eight distinct homes, the hook's message for that
-    one panel, label and block form at `DEFAULT_SCALE`, is within
-    `MESSAGE_BUDGET`, and `fitted` returns the 0.90 drawing itself: the
-    ladder is a margin, not something an ordinary seal steps down. The
-    drawing before #717 was over 10,000 characters for #666's rows alone."""
+    one panel, label and block form with its disc, is within
+    `MESSAGE_BUDGET`, and `fitted` returns that drawing itself: the rung
+    with no disc is a margin, not something an ordinary seal steps down to.
+    The drawing before #717 was over 10,000 characters for #666's rows
+    alone."""
     gate, mod = gate_module(), module()
     item = tmp_path / "1799000000-an-item-with-a-long-name"
     verdicts = "".join(
@@ -3635,9 +3700,9 @@ def test_the_widest_panel_the_tree_can_produce_fits_at_the_first_rung(tmp_path):
         "item": str(item),
     }
     label = mod.label(values)
-    at_first = "\n".join([label, *mod.stamp(rows, mod.DEFAULT_SCALE, shape=False)])
+    at_first = "\n".join([label, *mod.stamp(rows, shape=False)])
     assert len(at_first) <= mod.MESSAGE_BUDGET, len(at_first)
-    assert mod.fitted([(label, rows, mod.DEFAULT_SCALE)]) == at_first
+    assert mod.fitted([(label, rows)]) == at_first
 
 
 def test_a_list_too_long_for_its_row_continues_beneath_it():
@@ -9818,7 +9883,6 @@ def test_a_runners_event_payload_judges_the_fixture_and_fails_its_gate(
             base="base",
             record=str(repo / ITEM),
             shape=True,
-            scale=1.0,
             keep_output=str(tmp_path / "out"),
             preflight=False,
         ),
@@ -9869,7 +9933,6 @@ def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
             base="base",
             record=str(repo / ITEM),
             shape=True,
-            scale=1.0,
             keep_output=str(tmp_path / "out"),
             preflight=False,
         ),
