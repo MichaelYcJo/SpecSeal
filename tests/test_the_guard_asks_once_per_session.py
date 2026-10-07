@@ -628,8 +628,9 @@ def test_the_guard_is_never_silent_where_the_writer_records(
     the whole command line to a person, which is the standing a creation that
     runs is claimed to have.
 
-    The `outside` half is the guard's SECOND silent exit: `judgeable` falls
-    back to the session's own directory, so `top` is empty only when the SHELL
+    The `outside` half is the guard's SECOND silent exit: the placement
+    (`worktree_consent.place`, `judgeable` until #868) falls back to the
+    session's own directory, so `top` is empty only when the SHELL
     is outside any repository -- and a `git -C <repo> worktree add` in the same
     command is not. Executed before this case: silent here, record written.
 

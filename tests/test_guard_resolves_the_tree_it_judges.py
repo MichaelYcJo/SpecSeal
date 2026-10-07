@@ -761,6 +761,107 @@ def test_the_consent_writer_files_where_the_base_filed_whatever_the_walk_leads(
     assert os.path.normpath(acted) == str(session / "w"), (name, acted)
 
 
+# --- #868 In 1: one placement for the guard and the consent writer ---------
+#
+# The two chains where the guard's `wheres[0]` and the writer's first
+# resolved entry disagreed (`spec.md` In 1 of work item 1791384157). bash
+# runs the `||` segment only where the `cd` failed, in the directory the shell
+# was already in, and `;` runs its segment there when the `cd` fails, so the
+# guard's answer is where bash creates in both. `{other}` is a clean
+# repository of its own and `{missing}` is never created.
+PLACEMENT_CHAINS = {
+    **BASE_TREE_CHAINS,
+    "an unreadable segment, then a cd whose failure branch creates": (
+        "eval x ; cd {other} || "
+    ),
+    "a cd into nothing, then a semicolon": "cd {missing} ; ",
+}
+
+
+def _the_tree_the_guard_judges_a_creation_in(monkeypatch, capsys, command, cwd):
+    """The `top` the guard hands `judge_creation` for COMMAND, or None."""
+    seen = []
+
+    def judged(_command, _cwd, top, *_rest, **_kw):
+        seen.append(top)
+        raise SystemExit(0)
+
+    monkeypatch.setattr(wg, "judge_creation", judged)
+    run(monkeypatch, capsys, command, cwd)
+    return seen[0] if seen else None
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "an unreadable segment, then a cd whose failure branch creates",
+        "a cd into nothing, then a semicolon",
+    ],
+)
+def test_the_consent_writer_files_a_creation_where_bash_runs_it(repo, tmp_path, name):
+    """S1 and S2 of work item 1791384157. The writer took the first entry of
+    the walk that was not `Unresolved`: the directory the `||` skips in the
+    first chain, and a directory that holds nothing in the second, where no
+    record was written at all. bash creates from the session's own directory
+    in both. Red at `5623d728`, where the writer answered `{other}` and
+    `{missing}`."""
+    session, other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    chain = PLACEMENT_CHAINS[name].format(
+        missing=tmp_path / "nosuch-either", other=other
+    )
+    acted = wg.worktree_consent.creation_directory(
+        chain + "git worktree add ../wt f", str(session)
+    )
+    assert os.path.normpath(acted) == str(session), (name, acted)
+
+
+def test_the_guard_policy_says_the_record_is_filed_where_the_guard_judged():
+    """§14 of the agent contract, for S1-S3 of work item 1791384157: §*Creation
+    consent*'s record says its clone is the one the guard judged, placed by
+    one function. Red against `5623d728`'s text."""
+    assert (
+        "**The clone the guard judged.** The writer places a creation by the "
+        "guard's own placement, `hooks/worktree_consent.py#place`"
+    ) in _policy_text()
+
+
+def test_the_consent_writer_composes_the_creations_own_dash_c(repo, tmp_path):
+    """S3 of work item 1791384157, the half the chains do not reach: the
+    writer files under the directory the creation's own `-C` names, composed
+    onto the directory its segment runs in, as the guard judges it. A
+    relative `-C` after a `cd` is the case `place` composes before it falls
+    back. A break returning the shell's directory survived until this case."""
+    session, other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    for command, expected in (
+        (f"git -C {other} worktree add ../wt f", other),
+        ("cd w && git -C ../clean worktree add ../wt f", session / "clean"),
+    ):
+        acted = wg.worktree_consent.creation_directory(command, str(session))
+        assert os.path.samefile(acted, expected), (command, acted)
+
+
+@pytest.mark.parametrize("name", sorted(PLACEMENT_CHAINS))
+def test_the_writer_files_under_the_clone_the_guard_judged(
+    monkeypatch, capsys, repo, tmp_path, name
+):
+    """S3 of work item 1791384157. For every chain, the clone the consent
+    writer files a creation under is the clone the guard judged it in: the
+    guard's `main` and the writer's `creation_directory` are two paths
+    through one placement. Red at `5623d728` on the two chains above."""
+    session, other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    chain = PLACEMENT_CHAINS[name].format(
+        missing=tmp_path / "nosuch-either", other=other
+    )
+    command = chain + "git worktree add ../wt f"
+    judged = _the_tree_the_guard_judges_a_creation_in(
+        monkeypatch, capsys, command, session
+    )
+    acted = wg.worktree_consent.creation_directory(command, str(session))
+    filed = wg.worktree_consent.optin.repo_root(acted)
+    assert judged and filed, (name, judged, acted)
+    assert os.path.samefile(judged, filed), (name, judged, filed)
+
+
 def test_a_git_only_the_reading_past_redirections_finds_stops_in_its_segments_tree(
     monkeypatch, capsys, repo, tmp_path
 ):

@@ -229,50 +229,11 @@ def load_input():
         return {}
 
 
-def _tokenize_with_separators(command: str, windows=None):
-    """`cmdline.split_segments_with_separators`, Windows separators carried across.
-
-    Returns `([(operator, tokens), ...], parsed_cleanly)`. The operator is what
-    joined each segment to the one before it, and reading a `cd` needs it: `&&`
-    runs what follows where the `cd` arrived, `||` runs it only if the `cd`
-    failed, which is where the shell already was.
-
-    On Windows `\\` is the path separator, and POSIX-mode shlex reads it as an
-    escape: `git -C C:\\proj\\repo switch topic` tokenizes to `C:projrepo` and
-    the value naming the repository is gone. Doubling the backslashes first
-    hands them back. The one form that comes out still doubled is a
-    single-quoted path, where shlex unescapes nothing, and `apply_chdir`
-    collapses those with `os.path.normpath` -- which is `ntpath` on Windows
-    (measured).
-
-    `windows` is overridable so the branch can be exercised from any platform:
-    the failure it guards is invisible on the machines most sessions run on,
-    and the value it destroys is the one that decides WHICH repository the
-    command acts on.
-
-    A `cd` argument is the same kind of value as a `-C` one, arrives the same
-    way, and goes through this same doubling — which is the whole of what the
-    adapter has to say about it, since both then reach `apply_chdir` and its
-    `normpath`.
-    """
-    # RIDER: a UNC path in SINGLE quotes still loses the repository.
-    # `git -C '\\\\server\\share\\repo' switch x` reaches `apply_chdir` with the
-    # leading pair doubled: the line below doubles every backslash, shlex
-    # unescapes nothing inside single quotes, and `ntpath.normpath` collapses
-    # interior runs but not the leading pair that names the host. The guard
-    # then finds no repository there and exits silently. The base hook handled
-    # this form, so this one place went backwards; every other Windows form
-    # (bare, double-quoted, relative) was compared against base and matches.
-    # Verified 2026-08-31 against _tokenize_with_separators@8801e5d6.
-    #
-    # A `cd` operand goes through this same doubling since that fix, so the
-    # single-quoted UNC form loses the repository there too and the rider now
-    # covers both. Read, not run: there is no Windows runner here.
-    if windows is None:
-        windows = os.name == "nt"
-    if windows:
-        command = command.replace("\\", "\\\\")
-    return cmdline.split_segments_with_separators(command)
+# The tokenizing adapter and the placement live in `hooks/worktree_consent.py`
+# since #868, beside the consent writer that reads the same command, so the
+# directory a creation is filed under is the one this guard judged.
+_tokenize_with_separators = worktree_consent.split_with_separators
+segment_cwd = worktree_consent.segment_cwd
 
 
 def _tokenize(command: str, windows=None):
@@ -591,62 +552,6 @@ def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
             return False
         seen = True
     return seen
-
-
-def judgeable(tokens, where: str, cwd: str):
-    """(shell directory, git directory) this segment's verdict is about.
-
-    Two destinations fall back to the session's own directory, which is this
-    guard's answer from before it could read a `cd` at all:
-
-      - one the reader could not compute (a variable, a glob, a subshell);
-      - one that reads cleanly and holds no repository.
-
-    The second was missed, and it is the more common of the two. `cd
-    /no/such/dir ; git switch x` leaves the shell exactly where it started —
-    `;` runs what follows whether the `cd` worked or not — so the switch
-    happens in the session's own tree, which is the tree another session may
-    be sitting in. Judging the destination sent the guard to `if not top:
-    sys.exit(0)` and it said nothing at all.
-
-    The commit gate STOPS on a target like this (`names_a_directory` in
-    `hooks/commit-review-gate.py`) and this guard falls back instead. The two
-    protect different things: a commit nobody judged is a commit nobody
-    reviewed, while a guard that goes silent leaves a shared tree unguarded,
-    and `worktree-guard-spec.md` §Unknowns resolve conservatively puts the
-    cost of a wrong deny at one prompt against a wrong allow breaking another
-    session's tree.
-
-    A `git -C` that names no repository is NOT this case and keeps today's
-    silence: git refuses that command itself, so no tree is touched.
-
-    Which is why the segment's own `-C` is composed BEFORE the fallback is
-    considered, and not after. Deciding first threw the destination away and
-    then resolved a RELATIVE `-C` against the session directory instead:
-    `cd ~/projects && git -C myrepo switch main` turned a real target
-    repository into a path that does not exist, and the guard exited at
-    `if not top` having said nothing. Returning both directories is what lets
-    the caller classify against the tree it is about to judge.
-    """
-    here = cwd if isinstance(where, cmdline.Unresolved) else where
-    target = segment_cwd(tokens, here)
-    if here == cwd or repo_paths(target)[0]:
-        return here, target
-    return cwd, segment_cwd(tokens, cwd)
-
-
-def segment_cwd(tokens, cwd: str) -> str:
-    """`cwd` with this segment's own `git -C` applied, or `cwd` unchanged.
-
-    Takes the token list the walk produced -- the same one `shape_of` read.
-    `main()` asks this for the `-C` target of the segment whose shape it just
-    read, so reading both from one tokenization is what keeps the verdict and
-    the tree it is about in agreement.
-    """
-    parsed = parse_git(tokens)
-    if not parsed:
-        return cwd
-    return apply_chdir(cwd, parsed[2])
 
 
 def ancestors(pid: int):
@@ -2488,11 +2393,12 @@ def _first_finding_in(body, depth):
     return None
 
 
-def _finding_tree(tokens, where, cwd):
+def _finding_tree(tokens, wheres, cwd):
     """The directory an unrecognised shape's verdict is about.
 
-    `judgeable`'s, which composes the segment's own `-C` as the frozen
-    reading reads it. A git only the wider reader reads (`2>/dev/null git -C
+    `worktree_consent.place`'s, which places the segment at the first of the
+    frozen walk's directories WHERES and composes the segment's own `-C` as
+    the frozen reading reads it. A git only the wider reader reads (`2>/dev/null git -C
     W switch x`) carries a `-C` the frozen reading cannot see, so the wider
     reading's is composed the same way: the shape is judged in `W`, where it
     runs, not in the tree it was typed from. A body or an untokenizable
@@ -2503,7 +2409,7 @@ def _finding_tree(tokens, where, cwd):
     §*Known limits*; round 1 of work item 1791270162, yellow 5)."""
     if tokens is None:
         return cwd
-    here, target = judgeable(tokens, where, cwd)
+    here, target = worktree_consent.place(tokens, wheres, cwd)
     if parse_git(tokens) is None and wide is not None:
         try:
             parsed = _wide_git(tokens)
@@ -2995,27 +2901,26 @@ def main():
         shape, finding = _segment_finding(tokens)
         if shape not in ("switch", "creation") and finding is None:
             continue
-        where = wheres[0] if wheres else cwd
+        # Placed by `worktree_consent.place`, the one placement the consent
+        # writer files a creation by (#868).
         if shape == "switch":
             if switch_at is None:
-                switch_at = judgeable(tokens, where, cwd)[1]
+                switch_at = worktree_consent.place(tokens, wheres, cwd)[1]
         elif shape == "creation":
             if creation_at is None:
-                creation_at = judgeable(tokens, where, cwd)[1]
+                creation_at = worktree_consent.place(tokens, wheres, cwd)[1]
         else:
-            unrecognised.append((index, finding, tokens, where))
+            unrecognised.append((index, finding, tokens, wheres))
     # A cut group is placed by its own words, from the directory its first
     # part runs in (`_merged_findings`).
     for first, finding, tokens in _merged_findings(items):
-        wheres = walked[first][1]
-        unrecognised.append((first, finding, tokens, wheres[0] if wheres else cwd))
+        unrecognised.append((first, finding, tokens, walked[first][1]))
     # A substitution body and an untokenizable command belong to no one
     # segment, so they are judged in the session's own tree: the fallback
     # #686 gives a directory the walk cannot place, and the stand-in the
     # commit gate judges a body's commit against (`_unresolved_base`).
     unrecognised += [
-        (len(walked), finding, None, cwd)
-        for finding in _command_findings(judged, clean)
+        (len(walked), finding, None, ()) for finding in _command_findings(judged, clean)
     ]
     unrecognised.sort(key=lambda found: found[0])
 
@@ -3037,8 +2942,8 @@ def main():
     seen = {}
     placed = set()
     trees = []
-    for _index, _found, tokens, where in unrecognised:
-        at = _finding_tree(tokens, where, cwd)
+    for _index, _found, tokens, wheres in unrecognised:
+        at = _finding_tree(tokens, wheres, cwd)
         if at in placed:
             continue
         placed.add(at)
@@ -3087,7 +2992,7 @@ def main():
     # on the machine.
     if not top:
         # The guard's OTHER silent exit, and it hides the same escape as the
-        # one at the end of the switch ladder. `judgeable` already falls back
+        # one at the end of the switch ladder. `worktree_consent.place` falls back
         # to the session's own directory, so `top` is empty only when the
         # SHELL is outside any repository -- and a `git -C <repo> worktree
         # add` later in the same command is not. Executed: with the shell in

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | written by the commit that opens phase 2, which names this record's commit |
+| Commit | 84535260 |
 | Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked

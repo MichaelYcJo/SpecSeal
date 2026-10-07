@@ -416,6 +416,123 @@ def record(top: str, session: str) -> bool:
     return True
 
 
+def split_with_separators(command: str, windows=None):
+    """`cmdline.split_segments_with_separators`, Windows separators carried across.
+
+    Returns `([(operator, tokens), ...], parsed_cleanly)`. The operator is what
+    joined each segment to the one before it, and reading a `cd` needs it: `&&`
+    runs what follows where the `cd` arrived, `||` runs it only if the `cd`
+    failed, which is where the shell already was.
+
+    On Windows `\\` is the path separator, and POSIX-mode shlex reads it as an
+    escape: `git -C C:\\proj\\repo switch topic` tokenizes to `C:projrepo` and
+    the value naming the repository is gone. Doubling the backslashes first
+    hands them back. The one form that comes out still doubled is a
+    single-quoted path, where shlex unescapes nothing, and `apply_chdir`
+    collapses those with `os.path.normpath` -- which is `ntpath` on Windows
+    (measured).
+
+    `windows` is overridable so the branch can be exercised from any platform:
+    the failure it guards is invisible on the machines most sessions run on,
+    and the value it destroys is the one that decides WHICH repository the
+    command acts on.
+
+    A `cd` argument is the same kind of value as a `-C` one, arrives the same
+    way, and goes through this same doubling -- which is the whole of what the
+    adapter has to say about it, since both then reach `apply_chdir` and its
+    `normpath`.
+
+    The worktree guard and this writer read every command through this one
+    adapter (#868): the guard doubled the backslashes and the writer did not,
+    so on Windows the two read different directories out of one command.
+    """
+    # RIDER: a UNC path in SINGLE quotes still loses the repository.
+    # `git -C '\\\\server\\share\\repo' switch x` reaches `apply_chdir` with the
+    # leading pair doubled: the line below doubles every backslash, shlex
+    # unescapes nothing inside single quotes, and `ntpath.normpath` collapses
+    # interior runs but not the leading pair that names the host. The guard
+    # then finds no repository there and exits silently. The base hook handled
+    # this form, so this one place went backwards; every other Windows form
+    # (bare, double-quoted, relative) was compared against base and matches.
+    #
+    # A `cd` operand goes through this same doubling since that fix, so the
+    # single-quoted UNC form loses the repository there too and the rider now
+    # covers both. Read, not run: there is no Windows runner here. Since #868
+    # the consent writer reads through this adapter too, so it files such a
+    # creation nowhere, which is the record's own failure direction.
+    # Verified 2026-10-08 against split_with_separators@f435be0a.
+    if windows is None:
+        windows = os.name == "nt"
+    if windows:
+        command = command.replace("\\", "\\\\")
+    return cmdline.split_segments_with_separators(command)
+
+
+def segment_cwd(tokens, cwd: str) -> str:
+    """`cwd` with this segment's own `git -C` applied, or `cwd` unchanged.
+
+    Takes the token list the walk produced, the same one the guard's
+    `shape_of` read, so the verdict and the tree it is about come from one
+    tokenization."""
+    parsed = cmdline.parse_git(tokens)
+    if not parsed:
+        return cwd
+    return cmdline.apply_chdir(cwd, parsed[2])
+
+
+def place(tokens, wheres, cwd: str):
+    """(shell directory, git directory) a segment of the frozen walk acts in.
+
+    The one placement the worktree guard and this writer share (#868), so the
+    clone a creation is filed under is the clone the guard judged it in.
+    WHERES is the frozen walk's directories for the segment, and the first is
+    where bash runs it: the walk lists the failure branch of a `||` first and
+    the skipped live shells after it (`hooks/cmdline_base.py`).
+
+    Two destinations fall back to the session's own directory, which is the
+    guard's answer from before it could read a `cd` at all:
+
+      - one the reader could not compute (a variable, a glob, a subshell);
+      - one that reads cleanly and holds no repository.
+
+    The second was missed, and it is the more common of the two. `cd
+    /no/such/dir ; git switch x` leaves the shell exactly where it started --
+    `;` runs what follows whether the `cd` worked or not -- so the switch
+    happens in the session's own tree, which is the tree another session may
+    be sitting in. Judging the destination sent the guard to its `if not top`
+    exit and it said nothing at all. This writer took the first entry that
+    was not unresolved instead, which is the directory a `||` skips in `eval x
+    ; cd A || git worktree add …`, and a directory that holds nothing in `cd
+    <missing> ; git worktree add …`, where it filed no record at all (`spec.md`
+    In 1 of work item 1791384157).
+
+    The commit gate STOPS on a target like this (`names_a_directory` in
+    `hooks/commit-review-gate.py`) and the guard falls back instead. The two
+    protect different things: a commit nobody judged is a commit nobody
+    reviewed, while a guard that goes silent leaves a shared tree unguarded,
+    and `worktree-guard-spec.md` §Unknowns resolve conservatively puts the
+    cost of a wrong deny at one prompt against a wrong allow breaking another
+    session's tree.
+
+    A `git -C` that names no repository is NOT this case and keeps the guard's
+    silence: git refuses that command itself, so no tree is touched.
+
+    Which is why the segment's own `-C` is composed BEFORE the fallback is
+    considered, and not after. Deciding first threw the destination away and
+    then resolved a RELATIVE `-C` against the session directory instead:
+    `cd ~/projects && git -C myrepo switch main` turned a real target
+    repository into a path that does not exist, and the guard exited at
+    `if not top` having said nothing. Returning both directories is what lets
+    the guard classify against the tree it is about to judge.
+    """
+    where = wheres[0] if wheres else cwd
+    here = cwd if isinstance(where, cmdline.Unresolved) else where
+    target = segment_cwd(tokens, here)
+    if here == cwd or optin.repo_root(target):
+        return here, target
+    return cwd, segment_cwd(tokens, cwd)
+
+
 def creation_directory(command: str, cwd: str) -> str:
     """The directory a `git worktree add` in `command` acted on, or "".
 
@@ -429,27 +546,21 @@ def creation_directory(command: str, cwd: str) -> str:
     what the shell EXECUTED, and neither is executed. There is no consent read
     here at all -- no token is involved on this side.
 
-    A segment the reader could not place falls back to the session's own
-    directory, which is where the shell started. Getting that wrong lands the
-    record in the wrong clone, so the next creation asks -- one prompt, on the
-    side a guard should fail.
+    The segment is placed by `place`, the guard's own placement, so a segment
+    the reader could not place, or one whose directory holds no repository,
+    is filed under the session's own directory, which is where the shell
+    started. Getting that wrong lands the record in the wrong clone, so the
+    next creation asks -- one prompt, on the side a guard should fail.
 
     Every reading here is `hooks/cmdline_base.py`'s, the reader frozen at
     `86256492` that the guard reads through, so the creation found and the
-    clone filed are the ones the guard judged and the ones `86256492` filed
-    (#689).
+    clone filed are the ones the guard judged (#689, #868).
     """
     text = cmdline.drop_heredoc_bodies(cmdline.drop_comments(command))
-    items, _clean = cmdline.split_segments_with_separators(text)
+    items, _clean = split_with_separators(text)
     for tokens, wheres in cmdline.walk_directories(items, cwd):
-        if not cmdline.adds_a_worktree(tokens):
-            continue
-        here = cwd
-        for where in wheres:
-            if not isinstance(where, cmdline.Unresolved):
-                here = where
-                break
-        return cmdline.apply_chdir(here, cmdline.parse_git(tokens)[2])
+        if cmdline.adds_a_worktree(tokens):
+            return place(tokens, wheres, cwd)[1]
     return ""
 
 
