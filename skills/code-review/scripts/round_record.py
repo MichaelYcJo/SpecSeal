@@ -59,9 +59,10 @@ reach-back the orchestrator forgot five times on the last branch — and runs
 it is committed rather than by CI afterwards.
 
 `close` is the other end of the round. It takes the smith's fix table — one
-row per finding under `## Fixes`, `| # | Verdict | Commit or grounds |`, the
-verdict `fixed` with the commit, `answered` with the grounds, or `deferred
-<home>` — and the range of fix commits, and derives the rest:
+row per open finding under `## Fixes`, `| # | Verdict | Commit or grounds |`,
+the verdict `fixed` with the commit, `answered` with the grounds, or
+`deferred <home>`; a ⬜ note takes no row and is left open for `notes` — and
+the range of fix commits, and derives the rest:
 
   the verdict cells    `**fixed** `<sha>`` with the grounds prefixed
                        `fixed at <sha>`, `answered` with the grounds, or
@@ -2243,9 +2244,11 @@ def bound_line(reader, routing, rounds, n):
 STOPS_HERE = "the fix passes stop here"
 # The severities that commission no fix, so a row carrying one never lands:
 # `OWED_MARKERS`' comment below says 🟢, ❓ and ⬜ commission nothing by
-# definition, and a ⬜ is "fixed in passing or not at all". Measured over the
-# committed corpus (`phases/phase-4.md` of #823), counting them took the work
-# items the stop would have reached from 18 to 24 of 57, on notes alone.
+# definition, and a ⬜ is carried open and closed once at the run's end by
+# `notes` (#837), never on a fix word. Measured over the committed corpus
+# (`phases/phase-4.md` of #823), counting them took the work items the stop
+# would have reached from 18 to 24 of 57, on notes alone. The ⬜ is
+# `chain_check.NOTE`, the one spelling the checker's note arms read too.
 COMMISSIONS_NOTHING = (
     chain.NOTE,
     "\N{LARGE GREEN CIRCLE}",
@@ -2879,13 +2882,19 @@ def new(args):
     # commissioned at all, whatever the bound above says (#823).
     if stop is not None:
         print(stop)
+    # The run's notes, carried open until it ends (#837): the count is said
+    # where the next spawn is decided, and nothing is commissioned by it.
+    carried = carried_line(reader, routing, rounds)
+    if carried is not None:
+        print(f"round-record: {carried}")
     return run_check(root, args.baseline or default_baseline(root))
 
 
 # --- close: the fix table applied, the fix surface measured ------------------
 
 # The smith's fix-pass handover: one row per OPEN finding of the round it
-# answers, under this heading, in these columns. `agents/smith.md` and
+# answers but a ⬜ note, which takes none and closes at the run's end through
+# `notes` (#837), under this heading, in these columns. `agents/smith.md` and
 # `skills/implement/SKILL.md` §5 tell the smith to write it, and
 # `tests/test_the_fixes_close_the_record.py` reads both from here — one
 # constant, three carriers.
@@ -4392,23 +4401,43 @@ def close(args):
             f"{', '.join(map(str, unknown))}, not in round {args.round}'s verdict "
             f"table (which has {held})"
         )
+    # A note takes no row in a fix table, open or closed (#837): it
+    # commissions nothing while the run runs and closes once at its end,
+    # through `notes`. Asked before the two refusals below, so a ⬜ row is
+    # named as a note rather than as a finding the reviewer already closed.
+    marked = [
+        (n, [reader.visible(c) for c in cells]) for n, (_i, cells) in rows.items()
+    ]
+    note_ids = {n for _line, n, _open in chain.note_rows(marked, VERDICT_COL)}
+    noted = sorted(n for n in fixes if n in note_ids)
+    if noted:
+        raise Refused(
+            f"the fix table has a row for {chain.NOTE} "
+            f"{', '.join(map(str, noted))} of round {args.round}, and a note "
+            "takes no row in a fix table: it commissions nothing while the run "
+            "runs — no fix pass and no reader — and closes once at the run's "
+            f"end, with every other note of the run, by `{NOTES_COMMAND}`. "
+            f"Take the row out. {chain.NOTES_OWNER}; no cell was written"
+        )
     open_now = [
         n
         for n, (_i, cells) in rows.items()
         if chain.verdict_of([reader.visible(c) for c in cells], VERDICT_COL)
         not in chain.CLOSED_WORDS
     ]
-    missing = [n for n in open_now if n not in fixes]
+    missing = [n for n in open_now if n not in fixes and n not in note_ids]
     if missing:
         raise Refused(
             f"finding{'s' if len(missing) > 1 else ''} {', '.join(map(str, missing))} "
             f"of round {args.round} left with no row in the fix table. Every open "
             f"finding takes a row — `{FIXED}`, `{ANSWERED}`, or "
-            f"`{DEFERRED_WORD} <home>` — or the record stays open"
+            f"`{DEFERRED_WORD} <home>` — or the record stays open; a "
+            f"{chain.NOTE} note takes none and is carried to the run's end"
         )
     # A row for a finding the reviewer closed in the report (`withdrawn`,
     # `not a defect`) would overwrite the reviewer's verdict with the smith's
-    # (round 1 of #161's own chain, 🟡 3). One row per OPEN finding.
+    # (round 1 of #161's own chain, 🟡 3). One row per OPEN 🔴 or 🟡, and none
+    # for a ⬜, which the refusal above names.
     already = sorted(n for n in fixes if n not in open_now)
     if already:
         named = ", ".join(
@@ -4625,9 +4654,9 @@ def close(args):
         n: (i, row_cells(reader, raw[i], len(VERDICT_HEADER)))
         for n, (i, _cells) in rows.items()
     }
-    carried = carried_ids(reader, post)
+    notes_open = carried_ids(reader, post)
     checker, _surface = landing_values(
-        [w for n, w in zip(rows, words, strict=True) if n not in carried]
+        [w for n, w in zip(rows, words, strict=True) if n not in notes_open]
     )
     boxes = [i for i, ln in enumerate(lines) if chain.PASS_RE.match(ln)]
     if len(boxes) != 1:
@@ -4685,6 +4714,7 @@ def close(args):
     write_record(reader, target, "\n".join(raw) + ending)
     if forward is not None:
         write_record(reader, forward[0], forward[1])
+    carried = carried_line(reader, routing, rounds)
     counts = {
         w: sum(1 for word, _, _ in fixes.values() if word == w)
         for w in (FIXED, ANSWERED, DEFERRED_WORD)
@@ -4704,6 +4734,7 @@ def close(args):
             if forward is not None
             else ""
         )
+        + (f"; {carried}" if carried is not None else "")
     )
     return run_check(root, args.baseline or default_baseline(root))
 
@@ -4762,6 +4793,27 @@ def named_notes(carried):
 
 
 NOTES_COMMAND = "round-record notes --item <dir> --fixes <table> --at <sha>"
+# What `new` and `close` say when the run carries notes open (#837), so the
+# count is in front of the orchestrator at the two moments it decides what
+# runs next, and the command that closes them is named there.
+CARRIED = (
+    "{count} note{s} open across the run {dash} closed once at its end by "
+    "`round-record notes`"
+)
+
+
+def carried_line(reader, routing, rounds):
+    """`CARRIED` for the run the last record on disk belongs to, or None
+    where it carries no note open."""
+    found = earlier_records(routing, rounds, sys.maxsize)
+    if not found:
+        return None
+    carried = open_notes(reader, run_of_last(reader, found))
+    if not carried:
+        return None
+    return CARRIED.format(
+        count=len(carried), s="" if len(carried) == 1 else "s", dash=DASH
+    )
 
 
 def notes(args):

@@ -508,6 +508,12 @@ def test_a_severity_marker_still_leads_the_cell(repo, marker):
         repo, 1, fix_table(f"| {marker} 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
     )
     assert "bare integer" not in out, out
+    if marker == "⬜":
+        # A note takes no row in a fix table since #837, so the row is
+        # refused -- by naming the id it read through the marker, which is
+        # what this case holds for every marker.
+        assert "the fix table has a row for ⬜ 1 of round 1" in out, (code, out)
+        return
     assert f"**fixed** `{b[:7]}`" in record, (code, out)
 
 

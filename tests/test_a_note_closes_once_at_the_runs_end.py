@@ -600,6 +600,158 @@ def test_a_stopped_run_closes_its_notes_at_the_second(repo):
         assert f"round 1's {NOTE} 1 \N{EM DASH} answered" in record(repo, later)
 
 
+# --- `close` carries a note, and `new` says so ---------------------------------
+
+NOTE_THREE = f"| {NOTE} 3 | a sentence reads badly | `README.md` | open | read |\n"
+
+
+def run_close(repo, n, table, rng):
+    path = repo.parent / f"fixes-{n}.md"
+    path.write_text(
+        "## Fixes\n\n| # | Verdict | Commit or grounds |\n|---|---|---|\n" + table,
+        encoding="utf-8",
+    )
+    r = subprocess.run(
+        [
+            sys.executable,
+            GENERATOR,
+            "close",
+            "--item",
+            str(repo / ITEM),
+            "--round",
+            str(n),
+            "--fixes",
+            str(path),
+            "--range",
+            rng,
+            "--baseline",
+            "base",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
+    )
+    return r.returncode, r.stdout + r.stderr
+
+
+def a_red_and_a_note(repo):
+    """Round 1 opens 🔴 2 and ⬜ 3, and a fix for the 🔴 is committed;
+    returns the fix range."""
+    declared(repo)
+    round_n(repo, 1, NOTE_THREE + RED_OPEN, needs="yes \N{EM DASH} 2")
+    a = git(repo, "rev-parse", "HEAD").stdout.strip()
+    write(repo, "f.py", "x = 2\n")
+    b = commit(repo, "the fix")
+    return a, b
+
+
+def test_close_carries_a_note_open(repo):
+    """S1. The fix table answers the 🔴 alone: `close` closes it, leaves ⬜ 3
+    open, leaves `Pass` unticked and says one note is carried. Seen red
+    against phase 2's `close`, which refused the table for leaving ⬜ 3 with
+    no row."""
+    a, b = a_red_and_a_note(repo)
+    code, out = run_close(repo, 1, f"| 2 | fixed | {b[:7]} |\n", f"{a}..{b}")
+    assert code in (0, 1), out
+    assert "left with no row" not in out, out
+    text = record(repo, 1)
+    note, red = cells_of(text)
+    assert note[3] == "open" and red[3].startswith("**fixed**"), (note, red)
+    assert "- [ ] Pass" in text
+    assert (
+        "1 note open across the run \N{EM DASH} closed once at its end by "
+        "`round-record notes`"
+    ) in out, out
+
+
+@pytest.mark.parametrize(
+    "row", ["| 3 | fixed | {sha} |\n", "| 3 | answered | it stands |\n"]
+)
+def test_a_note_takes_no_row_in_a_fix_table(repo, row):
+    """S2. A fix table carrying a row for ⬜ 3, under any verdict, is refused
+    naming the rule and `notes`, and no cell is written (§14 pins the
+    sentence). Seen red against phase 2's `close`, which applied both."""
+    a, b = a_red_and_a_note(repo)
+    before = record(repo, 1)
+    code, out = run_close(
+        repo, 1, f"| 2 | fixed | {b[:7]} |\n" + row.format(sha=b[:7]), f"{a}..{b}"
+    )
+    assert code == 2, out
+    assert f"the fix table has a row for {NOTE} 3 of round 1, and a note" in out
+    assert "takes no row in a fix table" in out, out
+    assert "round-record notes --item <dir> --fixes <table> --at <sha>" in out
+    assert record(repo, 1) == before
+
+
+def test_new_says_how_many_notes_the_run_carries(repo):
+    """`new` for the next round prints the run's open notes, at the moment
+    the orchestrator decides what runs next. Seen red with the print
+    removed."""
+    a, b = a_red_and_a_note(repo)
+    code, out = run_close(repo, 1, f"| 2 | fixed | {b[:7]} |\n", f"{a}..{b}")
+    assert code in (0, 1), out
+    commit(repo, "round 1 closed")
+    _code, out, _text = generate(
+        repo, 2, report_text=report(verdicts=NOTE_TWO, needs="no", floor="no")
+    )
+    assert (
+        "round-record: 2 notes open across the run \N{EM DASH} closed once at "
+        "its end by `round-record notes`"
+    ) in out, out
+
+
+def test_a_run_whose_last_round_opened_only_a_note_ends_and_closes_it(repo):
+    """The whole of it, through the generator alone: round 1's fix pass
+    answers the 🔴 and carries ⬜ 3; round 2, the verifying round, opens only
+    ⬜ 1, so its record reads `no fixes to check` — the run's end — and
+    `notes` closes both, after which `seal --check` passes."""
+    a, b = a_red_and_a_note(repo)
+    run_close(repo, 1, f"| 2 | fixed | {b[:7]} |\n", f"{a}..{b}")
+    commit(repo, "round 1 closed")
+    round_n(repo, 2, NOTE_TWO)
+    chain = check_module()
+    assert fields(record(repo, 2))[chain.CHECKED_BY] == chain.NO_FIXES
+    write(repo, "README.md", "# a fixture, reworded\n")
+    at = commit(repo, "the notes' corrections")
+    code, out = run_notes(
+        repo,
+        notes_table(
+            "| round-1 | 3 | corrected | |\n",
+            "| round-2 | 1 | deferred #830 | the wording waits on #830 |\n",
+        ),
+        at=at,
+    )
+    assert code == 0, out
+    assert cells_of(record(repo, 1))[0][3:] == [
+        "answered",
+        f"corrected at {at[:8]}; read",
+    ]
+    assert cells_of(record(repo, 2))[0][3] == "deferred #830"
+    commit(repo, "the notes closed")
+    r = subprocess.run(
+        [
+            sys.executable,
+            GENERATOR,
+            "seal",
+            "--item",
+            str(repo / ITEM),
+            "--broad-gate",
+            f"{at[:8]} against base",
+            "--baseline",
+            "base",
+            "--check",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
 def test_a_note_reopened_by_hand_over_its_closing_is_refused(repo):
     """`close`'s guard, in `notes`: a ⬜ whose `Verdict` cell was set back to
     `open` while its `Grounds` cell still carries the closing would carry the
