@@ -74,7 +74,7 @@ e90dbaed (phase 2 closed, `origin/release/v0.20.0` merged), read 2026-10-07.
    moving with the right edge. A cell of the disc's square outside the
    circle is the sheet's own cell beneath it (parchment, or a character
    where one reaches under a corner). The reference is variant 2 of
-   `/Users/michael/Desktop/specseal-sheet-seal-right.ans` (S3).
+   `~/Desktop/specseal-sheet-seal-right.ans` on the owner's machine (S3).
 4. **The twin keeps its letters for the four colours**: `m` the ring, `.`
    the field, `Y` the mark, `y` its shadow (S4). Every cell is exactly one
    palette colour or the sheet's, so a letter is a lookup again.

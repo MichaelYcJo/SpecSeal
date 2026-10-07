@@ -76,7 +76,7 @@ merged, read 2026-10-07).
   `python3 .github/scripts/release_seal.py`; every step `continue-on-error`.
 
 **What the owner's reference is, and what the frame measured.** The owner
-chose variant 2 of `/Users/michael/Desktop/specseal-sheet-seal-right.ans`,
+chose variant 2 of `~/Desktop/specseal-sheet-seal-right.ans` on their machine,
 drawn by the orchestrating session's `sheet_mock.py` as `sheet(14, hand(14,
 BOLD_10, PINK), grow="right", extra=3)` (`read`, 2026-10-07): a 16-line
 sheet of 14 text lines, 54 columns wide, the disc's 14 columns ending one

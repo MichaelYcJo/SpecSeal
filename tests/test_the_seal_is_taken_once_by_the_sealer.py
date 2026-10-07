@@ -625,7 +625,10 @@ def test_the_stamp_module_imports_with_pillow_blocked():
         "mod.build(0.75)\n"
     )
     r = subprocess.run(
-        [sys.executable, "-c", script], capture_output=True, text=True, timeout=120
+        [sys.executable, "-c", script],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=120,
     )
     assert r.returncode == 0, r.stderr
 
