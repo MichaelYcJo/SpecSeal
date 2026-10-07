@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #851 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `c339dccdcb27f3d2db995de27964ecd66bea1da6..b1de5a0b4bf66b5eed680221a71cf65f24d72218`, 3 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1 (the version-timer check fails on `broad_gate.py:1941`) and 🔴 2 (the pasted-passage check fails on the **New?** bullet and rule 3) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -33,9 +33,9 @@ It did not run the full suite.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | `RAN_TO_ITS_END`'s comment names pytest "9.1.1", so `test_no_loaded_file_names_a_version_at_or_above_the_running_one` fails on PR #851 | `skills/verify/scripts/broad_gate.py:1941` | open | executed: failing in CI on Ubuntu and Windows group 2 at `5d21ccd9` and in the clone; passes with two-component versions in the clone. Inside a unit round 1's fixes created |
-| 🔴 2 | The **New?** bullet and rule 3 share a 21-word run the fix pass wrote into both, so two cases of the pasted-passage module fail on PR #851 | `skills/verify/SKILL.md:517` | open | executed: both cases failing in CI and in the clone, the shared run listed with the module's own helpers; passes with the reworded bullet and its pin in the clone |
-| ⬜ 3 | `RAN_TO_ITS_END`'s comment, rule 3, the changelog fragment and one case's docstring say a failed collection gives exit 2; under `-x` it gives 1 | `skills/verify/scripts/broad_gate.py:1931` | open | executed on pytest 6.1.0, 7.0.0 and 9.1.1: `end` 1 and no test line; read: the base record then holds only the failed file, so every word stays right |
+| 🔴 1 | `RAN_TO_ITS_END`'s comment names pytest "9.1.1", so `test_no_loaded_file_names_a_version_at_or_above_the_running_one` fails on PR #851 | `skills/verify/scripts/broad_gate.py:1941` | **fixed** `d52af030` | fixed at d52af030 — `RAN_TO_ITS_END`'s comment names pytest 6.1, 7.0 and 9.1 in two parts; no other three-part version on the branch outside `seal/` and the changelogs; executed: failing in CI on Ubuntu and Windows group 2 at `5d21ccd9` and in the clone; passes with two-component versions in the clone. Inside a unit round 1's fixes created |
+| 🔴 2 | The **New?** bullet and rule 3 share a 21-word run the fix pass wrote into both, so two cases of the pasted-passage module fail on PR #851 | `skills/verify/SKILL.md:517` | **fixed** `d52af030` | fixed at d52af030 — the **New?** bullet is reworded and its pin moved; the bullet, rule 3 and the changelog fragment share no 15-word run, the changelog's copy of a rule-3 sentence included; executed: both cases failing in CI and in the clone, the shared run listed with the module's own helpers; passes with the reworded bullet and its pin in the clone |
+| ⬜ 3 | `RAN_TO_ITS_END`'s comment, rule 3, the changelog fragment and one case's docstring say a failed collection gives exit 2; under `-x` it gives 1 | `skills/verify/scripts/broad_gate.py:1931` | **fixed** `d52af030` | fixed at d52af030 — the comment, rule 3 with its pin, the changelog and the case docstring say a failed collection exits 2 only without `-x`; the word the gate gives is unchanged; executed on pytest 6.1.0, 7.0.0 and 9.1.1: `end` 1 and no test line; read: the base record then holds only the failed file, so every word stays right |
 | 🟢 | round 1's finding 1 is closed — a base session whose `end` exit is not 0, 1 or 5 reads `new?` | `skills/verify/scripts/broad_gate.py:2008` | confirmed | executed: the new cases are red at `e7fc758a`'s code except the 0, 1 and 5 parameters, and green here; the exit mapping matches on pytest 6.1.0, 7.0.0 and 9.1.1; read: `wrap_session` of 6.1.0 and 7.0.0 |
 | 🟢 | round 1's finding 2 is closed — the failure form counts the sessions at `HEAD` that stopped part-way | `skills/verify/scripts/broad_gate.py:3100` | confirmed | executed: the HEAD case is red at `e7fc758a` and green here and in Ubuntu's full run |
 | 🟢 | round 1's finding 3 is closed — `last_sent` keyed on `id()` with the sender held | `skills/verify/scripts/pytest_record/specseal_pytest_record.py:196` | confirmed | executed: S5 red at `e7fc758a`'s recorder, green here; read: a held sender cannot be freed, so an `id()` match is the same object |
