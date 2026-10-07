@@ -14,6 +14,6 @@ Answered 2026-10-06 by the repository owner, before the first edit.
 
 ## Why this way
 
-The owner pressed `automation` for this item (#832) when placing it in 0.20.0, and chose to trace the lily from the #717 chart into curves. The release note's seal is redrawn as an image instead of the terminal stamp blown up cell for cell.
+The owner pressed `automation` for this item (#832) when placing it in 0.20.0. The emblem and layout they first chose — the lily traced into curves — were replaced by their decisions of 2026-10-06 and 2026-10-07, which `spec.md` records: a 28-cell seal with a placeholder S (#857) beside an open text block, and the release note's seal drawn from their SVG.
 
-The 0.20.0 run moves machines after its first hour. This session runs the framer and smith segments only and leaves `handoff.md` here; the next session continues the chain from it. The answer above is unchanged by that.
+The run moved machines twice and carried its state in `handoff.md`, which phase 9 retired once the build closed. The answer above was unchanged by either move.
