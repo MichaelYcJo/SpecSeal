@@ -66,18 +66,20 @@ verdict `fixed` with the commit, `answered` with the grounds, or `deferred
   the verdict cells    `**fixed** `<sha>`` with the grounds prefixed
                        `fixed at <sha>`, `answered` with the grounds, or
                        `deferred <home>` with the home; a commit has to
-                       resolve and lie inside the range
+                       resolve and be one of the range's own commits
   Contract changes     every top-level Python unit whose parameters, return
                        arities or set of returnable constant literals differ
-                       between the two ends of the range, each with the
+                       between the two ends of the range and that one of
+                       the range's own commits changed, each with the
                        enclosing unit of every `name(` in the tree,
                        `unit → site, site`; callers under `tests/` read
                        `pytest`, or `pytest only` when they are the whole
                        reach — and so does a unit pytest itself reaches, which
                        has no call site in the tree by design
   New units            every top-level def, class and module-level constant
-                       present at the end of the range and absent at its
-                       start, `unit (depth 1)`; for a file the AST cannot read
+                       present at the end of the range, absent at its start
+                       and added by one of the range's own commits,
+                       `unit (depth 1)`; for a file the AST cannot read
                        the `+` diff lines are read for `def`, `class`,
                        `function`, `fn`, `func`, and a comment after the table
                        says which files were read that way
@@ -89,6 +91,12 @@ verdict `fixed` with the commit, `answered` with the grounds, or `deferred
                        it stands for `new` of the next round to set. The
                        derivation is `new`'s, in one spelling
   Broad gate           `--broad-gate`, when given
+
+A range's own commits are the non-merge commits `chain.own_commits` lists,
+and `docs/the-record-layout.md` §*A range owns the commits that descend from
+its start* owns that rule and its limit (#860). A start that is not an
+ancestor of its end, and a `fixed` row naming a commit the range does not
+own, are refused before anything is written.
 
 A unit at depth 2 is refused before any of that is written: a `fixed`
 finding whose `Location` sits inside a unit an earlier record's `New units`
@@ -2338,8 +2346,13 @@ def fix_pass_units(reader, root, a, b):
     prose file is skipped as `measure` skips it, and a file only the diff-line
     heuristic can read lands nowhere -- the heuristic knows added names and
     nothing about changed ones (`questions.md` Q2 of #823).
+
+    Kept only where one of the range's own commits added or changed the unit
+    (`own_units`, #860): a unit a merge in the range brought in was written
+    by nobody this run reviewed, so a finding inside it is no fix of a fix.
     """
     units = {}
+    mine = own_units(reader, root, chain.own_commits(root, a, b) or [])
     for rel in touched(root, a, b):
         if not rel.endswith(".py"):
             continue
@@ -2350,10 +2363,65 @@ def fix_pass_units(reader, root, a, b):
             continue
         old = unit_dumps(before) if before is not None else {}
         for name, dump in unit_dumps(after).items():
+            if (rel, name) not in mine:
+                continue
             if name not in old:
                 units[(rel, name)] = "added"
             elif dump != old[name]:
                 units[(rel, name)] = "changed"
+    return units
+
+
+def commit_units(reader, root, parent, full, rel):
+    """{name: `added` or `changed`} for one file between a commit's parent
+    and the commit, read the way `measure` reads the range's two ends.
+
+    A `.py` file the AST reads at both sides (or that is new) is compared by
+    `unit_dumps`: absent at the parent is `added`, a different `ast.dump` is
+    `changed`, so a unit only re-commented has not changed. Any other file is
+    read by the diff-line heuristic, which knows added names alone.
+    """
+    before_text = reader.show(root, parent, rel)
+    before = parse_module(before_text) if rel.endswith(".py") else None
+    after = parse_module(reader.show(root, full, rel)) if rel.endswith(".py") else None
+    if after is not None and (before_text is None or before is not None):
+        old = unit_dumps(before) if before is not None else {}
+        return {
+            name: "added" if name not in old else "changed"
+            for name, dump in unit_dumps(after).items()
+            if name not in old or dump != old[name]
+        }
+    out = {}
+    for line in reader.gfm_lines(git(root, "diff", parent, full, "--", rel) or ""):
+        m = HEURISTIC_RE.match(line)
+        if m:
+            out[m.group(1)] = "added"
+    return out
+
+
+def own_units(reader, root, commits):
+    """{(path, unit): {full: `added` or `changed`}} for every top-level unit
+    one of `commits` added or changed between its parent and itself.
+
+    `commits` is `chain.own_commits`' answer, so a merge is never among them
+    and the per-unit filter below `close` and `fix_pass_units` sits on what
+    the range's own commits wrote (#860). A path filter is not enough: in
+    #860's range one file an own commit touched gained 22 top-level names
+    between the range's ends, and 2 were the item's. Every path a commit
+    changed is read, a deleted one and a prose one included: neither adds a
+    unit the range's ends hold, and `measure` decides what reaches a row.
+    Every commit has a parent: `own_commits` lists none that is not a
+    descendant of the range's start, and a merge is never among them.
+
+    Each unit says which commit wrote it and how, because `unit_adders` asks
+    which `fixed` commit ADDED a unit, and a later commit that only changed
+    it is not that answer.
+    """
+    units = {}
+    for full, _short, changes in commits:
+        for _status, rel in changes:
+            for name, how in commit_units(reader, root, f"{full}^", full, rel).items():
+                units.setdefault((rel, name), {})[full] = how
     return units
 
 
@@ -3276,6 +3344,11 @@ def parse_range(root, value):
     BOTH ends, not only the second. `HEAD` is the end #344 measured and a
     branch name at the start moves exactly as far; a rule aimed at the word
     that happened to be reported closes the instance and not the class (§12).
+
+    And a start that is not an ancestor of its end (#860). Such a range owns
+    no commit (`chain.own_commits`), so the surface measured from it is empty
+    whatever the two ends hold, and an empty surface reads as a fix pass that
+    added nothing — the shape that lets the unknown through as a pass.
     """
     a, dots, b = value.partition("..")
     a, b = a.strip(), b.strip()
@@ -3299,26 +3372,37 @@ def parse_range(root, value):
                 + "`. No cell was written"
             )
         out.append(full)
+    if not chain.is_ancestor(root, out[0], out[1]):
+        raise Refused(
+            f"--range {value}: `{out[0][:8]}` is not an ancestor of "
+            f"`{out[1][:8]}`, so the range owns no commit — the commits a "
+            "range owns are the ones that descend from its start "
+            f"(`{chain.FRAGMENT_DOC}` §*{chain.RANGE_RULE}*), and a surface measured "
+            "over none of them would read as a fix pass that added nothing. "
+            "Name the commit the fixes started from. No cell was written"
+        )
     return out[0], out[1]
 
 
 def touched(root, a, b):
-    """The paths the range changes, as they stand at `b`; deletions left out.
+    """The paths the range's own commits changed that `b` carries, sorted.
 
-    A rename is one path — the new one — so a renamed file's units read as
-    new when nothing at `a` carries that path, which is the honest reading
-    of a comparison that opens both ends by path.
+    The commits are `chain.own_commits`: the non-merge commits that descend
+    from `a` and that `b` reaches (#860). A path only a merge brought in is
+    not this range's, and the path-level answer is the first of two filters:
+    `own_units` is the second, because a file an own commit touched can
+    carry a merged-in unit too. A path the range deleted is not at `b`, so
+    deletions are left out, and with `--no-renames` a move is its old path
+    deleted and its new one added — a renamed file's units read as new when
+    nothing at `a` carries that path, which is the honest reading of a
+    comparison that opens both ends by path.
     """
-    out = git(root, "diff", "--name-status", "-M", a, b)
-    if out is None:
-        raise Refused(f"git diff {a[:7]}..{b[:7]} failed in {root}")
-    paths = []
-    for line in out.splitlines():
-        cells = line.split("\t")
-        if len(cells) < 2 or not cells[0] or cells[0][0] == "D":
-            continue
-        paths.append(cells[-1])
-    return paths
+    commits = chain.own_commits(root, a, b)
+    if commits is None:
+        raise Refused(f"git log {a[:7]}..{b[:7]} failed in {root}")
+    carried = tracked_at(root, b)
+    changed = {path for _f, _s, changes in commits for _status, path in changes}
+    return sorted(changed & carried)
 
 
 def parse_module(text):
@@ -4060,34 +4144,39 @@ def path_forms(reader, root, a, text, tracked):
 def unit_adders(reader, root, fixes):
     """{(path, unit): {finding number}} — which fix commit added each unit.
 
-    A second `measure`, one per `fixed` commit, over that commit alone.
-    `close` already resolves every `fixed` commit and places it inside the
-    range; what it does not hold is WHICH of them introduced a given unit,
-    because `measure` compares the range's TWO ENDS and nothing between
-    them (`questions.md` Q5). That is what `depth_two` below needs to name a
-    finding rather than a file.
+    A per-commit reading, one per `fixed` commit, over that commit alone.
+    `close` already resolves every `fixed` commit and places it among the
+    range's own commits; what `measure` does not hold is WHICH of them
+    introduced a given unit, because it compares the range's TWO ENDS and
+    nothing between them (`questions.md` Q5). That is what `depth_two` below
+    needs to name a finding rather than a file.
 
     Bounded by the fix range, which is the reason the cost is affordable: a
     fix range is two or three commits, and each pass parses only the files
     that ONE commit touched rather than the range's whole surface.
 
-    A commit with no parent contributes nothing — every unit in it is `added`
-    against an empty tree, which is true and useless — and the walk falls
-    back to the file-level answer for anything it cannot attribute.
+    A reading of `own_units` over the `fixed` commits (#860), each one the
+    commit `<full>^..<full>` owns: `close` has refused a `fixed` row that
+    names a merge or anything else the range does not own, so every commit
+    read here has one parent. A unit counts for the commit that ADDED it;
+    one a later `fixed` commit only changed is not that commit's addition.
+    The walk falls back to the file-level answer for anything it cannot
+    attribute.
     """
-    adders = {}
+    numbers = {}
     for number, (word, value, _note) in fixes.items():
-        if word != FIXED:
-            continue
-        full = chain.resolves_to(root, value)
-        parent = chain.resolves_to(root, f"{full}^") if full else None
-        if parent is None:
-            continue
-        _c, added, _h, _at_a, _at_b = measure(
-            reader, root, parent, full, touched(root, parent, full)
-        )
-        for rel, unit in added:
-            adders.setdefault((rel, unit), set()).add(number)
+        if word == FIXED:
+            numbers.setdefault(chain.resolves_to(root, value), set()).add(number)
+    commits = [
+        commit
+        for full in numbers
+        for commit in chain.own_commits(root, f"{full}^", full) or []
+    ]
+    adders = {}
+    for key, by in own_units(reader, root, commits).items():
+        for full, how in by.items():
+            if how == "added":
+                adders.setdefault(key, set()).update(numbers[full])
     return adders
 
 
@@ -4308,6 +4397,14 @@ def close(args):
             "the OPEN findings and no other — a row here would overwrite the "
             "reviewer's verdict with the smith's; no cell was written"
         )
+    # The commits the range owns (#860): the non-merge commits that descend
+    # from `a` and that `b` reaches. The `fixed` guard and the surface below
+    # read the same list, so a fix the guard accepts is a fix the surface
+    # was measured on.
+    owned = chain.own_commits(root, a, b)
+    if owned is None:
+        raise Refused(f"git log {a[:7]}..{b[:7]} failed in {root}")
+    own = {full for full, _s, _c in owned}
     for number, (word, value, _note) in fixes.items():
         if word != FIXED:
             continue
@@ -4316,15 +4413,24 @@ def close(args):
             raise Refused(
                 f"finding {number}'s commit `{value}` does not resolve in {root}"
             )
-        if not chain.is_ancestor(root, full, b) or chain.is_ancestor(root, full, a):
+        if full not in own:
             raise Refused(
-                f"finding {number}'s commit `{value}` lies outside --range "
-                f"{a[:7]}..{b[:7]}. A fix the range does not hold is a fix the "
-                "surface below was not measured on"
+                f"finding {number}'s commit `{value}` is not one of the range's "
+                f"own commits — those that descend from {a[:7]} and that "
+                f"{b[:7]} reaches, merges left out: it lies outside --range "
+                f"{a[:7]}..{b[:7]}, or it is a merge, or a commit a merge "
+                "brought in. A fix the range does not own is a fix the surface "
+                f"below was not measured on (`{chain.FRAGMENT_DOC}` "
+                f"§*{chain.RANGE_RULE}*). No cell was written"
             )
 
     paths = touched(root, a, b)
     changed, added, heuristic, at_a, at_b = measure(reader, root, a, b, paths)
+    # The two ends' surface, kept to what an owned commit wrote (#860): a
+    # file an own commit touched can still carry units a merge brought in.
+    mine = own_units(reader, root, owned)
+    changed = [unit for unit in changed if unit in mine]
+    added = [unit for unit in added if unit in mine]
     # The units of the CURRENT run (#823, decided by the orchestrator at
     # round 1): a redesign after a `second` is a new run, so a unit the
     # stopped run's fixes added does not make the redesign's units depth 2,

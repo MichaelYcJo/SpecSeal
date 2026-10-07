@@ -4418,6 +4418,10 @@ def pact_notices(routing, root, declarations):
 CHANGELOG_FRAGMENT = "changelog.md"
 FRAGMENT_DOC = "docs/the-record-layout.md"
 FRAGMENT_RULE = "A commit after the build brings its changelog fragment along"
+# The section of the same document that owns which commits a range owns
+# (#860), named by `round_record.py`'s refusals; pinned to the heading by
+# `tests/test_the_fixes_close_the_record.py`.
+RANGE_RULE = "A range owns the commits that descend from its start"
 # The directory name a test-only path sits under. `round_record.py`'s
 # `TESTS_DIR` and `under_tests` are the twin: this module cannot import that
 # one (the import runs the other way), so the predicate is stated again here

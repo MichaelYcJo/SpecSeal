@@ -1183,6 +1183,141 @@ def test_the_same_name_added_in_two_files_is_one_entry(repo):
     assert fields(record)["New units"] == "added_unit (depth 1); ADDED (depth 1)", out
 
 
+# --- a merge inside the range (#860) -----------------------------------------
+#
+# Round 1 of work item 1791270164 closed over a range holding the branch's
+# merge of its base, and `close` wrote 111 entries into `New units`, 109 of
+# them a sibling's. The range owns the commits that descend from its start
+# (`docs/the-record-layout.md` §*A range owns the commits that descend from
+# its start*), and the surface keeps only a unit one of them added or changed.
+
+
+def on_the_base(repo, rel, text, message="a sibling's squash"):
+    """A sibling's commit on the base, the feature checked out again."""
+    git(repo, "switch", "-q", "base")
+    write(repo, rel, text)
+    sibling = commit(repo, message)
+    git(repo, "switch", "-q", "feature")
+    return sibling
+
+
+def merge_the_base(repo):
+    """The branch's own merge of its base, the merge commit returned."""
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "merge",
+        "-q",
+        "--no-ff",
+        "-m",
+        "integrate the base",
+        "base",
+    )
+    return git(repo, "rev-parse", "HEAD").stdout.strip()
+
+
+SIBLING_UNIT = "def sibling_unit():\n    return 2\n\n\n"
+RANGE_RULE = "A range owns the commits that descend from its start"
+
+
+def test_a_unit_a_merge_brought_in_a_file_no_own_commit_touched_is_not_new(repo):
+    """S1 of #860, at the file level. The sibling's unit sits in a file only
+    the merge changed; the two ends' diff named it as this round's."""
+    a = round_one(repo, verdicts=OPEN_1)
+    on_the_base(repo, "sibling.py", SIBLING_UNIT)
+    merge_the_base(repo)
+    write(repo, "mod.py", MOD_GROWN)
+    b = commit(repo, "fix")
+    _, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert fields(record)["New units"] == "added_unit (depth 1); ADDED (depth 1)", out
+
+
+def test_a_unit_a_merge_brought_into_a_file_an_own_commit_touched_is_not_new(repo):
+    """S2 of #860, the measured shape: the sibling's unit and the own
+    commit's units in ONE file. A filter on the own commits' paths keeps the
+    file, and with it the sibling's unit; the filter is per unit. The merge
+    is made from the branch after the fix, so the range ends at the merge."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_GROWN)
+    fix = commit(repo, "fix")
+    on_the_base(repo, "mod.py", SIBLING_UNIT + MOD)
+    b = merge_the_base(repo)
+    merged = (repo / "mod.py").read_text(encoding="utf-8")
+    assert "def sibling_unit" in merged and "def added_unit" in merged, merged
+    _, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {fix[:7]} |\n"), f"{a}..{b}"
+    )
+    assert fields(record)["New units"] == "added_unit (depth 1); ADDED (depth 1)", out
+
+
+def test_a_contract_a_merge_changed_is_not_this_rounds(repo):
+    """S3 of #860. A sibling changed `caller`'s signature on the base and the
+    own commit changed `helper`'s: only the own change is a contract change,
+    and its reach is read at the range's end as before."""
+    a = round_one(repo, verdicts=OPEN_1)
+    on_the_base(repo, "mod.py", MOD.replace("def caller():", "def caller(x=None):"))
+    merge_the_base(repo)
+    merged = (repo / "mod.py").read_text(encoding="utf-8")
+    write(repo, "mod.py", merged.replace("def helper(a):", "def helper(a, b=None):"))
+    b = commit(repo, "fix")
+    _, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert fields(record)["Contract changes"] == "helper → caller, pytest", out
+
+
+def test_a_range_whose_start_does_not_reach_its_end_is_refused(repo):
+    """S5 of #860. Such a range owns no commit, and an empty surface written
+    from it would read as a fix pass that added nothing."""
+    round_one(repo, verdicts=OPEN_1)
+    elsewhere = on_the_base(repo, "sibling.py", SIBLING_UNIT)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    out = refused(repo, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{elsewhere}..{b}")
+    assert f"`{elsewhere[:8]}` is not an ancestor of `{b[:8]}`" in out, out
+    assert "owns no commit" in out, out
+    assert "No cell was written" in out, out
+    assert f"§*{RANGE_RULE}*" in out, "the refusal names the section that owns it"
+
+
+def test_the_section_the_range_refusals_name_exists():
+    """Both refusals send the reader to a section by title. The checker's
+    constant and the document's heading are one spelling, and the title is
+    spelled here as well, so a case asserting the refusal names it is not
+    agreeing with whatever the script happens to say."""
+    assert check_module().RANGE_RULE == RANGE_RULE
+    headings = [
+        line[3:].strip()
+        for line in read("docs", "the-record-layout.md").splitlines()
+        if line.startswith("## ")
+    ]
+    assert RANGE_RULE in headings, headings
+
+
+@pytest.mark.parametrize("named", ["the merge", "the sibling's commit"])
+def test_a_fixed_row_naming_a_commit_the_range_does_not_own_is_refused(repo, named):
+    """S6 of #860. Both commits lie inside `a..b` by git's count and are not
+    the range's own: the merge is no commit's fix, and the sibling's commit
+    reached the branch only through it. The surface is measured on neither,
+    so a `fixed` row naming one is a fix nobody measured."""
+    a = round_one(repo, verdicts=OPEN_1)
+    sibling = on_the_base(repo, "sibling.py", SIBLING_UNIT)
+    merge = merge_the_base(repo)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    commit_named = merge if named == "the merge" else sibling
+    out = refused(repo, fix_table(f"| 1 | fixed | {commit_named[:7]} |\n"), f"{a}..{b}")
+    assert "is not one of the range's own commits" in out, out
+    assert "a merge, or a commit a merge brought in" in out, out
+    assert commit_named[:7] in out, out
+    assert f"§*{RANGE_RULE}*" in out, out
+
+
 def test_a_surface_writer_refuses_a_separator_inside_a_name():
     generator = generator_module()
     with pytest.raises(generator.Refused):

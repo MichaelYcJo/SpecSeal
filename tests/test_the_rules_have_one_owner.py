@@ -118,6 +118,14 @@ FRAGMENT_OWNER = (
     "`docs/the-record-layout.md` §*A commit after the build brings its "
     "changelog fragment along* owns that rule"
 )
+# The same document owns which commits a range owns (#860, #805), and the two
+# scripts that read a range, and the orchestration that tells a session what
+# the fix surface holds, name the section.
+ROUND_RECORD = ("skills", "code-review", "scripts", "round_record.py")
+RANGE_OWNER = (
+    "`docs/the-record-layout.md` §*A range owns the commits that descend from "
+    "its start* owns"
+)
 FRAMER = ("agents", "framer.md")
 REFRAME_OWNER = (
     "`skills/code-review/orchestration.md` §*A fix of a fix twice sends the "
@@ -321,6 +329,27 @@ RULES = {
             FRAMER: REFRAME_OWNER,
             WARDEN: REFRAME_OWNER,
             IMPLEMENT: REFRAME_OWNER,
+        },
+    ),
+    # A seventeenth, from #860 and #805. Two readers walked a range by its
+    # shape -- the two ends' diff, HEAD's first parent -- and both read a
+    # sibling's work that a merge brought in as the item's own. The owner is
+    # the document that already owns the fragment rule one of them serves,
+    # because `docs/round-record-spec.md` stands under its line ceiling.
+    # WHAT IT PINS: the owner's headline sentence and each carrier naming the
+    # section; the readers are pinned by
+    # `tests/test_a_fragment_left_behind_is_named.py` and
+    # `tests/test_the_fixes_close_the_record.py`.
+    "17 a range owns the commits that descend from its start": (
+        RECORD_LAYOUT,
+        "A range `a..b` owns the non-merge commits that descend from `a` and "
+        "that `b` reaches",
+        {
+            CHAIN_CHECK: RANGE_OWNER,
+            ROUND_RECORD: RANGE_OWNER,
+            ORCH: RANGE_OWNER,
+            RECORD_SPEC: "`docs/the-record-layout.md` §*A range owns the commits "
+            "that descend from its start*",
         },
     ),
 }
