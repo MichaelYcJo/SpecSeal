@@ -596,10 +596,12 @@ def test_a_switch_against_a_program_runs_on_the_real_platform(tmp_path):
 # --- A5: a failing row with no test result says so ----------------------------
 
 # Pinned verbatim, because a person reads it on the failure form and decides
-# from it whether to open the kept file (`agent-contract` §14).
+# from it whether to open the kept file (`agent-contract` §14). It names both
+# ways a row prints no summary, never one as the only one (#849 round 1).
 NO_SUMMARY = (
     "no pytest summary in this output, so this exit code is not a count of "
-    "failing tests: the row may have stopped before any test ran"
+    "failing tests: the row may have stopped before any test ran, or a pytest "
+    "it ran may have died part-way"
 )
 
 

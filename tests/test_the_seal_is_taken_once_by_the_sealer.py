@@ -4223,6 +4223,111 @@ def test_a_red_base_session_that_left_anything_out_turns_only_new_into_new_quest
     assert gate.base_word(record, 1, "tests/test_a.py") == gate.NO_RECORD
 
 
+def test_a_base_session_with_no_end_turns_only_new_into_new_question():
+    """#849 (#825 round 6's 🟡 1, S4), at `base_word`. A base session that
+    wrote no `end` line stopped part-way, so both rows of the table that give
+    `new` give `new?` naming how many such sessions there were, and `failing
+    on base too`, `NOT_REACHED` and `NO_RECORD` are untouched. Where a red
+    session also left reports out, its reason comes first: it is the one the
+    record can count."""
+    gate = gate_module()
+    record = gate.RunRecord()
+    record.sessions, record.unended = 2, 1
+    record.collected = {"tests/test_a.py", "tests/test_b.py"}
+    record.failing = {"tests/test_b.py": None}
+    unended = gate.UNENDED_AT_BASE.format(count=1)
+    assert gate.base_word(record, 1, "tests/test_a.py") == unended
+    assert gate.base_word(record, 0, "tests/test_c.py") == unended
+    assert gate.base_word(record, 1, "tests/test_b.py") == gate.ON_BASE
+    assert gate.base_word(record, 1, "tests/test_c.py") == gate.NOT_REACHED.format(
+        code=1
+    )
+    record.unplaced, record.unplaced_red = 3, 3
+    left_out = gate.UNPLACED_AT_BASE.format(count=3)
+    assert gate.base_word(record, 1, "tests/test_a.py") == left_out
+    assert gate.base_word(record, 0, "tests/test_c.py") == left_out
+    record.unplaced, record.unplaced_red, record.unended = 0, 0, 0
+    assert gate.base_word(record, 1, "tests/test_a.py") == gate.NEW
+    record.sessions = 0
+    record.unended = 1
+    assert gate.base_word(record, 1, "tests/test_a.py") == gate.NO_RECORD
+
+
+def test_a_keyed_session_with_no_end_line_is_counted_unended(tmp_path):
+    """#849 (#825 round 6's 🟡 1), at `read_record`. The recorder writes a
+    session's `end` line in `pytest_sessionfinish`, which a process that died
+    part-way never reaches. A keyed record with no `end` line counts one
+    unended session, whatever else it holds; one with an `end` line counts
+    none, whatever its exit; another run's record counts nothing."""
+    gate = gate_module()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    records = tmp_path / "records"
+    records.mkdir()
+    passing = a_test(str(worktree / "tests/test_a.py"), "passed")
+    files = {
+        "died": [a_session(), passing],
+        "bare": [a_session()],
+        "ended": [a_session(), passing, {"kind": "end", "exitstatus": 1}],
+        "green": [a_session(), {"kind": "end", "exitstatus": 0, "unplaced": 0}],
+        "other": [a_session("head-ffffffffffffffff"), passing],
+    }
+    for name, lines in files.items():
+        (records / f"{name}.jsonl").write_text(
+            "".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8"
+        )
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert (record.sessions, record.unended) == (4, 2)
+    assert record.collected == {"tests/test_a.py"}
+    for name in ("died", "bare"):
+        (records / f"{name}.jsonl").unlink()
+    ended = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert (ended.sessions, ended.unended) == (2, 0)
+    assert gate.base_word(ended, 1, "tests/test_a.py") == gate.NEW
+
+
+@pytest.mark.parametrize(
+    "exitstatus, stopped",
+    [
+        pytest.param(0, False, id="0-ok"),
+        pytest.param(1, False, id="1-tests-failed"),
+        pytest.param(5, False, id="5-no-tests-collected"),
+        pytest.param(2, True, id="2-interrupted"),
+        pytest.param(3, True, id="3-internal-error"),
+        pytest.param(4, True, id="4-usage-error"),
+        pytest.param(7, True, id="a-code-pytest-exit-chose"),
+        pytest.param(None, True, id="no-exit"),
+    ],
+)
+def test_a_keyed_session_whose_end_shows_a_stop_is_counted_unended(
+    tmp_path, exitstatus, stopped
+):
+    """#849 round 1's 🟡 1, at `read_record`. pytest writes an `end` line for
+    a session it stopped itself: a `KeyboardInterrupt` or `pytest.exit()` in
+    a test, a failed collection without `-x` and xdist under `-x` give 2
+    (under `-x` a failed collection gives 1), a run loop that raised gives 3, an argument refused after the session started gives 4.
+    Only 0, 1 and 5 are the exits of a session that ran to its end; any
+    other, a code `pytest.exit` chose and an `end` line with no exit among
+    them, counts the session as stopped part-way and turns `new` into
+    `new?`."""
+    gate = gate_module()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    records = tmp_path / "records"
+    records.mkdir()
+    end = {"kind": "end", "unplaced": 0}
+    if exitstatus is not None:
+        end["exitstatus"] = exitstatus
+    lines = [a_session(), a_test(str(worktree / "tests/test_a.py"), "passed"), end]
+    (records / "one.jsonl").write_text(
+        "".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8"
+    )
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert (record.sessions, record.unended) == (1, int(stopped))
+    word = gate.base_word(record, 1, "tests/test_a.py")
+    assert word == (gate.UNENDED_AT_BASE.format(count=1) if stopped else gate.NEW)
+
+
 def test_the_unplaced_counts_of_this_runs_records_are_summed(tmp_path):
     """S27's reader (#825's reframe after round 3). Each record's `end`
     line counts the tests and collections the recorder wrote as no line;
@@ -4375,6 +4480,25 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "of them may be this file's failure and whether the base fails it was "
         "not measured (kept as suite-at-base.txt, with records/ beside it)"
     )
+    # #849 (#825 round 6's 🟡 1): `new` from a base one of whose sessions
+    # stopped part-way is not measured either -- and #849 round 1's 🟡 1: a
+    # session pytest stopped itself is one.
+    assert gate.UNENDED_AT_BASE.format(count=1) == (
+        "new? not measured: the row ran once at the base, and 1 of its pytest "
+        "sessions stopped part-way, because the process died or the recorder "
+        "stopped writing before the session's end line, or pytest ended the "
+        "session interrupted or on an error of its own, so this file's tests "
+        "there may not have finished and whether the base fails it was not "
+        "measured (kept as suite-at-base.txt, with records/ beside it)"
+    )
+    # #849 round 1's 🟡 2: the same at `HEAD`, under the list.
+    assert gate.UNENDED_HERE.format(count=1) == (
+        "1 of the row's pytest sessions here stopped part-way, because the "
+        "process died or the recorder stopped writing before the session's end "
+        "line, or pytest ended the session interrupted or on an error of its "
+        "own, so a test it stopped in may be in no list and the tests it never "
+        "reached are in none (each session's record is under records/)"
+    )
     with open(RECORDER_SOURCE, encoding="utf-8") as handle:
         assert "specseal_pytest_record: no record written" in handle.read()
     assert gate.NOT_REACHED.format(code=2) == (
@@ -4434,6 +4558,17 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "or a session of the base that ended non-zero left tests or collections "
         "out of every list, a test whose xdist worker died in its setup among "
         "them, so the record cannot say the file passed.",
+        # #849 (#825 round 6's 🟡 1): a session of the base with no end, and
+        # #849 round 1's 🟡 1: one whose end shows pytest stopped it.
+        "A session of the base that stopped part-way reads the same way: its "
+        "record holds no `end` line, because the process died, which plain "
+        "pytest does on a test that calls `os._exit`, or its recorder "
+        "stopped writing; or its `end` line shows an exit other than 0, 1 or "
+        "5, as a `KeyboardInterrupt` or `pytest.exit()` in a test and xdist "
+        "under `-x` give.",
+        # #849 round 1's 🟡 2: a session at `HEAD` that stopped part-way.
+        "Nor, where a session at `HEAD` stopped part-way, is the test it "
+        "stopped in; the failure form counts those sessions too.",
         "how a row earns the measured word",
     ):
         assert phrase in bullet, f"the **New?** bullet does not carry: {phrase}"
@@ -4448,6 +4583,9 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "for either of those causes",
         # Every base record's count, a green session's included (round 5).
         "or the base's record left tests or collections out of every list",
+        # A missing `end` line named as the only stop (#849 round 1).
+        "A session of the base that wrote no `end` line to its record reads "
+        "the same way",
     ):
         assert gone not in bullet, f"the **New?** bullet still carries: {gone}"
     with open(GATE, encoding="utf-8") as handle:
@@ -5047,6 +5185,206 @@ def test_a_base_record_that_left_a_test_out_gives_no_new(tmp_path):
     assert word != gate.NEW, out.stdout
     assert word == gate.UNPLACED_AT_BASE.format(count=1), out.stdout
     assert not failing_in_base_record(keep, "tests/test_two.py")
+
+
+@pytest.mark.parametrize(
+    "at_base, crashing, failing",
+    [
+        pytest.param(
+            CRASHES_ITS_WORKER, "os._exit(1)", "assert False", id="in-the-body"
+        ),
+        pytest.param(
+            CRASHES_ITS_WORKER_IN_SETUP,
+            "def test_crash(dies):\n    pass",
+            "def test_crash():\n    assert False",
+            id="in-a-fixture",
+        ),
+    ],
+)
+def test_a_base_session_that_died_part_way_gives_no_new(
+    tmp_path, at_base, crashing, failing
+):
+    """#849 (#825 round 6's 🟡 1, S1 and S2). Without xdist a test that calls
+    `os._exit` at the base ends pytest itself, so its session writes no `end`
+    line and no count of what it left out; the file's earlier tests were
+    written passing and the base's record held the file collected with
+    nothing failing: `new` for a file the base's own run crashed in. A session
+    that stopped part-way cannot say the file passed, so the file reads `new?`
+    naming that one session, never `new`."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        files_row(False) + " tests",
+        {"tests/test_two.py": at_base},
+        {"tests/test_two.py": at_base.replace(crashing, failing)},
+    )
+    keep = tmp_path / "keep"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    word = verdict_of(out.stdout, "tests/test_two.py")
+    assert word != gate.NEW, out.stdout
+    assert word == gate.UNENDED_AT_BASE.format(count=1), out.stdout
+    assert not any(line.get("kind") == "end" for _, line in base_records(keep))
+
+
+# A test that makes pytest itself stop the session, with `{stop}` in its body.
+STOPS_ITS_SESSION = """\
+import pytest
+
+
+def test_ok():
+    pass
+
+
+def test_crash():
+    {stop}
+"""
+
+
+@pytest.mark.parametrize(
+    "stop",
+    [
+        pytest.param("raise KeyboardInterrupt", id="keyboard-interrupt"),
+        pytest.param('pytest.exit("stopped here")', id="pytest-exit"),
+    ],
+)
+def test_a_base_session_pytest_stopped_part_way_gives_no_new(tmp_path, stop):
+    """#849 round 1's 🟡 1. Without a dead process, pytest can still stop a
+    session part-way: a `KeyboardInterrupt` or `pytest.exit()` in a test. Its
+    `end` line is written, with exit 2, so the base's record holds the file
+    collected, `test_ok` passing and nothing failing: `new` for a file whose
+    `test_crash` the base never finished. The exit is not one of a session
+    that ran to its end, so the file reads `new?` naming that session."""
+    at_base = STOPS_ITS_SESSION.format(stop=stop)
+    repo = base_then_feature(
+        tmp_path / "repo",
+        files_row(False) + " tests",
+        {"tests/test_two.py": at_base},
+        {"tests/test_two.py": at_base.replace(stop, "assert False")},
+    )
+    keep = tmp_path / "keep"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    word = verdict_of(out.stdout, "tests/test_two.py")
+    assert word != gate.NEW, out.stdout
+    assert word == gate.UNENDED_AT_BASE.format(count=1), out.stdout
+    ends = [line for _, line in base_records(keep) if line.get("kind") == "end"]
+    assert [end["exitstatus"] for end in ends] == [2], ends
+
+
+# Under `-n 2 -x --dist loadfile` each file goes to a worker of its own. At
+# the base `test_a.py` fails once `test_b.py` has started, so the base's
+# record holds that file collected and passing when `-x` interrupts the run;
+# `test_slow` waits for the failure, so `test_late` is not reached.
+MARKS = """\
+import os
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def mark(name):
+    open(os.path.join(HERE, name), "w").close()
+
+
+def wait_for(name):
+    for _ in range(600):
+        if os.path.exists(os.path.join(HERE, name)):
+            return
+        time.sleep(0.05)
+"""
+FAILS_ONCE_B_STARTED = (
+    MARKS
+    + """
+
+def test_a():
+    wait_for("b-started")
+    time.sleep(0.5)
+    mark("a-failed")
+    assert False
+"""
+)
+RUNS_UNTIL_A_FAILED = (
+    MARKS
+    + """
+
+def test_first():
+    mark("b-started")
+
+
+def test_slow():
+    wait_for("a-failed")
+    time.sleep(2)
+
+
+def test_late():
+    pass
+"""
+)
+
+
+@pytest.mark.skipif(not XDIST, reason=NO_XDIST)
+def test_a_base_run_xdist_stopped_under_x_gives_no_new(tmp_path):
+    """#849 round 1's 🟡 1, the most ordinary of its causes. Under xdist,
+    `-x` makes the controller interrupt the run at the first failure, and the
+    session writes its `end` line with exit 2 while another worker's file is
+    part-way through. The branch fixes `test_a.py` and breaks `test_late`,
+    which the base may never have run, so the file reads `new?` naming that
+    session, never `new`."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        files_row(True) + " -x --dist loadfile tests",
+        {
+            "tests/test_a.py": FAILS_ONCE_B_STARTED,
+            "tests/test_b.py": RUNS_UNTIL_A_FAILED,
+        },
+        {
+            "tests/test_a.py": "def test_a():\n    pass\n",
+            "tests/test_b.py": (
+                "def test_first():\n    pass\n\n\ndef test_slow():\n    pass\n\n\n"
+                "def test_late():\n    assert False\n"
+            ),
+        },
+    )
+    keep = tmp_path / "keep"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    word = verdict_of(out.stdout, "tests/test_b.py")
+    assert word != gate.NEW, out.stdout
+    assert word == gate.UNENDED_AT_BASE.format(count=1), out.stdout
+    ends = [line for _, line in base_records(keep) if line.get("kind") == "end"]
+    assert [end["exitstatus"] for end in ends] == [2], ends
+
+
+def test_a_session_that_stopped_part_way_here_is_counted_under_the_list(tmp_path):
+    """#849 round 1's 🟡 2. At `HEAD` a test that kills plain pytest writes
+    only its passing setup, so its file is in no list of failing files, and
+    pytest prints no summary. The failure form says a session stopped
+    part-way under the list, and `NO_SUMMARY` names a pytest that died beside
+    one that never started."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        files_row(False) + " tests",
+        {
+            "tests/test_a.py": "def test_a():\n    pass\n",
+            "tests/test_two.py": CRASHES_ITS_WORKER.replace("os._exit(1)", "pass"),
+        },
+        {
+            "tests/test_a.py": "def test_a():\n    assert False\n",
+            "tests/test_two.py": CRASHES_ITS_WORKER,
+        },
+    )
+    out = run_gate(repo, keep=tmp_path / "keep")
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    lines = [line.strip() for line in out.stdout.splitlines()]
+    assert any("sessions here stopped part-way" in line for line in lines), out.stdout
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_a.py") == gate.NEW, out.stdout
+    assert verdict_of(out.stdout, "tests/test_two.py") is None, out.stdout
+    assert gate.UNENDED_HERE.format(count=1) in lines, out.stdout
+    assert gate.NO_SUMMARY in lines, out.stdout
 
 
 # A plugin whose directory hook fails while the session itself walks its
@@ -6793,6 +7131,29 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "left out cannot be. One over-strictness is named rather than closed: a "
         "red session whose left-out reports all passed, such as a passing item "
         "a conftest parents to the session, still turns `new` into `new?`.",
+        # #849 (#825 round 6's 🟡 1): a base session that stopped part-way,
+        # and #849 round 1's 🟡 1: one pytest stopped itself, with the two
+        # stops left open named.
+        "Either `new` reads `new?` naming the count, too, where a session of "
+        "the base stopped part-way, so the file's tests there may not have "
+        "finished: it wrote no `end` line to its record, because its process "
+        "died, as plain pytest does on a test that calls `os._exit` or "
+        "segfaults, or its recorder stopped writing, a disk that filled among "
+        "the causes; or its `end` line shows an exit other than the three of a "
+        "session that ran to its end, 0, 1 and 5, as a `KeyboardInterrupt` or "
+        "`pytest.exit()` in a test, a failed collection without `-x` and "
+        "xdist under `-x` give. Where a red session also left reports out, "
+        "that count is the "
+        "one named.",
+        "Two stops are named rather than closed: a test that calls "
+        "`pytest.exit` with a return code of 0, 1 or 5 chooses one of the "
+        "three, and a run without xdist that `-x` or `--maxfail` stops exits 1, "
+        "which leaves no file partly run only while each file's tests run "
+        "together.",
+        # #849 round 1's 🟡 2: the same stop at `HEAD`, counted.
+        "The gate also says there how many sessions at `HEAD` stopped "
+        "part-way, because the test such a session stopped in may be in no "
+        "list.",
         "**The cost is one more run of the whole row, and only when the suite "
         "fails**, whatever the number of failing files.",
         "so a part after the runner that the branch's own run never reached, "
@@ -6887,6 +7248,9 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         # #825 round 5: the lookup by node id, and the count of every session.
         "unless an earlier report of the same test carried it",
         "where the base's record left any test or collection out of every list",
+        # #849 round 1's 🟡 1: a missing `end` line named as the only stop.
+        "where a session of the base wrote no `end` line to its record, because "
+        "it stopped part-way",
     ):
         assert gone not in text, f"rule 3 still carries: {gone}"
 
