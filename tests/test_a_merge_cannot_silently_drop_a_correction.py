@@ -1609,6 +1609,10 @@ def test_an_unreadable_config_at_the_tip_is_refused_not_read_as_no_row(
     said = capsys.readouterr().err
     assert code == 2, out + said
     assert "seal/config.md at " in said and "is there and cannot be read" in said, said
+    # The sentence names the cause it checked: a tree is not a file, and a
+    # blob's bytes that do not decode are the codec's own words.
+    cause = "a tree in git, not a file" if shape == "directory" else "codec"
+    assert cause in said, said
 
 
 def correction_merge(tmp, base, ours, theirs, resolution, files=None):
