@@ -144,7 +144,7 @@ What no reader can see is a change made only inside a merge's conflict
 resolution. The merge is owned by no range, so `close` refuses a `fixed` row
 that names it. A range whose start does not reach its end owns nothing, and
 `close` refuses it rather than writing an empty surface.
-Enforced by: skills/code-review/scripts/chain_check.py::own_commits, tests/test_a_fragment_left_behind_is_named.py::test_a_branch_rebuilt_on_the_base_names_its_own_commits_and_not_the_siblings
+Enforced by: skills/code-review/scripts/chain_check.py::own_commits, skills/code-review/scripts/round_record.py::own_units, tests/test_a_fragment_left_behind_is_named.py::test_a_branch_rebuilt_on_the_base_names_its_own_commits_and_not_the_siblings, tests/test_the_fixes_close_the_record.py::test_a_unit_a_merge_brought_into_a_file_an_own_commit_touched_is_not_new, tests/test_the_fixes_close_the_record.py::test_a_fixed_row_naming_a_commit_the_range_does_not_own_is_refused
 
 ## docs/
 
