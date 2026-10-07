@@ -3708,14 +3708,25 @@ def call_sites(reader, root, b, rel, name, at_b):
     `fix_surface` refuses a unit listed without a reach and an empty reach
     would be the tolerant read it refuses.
     """
-    out = git(root, "grep", "-n", "-F", "-e", f"{name}(", b) or ""
+    out = git(root, "grep", "-n", "-z", "-I", "-F", "-e", f"{name}(", b) or ""
     word = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(name) + r"\(")
     named, tested = [], False
-    # `path:line:text` per match, `text` a line of the file as git numbers
-    # it: a U+2028 in it must not cut the prefix off the call (#664).
-    for line in reader.gfm_lines(out):
+    # `<rev>:<path>\0<line>\0<text>\n` per match under `-z` (#860), measured
+    # on git 2.50: the path is verbatim, so a name `core.quotePath` would
+    # quote is the file git carries, and a `:` inside the path no longer
+    # splits it. `<rev>` is the full commit `b`, which holds no `:`. `text`
+    # is a line as git numbers it, ended at LF alone: a U+2028 in it must
+    # not cut the prefix off the call (#664), and nothing but LF does here.
+    # `-I` leaves binary files out: git reports one as a `Binary file …
+    # matches` line with no NUL in it, which the old split read as no match
+    # and this walk would read as the head of the next one.
+    rest = out
+    while rest:
+        head, _, rest = rest.partition("\0")
+        number, _, rest = rest.partition("\0")
+        text, _, rest = rest.partition("\n")
+        _ref, _, path = head.partition(":")
         try:
-            _ref, path, number, text = line.split(":", 3)
             number = int(number)
         except ValueError:
             continue
@@ -4048,8 +4059,15 @@ def units_named_earlier(reader, earlier):
 
 
 def tracked_at(root, a):
-    """The paths the tree at `a` carries, for resolving a Location's path."""
-    return set((git(root, "ls-tree", "-r", "--name-only", a) or "").splitlines())
+    """The paths the tree at `a` carries, for resolving a Location's path.
+
+    `-z`, so each path is the name git carries (#860): without it a name
+    `core.quotePath` quotes arrives in quotes with its bytes escaped, and a
+    `Location` naming the file, or a path `touched` read verbatim, matches
+    nothing.
+    """
+    out = git(root, "ls-tree", "-r", "--name-only", "-z", a) or ""
+    return {path for path in out.split("\0") if path}
 
 
 def resolve_path(rel, tracked):

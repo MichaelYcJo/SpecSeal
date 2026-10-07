@@ -1338,6 +1338,83 @@ def test_a_fixed_row_naming_a_commit_the_range_does_not_own_is_refused(repo, nam
     assert f"§*{RANGE_RULE}*" in out, out
 
 
+QUOTED = "naïve.py"
+QUOTED_MODULE = (
+    "from mod import helper\n"
+    "\n"
+    "\n"
+    "def naive_unit():\n"
+    "    return 1\n"
+    "\n"
+    "\n"
+    "def naive_caller():\n"
+    "    return helper(2)\n"
+)
+
+
+def test_a_path_git_would_quote_is_read_as_the_path_it_is(repo):
+    """S10 of #860. Three readers took a git listing as text, and git quotes
+    a name holding a non-ASCII character unless `core.quotePath` is off — so
+    the quoted name matched no file. Set on here, so the case does not lean
+    on the reader's own config. One fixture, three readers: `touched`, so the
+    file's units are new; `call_sites`, so a call inside the file is named
+    by its enclosing unit; and `tracked_at`, so a `Location` in the file
+    resolves when the next round counts a fix of a fix."""
+    git(repo, "config", "core.quotePath", "true")
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD.replace("def helper(a):", "def helper(a, b=None):"))
+    write(repo, QUOTED, QUOTED_MODULE)
+    b = commit(repo, "fix, with a module whose name git quotes")
+    assert '"' in git(repo, "ls-tree", "-r", "--name-only", b).stdout, (
+        "git did not quote the name, so nothing here is exercised"
+    )
+    _, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    cells = fields(record)
+    assert cells["New units"] == "naive_unit (depth 1); naive_caller (depth 1)", out
+    assert cells["Contract changes"] == "helper → caller, naive_caller, pytest", out
+    commit(repo, "close round 1")
+    finding = f"| 🟡 1 | naive_unit is wrong | `{QUOTED}#naive_unit` | open | read |\n"
+    code, out, text = generate(repo, n=2, report_text=report(verdicts=finding))
+    assert code != 2, out
+    assert fields(text)["Fix of a fix"] == (
+        f"first — 🟡 1 at {QUOTED}#naive_unit, a unit round-1's fixes added"
+    ), out
+
+
+def test_a_binary_file_holding_the_call_hides_no_call_site(repo):
+    """`call_sites` walks `git grep -z`'s output by NUL, and git reports a
+    binary file as one `Binary file … matches` line with no NUL in it. Read
+    in that walk, the line swallows the next match's path, so `caller` in
+    `mod.py`, which sorts after the binary file, was named by a path that is
+    no file. `-I` leaves binary files out of the search."""
+    (repo / "blob.bin").write_bytes(b"\x00helper(1)\x00\n")
+    b = commit(repo, "a binary file that holds the call")
+    sites = generator_module().call_sites(
+        reader_module(), str(repo), b, "mod.py", "helper", {}
+    )
+    assert sites == ["caller", "pytest"], sites
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a `:` is no file name there")
+def test_a_colon_in_a_path_does_not_split_it(repo):
+    """The colon split read `<rev>:<path>:<line>:<text>` by position, so a
+    `:` inside a path moved every field after it. Under `-z` only the first
+    `:` is the separator, the revision being a full commit that holds none,
+    and the caller inside `a:b.py` is named by its enclosing unit."""
+    write(
+        repo,
+        "a:b.py",
+        "from mod import helper\n\n\ndef colon_caller():\n    return helper(3)\n",
+    )
+    b = commit(repo, "a module whose name holds a colon")
+    sites = generator_module().call_sites(
+        reader_module(), str(repo), b, "mod.py", "helper", {}
+    )
+    assert sites == ["colon_caller", "caller", "pytest"], sites
+
+
 def test_a_surface_writer_refuses_a_separator_inside_a_name():
     generator = generator_module()
     with pytest.raises(generator.Refused):
