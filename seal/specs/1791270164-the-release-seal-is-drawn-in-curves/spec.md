@@ -247,13 +247,13 @@ left them; `test_two_files_in_one_turn_are_under_the_budget_together`;
   ASCII* and *No row is `None` since #717* paragraphs;
 - `docs/the-broad-gate.md`'s sentence *14 cells across* and its parchment
   contrast sentences;
-- the cases `test_the_mark_is_the_owners_hand_drawn_chart`,
-  `test_the_disc_is_fourteen_cells_of_exactly_four_colours`,
-  `test_the_emblem_is_lit_from_the_upper_left`,
-  `test_the_disc_sits_inside_the_sheet_against_its_right_edge_three_clear_of_the_text`,
+- the cases `test_the_mark_is_the_owners_hand_drawn_chart`, <!-- NAME NOT IN TREE -->
+  `test_the_disc_is_fourteen_cells_of_exactly_four_colours`, <!-- NAME NOT IN TREE -->
+  `test_the_emblem_is_lit_from_the_upper_left`, <!-- NAME NOT IN TREE -->
+  `test_the_disc_sits_inside_the_sheet_against_its_right_edge_three_clear_of_the_text`, <!-- NAME NOT IN TREE -->
   `test_a_real_runs_stamp_is_the_owners_reference_cell_for_cell`,
   `test_the_text_is_written_on_a_sheet_one_blank_line_inside_it`,
-  `test_the_twin_writes_the_discs_four_letters_over_the_sheets_frame`,
+  `test_the_twin_writes_the_discs_four_letters_over_the_sheets_frame`, <!-- NAME NOT IN TREE -->
   `test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours`,
   `test_a_coloured_row_carries_fewer_colour_sequences_than_cells`,
   `test_several_files_come_out_as_one_message_oldest_first`,

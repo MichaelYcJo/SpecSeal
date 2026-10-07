@@ -37,7 +37,7 @@ The last row is the refutation: with the 0.90 footprint put back, the picks do n
 
 | Case | Break |
 |---|---|
-| `test_the_emblem_is_lit_from_the_upper_left` | `build` samples `shade` 0.05 to the right of the cell centre — red on the new field-cell check (a cell `LILY_LIGHT` where `shade` says field) |
+| `test_the_emblem_is_lit_from_the_upper_left` | `build` samples `shade` 0.05 to the right of the cell centre — red on the new field-cell check (a cell `LILY_LIGHT` where `shade` says field) <!-- NAME NOT IN TREE --> |
 | `test_each_rung_keeps_the_disc_height_the_chart_gave_it` | `R0_CELLS = 15.5 / 0.73` <!-- NAME NOT IN TREE --> |
 | `test_the_emblem_fills_even_odd_from_an_svg_path` | four breaks, each red: `inside` sets instead of toggling; `Q` raised with 1/2 instead of 2/3; the viewBox divided by 400; lowercase commands let past the refusal <!-- NAME NOT IN TREE --> |
 | `test_shade_lights_the_upper_left_edge_and_shadows_the_lower_right` | the highlight probe taken down-right <!-- NAME NOT IN TREE --> |
@@ -50,7 +50,7 @@ The last row is the refutation: with the 0.90 footprint put back, the picks do n
 
 **The twin was read once at 0.90** (`bin/seal-stamp --shape --scale 0.9`): the ring sits inside the field with its highlight on the upper-left arc and its shadow on the lower-right, and every margin is even. The block form on a terminal was not looked at by this segment.
 
-**Ledger consequences for phase 4.** Phase 1 moved anchors that released rows cite, and none of them is corrected here, because the citing rows belong with phase 4's corrections. The rename of `test_the_lily_is_lit_from_the_upper_left` removes an anchor that `seal/releases/0.17.0.md` L2 cites, so L2's `Corrected ·` row must cite `test_the_emblem_is_lit_from_the_upper_left`. The two amended hook cases move anchors that `seal/releases/0.15.7.md` N7 and `seal/releases/0.17.0.md` B2 cite (`@3bde6bd1`, `@34e5bc28`), so those take a re-read in the fragment.
+**Ledger consequences for phase 4.** Phase 1 moved anchors that released rows cite, and none of them is corrected here, because the citing rows belong with phase 4's corrections. The rename of `test_the_lily_is_lit_from_the_upper_left` removes an anchor that `seal/releases/0.17.0.md` L2 cites, so L2's `Corrected ·` row must cite `test_the_emblem_is_lit_from_the_upper_left`. The two amended hook cases move anchors that `seal/releases/0.15.7.md` N7 and `seal/releases/0.17.0.md` B2 cite (`@3bde6bd1`, `@34e5bc28`), so those take a re-read in the fragment. <!-- NAME NOT IN TREE -->
 
 ### What the emblem answer and a smaller disc will touch
 
@@ -75,6 +75,6 @@ The mechanism does not change for either. `EMBLEM_D` is parsed by `svg_path` at 
 |---|---|
 | `ART`, the 29 × 32 chart of the lily, and `shrink`, its majority vote | none — the owner withdrew the lily (`spec.md` decision 1); `seal/releases/0.10.0.md` S2 and `0.17.0.md` L2 still describe them and take `Corrected ·` rows in phase 4 |
 | `build`'s `margin` keyword | none — only the chart's reach used it; the radius is `R0_CELLS` now (`overview.md` divergence row) <!-- NAME NOT IN TREE --> |
-| `test_the_lily_is_lit_from_the_upper_left`, by its name | `test_the_emblem_is_lit_from_the_upper_left`, same body; 0.17.0 L2's correction cites the new name |
+| `test_the_lily_is_lit_from_the_upper_left`, by its name | `test_the_emblem_is_lit_from_the_upper_left`, same body; 0.17.0 L2's correction cites the new name <!-- NAME NOT IN TREE --> |
 | `seal_stamp.py`'s module-level entry in the `splitlines` registry of `tests/test_every_reader_ends_a_line_where_gfm_does.py` | none — its one call parsed `ART` |
 | The fixed rungs (0.80, 0.75) and the fixed premise (two real runs never share a message) of two hook cases | derived in the cases themselves; the lily's figures are in the table above |

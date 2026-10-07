@@ -40,13 +40,13 @@ The frame's probe had one real run at 2,901 and three to a message. The built st
 
 | Unit broken | Case that went red |
 |---|---|
-| `RING_INSET = 1.0`; separately `EDGE_INSET = 0.0` | `test_the_disc_is_fourteen_cells_of_exactly_four_colours` |
-| the shadow taken from `on(x + 1, y + 1)` | `test_the_emblem_is_lit_from_the_upper_left` |
-| one cell of `CHART`; separately the column offset without `+ 1` | `test_the_mark_is_the_owners_hand_drawn_chart` |
-| `KEY[MARK_SHADOW] = "Y"`; separately `letter_row` reading the bottom half first | `test_the_twin_writes_the_discs_four_letters_over_the_sheets_frame` (and the reference case for the second) |
+| `RING_INSET = 1.0`; separately `EDGE_INSET = 0.0` | `test_the_disc_is_fourteen_cells_of_exactly_four_colours` <!-- NAME NOT IN TREE --> |
+| the shadow taken from `on(x + 1, y + 1)` | `test_the_emblem_is_lit_from_the_upper_left` <!-- NAME NOT IN TREE --> |
+| one cell of `CHART`; separately the column offset without `+ 1` | `test_the_mark_is_the_owners_hand_drawn_chart` <!-- NAME NOT IN TREE --> |
+| `KEY[MARK_SHADOW] = "Y"`; separately `letter_row` reading the bottom half first | `test_the_twin_writes_the_discs_four_letters_over_the_sheets_frame` (and the reference case for the second) <!-- NAME NOT IN TREE --> |
 | `MARK_SHADOW` left out of `DISC_COLOURS`; separately `MARK` back to (226, 82, 74) | `test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours` |
-| the disc one column left; the disc's top line one up; the square's clash test from its fourth column | `test_the_disc_sits_inside_the_sheet_against_its_right_edge_three_clear_of_the_text` and `test_a_real_runs_stamp_is_the_owners_reference_cell_for_cell` |
-| `GAP - 1`; the short sheet's height not raised; the right edge painted parchment; the square's left-edge guard removed | `test_the_disc_sits_inside_the_sheet_against_its_right_edge_three_clear_of_the_text` |
+| the disc one column left; the disc's top line one up; the square's clash test from its fourth column | `test_the_disc_sits_inside_the_sheet_against_its_right_edge_three_clear_of_the_text` and `test_a_real_runs_stamp_is_the_owners_reference_cell_for_cell` <!-- NAME NOT IN TREE --> |
+| `GAP - 1`; the short sheet's height not raised; the right edge painted parchment; the square's left-edge guard removed | `test_the_disc_sits_inside_the_sheet_against_its_right_edge_three_clear_of_the_text` <!-- NAME NOT IN TREE --> |
 | the floor sentence's *one size* reworded; separately the two refusals swapped | `test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence` |
 | `--scale`'s help reworded | the same case |
 | the module docstring's twin letters reworded | `test_the_docstrings_describe_the_letter_and_the_rows_it_carries` |
@@ -77,7 +77,7 @@ Three breaks survived on the first pass, and each was answered. *`admitted`'s fl
 | `KEY`'s `M` and `n` | none — the rim gradient is gone |
 | `compose`'s corner overhang, its per-line `GAP` of two, its blended edge and its trailing-cell trim | `compose`'s square rule, `GAP = 3`; nothing stands past the sheet now |
 | `test_the_disc_is_twenty_four_cells_across_at_the_default_rung`, `test_the_emblem_is_the_owners_section_sign_inside_the_field`, `test_the_emblem_fills_even_odd_from_an_svg_path`, `test_shade_lights_the_mark_and_casts_its_shadow_down_right`, `test_the_terminal_draws_the_area_the_emblem_encloses`, `test_a_cell_is_the_mean_of_its_samples_in_linear_light`, `test_the_mark_reads_at_the_default_rung_and_fragments_below_it` | `test_the_disc_is_fourteen_cells_of_exactly_four_colours` and `test_the_mark_is_the_owners_hand_drawn_chart`; phase 6 corrects any released row that cites them <!-- NAME NOT IN TREE --> |
-| `test_the_disc_hangs_over_the_corner_two_clear_cells_from_the_text` | `test_the_disc_sits_inside_the_sheet_against_its_right_edge_three_clear_of_the_text`; 0.17.0 cites the old name |
+| `test_the_disc_hangs_over_the_corner_two_clear_cells_from_the_text` | `test_the_disc_sits_inside_the_sheet_against_its_right_edge_three_clear_of_the_text`; 0.17.0 cites the old name <!-- NAME NOT IN TREE --> |
 | `test_the_twin_writes_the_discs_six_letters_over_the_sheets_frame` | `test_the_twin_writes_the_discs_four_letters_over_the_sheets_frame`; no released row cites the *six* name <!-- NAME NOT IN TREE --> |
 | `test_several_files_come_out_one_stop_each_oldest_first` | `test_several_files_come_out_as_one_message_oldest_first`, #717's name back; no released row cites phase 2's name <!-- NAME NOT IN TREE --> |
 | the sentence *the owner saw the § fragment on a disc smaller than 0.90's 24 cells* in `docs/the-broad-gate.md` | the same paragraph: *the owner's disc is drawn 14 cells across at every scale, so there is no smaller disc to step to* |

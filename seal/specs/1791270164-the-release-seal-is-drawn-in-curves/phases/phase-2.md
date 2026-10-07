@@ -46,7 +46,7 @@ The widest panel was read off `test_the_widest_panel_the_tree_can_produce_fits_a
 | `test_a_coloured_row_carries_fewer_colour_sequences_than_cells` | `colour_row` writes the background on every cell |
 | `test_the_disc_hangs_over_the_corner_two_clear_cells_from_the_text` | nothing beneath a disc cell over the sheet (the edge goes hard); separately `Letter.disc`'s top in lines rather than half-rows |
 | `test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours` | `RIM_DARK` left out of `DISC_COLOURS` |
-| `test_the_emblem_is_lit_from_the_upper_left` | `shade`'s shadow probe taken down-right; separately the rim lit from 45° |
+| `test_the_emblem_is_lit_from_the_upper_left` | `shade`'s shadow probe taken down-right; separately the rim lit from 45° <!-- NAME NOT IN TREE --> |
 | `test_the_disc_is_twenty_four_cells_across_at_the_default_rung` | `DISC_CELLS = 20` <!-- NAME NOT IN TREE --> |
 | `test_the_emblem_is_the_owners_section_sign_inside_the_field` | one coordinate of `EMBLEM_D` changed <!-- NAME NOT IN TREE --> |
 | `test_shade_lights_the_mark_and_casts_its_shadow_down_right` | `shade`'s shadow probe taken down-right <!-- NAME NOT IN TREE --> |
