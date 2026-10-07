@@ -405,7 +405,7 @@ CRITERION = "### Choosing a value — the criterion"
 THREE_RULES = [
     "red repository-wide for reasons unrelated to any branch",
     "A command that **fixes** the tree",
-    "The suite runner is a part of the row a cut can stop after",
+    "Every pytest the row runs keeps the environment the gate hands it",
 ]
 
 
@@ -426,12 +426,15 @@ def test_each_rule_is_carried_with_the_reason_it_is_a_rule():
     body = flat(section(read(*TEMPLATE), CRITERION, 3))
     assert "block every future work item" in body, "rule 1 has no reason"
     assert "can only come back green" in body, "rule 2 has no reason"
-    # #789: the runner is the prefix whose run writes the report the gate
-    # asked pytest for, and no longer one whose text looks like pytest's.
-    assert "until one writes that report" in body, "rule 3 has no reason"
+    # #825: the comparison reads a record the row's own pytest wrote, which
+    # it can only write where it was handed the gate's environment.
+    assert "compares each failing file with the base from a record" in body, (
+        "rule 3 has no reason"
+    )
+    assert "until one writes that report" not in body, "rule 3 keeps a stale reason"
     # #747: the reason used to be that the comparison re-ran the first `&&`
     # part, and it stopped being true; Q2 states both orders and recommends
-    # neither.
+    # neither, and since #825 the row runs whole at the base either way.
     assert "the order is the repository's trade" in body, "rule 3 picks an order"
     assert "before the row's first `&&`" not in body, "rule 3 keeps a stale reason"
 
