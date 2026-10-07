@@ -1947,28 +1947,39 @@ def record_path(path, worktree):
     return rel.replace(os.sep, "/")
 
 
-# The `end` exits of a pytest session that ran to its end (#849 round 1).
-# pytest defines six, and its `wrap_session` gives each one this way:
+# The `end` exits of a pytest session that ran to its end (#849 round 1). A
+# stop is read off the `end` line's `stopped` first (#852): what pytest
+# handed `pytest_keyboard_interrupt` and the session's `shouldfail` and
+# `shouldstop`, which the recorder writes. The exit is the net for a stop no
+# hook shows. pytest defines six, and its `wrap_session` gives each one this
+# way:
 #
 #   0 OK, 1 TESTS_FAILED, 5 NO_TESTS_COLLECTED -- the run loop ran every test
-#     it collected, or there were none. Held here.
-#   2 INTERRUPTED -- a `KeyboardInterrupt` or `pytest.exit()` in a test, a
-#     failed collection without `-x` or `--continue-on-collection-errors` (no
-#     test runs), xdist under `-x` or `--maxfail`, and a plugin that sets
-#     `shouldstop`. Stopped part-way, and still writes its `end` line.
-#   3 INTERNAL_ERROR -- the run loop raised, a hook among the causes.
+#     it collected, or there were none. Held here. A stopped session gives
+#     them too, and `stopped` is what tells it apart: `pytest.exit` with a
+#     `returncode` of 0, 1 or 5 chooses one (an `exit` entry), and a run
+#     without xdist that `-x` or `--maxfail` stops exits 1 (a `failures`
+#     entry). A failed collection under `-x` exits 1 where another collector
+#     starts after it, and 2 where it was the last one collected.
+#   2 INTERRUPTED -- a `KeyboardInterrupt`, `pytest.exit()` with no code, the
+#     run loop's `Interrupted`: a failed collection without `-x` or
+#     `--continue-on-collection-errors` (no test runs), xdist under `-x` or
+#     `--maxfail`, and `--stepwise` or another plugin that sets `shouldstop`.
+#     Each also puts an entry in `stopped`.
+#   3 INTERNAL_ERROR -- the run loop raised, a hook among the causes; and a
+#     `pytest.exit()` in an xdist worker, which reaches the controller as an
+#     internal error with no hook called.
 #   4 USAGE_ERROR -- pytest refused an argument after the session started,
 #     a `-k` expression it cannot parse among them; no test runs.
 #
 # Any other value is a return code `pytest.exit` or a plugin chose, and is no
-# exit of a session that ran to its end. Each exit above was measured with
-# the recorder loaded on pytest 6.1, 7.0 and 9.1 (#849 round 2). Two stops
-# still exit with a value held here, and are named rather than closed:
-# `pytest.exit` with a `returncode` of 0, 1 or 5 chooses it, and a run
-# without xdist that `-x` or `--maxfail` stops exits 1, a failed collection
-# under `-x` among them. That one leaves no file partly run while each file's
-# tests run together: it stops in the file whose failure stopped it, which
-# reads `failing on base too`, and the files after it hold no line.
+# exit of a session that ran to its end. Every exit above was measured with
+# the recorder loaded on pytest 6.1, 7.0 and 9.1 (#849 round 2), and again
+# with every stop `stopped` carries on the same three builds and on 9.1 with
+# pytest-xdist 3.8 under `-n 2` (`phases/phase-1.md` of 1791384158). One stop
+# shows in neither: a `pytest.exit()` raised by a `pytest_sessionfinish`
+# hook that runs after the recorder's is raised after the `end` line was
+# written, and that session reads as one that ran to its end.
 RAN_TO_ITS_END = (0, 1, 5)
 
 # The category pytest's terminal reporter counts a collect report under
@@ -2184,16 +2195,34 @@ UNPLACED_AT_BASE = (
 # finished. It wrote no `end` line: its process died, as plain pytest does on
 # a test that calls `os._exit` or segfaults, or its recorder stopped writing
 # (#849, #825 round 6's 🟡 1: round 4's 🟡 2 without xdist). Or its `end` line
-# shows an exit `RAN_TO_ITS_END` does not hold: pytest ended the session
-# itself (#849 round 1). Checked after `UNPLACED_AT_BASE`, whose count is the
-# one a red session can give.
+# says pytest stopped the session (#852), or shows an exit `RAN_TO_ITS_END`
+# does not hold: pytest ended the session itself (#849 round 1). Checked
+# after `UNPLACED_AT_BASE`, whose count is the one a red session can give.
 UNENDED_AT_BASE = (
     f"{NOT_MEASURED}: the row ran once at the base, and {{count}} of its pytest "
     "sessions stopped part-way, because the process died or the recorder "
-    "stopped writing before the session's end line, or pytest ended the "
-    "session interrupted or on an error of its own, so this file's tests there "
-    "may not have finished and whether the base fails it was not measured "
-    "(kept as suite-at-base.txt, with records/ beside it)"
+    "stopped writing before the session's end line, or pytest stopped the "
+    "session (an interrupt, pytest.exit(), -x or --maxfail, a plugin's stop) "
+    "or ended it on an error of its own, so this file's tests there may not "
+    "have finished and whether the base fails it was not measured (kept as "
+    "suite-at-base.txt, with records/ beside it)"
+)
+
+
+# Formatted with how many lines of the base's keyed records did not parse as
+# the recorder's, where a file would read `new` (#869). The recorder writes
+# one JSON object per line, so such a line was written by something else or
+# cut short, and it may have held this file's failing test. Checked after
+# `UNENDED_AT_BASE`: a session that died part-way can leave a cut last line,
+# and its reason is the one that names the cause. A file the record holds
+# failing still reads `failing on base too`: what the record does hold is
+# kept.
+UNREAD_AT_BASE = (
+    f"{NOT_MEASURED}: the row ran once at the base, and {{count}} of the lines "
+    "in the records its pytest wrote there did not parse as the recorder's and "
+    "each was passed over, so one may have held this file's failure and "
+    "whether the base fails it was not measured (kept as suite-at-base.txt, "
+    "with records/ beside it)"
 )
 
 
@@ -2214,6 +2243,8 @@ def base_word(record, code, path):
             return UNPLACED_AT_BASE.format(count=record.unplaced_red)
         if record.unended:
             return UNENDED_AT_BASE.format(count=record.unended)
+        if record.unread:
+            return UNREAD_AT_BASE.format(count=record.unread)
         return NEW
     return NOT_REACHED.format(code=code)
 
@@ -3161,23 +3192,28 @@ def panel(
     return [None if row is None else (row[0], fit(row[1])) for row in rows]
 
 
-def failure_lines(check, verdicts=None, unplaced=0, unended=0):
+def failure_lines(check, verdicts=None, record=None):
     """What the failure form quotes for one check: its first lines, the
     FAILED lines with their base verdict where there are any, the exit code,
-    and the file holding the rest.
+    and the file holding the rest. `record` is the `RunRecord` of the row's
+    run at `HEAD`, for the suite; None for every other check.
 
     **Where the record at `HEAD` left tests or collections out, it says how
-    many** (#825's reframe after round 3). `unplaced` is the head record's
-    count of them — a test with no file of its own, a report a plugin built
-    without its path — and each is in no list above, so a person reading the
-    list alone would not know they ran.
+    many** (#825's reframe after round 3). `record.unplaced` is the count of
+    them — a test with no file of its own, a report a plugin built without
+    its path — and each is in no list above, so a person reading the list
+    alone would not know they ran.
 
     **Where a session at `HEAD` stopped part-way, it says how many did**
-    (#849 round 1). `unended` is the head record's count of them. The test a
+    (#849 round 1). `record.unended` is the count of them. The test a
     session stopped in may have written no failing line — one that kills
     plain pytest writes only its passing setup, and a `KeyboardInterrupt`
     writes no call — and the tests it never reached wrote none, so its file
     can be in no list above.
+
+    **Where a line of the record at `HEAD` did not parse, it says how many**
+    (#869). `record.unread` is the count of them; the gate passed each over,
+    so a failing test it named is in no list above.
 
     **A failing `suite` whose output holds no pytest summary says so** (#448).
     Its exit code alone reads as tests failing, and it is equally what a
@@ -3205,10 +3241,12 @@ def failure_lines(check, verdicts=None, unplaced=0, unended=0):
         else:
             lines.append(COMPARED_AT_BASE)
         lines.extend(f"  {f}  {word}" for f, word in verdicts.items())
-    if unplaced:
-        lines.append(UNPLACED.format(count=unplaced))
-    if unended:
-        lines.append(UNENDED_HERE.format(count=unended))
+    if record is not None and record.unplaced:
+        lines.append(UNPLACED.format(count=record.unplaced))
+    if record is not None and record.unended:
+        lines.append(UNENDED_HERE.format(count=record.unended))
+    if record is not None and record.unread:
+        lines.append(UNREAD_HERE.format(count=record.unread))
     if check.name == SUITE:
         counts = summary_counts(check.text)
         lines.append(counts or NO_SUMMARY)
@@ -3248,9 +3286,21 @@ UNPLACED = (
 UNENDED_HERE = (
     "{count} of the row's pytest sessions here stopped part-way, because the "
     "process died or the recorder stopped writing before the session's end "
-    "line, or pytest ended the session interrupted or on an error of its own, "
-    "so a test it stopped in may be in no list and the tests it never reached "
-    "are in none (each session's record is under records/)"
+    "line, or pytest stopped the session (an interrupt, pytest.exit(), -x or "
+    "--maxfail, a plugin's stop) or ended it on an error of its own, so a test "
+    "it stopped in may be in no list and the tests it never reached are in "
+    "none (each session's record is under records/)"
+)
+
+# The line under the listing where a line of the records the row's pytest
+# wrote at `HEAD` did not parse as the recorder's, formatted with how many
+# (#869): the gate passed each over, so a failing test it named may be in no
+# list, and no count of the suite is printed.
+UNREAD_HERE = (
+    "{count} of the lines in the records the row's pytest wrote here did not "
+    "parse as the recorder's and each was passed over, so a failing test may "
+    "be in no list and the suite's counts are not given (each session's "
+    "record is under records/)"
 )
 
 # The line a failing `suite` gets where its output carries no pytest summary:
@@ -3541,22 +3591,22 @@ def gate(args, console_wants_letters, terminal=False):
     for name, check in checks.items():
         if not check.failed:
             continue
-        verdicts, unplaced, unended = None, 0, 0
+        verdicts, record = None, None
         if name == SUITE:
             # The failing files come from the record the row's pytest wrote
             # here. Where no pytest left a record there is nothing to
             # compare, so the `FAILED` lines only name the files, and the base
             # is not run (#825). A session that stopped part-way here is
-            # counted under the list (#849 round 1).
-            head = read_record(records_dir(keep), head_key, root)
-            unplaced, unended = head.unplaced, head.unended
+            # counted under the list (#849 round 1), and so is a line of the
+            # record that did not parse (#869).
+            record = head = read_record(records_dir(keep), head_key, root)
             if head.sessions:
                 files = list(head.failing)
                 if files:
                     verdicts = compare_at_base(root, base.commit, command, files, keep)
             else:
                 verdicts = {f: NO_RECORD_AT_HEAD for f in failing_files(check.text)}
-        failures.append((name, failure_lines(check, verdicts, unplaced, unended)))
+        failures.append((name, failure_lines(check, verdicts, record)))
     # The preflight's ask (#702), after the arms and whatever they found, so
     # a chain refusal and a `seal` refusal are both named in one run. It is
     # NOT an arm: it mirrors no CI step, so it is no `checks[...] = run(...)`
