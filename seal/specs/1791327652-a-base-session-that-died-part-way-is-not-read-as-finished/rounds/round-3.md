@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | warden on Opus 5.5 |
 | PR | #851 |
-| Broad gate | not yet |
+| Broad gate | 3c52598e against 3d78c220 |
 | Fixes checked by | no fixes to check |
 | Fix range | `034fbe4cdbf1a79e11c815f581d9cebacb48a612..034fbe4cdbf1a79e11c815f581d9cebacb48a612`, 0 commits |
 | Contract changes | none |
