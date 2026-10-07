@@ -7,15 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | #850 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `2c3a7f920204672160299f8ee2026655cdc70282..2c3a7f920204672160299f8ee2026655cdc70282`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | second — 🟡 1 at hooks/worktree-guard.py#_rebase_names_a_branch, a unit round-2's fixes changed; the fix passes stop here and the work item goes back to its framer |
 | Needs a fix | yes — 🟡 1: `git rebase --ro <branch>` and `git rebase --end-of-options <upstream> <branch>` switch HEAD and are listed, so each is silent in an ACTIVE tree |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,14 +30,16 @@ The reviewer was asked to open each fix, and to treat round 2's `New units` as a
 
 It also read every workflow of `gh pr checks 850`, and it did not run the full suite.
 
+`round-record new` gave this record two exits. The reopening is spent, so the run ends `capped`. 🟡 1 is the run's second fix of a fix, so the work item goes back to its framer. Both forbid a fix pass inside this run. The orchestrator took the exit the owner chose for the same shape on #825's round 6 on 2026-10-07: `capped`, with the findings deferred to #854, which is fixed in 0.20.0 as its own work item. No `Reframed` line is written, and the pull request is labelled `chain: capped`.
+
 ## Verdicts
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `_rebase_names_a_branch` ends the options only at `--` and reads `--root` by exact match, so `git rebase --ro feature/x` and `git rebase --end-of-options main -x`, which git runs as a switch, are listed and silent in an ACTIVE tree | `hooks/worktree-guard.py:2245` | open | executed: git 2.50.1 moved HEAD in both; the build, `3c9a1161` and the base silent in an ACTIVE tree; the trial fix denies both and the 21 rebase and git-binding cases pass; a fix of a fix in a unit round 2's fixes changed, home candidate the frame |
-| ⬜ 2 | §A says the stop's reason names each tree that matters, and a one-tree reason names none: `git -C W checkout feature/x` with only `W` dirty asks about "this tree" | `docs/worktree-guard-spec.md:97` | open | executed; the text predates round 2 and the decision is right |
-| ⬜ 3 | §Known limits' bullet on a tree the guard cannot place names neither `cd W 2>&1 && git switch x` nor a cut git in an `if` body after `cd W`, and both are silent with `W` ACTIVE | `docs/worktree-guard-spec.md:793` | open | executed against the build, `3c9a1161` and the base; the base's ask on the `if` rows was tree-blind (it asked with `W` clean); the behaviour is the owner's rule of 2026-10-03 |
-| ⬜ 4 | a carried closure quotes the earlier finding's red glyph in its Grounds beside `confirmed`, so `release` fails at 2c3a7f92 | `seal/specs/1791270162-the-worktree-guard-allows-a-listed-shape-and-asks-the-rest/rounds/round-2.md:42` | open | executed: `chain_check.py` fails on that line, and passes it with the cell corrected; a paperwork correction, not counted in `Needs a fix` |
+| 🟡 1 | `_rebase_names_a_branch` ends the options only at `--` and reads `--root` by exact match, so `git rebase --ro feature/x` and `git rebase --end-of-options main -x`, which git runs as a switch, are listed and silent in an ACTIVE tree | `hooks/worktree-guard.py:2245` | deferred #854 — the run is capped and this is its second fix of a fix; fixed in 0.20.0 as its own work item, as the owner chose for #825's round 6 | #854 — the run is capped and this is its second fix of a fix; fixed in 0.20.0 as its own work item, as the owner chose for #825's round 6; executed: git 2.50.1 moved HEAD in both; the build, `3c9a1161` and the base silent in an ACTIVE tree; the trial fix denies both and the 21 rebase and git-binding cases pass; a fix of a fix in a unit round 2's fixes changed, home candidate the frame |
+| ⬜ 2 | §A says the stop's reason names each tree that matters, and a one-tree reason names none: `git -C W checkout feature/x` with only `W` dirty asks about "this tree" | `docs/worktree-guard-spec.md:97` | deferred #854 — the run is capped; a sentence of the policy | #854 — the run is capped; a sentence of the policy; executed; the text predates round 2 and the decision is right |
+| ⬜ 3 | §Known limits' bullet on a tree the guard cannot place names neither `cd W 2>&1 && git switch x` nor a cut git in an `if` body after `cd W`, and both are silent with `W` ACTIVE | `docs/worktree-guard-spec.md:793` | deferred #854 — the run is capped; two spellings for §Known limits | #854 — the run is capped; two spellings for §Known limits; executed against the build, `3c9a1161` and the base; the base's ask on the `if` rows was tree-blind (it asked with `W` clean); the behaviour is the owner's rule of 2026-10-03 |
+| ⬜ 4 | a carried closure quotes the earlier finding's red glyph in its Grounds beside `confirmed`, so `release` fails at 2c3a7f92 | `seal/specs/1791270162-the-worktree-guard-allows-a-listed-shape-and-asks-the-rest/rounds/round-2.md:42` | answered | `chain_check`'s open-blocking reading takes the last record alone, and round-3.md carries no red glyph, so `release` reads the run from this record once it lands; round-2.md is a closed record and stays as written; executed: `chain_check.py` fails on that line, and passes it with the cell corrected; a paperwork correction, not counted in `Needs a fix` |
 | 🟢 | round 2's blocking finding 1 is closed for the lone `-` and every word after `--` | `hooks/worktree-guard.py:2245` | confirmed | executed: `git rebase - feature/x` denies in an ACTIVE tree, silent at `3c9a1161` and the base; the rebase cases pass; two further spellings are this round's finding 1 |
 | 🟢 | round 2's blocking finding 2 is closed — a cut git is placed by its first part and its glued words | `hooks/worktree-guard.py:2996` | confirmed | executed: the seven rows of `CUT_GROUPS` without a `cd` ask with `W` dirty and deny with `W` ACTIVE, all silent at `3c9a1161`; the base asked on five and was silent on the two `stash` rows |
 | 🟢 | round 2's finding 3 is closed — a broken reader places a cut by the part before it | `hooks/worktree-guard.py:2422` | confirmed | executed through the new case in both broken modes |
