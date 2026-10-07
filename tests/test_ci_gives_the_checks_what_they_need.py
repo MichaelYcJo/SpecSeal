@@ -165,7 +165,8 @@ def pytest_matrix(text):
 
 
 # A matrix in this repository's shape, with a commented entry, a trailing
-# comment, a single-quoted value and a value holding a `#`. Neutral values
+# comment, a single-quoted value, a value holding a `#`, a sibling key that
+# ends `include:` and a second job's matrix. Neutral values
 # only (`CONTRIBUTING.md` §*House rules*, *No real identifiers*).
 MATRIX = """\
 name: tests
@@ -181,6 +182,8 @@ jobs:
           # - { os: macos-latest, python: "3.12", timeout: 35 }
           - { os: macos-latest, python: "3.12", split: "--splits 2 --group 1", timeout: 5 }  # one
           - { os: example-os, python: '3.12', note: "a # b" }
+        exclude:
+          - { os: example-os, python: "3.12" }
     runs-on: ${{ matrix.os }}
     steps:
       - run: pytest tests/ ${{ matrix.split }}
