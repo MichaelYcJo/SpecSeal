@@ -919,3 +919,79 @@ def test_a_crash_report_takes_a_path_only_from_its_own_workers_report_of_it():
     recorder.path_of(Report("t::x", "teardown", one, "/r/a.py"), "test")
     assert recorder.path_of(Report("t::x", "???", one), "test") is None
     assert recorder.unplaced == {("test", "t::x"), ("test", "t::y")}
+
+
+def test_a_worker_made_after_another_is_freed_inherits_none_of_its_reports():
+    """#849 (#825 round 6's ⬜ 2, S5), at `Recorder.path_of`. xdist replaces
+    a crashed worker with a new controller object, and CPython hands a new
+    object the address of one it freed. Keyed on `id()` of a worker it did
+    not hold, the map gave a replacement the freed worker's last report, so
+    a crash on the new worker took the old node's path. Keyed on `id()` with
+    the worker held in the value, the old one is never freed, so no later
+    object can take its address (#849 round 1's 🟡 3: keyed on the worker
+    itself, a `node` whose hash raised escaped the hook, and two that compared
+    equal shared one entry).
+
+    A replacement inside a live xdist run cannot be provoked on demand --
+    the terminal reporter keeps the crash report, which holds the old worker
+    -- so the case frees the worker itself and makes objects until one takes
+    its address, or a thousand have been made. A plain `object()` stands in
+    for the worker, as above: CPython 3.13 hands a freed one's address to the
+    very next, where an instance of a class of the case's own was measured
+    not to reuse it within a thousand."""
+    spec = importlib.util.spec_from_file_location(
+        "specseal_pytest_record_under_test",
+        os.path.join(RECORDER_DIR, "specseal_pytest_record.py"),
+    )
+    recorder_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recorder_module)
+
+    class Config:
+        rootpath = "/r"
+
+    class Report:
+        def __init__(self, nodeid, when, node, path=None):
+            self.nodeid, self.when, self.node = nodeid, when, node
+            if path is not None:
+                setattr(self, recorder_module.PATH_ATTRIBUTE, path)
+
+    recorder = recorder_module.Recorder("k", "/d", Config())
+    made = [None] * 1000
+    old = object()
+    freed = id(old)
+    recorder.path_of(Report("t::x", "setup", old, "/r/a.py"), "test")
+    del old
+    for index in range(len(made)):
+        made[index] = object()
+        if id(made[index]) == freed:
+            break
+    for worker in made[: index + 1]:
+        assert recorder.path_of(Report("t::x", "???", worker), "test") is None
+    assert recorder.unplaced == {("test", "t::x")}
+
+    # Keyed on identity, a `node` no dict could key, or one whose `__hash__`
+    # raises, is a sender like any other, and nothing raises.
+    class Unhashable:
+        def __hash__(self):
+            raise ValueError("no hash")
+
+    for unkeyable in ([], Unhashable()):
+        assert recorder.path_of(
+            Report("t::z", "call", unkeyable, "/r/z.py"), "test"
+        ) == ("/r/z.py")
+        assert recorder.path_of(Report("t::z", "???", unkeyable), "test") == "/r/z.py"
+
+    # Two distinct workers that compare equal are two senders: the second
+    # inherits nothing the first sent.
+    class Equal:
+        def __eq__(self, other):
+            return isinstance(other, Equal)
+
+        def __hash__(self):
+            return 0
+
+    first, second = Equal(), Equal()
+    recorder.path_of(Report("t::e", "setup", first, "/r/e.py"), "test")
+    assert recorder.path_of(Report("t::e", "???", second), "test") is None
+    assert recorder.path_of(Report("t::e", "???", first), "test") == "/r/e.py"
+    assert recorder.unplaced == {("test", "t::x"), ("test", "t::e")}

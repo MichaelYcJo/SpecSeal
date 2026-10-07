@@ -1879,7 +1879,11 @@ class RunRecord:
     no line, for want of a file of their own (#825's reframe after round 3);
     `unplaced_red` sums only those of sessions whose `end` line shows a
     non-zero exit, because a session that exited 0 failed nothing, counted
-    or not (#825 round 5).
+    or not (#825 round 5). `unended` counts the sessions that stopped
+    part-way: those whose record holds no `end` line, because the process
+    died or the recorder stopped writing (#849), and those whose `end` line
+    shows an exit `RAN_TO_ITS_END` does not hold, because pytest ended the
+    session itself (#849 round 1).
 
     Named apart from `Record`, which is a round record's home (#666)."""
 
@@ -1888,13 +1892,14 @@ class RunRecord:
         "failing",
         "sessions",
         "skipped",
+        "unended",
         "unplaced",
         "unplaced_red",
     )
 
     def __init__(self):
         self.sessions, self.skipped, self.unplaced = 0, 0, 0
-        self.unplaced_red = 0
+        self.unplaced_red, self.unended = 0, 0
         self.failing, self.collected = {}, set()
 
 
@@ -1918,6 +1923,31 @@ def record_path(path, worktree):
     return rel.replace(os.sep, "/")
 
 
+# The `end` exits of a pytest session that ran to its end (#849 round 1).
+# pytest defines six, and its `wrap_session` gives each one this way:
+#
+#   0 OK, 1 TESTS_FAILED, 5 NO_TESTS_COLLECTED -- the run loop ran every test
+#     it collected, or there were none. Held here.
+#   2 INTERRUPTED -- a `KeyboardInterrupt` or `pytest.exit()` in a test, a
+#     failed collection without `-x` or `--continue-on-collection-errors` (no
+#     test runs), xdist under `-x` or `--maxfail`, and a plugin that sets
+#     `shouldstop`. Stopped part-way, and still writes its `end` line.
+#   3 INTERNAL_ERROR -- the run loop raised, a hook among the causes.
+#   4 USAGE_ERROR -- pytest refused an argument after the session started,
+#     a `-k` expression it cannot parse among them; no test runs.
+#
+# Any other value is a return code `pytest.exit` or a plugin chose, and is no
+# exit of a session that ran to its end. Each exit above was measured with
+# the recorder loaded on pytest 6.1, 7.0 and 9.1 (#849 round 2). Two stops
+# still exit with a value held here, and are named rather than closed:
+# `pytest.exit` with a `returncode` of 0, 1 or 5 chooses it, and a run
+# without xdist that `-x` or `--maxfail` stops exits 1, a failed collection
+# under `-x` among them. That one leaves no file partly run while each file's
+# tests run together: it stops in the file whose failure stopped it, which
+# reads `failing on base too`, and the files after it hold no line.
+RAN_TO_ITS_END = (0, 1, 5)
+
+
 def read_record(directory, key, worktree):
     """The `RunRecord` of every `*.jsonl` under `directory` whose first line
     — the recorder's `session` line — carries `key`, with paths named against
@@ -1936,7 +1966,9 @@ def read_record(directory, key, worktree):
     twice the first runner's files come first. A directory that cannot be
     listed, or a file that cannot be read, holds no record. An `end` line's
     `unplaced`, where it is an integer, is added to the record's, and to its
-    `unplaced_red` too where that line's `exitstatus` is not 0."""
+    `unplaced_red` too where that line's `exitstatus` is not 0. A keyed file
+    with no `end` line, or with an `end` line whose `exitstatus` is not in
+    `RAN_TO_ITS_END`, adds one to `unended`."""
     record = RunRecord()
     try:
         names = os.listdir(directory)
@@ -1969,6 +2001,13 @@ def read_record(directory, key, worktree):
         if not parsed or parsed[0].get("key") != key:
             continue
         record.sessions += 1
+        # A session stopped part-way where it wrote no `end` line -- its
+        # process died, or its recorder stopped writing (#849, #825 round 6)
+        # -- or where its `end` line shows an exit pytest gives a session it
+        # stopped itself (#849 round 1).
+        ends = [value for value in parsed[1:] if value.get("kind") == "end"]
+        if not ends or any(end.get("exitstatus") not in RAN_TO_ITS_END for end in ends):
+            record.unended += 1
         for value in parsed[1:]:
             unplaced = value.get("unplaced")
             if value.get("kind") == "end" and type(unplaced) is int:
@@ -2090,6 +2129,24 @@ UNPLACED_AT_BASE = (
 )
 
 
+# Formatted with how many of the base's sessions stopped part-way, where a
+# file would read `new`, so what such a session held passing may not have
+# finished. It wrote no `end` line: its process died, as plain pytest does on
+# a test that calls `os._exit` or segfaults, or its recorder stopped writing
+# (#849, #825 round 6's 🟡 1: round 4's 🟡 2 without xdist). Or its `end` line
+# shows an exit `RAN_TO_ITS_END` does not hold: pytest ended the session
+# itself (#849 round 1). Checked after `UNPLACED_AT_BASE`, whose count is the
+# one a red session can give.
+UNENDED_AT_BASE = (
+    f"{NOT_MEASURED}: the row ran once at the base, and {{count}} of its pytest "
+    "sessions stopped part-way, because the process died or the recorder "
+    "stopped writing before the session's end line, or pytest ended the "
+    "session interrupted or on an error of its own, so this file's tests there "
+    "may not have finished and whether the base fails it was not measured "
+    "(kept as suite-at-base.txt, with records/ beside it)"
+)
+
+
 # Where the scratch worktree at the base could not be added.
 NOT_CHECKED_OUT = f"{NEW}? the base could not be checked out for comparison"
 
@@ -2105,6 +2162,8 @@ def base_word(record, code, path):
     if path in record.collected or code == 0:
         if record.unplaced_red:
             return UNPLACED_AT_BASE.format(count=record.unplaced_red)
+        if record.unended:
+            return UNENDED_AT_BASE.format(count=record.unended)
         return NEW
     return NOT_REACHED.format(code=code)
 
@@ -2139,8 +2198,13 @@ def compare_at_base(root, base, command, files, keep):
     of every list: one of them may be the file's failure — an xdist worker
     that died in a test's setup, before any report of it reached the
     controller, is one — so the record cannot say the file passed. A session
-    that exited 0 failed nothing, so what it left out cannot be. `failing on
-    base too` is not affected.
+    that exited 0 failed nothing, so what it left out cannot be. Where no
+    such count is given, either `new` reads `UNENDED_AT_BASE` instead where a
+    session of the base stopped part-way: it wrote no `end` line, as plain
+    pytest a test kills with `os._exit` writes none (#849), or its `end`
+    line shows an exit `RAN_TO_ITS_END` does not hold, as a
+    `KeyboardInterrupt` in a test and xdist under `-x` give (#849 round 1).
+    `failing on base too` is not affected.
 
     The process that collected a test is the process that wrote its line,
     so there is no `whose` to decide: a test that runs pytest itself starts
@@ -2988,7 +3052,7 @@ def panel(
     return [(label, fit(value)) for label, value in rows]
 
 
-def failure_lines(check, verdicts=None, unplaced=0):
+def failure_lines(check, verdicts=None, unplaced=0, unended=0):
     """What the failure form quotes for one check: its first lines, the
     FAILED lines with their base verdict where there are any, the exit code,
     and the file holding the rest.
@@ -2998,6 +3062,13 @@ def failure_lines(check, verdicts=None, unplaced=0):
     count of them — a test with no file of its own, a report a plugin built
     without its path — and each is in no list above, so a person reading the
     list alone would not know they ran.
+
+    **Where a session at `HEAD` stopped part-way, it says how many did**
+    (#849 round 1). `unended` is the head record's count of them. The test a
+    session stopped in may have written no failing line — one that kills
+    plain pytest writes only its passing setup, and a `KeyboardInterrupt`
+    writes no call — and the tests it never reached wrote none, so its file
+    can be in no list above.
 
     **A failing `suite` whose output holds no pytest summary says so** (#448).
     Its exit code alone reads as tests failing, and it is equally what a
@@ -3027,6 +3098,8 @@ def failure_lines(check, verdicts=None, unplaced=0):
         lines.extend(f"  {f}  {word}" for f, word in verdicts.items())
     if unplaced:
         lines.append(UNPLACED.format(count=unplaced))
+    if unended:
+        lines.append(UNENDED_HERE.format(count=unended))
     if check.name == SUITE:
         counts = suite_counts(check.text)
         lines.append(counts or NO_SUMMARY)
@@ -3059,10 +3132,26 @@ UNPLACED = (
     "unplaced on the end line of each record under records/)"
 )
 
-# The line a failing `suite` gets where its output carries no pytest summary.
+# The line under the listing where a session of the row's pytest at `HEAD`
+# stopped part-way, formatted with how many did: the test it stopped in may
+# have written no failing line, and the tests it never reached wrote none, so
+# their file can be in no list above (#849 round 1).
+UNENDED_HERE = (
+    "{count} of the row's pytest sessions here stopped part-way, because the "
+    "process died or the recorder stopped writing before the session's end "
+    "line, or pytest ended the session interrupted or on an error of its own, "
+    "so a test it stopped in may be in no list and the tests it never reached "
+    "are in none (each session's record is under records/)"
+)
+
+# The line a failing `suite` gets where its output carries no pytest summary:
+# the row stopped before pytest printed one, either before any test ran or
+# with a pytest that died part-way, as plain pytest does on a test that calls
+# `os._exit` (#448, #849 round 1). Never one of the two as the only one.
 NO_SUMMARY = (
     "no pytest summary in this output, so this exit code is not a count of "
-    "failing tests: the row may have stopped before any test ran"
+    "failing tests: the row may have stopped before any test ran, or a pytest "
+    "it ran may have died part-way"
 )
 
 
@@ -3343,21 +3432,22 @@ def gate(args, console_wants_letters, terminal=False):
     for name, check in checks.items():
         if not check.failed:
             continue
-        verdicts, unplaced = None, 0
+        verdicts, unplaced, unended = None, 0, 0
         if name == SUITE:
             # The failing files come from the record the row's pytest wrote
             # here. Where no pytest left a record there is nothing to
             # compare, so the `FAILED` lines only name the files, and the base
-            # is not run (#825).
+            # is not run (#825). A session that stopped part-way here is
+            # counted under the list (#849 round 1).
             head = read_record(records_dir(keep), head_key, root)
-            unplaced = head.unplaced
+            unplaced, unended = head.unplaced, head.unended
             if head.sessions:
                 files = list(head.failing)
                 if files:
                     verdicts = compare_at_base(root, base.commit, command, files, keep)
             else:
                 verdicts = {f: NO_RECORD_AT_HEAD for f in failing_files(check.text)}
-        failures.append((name, failure_lines(check, verdicts, unplaced)))
+        failures.append((name, failure_lines(check, verdicts, unplaced, unended)))
     # The preflight's ask (#702), after the arms and whatever they found, so
     # a chain refusal and a `seal` refusal are both named in one run. It is
     # NOT an arm: it mirrors no CI step, so it is no `checks[...] = run(...)`
