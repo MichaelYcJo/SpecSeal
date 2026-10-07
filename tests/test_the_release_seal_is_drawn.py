@@ -925,3 +925,8 @@ def test_the_checklist_box_says_where_a_missing_seal_is_explained():
     # Round 2's ⬜ 12: the reasons match the refusal's three causes.
     assert "published without one" in box
     assert "the pull requests moved between the two lists" in box
+    # #832: the seal is drawn by `rsvg-convert`, so the box names the binary
+    # among the reasons and the hand-drawn route needs a machine that has it.
+    # Seen red against the box as #718 left it.
+    assert "`rsvg-convert` was not installed or could not draw the SVG" in box
+    assert "from a checkout at the tag on a machine with `rsvg-convert`" in box
