@@ -58,7 +58,25 @@ Not framed, on purpose:
 - **#857** (the stamp's mark) waits on the owner, and two records disagree
   about what the owner chose (below).
 
-## What the owner has not answered yet
+## The owner's answers (2026-10-08)
+
+All seven rows below were answered in one message, and each answer is ticked
+where the build reads it:
+
+1. #835 Q1: (a), as framed. Ticked in its `questions.md`.
+2. #836 Q1: (a), no bulk pass. Ticked in its `questions.md`.
+3. #837 Q1: (a), unbounded. Ticked in its `questions.md`.
+4. #858 Q1: leave, dated in the checklist's box. Ticked in its `questions.md`.
+5. #856: (c) confirmed. On #868's `questions.md` bullet and on #856.
+6. #857: the 28-cell record holds (0.20.0's changelog, docs,
+   `assets/seals/README`, `read_chart`'s 28×28). The 24-cell § "D" note was
+   a superseded intermediate step. The mark is still undecided, so #857 is
+   **not framed in 0.21.0**; it waits on the owner's mark.
+7. Release size: all eleven work items ship in 0.21.0.
+
+Smith, warden and sealer are spawned with `model: opus`.
+
+## What the owner had not answered (answered above)
 
 Put these in front of the owner **in one question call before any smith is
 spawned** (CLAUDE.md §*The goal a design is chosen against*). Every row has a
