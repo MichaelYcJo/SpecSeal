@@ -12,10 +12,11 @@ cases. What decides whether a leg's union is the suite is the matrix itself:
 a group named twice runs twice and a group named by no entry runs nowhere,
 and nothing on the runner says so -- each shard passes. So the matrix is
 read here, through `tests/test_ci_gives_the_checks_what_they_need.py#
-pytest_matrix`, the suite's one reading of it: every entry of a sharded
-system is a shard of that system's count `K` in `SHARDED`, its groups are
-exactly 1 to `K` once each, every other entry carries no split, and the
-pytest line hands the split to pytest.
+matrix_include_entries`, the suite's one reading of the job's entries,
+which refuses a matrix whose entries would not be its jobs: every entry of
+a sharded system is a shard of that system's count `K` in `SHARDED`, its
+groups are exactly 1 to `K` once each, every other entry carries no split,
+and the pytest line hands the split to pytest.
 
 The durations file is read too. A file missing from the tree only unbalances
 the shards (`pytest-split` then divides by count), but one that does not
@@ -26,7 +27,11 @@ import json
 import os
 import re
 
-from test_ci_gives_the_checks_what_they_need import jobs, pytest_matrix, read
+from test_ci_gives_the_checks_what_they_need import (
+    jobs,
+    matrix_include_entries,
+    read,
+)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DURATIONS = os.path.join(ROOT, ".test_durations")
@@ -39,7 +44,7 @@ SHARDED = {"windows-latest": 4, "macos-latest": 3}
 
 
 def test_every_group_of_each_sharded_leg_runs_exactly_once():
-    entries = pytest_matrix(read("test.yml"))
+    entries = matrix_include_entries(read("test.yml"))
     for system, k in SHARDED.items():
         legs = [e for e in entries if e.get("os") == system]
         found = [SPLIT.fullmatch(e.get("split", "")) for e in legs]

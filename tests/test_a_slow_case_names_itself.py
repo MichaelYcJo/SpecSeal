@@ -21,7 +21,11 @@ import sys
 
 import conftest
 import pytest
-from test_ci_gives_the_checks_what_they_need import jobs, pytest_matrix, read
+from test_ci_gives_the_checks_what_they_need import (
+    jobs,
+    matrix_include_entries,
+    read,
+)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CONFTEST = os.path.join(ROOT, "tests", "conftest.py")
@@ -146,7 +150,7 @@ def test_the_hook_fails_a_slow_passing_call_and_nothing_else(tmp_path):
 
 def test_every_pytest_leg_has_a_timeout_and_the_job_reads_it():
     text = read("test.yml")
-    entries = pytest_matrix(text)
+    entries = matrix_include_entries(text)
     assert entries
     budgets = [e.get("timeout", "") for e in entries]
     assert all(b.isdigit() for b in budgets), f"a leg with no timeout: {entries}"

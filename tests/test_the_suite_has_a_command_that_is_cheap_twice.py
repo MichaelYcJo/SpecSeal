@@ -31,7 +31,7 @@ import subprocess
 import sys
 
 import pytest
-from test_ci_gives_the_checks_what_they_need import jobs, pytest_matrix
+from test_ci_gives_the_checks_what_they_need import jobs, matrix_include_entries
 from test_ci_gives_the_checks_what_they_need import read as read_workflow
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -1197,7 +1197,9 @@ def test_ci_runs_the_suite_at_the_floor_the_runner_holds():
     at. Nothing read the workflow, so that half was a claim about another file
     which could go stale in silence -- and a floor CI does not run at is a
     floor nothing measures."""
-    versions = [e.get("python") for e in pytest_matrix(read_workflow("test.yml"))]
+    versions = [
+        e.get("python") for e in matrix_include_entries(read_workflow("test.yml"))
+    ]
     assert versions, "the pytest job names no python version to compare"
     assert set(versions) == {rt.FLOOR_TEXT}, (
         f"CI runs the suite at {sorted(set(versions))} and the runner's FLOOR "

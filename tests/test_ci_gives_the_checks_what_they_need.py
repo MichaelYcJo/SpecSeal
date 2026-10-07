@@ -117,14 +117,21 @@ def _flow_mapping(body, line):
     return entry
 
 
-def pytest_matrix(text):
+def matrix_include_entries(text):
     """The `pytest` job's `include:` entries, one dict per entry (#864).
 
-    The suite's one reading of the matrix of `.github/workflows/test.yml`,
-    beside `jobs`, which finds the job. Four cases used to slice the job out
-    of the raw text by its neighbour's name, and the one that read entries
-    took every line starting `- { os:`: an entry written another way was not
-    an entry, and nothing said so.
+    The suite's one reading of the `pytest` job's entries in
+    `.github/workflows/test.yml`, beside `jobs`, which finds the job. Four
+    cases used to slice the job out of the raw text by its neighbour's name,
+    and the one that read entries took every line starting `- { os:`: an
+    entry written another way was not an entry, and nothing said so. Two
+    other readings of the file remain, each asking something else:
+    `tests/test_release_hygiene.py` takes the floor from every `python:` in
+    it, and `tests/test_arm_check.py` reads the Pythons of the jobs that run
+    its own module.
+
+    The name carries no `pytest_` prefix: in a `conftest.py`, pytest reads a
+    function so named as a hook and stops the run at an unknown one.
 
     Input class: *owned*. The file is this repository's own, and every entry
     in it is a one-line flow mapping, `- { os: …, python: "…", … }`. That is
@@ -225,7 +232,7 @@ LAST_ENTRY = "- { os: example-os, python: '3.12', note: \"a # b\" }"
 
 
 def test_the_matrix_entries_are_read_with_their_quotes_off():
-    assert pytest_matrix(MATRIX) == [
+    assert matrix_include_entries(MATRIX) == [
         {"os": "ubuntu-latest", "python": "3.12", "timeout": "15"},
         {
             "os": "macos-latest",
@@ -238,7 +245,7 @@ def test_the_matrix_entries_are_read_with_their_quotes_off():
 
 
 def test_a_commented_matrix_entry_is_not_an_entry():
-    entries = pytest_matrix(MATRIX)
+    entries = matrix_include_entries(MATRIX)
     assert [e["os"] for e in entries] == [
         "ubuntu-latest",
         "macos-latest",
@@ -261,7 +268,7 @@ def test_an_include_item_this_reader_does_not_own_is_refused_by_its_line(item):
     text = MATRIX.replace(LAST_ENTRY, item)
     assert text != MATRIX
     with pytest.raises(ValueError) as caught:
-        pytest_matrix(text)
+        matrix_include_entries(text)
     assert item.splitlines()[0].strip() in str(caught.value), caught.value
 
 
@@ -284,23 +291,25 @@ def test_a_matrix_key_beside_include_is_refused_by_its_line(sibling, where):
     text = MATRIX.replace(old, new, 1)
     assert text != MATRIX
     with pytest.raises(ValueError, match="beside `include:`") as caught:
-        pytest_matrix(text)
+        matrix_include_entries(text)
     assert sibling.splitlines()[0] in str(caught.value), caught.value
 
 
 def test_an_include_that_is_not_the_matrixs_own_is_refused():
     text = MATRIX.replace("      matrix:\n", "      other:\n", 1)
     with pytest.raises(ValueError, match="not a key of its `matrix:`"):
-        pytest_matrix(text)
+        matrix_include_entries(text)
 
 
 def test_a_workflow_with_no_entry_to_read_is_refused():
     with pytest.raises(ValueError, match="no `pytest` job"):
-        pytest_matrix(MATRIX.replace("  pytest:", "  tests:"))
+        matrix_include_entries(MATRIX.replace("  pytest:", "  tests:"))
     with pytest.raises(ValueError, match="holds no entry"):
-        pytest_matrix(MATRIX.split("          - { os: ubuntu")[0] + "    runs-on: x\n")
+        matrix_include_entries(
+            MATRIX.split("          - { os: ubuntu")[0] + "    runs-on: x\n"
+        )
     with pytest.raises(ValueError, match="0 `include:` keys"):
-        pytest_matrix(
+        matrix_include_entries(
             MATRIX.replace(
                 "        include:\n          - { os: ubuntu",
                 "          - { os: ubuntu",
