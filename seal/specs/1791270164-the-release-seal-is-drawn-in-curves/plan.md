@@ -6,6 +6,7 @@ the gate. -->
 
 Approved 2026-10-06 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
 Approved 2026-10-07 by the orchestrating session under the owner's `automation` answer and their seal decision of that day, when `smith` was spawned for the reframe.
+Approved 2026-10-07 by the orchestrating session under the owner's `automation` answer and their final seal and layout decisions of that day, when `smith` was spawned for phases 5–9.
 
 ## Summary
 
