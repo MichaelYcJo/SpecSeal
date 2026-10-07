@@ -22,12 +22,13 @@ catalog it never read, on the day the owner's Console page showed the plugin
 published. The run now ends by saying the directory was not read and naming
 the page a person opens instead.
 
-**Three facts from the documentation, read 2026-10-07**, which are why that
-closing names two pages and sends nobody to resubmit:
+**Three facts from the documentation, read 2026-10-07 and 2026-10-08**, which
+are why that closing names two pages and sends nobody to resubmit:
 
-  - a plugin submitted at the developer portal takes new versions on its
-    own: a merge to the tracked branch is scanned and published, and nothing
-    is resubmitted;
+  - a plugin submitted at the developer portal picks up new versions from
+    its tracked branch or tag and nothing is resubmitted; a version that
+    passes goes live by the plugin's publish setting, which by default waits
+    for somebody to select Publish;
   - a listing made through the earlier Console form takes no new version
     until a person moves it to the portal;
   - *Published* is the only installable status, and *Not live yet* is a
@@ -274,8 +275,10 @@ def closing():
         f"    a portal listing:  the portal's Submissions page, {SUBMISSIONS_PAGE}"
         " -- its status, and the version that is live",
         f"    a Console listing: the Console page, {CONSOLE_PAGE}",
-        "A portal listing takes new versions from its tracked branch on its "
-        "own; a Console listing takes none until it is moved to the portal.",
+        "A portal listing picks up each new version from its tracked branch "
+        "without a resubmission and puts it live by its publish setting -- "
+        "which by default waits for somebody to select Publish; a Console "
+        "listing takes none until it is moved to the portal.",
     ]
 
 
@@ -289,7 +292,12 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     root = os.path.abspath(args.root)
-    name = plugin_name(root)
+    try:
+        name = plugin_name(root)
+    except (OSError, ValueError, KeyError) as error:
+        parser.error(
+            f"--root {root} has no readable .claude-plugin/plugin.json: {error}"
+        )
     print(f"plugin {name!r}, against {args.ref}\n")
     for label, repo in MARKETPLACES:
         text, error = fetch(manifest_url(repo))

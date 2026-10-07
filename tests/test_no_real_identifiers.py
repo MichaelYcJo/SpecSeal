@@ -21,18 +21,21 @@ ALLOWED_DOMAINS = (
     "github.com",
     "arxiv.org",
     "claude.com",  # official docs this plugin is built against
-    # The product's own address. The developer portal there is the one page
-    # where the directory's state is readable -- to a person, since it answers
-    # a challenge page to any script -- so the command that cannot read it
-    # names it (#858). The mail domain beside it is not allowed: the address a
-    # move is emailed to stays on the documentation page the box links.
-    "claude.ai",
     # The W3C's SVG namespace host. Every SVG carries the namespace URI in its
     # `xmlns`, and a renderer recognises an SVG by that namespace, so it can
     # be neither removed nor replaced with example.com: it is an identifier,
     # not an address anything fetches (#832).
     "www.w3.org",
 )
+# A host allowed bare, or under the paths named for it, and nowhere else. The
+# developer portal sits under /directory on the product's own address, and it
+# is the one page where the directory's state is readable -- to a person,
+# since it answers a challenge page to any script (#858). The rest of that
+# host carries people's own conversations, shares and artifacts, and an
+# address at it is somebody's mail, so neither is allowed. The mail domain the
+# docs give for moving a listing is not allowed either: that address stays on
+# the documentation page the checklist box links.
+ALLOWED_UNDER_PATHS = {"claude" + ".ai": ("/directory",)}
 ALLOWED_USER_PATH = "/Users/x/"  # the designated fixture user
 
 DOMAIN_RE = re.compile(r"\b[a-z0-9][a-z0-9.-]*\.(?:com|io|net|org|ai|dev)\b")
@@ -66,8 +69,17 @@ def domains_in(root=ROOT):
             for i, line in enumerate(f, 1):
                 for m in DOMAIN_RE.finditer(line):
                     d = m.group(0)
-                    if not any(d == a or d.endswith("." + a) for a in ALLOWED_DOMAINS):
-                        violations.append(f"{rel}:{i} {d}")
+                    if d in ALLOWED_UNDER_PATHS:
+                        rest = line[m.end() :]
+                        mail = m.start() > 0 and line[m.start() - 1] == "@"
+                        if not mail and (
+                            not rest.startswith("/")
+                            or rest.startswith(ALLOWED_UNDER_PATHS[d])
+                        ):
+                            continue
+                    elif any(d == a or d.endswith("." + a) for a in ALLOWED_DOMAINS):
+                        continue
+                    violations.append(f"{rel}:{i} {d}")
     return violations
 
 
@@ -164,3 +176,26 @@ def test_the_sweeps_still_report_nothing_on_a_clean_fixture(tmp_path):
     assert missing == [] and files == ["kept.md"]
     assert domains_in(root) == []
     assert user_paths_in(root) == []
+
+
+# Built from two halves, so no file quoting this one carries the host whole.
+PRODUCT_HOST = "claude" + ".ai"
+
+
+def test_the_product_host_is_allowed_bare_and_under_the_directory_only(tmp_path):
+    """#858 let the product's own address in for the one page the plugin
+    directory check names. A share link, an address and a subdomain on the
+    same host are somebody's, and stay refused (round 1's 🟡 2)."""
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            "ok.md": (
+                f"from a {PRODUCT_HOST} account, at {PRODUCT_HOST}/directory/manage\n"
+            ),
+            "share.md": f"a conversation at {PRODUCT_HOST}/share/0000\n",
+            "mail.md": f"write to someone@{PRODUCT_HOST}\n",
+            "sub.md": f"a host under it, docs.{PRODUCT_HOST}\n",
+        },
+    )
+    found = sorted(v.split(":")[0] for v in domains_in(root))
+    assert found == ["mail.md", "share.md", "sub.md"], domains_in(root)

@@ -365,9 +365,11 @@ def test_the_run_claims_nothing_about_the_directory_and_names_the_pages(
     assert mod.SUBMISSIONS_PAGE in closing and mod.CONSOLE_PAGE in closing, (
         "the closing lines name the pages without the addresses a person opens"
     )
-    assert "on its own" in closing, (
-        "the closing lines do not say a portal listing takes new versions from "
-        "its tracked branch on its own"
+    # Round 1's 🟡 1: under the default publish setting a person selects
+    # Publish for every version that passes, so *on its own* overstated it.
+    assert "without a resubmission" in closing and "publish setting" in closing, (
+        "the closing lines do not say a portal listing picks up new versions "
+        "without a resubmission and goes live by its publish setting"
     )
 
 
@@ -376,6 +378,16 @@ def test_a_malformed_argument_is_the_only_non_zero_exit():
     mod = checker()
     with pytest.raises(SystemExit) as raised:
         mod.main(["--no-such-flag"])
+    assert raised.value.code == 2
+
+
+def test_a_root_with_no_manifest_is_a_malformed_argument(tmp_path):
+    """Round 1's ⬜ 6. A `--root` holding no `.claude-plugin/plugin.json` is the
+    author's mistake, so it takes argparse's exit 2 and one line saying what
+    is missing, not a traceback and exit 1."""
+    mod = checker()
+    with pytest.raises(SystemExit) as raised:
+        mod.main(["--root", str(tmp_path)])
     assert raised.value.code == 2
 
 
