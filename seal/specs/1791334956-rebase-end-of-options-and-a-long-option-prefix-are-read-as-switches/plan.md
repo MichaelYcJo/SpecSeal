@@ -27,7 +27,7 @@ Apply round 3's paste-ready fix for 🟡 1 and close its class. Plant the cases 
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | 🟡 1 fixed with its class enumerated against `git rebase -h`, ⬜ 2 and ⬜ 3 in the policy with their pins, S1–S5, the changelog fragment and ledger rows | each new case red at 3d78c220 and green after; `bin/mutation-check` red on each changed unit; the guard modules; `bin/evidence-check --strict .`; `survivor-check --range origin/release/v0.20.0...HEAD` | |
+| 1 | 🟡 1 fixed with its class enumerated against `git rebase -h`, ⬜ 2 and ⬜ 3 in the policy with their pins, S1–S5, the changelog fragment and ledger rows | each new case red at 3d78c220 and green after; `bin/mutation-check` red on each changed unit; the guard modules; `bin/evidence-check --strict .`; `survivor-check --range origin/release/v0.20.0...HEAD` | 36e2a02b |
 
 ## Operational impact
 

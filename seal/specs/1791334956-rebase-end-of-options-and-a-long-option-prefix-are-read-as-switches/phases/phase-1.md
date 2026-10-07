@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | the records commit whose subject begins `docs: the records of #854's phase 1` — `plan.md`'s Status cell carries its hash |
+| Commit | 36e2a02b |
 | Ran by | smith on Opus 5.5 (named by the spawn prompt) |
 
 ## What this phase was asked
