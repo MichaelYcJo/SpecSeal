@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 3 |
 | Commit | bffcb3a2 |
-| Ran by | unknown — the spawn prompt named no agent and model for this row; the orchestrator fills it |
+| Ran by | smith on Opus 5.5 (filled by the orchestrating session, which spawned it with `model: opus`) |
 
 ## What this phase was asked
 
