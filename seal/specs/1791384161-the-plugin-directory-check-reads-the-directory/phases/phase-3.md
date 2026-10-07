@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 3 |
 | Commit | b30fd044 |
-| Ran by | unknown — the spawn prompt named the agent, `smith`, and not the model |
+| Ran by | smith on Opus 5.5 (filled by the orchestrating session, which spawned it with `model: opus`) |
 
 ## What this phase was asked
 
