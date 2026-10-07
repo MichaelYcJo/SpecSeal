@@ -6,9 +6,9 @@ than reconstructed at the end. Facts that must outlive this work item go to the
 evidence ledger, not here.
 
 📋 implement applied
-· spec:     pending — filled when the build closes
-· evidence: pending — filled when the build closes
-· verified: pending — filled when the build closes
+· spec:     this item's `spec.md`, `plan.md` (Approved 2026-10-08), `questions.md` (Q1 answered (a)), `handoff.md`, `routing.md`; `skills/code-review/orchestration.md` §*Orchestrator: the run ends with a verifying round* and §*A fix of a fix twice sends the work item back to its framer*; `skills/code-review/SKILL.md` §*Findings format*; `skills/implement/SKILL.md` §3–§5; `docs/the-evidence-ledger.md` via `evidence-check --help`; `CONTRIBUTING.md` §*House rules*
+· evidence: `seal/ledger/1791384154.md` N1–N13, `Corrected · S6` (0.10.0), and 73 `Re-read ·` rows for the released rows the build drifted
+· verified: executed — every new case seen red first (`bin/mutation-check`, 30 breaks, all red; one more first named a `-k` that matched no case and was re-run with one that did), the touched test modules and the text-hygiene modules narrow, `ruff check` and `ruff format --check` on every touched Python file, `survivor-check` over the branch, `evidence-check --strict .` exit 0, Q2's corpus count; read — the 152 released rows' claims, `chain-check`'s other arms' interaction with notes; unverified — the full suite, lint and typecheck (the sealer's)
 
 ## Why this work exists
 
@@ -26,11 +26,23 @@ A ⬜ note stops costing a fix pass, a reader and sometimes the run's one reopen
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the typecheck | the sealer, spawned by the orchestrator after the review rounds settle |
+| `notes`, `close`'s carried note and the two `chain-check` arms on a real run, through a warden's report rather than a fixture: this item's own review rounds are the first run under the rule | the orchestrator, over this item's review rounds |
+| The merge with #860 and #866, which edit `close` and `chain_check.py` beside this item's lines | the orchestrator, when it integrates the siblings |
 
 ## Not done
 
 A run stopped at a `second` whose notes were not closed there stops being read once the redesign's first record exists: `seal` and `chain_check.carried_notes` read the run the last record belongs to, as `spec.md` Scope 7 and S9 frame it. `notes` is run at the `second`, before the framer is spawned; nothing refuses the redesign's first record over an earlier run's open note. Closing that would be a refusal in `new` or a wider read in both readers, which the frame did not ask for (phase 2).
 
+`docs/review-chain-spec.md` §*The last round verifies* still says a record-located finding that no check reads is prose, "corrected in passing or not at all". It does not contradict the new rule — a note is corrected in the notes commit or closed `answered`/`deferred` — but it does not name the run's end either, and the document is at 999 of 1,000 lines, so `spec.md` Out keeps it untouched. The owner file's rule-1 paragraph now points at the new section. The fold at `settle` is where the two meet (`plan.md` §*Operational impact*).
+
+`CAPPED_EXIT` and `REFRAME_EXIT` still say every finding still open closes `deferred`; with notes carried, a ⬜ closes through `notes` at that same moment. Rewording the pair is the repository owner's decision (`spec.md` Out), so they stand, and the owner file's reframe table says what happens to a ⬜ there.
+
 ## Fed back into the spec
 
-Pending — filled when the build closes.
+Inferred during implementation, each one a planner may overturn:
+
+- The notes table carries a `Round` column, `| Round | # | Verdict | Commit or grounds |`, keyed by round and id (`spec.md` Scope 5 said the fix table's shape).
+- An open note is left out of a record's landing, so a record whose other rows closed without a fix word reads `no fixes to check`; `Pass` is unchanged (`spec.md` Scope 4 was silent on the landing).
+- The run `notes`, `seal` and `close`'s count read is the run the LAST record on disk belongs to — `current_run` of the records before it, plus that record — so a `second` closes its own stopped run.
+- `seal`'s note refusal fires only where the last record reads `no fixes to check`, and comes before the `Pass` refusal; before the run's end the existing refusals are the true ones.
+- The corrected grounds name `--at` resolved, in eight hex characters, so `--at HEAD` is a legal spelling.
