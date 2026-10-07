@@ -237,6 +237,12 @@ def test_a_commit_this_clone_does_not_have_is_not_called_unreachable(tmp_path):
         )
     )
     assert "Reachable from main" in reachable
+    # #858: this is the line that used to end *resubmit through* a short link.
+    # Only a real ancestry reaches it, which is why it is pinned here and not
+    # in the run-wide case below.
+    assert "submit" not in reachable.lower(), (
+        f"the reachable line sends the reader to submit or resubmit: {reachable!r}"
+    )
     unknown = "\n".join(
         mod.line(
             "official",
