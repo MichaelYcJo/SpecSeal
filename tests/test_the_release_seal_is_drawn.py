@@ -23,6 +23,7 @@ cannot agree with whatever the tree's copy happens to say.
 """
 
 import importlib.util
+import json
 import math
 import os
 import re
@@ -269,71 +270,106 @@ def test_a_chain_count_nobody_could_read_says_so_and_keeps_its_row():
     assert one["capped"] == "0 of 1", one
 
 
-# --- S9: the suite counts come from JUnit -----------------------------------
+# --- S9: the suite counts come from the broad gate's record (#869) ----------
 
-JUNIT = """<?xml version="1.0" encoding="utf-8"?>
-<testsuites name="pytest tests">{suites}</testsuites>
-"""
-SUITE = (
-    '<testsuite name="pytest" errors="{errors}" failures="{failures}" '
-    'skipped="{skipped}" tests="{tests}" time="1.0" '
-    'timestamp="2026-01-02T00:00:00" hostname="example">'
-    '<testcase classname="tests.test_x" name="test_y" time="0.1" />'
-    "</testsuite>"
-)
+SUITE_KEY = "seal-1234567890"
 
 
-def junit(tmp_path, *suites):
-    path = tmp_path / "suite.xml"
-    path.write_text(
-        JUNIT.format(
-            suites="".join(
-                SUITE.format(tests=t, failures=f, errors=e, skipped=s)
-                for t, f, e, s in suites
-            )
-        ),
-        encoding="utf-8",
-    )
-    return str(path)
+def recorded(tmp_path, *sessions, key=SUITE_KEY, extra=""):
+    """A records directory under `tmp_path` holding one file per session,
+    each a `session` line carrying `key`, a `test` line per report counted —
+    `sessions` are dicts of category to count — and an `end` line with
+    nothing stopped. `extra` is written as it is after the last session's
+    `test` lines. Returns the directory."""
+    directory = tmp_path / "records"
+    directory.mkdir(exist_ok=True)
+    for n, counts in enumerate(sessions):
+        lines = [{"kind": "session", "key": key, "pid": n, "rootdir": str(tmp_path)}]
+        for category, count in counts.items():
+            outcome = "passed" if category == "passed" else "failed"
+            lines += [
+                {
+                    "kind": "test",
+                    "nodeid": f"tests/test_x.py::t{n}_{category}_{i}",
+                    "when": "call",
+                    "outcome": outcome,
+                    "path": str(tmp_path / "tests" / "test_x.py"),
+                    "category": category,
+                }
+                for i in range(count)
+            ]
+        body = "".join(json.dumps(line) + "\n" for line in lines)
+        if n == len(sessions) - 1:
+            body += extra
+        end = {"kind": "end", "exitstatus": 0, "unplaced": 0, "stopped": []}
+        body += json.dumps(end) + "\n"
+        (directory / f"{key}-{n}.jsonl").write_text(body, encoding="utf-8")
+    return str(directory)
 
 
-def test_the_suite_counts_are_read_from_pytests_junit_file(tmp_path):
-    """S9. Passed is `tests - failures - errors - skipped`, in the shape
-    pytest writes, and more than one `testsuite` is summed."""
+def test_the_suite_counts_are_read_from_the_record_through_the_gates_reader(
+    tmp_path,
+):
+    """S9 and S12 of 1791384158. `(passed, skipped)` are the counts the
+    broad gate's own reader and counter give over the sessions carrying the
+    key, summed; xfails and xpasses are counted and neither passed nor
+    skipped, as on pytest's line."""
     mod = seal()
-    assert mod.suite_counts(junit(tmp_path, (7069, 0, 0, 66))) == (7003, 66)
-    assert mod.suite_counts(junit(tmp_path, (10, 0, 0, 2), (5, 0, 0, 1))) == (12, 3)
+    directory = recorded(
+        tmp_path,
+        {"passed": 7000, "skipped": 60, "xfailed": 2},
+        {"passed": 69, "skipped": 6, "xpassed": 1},
+    )
+    assert mod.suite_counts(directory, SUITE_KEY) == (7069, 66)
+    assert not hasattr(mod, "ElementTree")
 
 
 @pytest.mark.parametrize(
-    "text",
+    "case",
     [
-        "not xml at all",
-        "<testsuites></testsuites>",
-        '<testsuites><testsuite tests="x" failures="0" errors="0" skipped="0"/>'
-        "</testsuites>",
+        "no directory named",
+        "no key named",
+        "a directory that is not there",
+        "no session carries the key",
+        "a line that did not parse",
+        "a session that stopped part-way",
     ],
-    ids=["unparsable", "no suite", "not a number"],
 )
-def test_a_junit_file_that_cannot_be_read_is_a_failure_never_a_zero(tmp_path, text):
-    """S9. A file that does not parse, holds no suite or a count that is not
-    a number raises, so the seal falls back (S2) rather than drawing 0."""
-    path = tmp_path / "suite.xml"
-    path.write_text(text, encoding="utf-8")
+def test_a_record_that_cannot_vouch_for_the_counts_is_a_failure_never_a_zero(
+    tmp_path, case
+):
+    """S9 and S12. A record nobody can read for the whole suite raises, so
+    the seal falls back (S2) rather than drawing a count."""
+    directory, key = recorded(tmp_path, {"passed": 10}), SUITE_KEY
+    if case == "no directory named":
+        directory = ""
+    elif case == "no key named":
+        key = ""
+    elif case == "a directory that is not there":
+        directory = str(tmp_path / "absent")
+    elif case == "no session carries the key":
+        key = "seal-0000000000"
+    elif case == "a line that did not parse":
+        directory = recorded(tmp_path, {"passed": 10}, extra="{cut off\n")
+    elif case == "a session that stopped part-way":
+        stopped = tmp_path / "records" / f"{SUITE_KEY}-0.jsonl"
+        stopped.write_text(
+            stopped.read_text(encoding="utf-8").replace(
+                '"stopped": []', '"stopped": [{"by": "failures", "what": "x"}]'
+            ),
+            encoding="utf-8",
+        )
     with pytest.raises(ValueError):
-        seal().suite_counts(str(path))
-    with pytest.raises(OSError):
-        seal().suite_counts(str(tmp_path / "absent.xml"))
+        seal().suite_counts(directory, key)
 
 
-@pytest.mark.parametrize(
-    "failed", [(10, 1, 0, 0), (10, 0, 1, 0)], ids=["failure", "error"]
-)
-def test_a_suite_that_did_not_pass_is_not_sealed(tmp_path, failed):
-    """S9. A failure or an error in the file raises: a `SEALED` above a red
+@pytest.mark.parametrize("category", ["failed", "error"])
+def test_a_suite_that_did_not_pass_is_not_sealed(tmp_path, category):
+    """S9. A failure or an error in the record raises: a `SEALED` above a red
     suite would say something false."""
-    with pytest.raises(ValueError):
-        seal().suite_counts(junit(tmp_path, failed))
+    directory = recorded(tmp_path, {"passed": 10, category: 1})
+    with pytest.raises(ValueError, match="did not pass"):
+        seal().suite_counts(directory, SUITE_KEY)
 
 
 # --- S10: the chain rows read the tree at the tag ---------------------------
@@ -612,8 +648,9 @@ def wired(monkeypatch, tmp_path, body=None, fails=(), pulls=PULLS, rsvg="draws",
     )
     defaults = {"TAG": TAG, "REPO": REPO, "SUITE_OUTCOME": "success"}
     defaults.update(env)
-    if "SUITE_XML" not in defaults:
-        defaults["SUITE_XML"] = junit(tmp_path, (7069, 0, 0, 66))
+    if "SUITE_RECORDS" not in defaults:
+        defaults["SUITE_RECORDS"] = recorded(tmp_path, {"passed": 7003, "skipped": 66})
+    defaults.setdefault("SUITE_KEY", SUITE_KEY)
     for key in ("DRY_RUN", "SEAL_PNG"):
         monkeypatch.delenv(key, raising=False)
     for key, value in defaults.items():
@@ -662,8 +699,9 @@ def test_the_seal_replaces_the_glance_table_and_is_attached(monkeypatch, tmp_pat
 # reason.
 REASONS = {
     "the suite step failed": "ended failure",
-    "the JUnit file is missing": "the suite's counts cannot be read",
-    "the JUnit file does not parse": "is not JUnit XML",
+    "no record carries the key": "the suite's counts cannot be read: no record under",
+    "a line of the record did not parse": "did not parse as the recorder's",
+    "a session of the suite stopped part-way": "sessions stopped part-way",
     "the suite counts a failure": "did not pass: 1 failed and 0 errors",
     "the suite counts an error": "did not pass: 0 failed and 1 errors",
     "rsvg-convert is not installed": "rsvg-convert is not installed",
@@ -683,8 +721,9 @@ REASONS = {
     "case",
     [
         "the suite step failed",
-        "the JUnit file is missing",
-        "the JUnit file does not parse",
+        "no record carries the key",
+        "a line of the record did not parse",
+        "a session of the suite stopped part-way",
         "the suite counts a failure",
         "the suite counts an error",
         "rsvg-convert is not installed",
@@ -715,15 +754,23 @@ def test_any_failure_leaves_the_note_as_it_was_published(
         rsvg = "fails"
     elif case == "the suite step failed":
         env["SUITE_OUTCOME"] = "failure"
-    elif case == "the JUnit file is missing":
-        env["SUITE_XML"] = str(tmp_path / "absent.xml")
-    elif case == "the JUnit file does not parse":
-        (tmp_path / "bad.xml").write_text("not xml", encoding="utf-8")
-        env["SUITE_XML"] = str(tmp_path / "bad.xml")
+    elif case == "no record carries the key":
+        env["SUITE_KEY"] = "seal-0000000000"
+    elif case == "a line of the record did not parse":
+        env["SUITE_RECORDS"] = recorded(tmp_path, {"passed": 10}, extra="{cut off\n")
+    elif case == "a session of the suite stopped part-way":
+        env["SUITE_RECORDS"] = recorded(tmp_path, {"passed": 10}, extra="")
+        stopped = tmp_path / "records" / f"{SUITE_KEY}-0.jsonl"
+        stopped.write_text(
+            stopped.read_text(encoding="utf-8").replace(
+                '"exitstatus": 0', '"exitstatus": 2'
+            ),
+            encoding="utf-8",
+        )
     elif case == "the suite counts a failure":
-        env["SUITE_XML"] = junit(tmp_path, (10, 1, 0, 0))
+        env["SUITE_RECORDS"] = recorded(tmp_path, {"passed": 10, "failed": 1})
     elif case == "the suite counts an error":
-        env["SUITE_XML"] = junit(tmp_path, (10, 0, 1, 0))
+        env["SUITE_RECORDS"] = recorded(tmp_path, {"passed": 10, "error": 1})
     elif case == "gh pr list fails":
         pulls = None
     elif case == "gh release view fails":

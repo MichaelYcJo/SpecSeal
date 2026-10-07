@@ -352,9 +352,14 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
       reached it, published without one, or the pull requests moved
       between the two lists. That job never fails the release.
       To draw one by hand, from a checkout at the tag on a machine with
-      `rsvg-convert`, run
+      `rsvg-convert`, run the suite with the broad gate's recorder loaded —
+      `PYTHONPATH="$PWD/skills/verify/scripts/pytest_record"`,
+      `PYTEST_ADDOPTS='-p specseal_pytest_record'`, and
+      `SPECSEAL_RECORD_DIR` and `SPECSEAL_RECORD_KEY` naming a directory
+      that exists and a key you choose — then run
       `DRY_RUN=1 python3 .github/scripts/release_seal.py` with `TAG`,
-      `REPO` and `SUITE_XML` set; attach the PNG it names with
+      `REPO`, `SUITE_RECORDS` (that directory) and `SUITE_KEY` (that key)
+      set; attach the PNG it names with
       `gh release upload`, then apply the note it prints with
       `gh release edit --notes-file`.
 - [ ] **The plugin directory's answer has been read** —

@@ -114,25 +114,35 @@ jobs:
       - name: install rsvg-convert
         continue-on-error: true
         run: sudo apt-get update || true; sudo apt-get install -y --no-install-recommends librsvg2-bin
-      # `test.yml`'s ubuntu leg, plus the JUnit file the counts are read from.
-      # No token is in this step's environment, and the checkout left none in
-      # `.git/config`.
+      # `test.yml`'s ubuntu leg, with the broad gate's recorder loaded as the
+      # gate loads it (`broad_gate.recording_env`): its directory on
+      # `PYTHONPATH`, `-p` in `PYTEST_ADDOPTS`, the directory it writes in and
+      # a key this run chooses. The draw reads the counts from that record
+      # through the gate's own reader (#869). No token is in this step's
+      # environment, and the checkout left none in `.git/config`.
       - name: run the suite at the tag
         id: suite
         continue-on-error: true
         timeout-minutes: 30
         shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/skills/verify/scripts/pytest_record
+          PYTEST_ADDOPTS: -p specseal_pytest_record
+          SPECSEAL_RECORD_DIR: ${{ runner.temp }}/records
+          SPECSEAL_RECORD_KEY: seal-${{ github.run_id }}
         run: |
           git config --global user.email ci@ci
           git config --global user.name ci
-          pytest tests/ -q -n auto --junitxml="$RUNNER_TEMP/suite.xml"
+          mkdir -p "$SPECSEAL_RECORD_DIR"
+          pytest tests/ -q -n auto
       - name: draw the seal and put it in the note
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
-          SUITE_XML: ${{ runner.temp }}/suite.xml
+          SUITE_RECORDS: ${{ runner.temp }}/records
+          SUITE_KEY: seal-${{ github.run_id }}
           SUITE_OUTCOME: ${{ steps.suite.outcome }}
         shell: bash
         run: python3 .github/scripts/release_seal.py
