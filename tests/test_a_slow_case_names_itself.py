@@ -21,10 +21,10 @@ import sys
 
 import conftest
 import pytest
+from test_ci_gives_the_checks_what_they_need import jobs, pytest_matrix, read
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CONFTEST = os.path.join(ROOT, "tests", "conftest.py")
-WORKFLOW = os.path.join(ROOT, ".github", "workflows", "test.yml")
 
 
 def test_a_call_over_the_ceiling_is_named_with_its_seconds(monkeypatch):
@@ -144,21 +144,14 @@ def test_the_hook_fails_a_slow_passing_call_and_nothing_else(tmp_path):
     assert "its own failure" in out, out
 
 
-def pytest_job():
-    with open(WORKFLOW, encoding="utf-8") as handle:
-        text = handle.read()
-    return text[text.index("  pytest:") : text.index("  ledger:")]
-
-
 def test_every_pytest_leg_has_a_timeout_and_the_job_reads_it():
-    job = pytest_job()
-    entries = [
-        ln.strip() for ln in job.splitlines() if ln.strip().startswith("- { os:")
-    ]
+    text = read("test.yml")
+    entries = pytest_matrix(text)
     assert entries
-    budgets = [re.search(r"timeout: (\d+) }$", e) for e in entries]
-    assert all(budgets), f"a leg with no timeout: {entries}"
-    assert all(int(b.group(1)) > 0 for b in budgets), entries
+    budgets = [e.get("timeout", "") for e in entries]
+    assert all(b.isdigit() for b in budgets), f"a leg with no timeout: {entries}"
+    assert all(int(b) > 0 for b in budgets), entries
+    job = jobs(text)["pytest"]
     assert "\n    timeout-minutes: ${{ matrix.timeout }}\n" in job, (
         "the job does not read the matrix's timeout"
     )
