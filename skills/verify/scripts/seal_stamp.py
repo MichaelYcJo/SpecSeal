@@ -326,8 +326,10 @@ def read_chart(path):
     that is not `DISC_CELLS`, a line of another length, a character outside
     `.M`, or an `M` outside the field — more than `GROOVE_INSET` short of
     the radius, where `build` would draw the rim over it and the disc's mark
-    would lose a cell nobody sees go."""
-    with open(path, encoding="utf-8") as handle:
+    would lose a cell nobody sees go. `utf-8-sig` reads a chart an editor
+    saved with a byte-order mark as the same chart, rather than refusing its
+    first line as one character too long."""
+    with open(path, encoding="utf-8-sig") as handle:
         lines = handle.read().splitlines()
     n = DISC_CELLS
     c, field = (n - 1) / 2, n / 2 - GROOVE_INSET
@@ -470,7 +472,11 @@ def colour_row(cells):
     shows neither; but a background would paint it, so one still set from
     the disc ends there with `49`. A style that ends is written `22;39`
     first, which takes the foreground back to the terminal's own as well, so
-    `39` is not written a second time in the same SGR."""
+    `39` is not written a second time in the same SGR. A green cell writes no
+    foreground part: `32` is its colour, and a `39` after it in the same SGR
+    would take the green back off — which a tick leading a `""` row beside
+    the disc met, the disc's colour being still set across the label's
+    spaces."""
     out, state, wrote = [], (None, None, None), False
     for char, fg, bg, style in cells:
         if char in (None, " "):
@@ -483,7 +489,7 @@ def colour_row(cells):
                     shown = None
                 if style:
                     parts.append(STYLE_CODES[style])
-            if fg != shown:
+            if fg != shown and style != "green":
                 parts.append(colour_code(38, fg))
             if bg != state[1]:
                 parts.append(colour_code(48, bg))
@@ -500,10 +506,12 @@ def letter_row(cells):
     half's colour on `▀` and the bottom half's on `▄` — the text's own
     character with `TWIN_ASCII` applied, and a space for an empty cell.
     Every disc cell is exactly one palette colour, so the letter is a
-    lookup."""
+    lookup. A cell is the disc's by its colour, never by its character: a
+    value may carry `▀` or `▄` — a branch name can — and that is text,
+    written as itself."""
     out = []
     for char, fg, _bg, _style in cells:
-        if char in HALF_BLOCKS:
+        if char in HALF_BLOCKS and fg in KEY:
             out.append(KEY[fg])
         else:
             out.append(TWIN_ASCII.get(char, char or " "))

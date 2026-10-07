@@ -376,6 +376,39 @@ def test_a_line_writes_one_sgr_per_change_and_no_reset_inside_it():
     assert size < 5500, size
 
 
+@pytest.mark.parametrize("mark", ["✓", "·"])
+def test_a_mark_leading_a_continuation_row_beside_the_disc_is_drawn_in_its_style(
+    mark,
+):
+    """#832 S11. A `""` label is spaces, and a space keeps the foreground as
+    set, so on a continuation row beside the disc the disc's last colour is
+    still set when the value's mark is the first cell to change it. Each mark
+    `text_lines` styles is drawn in its own style there: the `✓` green, the
+    `·` dim. A `39` written after `32` in one SGR takes the green back off,
+    and the terminal drew that tick in its own colour (round 1's 🟡 2)."""
+    mod = module()
+    rows = [
+        ("SEALED", ""),
+        ("tree", "aaa1111"),
+        None,
+        ("suite", "x"),
+        ("", f"{mark} 3 passed"),
+    ]
+    letter = mod.compose(rows, 0.9)
+    marks = 0
+    for cells, line in zip(letter.cells, mod.stamp(rows, 0.9), strict=True):
+        shown = what_a_terminal_shows(line.removesuffix(RESET))
+        for (char, fg, bg, style), seen in zip(cells, shown, strict=True):
+            if char != mark:
+                continue
+            marks += 1
+            assert any(cell[1] in mod.KEY for cell in cells), "no disc on the row"
+            colour = "green" if style == "green" else fg
+            weight = style if style in ("bold", "dim") else None
+            assert seen == (char, colour, bg, weight), (line, seen)
+    assert marks == 1, marks
+
+
 # --- the open layout: the disc at the left, the text at the right (#832) ----
 
 
@@ -728,6 +761,13 @@ def test_the_disc_mark_is_one_chart_file_read_as_data(tmp_path):
     copy = tmp_path / "copy.txt"
     copy.write_text("\n".join(lines) + "\n", encoding="utf-8")
     assert mod.read_chart(str(copy)) == lines
+    # An editor that saves with a byte-order mark hands over the same chart;
+    # read as plain UTF-8 the mark was a character of line 1, refused as a
+    # 29-character line, which sent a person to look for a dot that is not
+    # there (round 1's ⬜ 7).
+    marked_copy = tmp_path / "bom.txt"
+    marked_copy.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
+    assert mod.read_chart(str(marked_copy)) == lines
 
 
 def test_the_stamp_module_imports_with_pillow_blocked():
@@ -791,6 +831,19 @@ def test_the_twin_writes_the_discs_nine_letters_and_the_text_in_ascii():
             seen.add(char)
     assert set(letters.values()) | set("+->") <= seen, seen
     assert "2 deferred > #56" in "\n".join(twin)
+
+
+@pytest.mark.parametrize("value", ["a▀b▄c", "▀", "▄ x"])
+def test_a_half_block_in_a_value_is_text_in_the_twin(value):
+    """#832 S4. A disc cell is a half-block in a disc colour; a value that
+    carries `▀` or `▄` — a branch name may, since git allows UTF-8 in a ref,
+    and `panel` puts the branch on a row — is text, written as itself, as
+    the twin before #832 wrote every text cell. Keyed on the character
+    alone, the twin looked up the text's foreground, None, and raised
+    `KeyError` after the gate had written the cell (round 1's 🟡 5)."""
+    mod = module()
+    twin = mod.stamp([("SEALED", ""), ("tree", value)], 0.9, shape=True)
+    assert any(line.endswith(f"tree    {value}") for line in twin), twin
 
 
 # --- the panel's text -------------------------------------------------------
