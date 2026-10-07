@@ -1839,6 +1839,16 @@ def test_the_list_carries_its_counts_and_nothing_unmeasured():
         "git rebase @{-1} feature/x",
         "git rebase main @{-1}",
         "git rebase -- main -x",
+        # #854 (round 3 of work item 1791270162, yellow 1): git's other word
+        # that ends the options, and a prefix of `--root`, which git takes as
+        # `--root`. Each switches under git 2.50.1 and was listed at
+        # `3d78c220`.
+        "git rebase --ro feature/x",
+        "git rebase --roo feature/x",
+        "git rebase -i --ro feature/x",
+        "git rebase --end-of-options main -x",
+        # bash hands git `--root` once the redirection is off.
+        "git rebase --root>/dev/null feature/x",
     ],
 )
 def test_a_rebase_naming_a_branch_is_unrecognised(monkeypatch, capsys, repo, command):
@@ -1865,6 +1875,13 @@ def test_a_rebase_naming_a_branch_is_unrecognised(monkeypatch, capsys, repo, com
         "git rebase -",
         "git rebase -i -",
         "git rebase @{-1}",
+        # #854: a long option starting `--r` that is no prefix of `--root`
+        # stays an option, a prefix of `--root` alone names no branch, and
+        # `--end-of-options` ends the options without being a word itself.
+        "git rebase --rebase-merges main",
+        "git rebase --reapply-cherry-picks main",
+        "git rebase --ro",
+        "git rebase --end-of-options main",
     ],
 )
 def test_a_rebase_of_the_current_branch_stays_listed(command):
@@ -1933,6 +1950,11 @@ SWITCHING = (
     "rebase --onto {start} {start} feature/x",
     "rebase --root feature/x",
     "rebase - feature/x",
+    # #854: a prefix of `--root`, and the two words that end git's options
+    # before a branch named `-x`, which the template holds.
+    "rebase --ro feature/x",
+    "rebase --end-of-options {start} -x",
+    "rebase -- {start} -x",
     "stash branch y",
     "checkout feature/x",
     "switch feature/x",
@@ -1977,6 +1999,10 @@ def test_no_listed_form_moves_head_under_git(repo, tmp_path):
     git(template, "add", "g.txt")
     git(template, "commit", "-qm", "g")
     git(template, "switch", "-q", start)
+    # A branch whose name starts with `-`, which `git branch` refuses to
+    # make; a word git reads as a revision only after `--` or
+    # `--end-of-options` (#854).
+    git(template, "update-ref", "refs/heads/-x", "HEAD")
     (template / "f.txt").write_text("changed\n", encoding="utf-8")
     (tmp_path / "p.diff").write_bytes(git(template, "diff").stdout)
     git(template, "stash", "-q")
