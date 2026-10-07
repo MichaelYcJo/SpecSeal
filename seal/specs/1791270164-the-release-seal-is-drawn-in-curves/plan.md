@@ -39,8 +39,9 @@ closed commit, to fold in the owner's final seal decisions (`spec.md`
 decisions 5 and 6, which arrived an hour apart through the orchestrator).
 **That re-plan is an owner's value change, not a review reframe**: no
 review round has run, the review chain sent nothing back, and so no
-`Reframed` line is added under the mark — the one there records the earlier
-reframe. Phases 1–4 keep their commits; phases 5–9 below are the new ones,
+`Reframed` line is added under the mark. The earlier reframe is recorded
+in a sentence above the mark rather than as a `Reframed` line, because that
+line names a review round and none sent it. Phases 1–4 keep their commits; phases 5–9 below are the new ones,
 and `spec.md` §*What phase 3 built that decisions 5–6 keep, and what they
 replace* says which of phase 3's units the smith re-aims rather than
 discovers.

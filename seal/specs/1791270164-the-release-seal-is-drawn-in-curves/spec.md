@@ -71,8 +71,10 @@ So this frame fixes decisions 5 and 6 together. Phases 1–4 keep their
 commits; §*Scope › What phase 3 built that decisions 5–6 keep, and what
 they replace* says which of phase 3's units stand. Decisions 5 and 6 are
 owner's value changes and not a review reframe: no review round has run,
-and the `Reframed` line at the foot of this file is the one the 2026-10-07
-reframe after the owner's look at phase 2's stamp wrote. The file names
+and the sentence above the mark at the foot of this file records the
+2026-10-07 redraw after the owner's look at phase 2's stamp, in prose,
+because a `Reframed` line names the review round that sent the work item
+back and no round did. The file names
 below are coordinates in the tree as it stands at 9fef49cf, read
 2026-10-07.
 
@@ -415,5 +417,7 @@ Q10 and Q14 are measurements, Q11 and Q13 are the work's, Q12 is the
 mark's design (#857), and Q15 is the `CI also` label, decided from the
 tree and open to one word from the owner.
 
+The frame was redrawn on 2026-10-07 by framer, after the owner's look at
+phase 2's stamp.
+
 Framed 2026-10-06 by framer, before the build.
-Reframed 2026-10-07 by framer, after the owner's look at phase 2's stamp.
