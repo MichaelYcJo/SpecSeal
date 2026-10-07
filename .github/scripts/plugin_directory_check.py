@@ -14,9 +14,9 @@ page, to a plain client and to one carrying a browser user agent, and the
 documentation's index names no API for it (#858). What a script can read is
 the two marketplace files below, the public `.claude-plugin/marketplace.json`
 files: the community one calls itself a read-only mirror synced nightly from
-the review pipeline, and the official one takes outside plugins through the
-same submission. They are outputs of that pipeline and not the directory, so
-an absent entry in them says nothing about whether the plugin is published
+the review pipeline, and the official one calls itself a curated catalog that
+takes outside plugins through the same submission. Neither is the directory,
+so an absent entry in them says nothing about whether the plugin is published
 there. This used to print *not listed* and send the reader to submit, about a
 catalog it never read, on the day the owner's Console page showed the plugin
 published. The run now ends by saying the directory was not read and naming
