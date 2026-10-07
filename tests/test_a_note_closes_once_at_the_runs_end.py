@@ -594,3 +594,31 @@ def test_a_stopped_run_closes_its_notes_at_the_second(repo):
     assert "Reframed" not in out, out
     assert "closed 1 note of the run ending at round-3.md" in out, out
     assert cells_of(record(repo, 1))[0][3] == "answered"
+    # Round 1's coordinate sits under round 1 in EVERY later record's
+    # inherited table, so both owe the new word, not round 2's alone.
+    for later in (2, 3):
+        assert f"round 1's {NOTE} 1 \N{EM DASH} answered" in record(repo, later)
+
+
+def test_a_note_reopened_by_hand_over_its_closing_is_refused(repo):
+    """`close`'s guard, in `notes`: a ⬜ whose `Verdict` cell was set back to
+    `open` while its `Grounds` cell still carries the closing would carry the
+    closing twice, and a record that says a thing twice still parses."""
+    at = two_rounds_with_a_note_each(repo)
+    code, out = run_notes(repo, notes_table(*BOTH_ROWS), at=at)
+    assert code == 0, out
+    path = repo / ROUNDS / "round-1.md"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace(
+            f"| {NOTE} 1 | a sentence reads badly | `README.md` | answered |",
+            f"| {NOTE} 1 | a sentence reads badly | `README.md` | open |",
+        ),
+        encoding="utf-8",
+    )
+    before = path.read_text(encoding="utf-8")
+    assert before != text, "the fixture did not reopen the row"
+    code, out = run_notes(repo, notes_table(BOTH_ROWS[0]), at=at)
+    assert code == 2, out
+    assert "already carries a closing" in out, out
+    assert path.read_text(encoding="utf-8") == before
