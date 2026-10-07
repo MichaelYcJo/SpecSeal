@@ -49,7 +49,7 @@ merged, read 2026-10-07).
 - `skills/verify/scripts/seal_stamp.py` (1,337 lines, stdlib-only, loaded
   by path from `broad_gate.py#STAMP`, `hooks/sealer-stamp.py`,
   `bin/seal-stamp` and `release_seal.py#stamp()`):
-  - the § as `EMBLEM_D`, parsed by `svg_path`, flattened by `flatten`,
+  - the § as `EMBLEM_D`, parsed by `svg_path`, flattened by `flatten`, <!-- NAME NOT IN TREE -->
     tested by `inside`/`crossings`, shaded by `shade`; `build(scale,
     disc_cells=DISC_CELLS)` samples 6 × 6 points per cell in linear light
     with the rim's angular mix, the 0.7-cell shadow, the grid fit and the
@@ -99,7 +99,7 @@ stand-in label of about the real length):
 | `SMALL_ROWS` (four rows) | 22 × 6 | 38 × **9** (the sheet grows: 6 lines hold no 7-line disc) | 6,046 | about 1,490 | about 2,982 | — |
 
 So one real run is under a third of `MESSAGE_BUDGET` (9,000), two and three
-share a message, four do not; `test_several_files_come_out_one_stop_each_oldest_first`'s
+share a message, four do not; `test_several_files_come_out_one_stop_each_oldest_first`'s <!-- NAME NOT IN TREE -->
 premise (*two stamps never share a message*) is false again and the case
 goes back to #717's shape. The `SMALL_ROWS` row is the frame's one finding
 the owner's rule did not cover: a sheet shorter than the disc plus a line.
@@ -125,21 +125,21 @@ install line is `read`.
 - Tests that pin the current drawing and will move, by phase:
   phase 3 — in `tests/test_the_seal_is_taken_once_by_the_sealer.py`,
   `test_the_emblem_is_lit_from_the_upper_left`,
-  `test_the_disc_is_twenty_four_cells_across_at_the_default_rung`,
-  `test_the_emblem_is_the_owners_section_sign_inside_the_field`,
-  `test_the_emblem_fills_even_odd_from_an_svg_path`,
-  `test_shade_lights_the_mark_and_casts_its_shadow_down_right`,
-  `test_the_terminal_draws_the_area_the_emblem_encloses`,
-  `test_a_cell_is_the_mean_of_its_samples_in_linear_light`,
-  `test_the_mark_reads_at_the_default_rung_and_fragments_below_it`,
+  `test_the_disc_is_twenty_four_cells_across_at_the_default_rung`, <!-- NAME NOT IN TREE -->
+  `test_the_emblem_is_the_owners_section_sign_inside_the_field`, <!-- NAME NOT IN TREE -->
+  `test_the_emblem_fills_even_odd_from_an_svg_path`, <!-- NAME NOT IN TREE -->
+  `test_shade_lights_the_mark_and_casts_its_shadow_down_right`, <!-- NAME NOT IN TREE -->
+  `test_the_terminal_draws_the_area_the_emblem_encloses`, <!-- NAME NOT IN TREE -->
+  `test_a_cell_is_the_mean_of_its_samples_in_linear_light`, <!-- NAME NOT IN TREE -->
+  `test_the_mark_reads_at_the_default_rung_and_fragments_below_it`, <!-- NAME NOT IN TREE -->
   `test_the_disc_hangs_over_the_corner_two_clear_cells_from_the_text`,
-  `test_the_twin_writes_the_discs_six_letters_over_the_sheets_frame`,
+  `test_the_twin_writes_the_discs_six_letters_over_the_sheets_frame`, <!-- NAME NOT IN TREE -->
   `test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours`,
   `test_a_coloured_row_carries_fewer_colour_sequences_than_cells`,
   `test_the_docstrings_describe_the_letter_and_the_rows_it_carries`,
   `test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence`;
   in `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py`,
-  `test_several_files_come_out_one_stop_each_oldest_first`,
+  `test_several_files_come_out_one_stop_each_oldest_first`, <!-- NAME NOT IN TREE -->
   `test_the_policy_states_the_budget_and_names_its_case`,
   `test_the_default_scale_is_ninety_percent_with_its_reason_beside_it`;
   phase 5 — in `tests/test_the_release_seal_is_drawn.py`,
@@ -208,7 +208,7 @@ install line is `read`.
 |---|---|---|
 | **The § by area on a 24-cell disc** (decision 3, phase 2's stamp) | The owner compared renders in their own terminal on 2026-10-07 and rejected it for the terminal: mid tones and a soft edge on a half-block grid | rejected by the owner; the mechanism is retired, not kept beside |
 | **Finishing passes with a highlight and mid tones on the hand chart** | Seen and rejected by the owner the same day | not taken; four colours, no blend |
-| **A smaller hand chart (12 cells, `BOLD_8`) as a lower rung** | The owner chose 14 from the mock's set; nobody drew a chart the owner accepted at another size, and a stamp of 2,900 units needs no lower rung to fit | rejected; the ladder stays one rung |
+| **A smaller hand chart (12 cells, `BOLD_8`) as a lower rung** | The owner chose 14 from the mock's set; nobody drew a chart the owner accepted at another size, and a stamp of 2,900 units needs no lower rung to fit | rejected; the ladder stays one rung <!-- NAME NOT IN TREE --> |
 | **Scale the chart with `scale`** | A 7 × 10 chart has one size; nearest-neighbour scaling of it is the staircase the ticket opened on | rejected; `build(scale)` draws 14 cells at every scale in the band |
 | **Retire `--scale` and the band now that the disc has one size** | Fifteen parametrised cases, `main`'s flag, the values files' `scale` field and `admitted`'s `min(scale, rung)` all read it; nothing the owner looks at changes | out of scope; a work item of its own if anyone wants it. Here the refusal sentences stop giving a disc size as their reason (§14) |
 | **Keep `GAP` as *two clear parchment cells on every line*** | The owner's rule is global: widen past the first clash-free width by three columns. On the tightest line that is three cells; on others, more | rejected; `GAP = 3` with the owner's meaning |
@@ -231,11 +231,11 @@ Vertical slices — each phase ends with something runnable and verified.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | **The vector source and the terminal sampler.** `EMBLEM`, `svg_path`, `flatten`, `inside`, `shade` in `seal_stamp.py`; `build` samples them at cell centres; `ART`, `shrink` removed; `SCALE_REFUSED` / `SCALE_TOO_LARGE` reworded; the chart's registry entry gone | `bin/test tests/test_the_seal_is_taken_once_by_the_sealer.py tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py -p no:xdist`; each new case shown red | 88070eac |
+| 1 | **The vector source and the terminal sampler.** `EMBLEM`, `svg_path`, `flatten`, `inside`, `shade` in `seal_stamp.py`; `build` samples them at cell centres; `ART`, `shrink` removed; `SCALE_REFUSED` / `SCALE_TOO_LARGE` reworded; the chart's registry entry gone | `bin/test tests/test_the_seal_is_taken_once_by_the_sealer.py tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py -p no:xdist`; each new case shown red <!-- NAME NOT IN TREE --> | 88070eac |
 | 2 | **The owner's § by area on a 24-cell disc.** `EMBLEM_D` the §, the six-colour palette, the area sampler, `compose` blending the edge and filling `Letter.disc`, `nearest`, `SCALE_LADDER = (0.90,)` with the policy paragraph; Q3 and Q6 measured | the same two files; the half-cells looked at as a picture; the sizes and the draw time in `phases/phase-2.md` | 108f549c |
 | 3 | **The owner's terminal seal.** `DISC_CELLS = 14`, `DISC_LINES`, `EDGE_INSET`, `RING_INSET`, `CHART`, `MARK`, `MARK_SHADOW`, the four-colour `DISC_COLOURS` and `KEY`; `build(scale)` by the rule in `spec.md` §*Data & interfaces*, `(14, 14, px)` at every scale; `compose` by S3 (`GAP = 3`, the sheet keeping its height, the disc inside against the right edge, `Letter.disc` filled); `letter_row` a lookup; the refusal sentences, `DEFAULT_SCALE`'s, `SCALE_FLOOR`'s, `SCALE_LADDER`'s and `admitted`'s comments and the module docstring reworded (S8); `docs/the-broad-gate.md`'s #717 sentence amended in the same commit (§14); everything §*Scope › What phases 1–2 built that decision 4 retires* lists under `seal_stamp.py` deleted after a grep for each name. The cases in §*Technical context* re-aimed as §*What of phases 1–2 stands* says, each new or re-aimed case seen red; the hook's message re-measured over `FULL_ROWS`, `ROWS`, `SMALL_ROWS` and the widest panel and recorded for the fragment (Q3). **Last act:** the message `fitted` prints for one `full_values()` block written to `<scratchpad>/specseal-stamp-14.ans`, the path in the hand-back <!-- NAME NOT IN TREE --> | the same two test files with `-p no:xdist`, plus `tests/test_one_word_one_meaning.py`, `tests/test_every_reader_ends_a_line_where_gfm_does.py`, `tests/test_a_script_says_which_interpreter_it_needs.py`; `bin/seal-stamp --shape` read once; the sizes written in `phases/phase-3.md` | 35277597 |
 | 4 | **The owner's look (the orchestrator's act, not a smith's).** The orchestrator copies phase 3's `.ans` to `~/Desktop/specseal-stamp-14.ans` and asks the owner to `! cat` it in their terminal; the owner's word — accepted, or what to change — is written into `questions.md` Q8 by the orchestrator. Accepted: phase 5 starts. Changed: the chart, a colour or the layout is the owner's new decision, folded into `spec.md` by the orchestrator (a value, not a reframe) and phase 3 is re-spawned against it | the owner's word in Q8's Status cell; the commit that records it closes this row | |
-| 5 | **The release PNG is the owner's SVG.** `.github/scripts/release-seal.svg` — the owner's file with its three `<text>` layers as `<path>`s of Georgia Bold's §, converted once with `uvx --from fonttools` over `/System/Library/Fonts/Supplemental/Georgia Bold.ttf` and compared against the text version through `rsvg-convert` here before committing; `SVG`, `SEAL_PX`, `DENSITY`, `rasterise(svg, png)` in `release_seal.py`, `seal_release` wired to it, `stamp()`, `paint`, `size`, `png`, `font`, `FACES`, `rgb`, `CELL_W`, `CELL_H`, `FONT_SIZE`, `CUBE_LEVELS` removed, the module docstring rewritten; `sealed_glance` writes `<img … width>`; the `seal` job gains `sudo apt-get install -y --no-install-recommends librsvg2-bin` as a `continue-on-error` step with a comment saying why, before the draw; `docs/branch-and-release.md`'s bullet and `run_tests.py`'s sentence amended; the cases of S6, S7, S9 planted and the retired ones removed; Q4 measured with `gh api /markdown` | `bin/test tests/test_the_release_seal_is_drawn.py tests/test_a_release_publishes_its_note.py tests/test_the_gate_names_every_step_ci_runs.py -p no:xdist`; `DRY_RUN=1 SEAL_PNG=… python3 .github/scripts/release_seal.py` with a JUnit fixture, the PNG opened and looked at once; the text-vs-path comparison's result in `phases/phase-5.md` | |
+| 5 | **The release PNG is the owner's SVG.** `.github/scripts/release-seal.svg` — the owner's file with its three `<text>` layers as `<path>`s of Georgia Bold's §, converted once with `uvx --from fonttools` over `/System/Library/Fonts/Supplemental/Georgia Bold.ttf` and compared against the text version through `rsvg-convert` here before committing; `SVG`, `SEAL_PX`, `DENSITY`, `rasterise(svg, png)` in `release_seal.py`, `seal_release` wired to it, `stamp()`, `paint`, `size`, `png`, `font`, `FACES`, `rgb`, `CELL_W`, `CELL_H`, `FONT_SIZE`, `CUBE_LEVELS` removed, the module docstring rewritten; `sealed_glance` writes `<img … width>`; the `seal` job gains `sudo apt-get install -y --no-install-recommends librsvg2-bin` as a `continue-on-error` step with a comment saying why, before the draw; `docs/branch-and-release.md`'s bullet and `run_tests.py`'s sentence amended; the cases of S6, S7, S9 planted and the retired ones removed; Q4 measured with `gh api /markdown` | `bin/test tests/test_the_release_seal_is_drawn.py tests/test_a_release_publishes_its_note.py tests/test_the_gate_names_every_step_ci_runs.py -p no:xdist`; `DRY_RUN=1 SEAL_PNG=… python3 .github/scripts/release_seal.py` with a JUnit fixture, the PNG opened and looked at once; the text-vs-path comparison's result in `phases/phase-5.md` <!-- NAME NOT IN TREE --> | |
 | 6 | **The records close.** `changelog.md`; the ledger fragment with S1–S9 rows and the citing corrections of 0.10.0 S2, 0.17.0 L1/L2, 0.18.0 R1/R2 and the re-reads `phases/phase-1.md` and `phases/phase-2.md` list, plus what phases 3 and 5 moved; `overview.md` closed, its divergence rows about `R0_CELLS`, the centroid rule, the area count and `Letter`'s paths brought up to date (those rules are gone); `handoff.md` retired or rewritten; `survivor-check --range a9d7b0e5...HEAD` at zero | `evidence-check --strict .` exits 0 — it reads this item's three frame files once the fragment exists, so a name only the build can write carries `NAME NOT IN TREE` on its line; `survivor-check` reports no place; the `grep` from S8 returns only history | |
 
 ### What of phases 1–2 stands, and what phase 3 retires
@@ -258,15 +258,15 @@ measured still hold, and the rest is what the owner looked at and rejected:
 The smith re-aims each of these on purpose, in phase 3, rather than meeting
 it red:
 
-- **The footprint** `test_the_disc_is_twenty_four_cells_across_at_the_default_rung`
+- **The footprint** `test_the_disc_is_twenty_four_cells_across_at_the_default_rung` <!-- NAME NOT IN TREE -->
   → `test_the_disc_is_fourteen_cells_of_exactly_four_colours` (S2), the
   five counts and `(14, 14)` at every scale.
-- **The § cases** `test_the_emblem_is_the_owners_section_sign_inside_the_field`,
-  `test_the_emblem_fills_even_odd_from_an_svg_path`,
-  `test_a_cell_is_the_mean_of_its_samples_in_linear_light`,
-  `test_the_terminal_draws_the_area_the_emblem_encloses`,
-  `test_the_mark_reads_at_the_default_rung_and_fragments_below_it`,
-  `test_shade_lights_the_mark_and_casts_its_shadow_down_right` — retired
+- **The § cases** `test_the_emblem_is_the_owners_section_sign_inside_the_field`, <!-- NAME NOT IN TREE -->
+  `test_the_emblem_fills_even_odd_from_an_svg_path`, <!-- NAME NOT IN TREE -->
+  `test_a_cell_is_the_mean_of_its_samples_in_linear_light`, <!-- NAME NOT IN TREE -->
+  `test_the_terminal_draws_the_area_the_emblem_encloses`, <!-- NAME NOT IN TREE -->
+  `test_the_mark_reads_at_the_default_rung_and_fragments_below_it`, <!-- NAME NOT IN TREE -->
+  `test_shade_lights_the_mark_and_casts_its_shadow_down_right` — retired <!-- NAME NOT IN TREE -->
   with the units they pinned; `test_the_mark_is_the_owners_hand_drawn_chart`
   (S1) takes their place.
 - **The lighting case** `test_the_emblem_is_lit_from_the_upper_left` — the
@@ -276,7 +276,7 @@ it red:
   (S3), the layout rebuilt in the case and compared cell for cell.
 - **The twin's six letters** and **the five colours on the wire** — four of
   each (S4, S4a); the sequence-per-row bound back to every row.
-- **The budget pair** — `test_several_files_come_out_one_stop_each_oldest_first`
+- **The budget pair** — `test_several_files_come_out_one_stop_each_oldest_first` <!-- NAME NOT IN TREE -->
   back to `test_several_files_come_out_as_one_message_oldest_first` with
   its premise (two fit) asserted; `test_two_files_in_one_turn_are_under_the_budget_together`
   derives its homes and stays green.
