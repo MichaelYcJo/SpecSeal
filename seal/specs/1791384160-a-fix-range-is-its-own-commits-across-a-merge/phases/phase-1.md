@@ -31,6 +31,13 @@ point. Nothing in either script hands `own_commits` such a start, so this
 changes no code. The home says the rule in terms of descent and makes no
 claim about where a start sits.
 
+*Corrected after round 1 (🟡 2):* "true for every range this work reads" was
+not. A start on the branch after the build still has two shapes against it,
+which the warden's probes measured. After a back-merge of the item's commits
+into the base, a later base commit descends from the start and is owned. An
+own commit on a topic forked before the start descends from it never. The
+home now states both limits.
+
 **Q1, measured on git 2.50.** Each commit is `\x01<full> <short>\0`, then a
 `\n` before its first entry, then `<status>\0<path>\0` per entry. A commit
 that changed nothing is its header alone, so the next token is the next

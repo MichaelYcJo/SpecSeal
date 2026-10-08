@@ -4490,11 +4490,15 @@ def own_commits(root, a, b):
 
     **The non-merge commits that descend from `a` and that `b` reaches**
     (#860, #805) — `docs/the-record-layout.md` §*A range owns the commits
-    that descend from its start* owns that rule and its limit. A commit a
-    merge brought in reaches `b` only through the merge and descends from
-    `a` never, so it is not owned on whichever side the merge was made; the
-    parent order `git merge` set is not read. A start that does not reach
-    its end owns nothing, and the answer is `[]`.
+    that descend from its start* owns that rule and its limit. A sibling's
+    squash that a merge of the base brought in reaches `b` only through the
+    merge and descends from `a` never, so it is not owned on whichever side
+    the merge was made; the parent order `git merge` set is not read.
+    Descent is the whole test, so the home's two limits are this function's
+    too: after a back-merge of the item's commits into the base, a later base
+    commit descends from `a` and is owned, and an own commit on a topic
+    forked before `a` is not. A start that does not reach its end owns
+    nothing, and the answer is `[]`.
 
     `--no-renames`, because with rename detection a move is listed by its
     destination alone: a behaviour file moved under `tests/` or `seal/`
@@ -4557,11 +4561,13 @@ def fragment_left_behind(reader, routing, root, item, records):
 
     ONE question per work item. Round 1's `Target SHA` is where the build
     ended, so the walk is the commits `<target>..HEAD` owns (`own_commits`),
-    and the build's own commits are never read. A sibling's commit that a
+    and the build's own commits are never read. A sibling's squash that a
     merge brought in descends from the target never, so CI's merge ref, the
     branch's own merge of its base and a branch rebuilt on the base with its
     old tip merged in (#805) all read the item's commits and no other, and
-    nothing here reads which parent of a merge is the first. Every owned
+    nothing here reads which parent of a merge is the first. Where the base
+    merged the item's own commits with a merge commit first, the walk reads
+    later base commits too: `own_commits` states that limit. Every owned
     commit that changed the fragment is a line: an owned commit is named when
     it changed a behaviour path (`behaviour_path`) and no such line descends
     from it, the line itself included. On a linear history that is every

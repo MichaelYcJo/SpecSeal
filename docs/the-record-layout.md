@@ -98,7 +98,8 @@ names each one that changed a path outside the `seal/` root and outside a
 On a linear history that is every commit after the fragment last changed. A
 move lists both its paths, so a file moved under `tests/` is named. CI's
 checkout, the pull request merged into its base, reads the same commits as the
-branch does, because the base's commits descend from round 1's target never.
+branch does, because a squash on the base descends from round 1's target
+never (the next section names the merge shape where that fails).
 Each commit is attributed to the round whose `Fix range` owns it, to *after
 the last round*, or to *outside every round's fix range* for a commit between
 two rounds' ranges. It prints and never refuses, which is the measurement
@@ -117,9 +118,10 @@ Enforced by: skills/code-review/scripts/chain_check.py::fragment_left_behind, te
 ## A range owns the commits that descend from its start
 
 **A range `a..b` owns the non-merge commits that descend from `a` and that `b`
-reaches** — `git log --ancestry-path --no-merges a..b`. A commit that a merge
-brought in reaches `b` only through the merge and descends from `a` never, so
-it is not owned, whichever side the merge was made from. Two readers walked a
+reaches** — `git log --ancestry-path --no-merges a..b`. A sibling's commit
+that a merge of the base brought in reaches `b` only through the merge, and
+in a repository that squashes into its base it descends from `a` never, so it
+is not owned, whichever side the merge was made from. Two readers walked a
 range by its shape instead, and both read a sibling's work as the item's own.
 `round-record close` diffed the range's two ends: one record's `New units`
 named 111 units, 109 of them a sibling's that a merge of the base had brought
@@ -142,8 +144,14 @@ two ways.
 
 What no reader can see is a change made only inside a merge's conflict
 resolution. The merge is owned by no range, so `close` refuses a `fixed` row
-that names it. A range whose start does not reach its end owns nothing, and
-`close` refuses it rather than writing an empty surface.
+that names it. Descent is the whole test, so two shapes read against the
+item's history. Where the base merged any of the item's commits with a merge
+commit (a back-merge, or a stacked branch merged first), every commit made on
+the base after that merge descends from `a` and is owned. And an own commit on
+a topic forked before `a` descends from it never and is not owned, so its
+units leave the surface and a `fixed` row naming it is refused. A range whose
+start does not reach its end owns nothing, and `close` refuses it rather than
+writing an empty surface.
 Enforced by: skills/code-review/scripts/chain_check.py::own_commits, skills/code-review/scripts/round_record.py::own_units, tests/test_a_fragment_left_behind_is_named.py::test_a_branch_rebuilt_on_the_base_names_its_own_commits_and_not_the_siblings, tests/test_the_fixes_close_the_record.py::test_a_unit_a_merge_brought_into_a_file_an_own_commit_touched_is_not_new, tests/test_the_fixes_close_the_record.py::test_a_fixed_row_naming_a_commit_the_range_does_not_own_is_refused
 
 ## docs/
