@@ -26,7 +26,7 @@ A ⬜ note stops costing a fix pass, a reader and sometimes the run's one reopen
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the typecheck | the sealer, spawned by the orchestrator after the review rounds settle |
-| `notes`, `close`'s carried note and the two `chain-check` arms on a real run, through a warden's report rather than a fixture: this item's own review rounds are the first run under the rule | the orchestrator, over this item's review rounds |
+| `notes`, `close`'s carried note and the two `chain-check` arms on a real run, through a warden's report rather than a fixture. This item's own rounds were closed with the installed 0.20.0 generator, which is not this rule, so they are not that run | the orchestrator of the first review run after the plugin carrying this rule is installed |
 | The merge with #860 and #866, which edit `close` and `chain_check.py` beside this item's lines | the orchestrator, when it integrates the siblings |
 
 ## Not done
