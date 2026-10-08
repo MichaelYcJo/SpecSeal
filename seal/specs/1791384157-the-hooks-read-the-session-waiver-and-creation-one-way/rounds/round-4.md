@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 881 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `fba9fff061158a98e6f0678ceccfefb371295ecb..08f34e459874f3c03832238af22f24911dda7348`, 3 commits |
+| Contract changes | none |
+| New units | _BRACE_IN_WORD (depth 1); test_a_brace_segment_composes_its_c_values_as_git_does (depth 1); test_what_the_shell_does_not_expand_stays_silent (depth 1); test_a_brace_in_a_command_that_will_not_split_stops (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🟡 1 (the `-C` union misses the tree git runs in), 🟡 2 (`_BRACE` refuses a signed sequence and a brace after an escaped `$`), 🟡 3 (§A and its pin say no stopped pair is git) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,12 +25,12 @@ Round 4, the redesign's first finding round after the reframe of round 3. Its ta
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The `-C` union misses the tree git runs in: a git segment whose brace stands before its `-C` (`git {,} -C W switch feature/x`), and `-C` values git composes (`{git,} -C .. -C W switch feature/x`) | `hooks/worktree-guard.py:2485` | open | executed: both silent with the session's tree clean and `W` ACTIVE; bash hands git `-C W …` and `-C .. -C W …`; the brace-free `git -C .. -C W switch feature/x` denies naming `W`; the fix makes all three new parameters deny, 400 passed |
-| 🟡 2 | `_BRACE` refuses a signed sequence endpoint (`git rebase main{+1..2}`) and a brace after an escaped `$` (`\${a,b}`), both expanded by bash | `hooks/worktree-guard.py:2007` | open | executed: bash 3.2.57 prints `1 2 3` for `{+1..3}` and `$a $b` for `\${a,b}`; `git rebase main{+1..2}` silent in an ACTIVE tree at the target; the fix stops both, 33 corpus pairs before and after |
-| 🟡 3 | §A says every pair the rule stops is a command that is not git; one is a git segment, `git add <dir>/{plan,questions}.md` | `docs/worktree-guard-spec.md:106` | open | executed: phase 7's method through the guard's own functions: 33 of 32,641, one git; the hooks at `a8f86f44` stop that pair alone; self-check 19 of 19 and 0 of 6; the pin at `tests/test_guard_resolves_the_tree_it_judges.py:855` holds the false sentence |
-| ⬜ 4 | An unquoted brace in a command the splitter cannot close (ANSI-C `$'\''`) is read only for a bare `git`: `{g..g}it switch feature/x` there is silent | `hooks/worktree-guard.py:2409` | open | executed: silent in an ACTIVE tree, bash runs `git switch feature/x`; `{git,}` in its place denies; the brace-free `g""it` twin is silent at `5623d728` too, so the class is deferred and only the brace line is proposed |
-| ⬜ 5 | The false git share is copied into ledger row S22, the changelog fragment, `questions.md` M2, M4, P1 and phase 7 | `seal/ledger/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way.md:86` | open | a correction of the run's paperwork, following 🟡 3 |
-| ⬜ 6 | Three `NAME NOT IN TREE` insertions split a sentence; the markers themselves are a fair use | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/rounds/round-2-report.md:85` | open | a correction of the run's paperwork; also `:91` and `plan.md:112`; 30 marker lines counted in the range |
+| 🟡 1 | The `-C` union misses the tree git runs in: a git segment whose brace stands before its `-C` (`git {,} -C W switch feature/x`), and `-C` values git composes (`{git,} -C .. -C W switch feature/x`) | `hooks/worktree-guard.py:2485` | **fixed** `731c3c17` | fixed at 731c3c17; executed: both silent with the session's tree clean and `W` ACTIVE; bash hands git `-C W …` and `-C .. -C W …`; the brace-free `git -C .. -C W switch feature/x` denies naming `W`; the fix makes all three new parameters deny, 400 passed |
+| 🟡 2 | `_BRACE` refuses a signed sequence endpoint (`git rebase main{+1..2}`) and a brace after an escaped `$` (`\${a,b}`), both expanded by bash | `hooks/worktree-guard.py:2007` | **fixed** `731c3c17` | fixed at 731c3c17; executed: bash 3.2.57 prints `1 2 3` for `{+1..3}` and `$a $b` for `\${a,b}`; `git rebase main{+1..2}` silent in an ACTIVE tree at the target; the fix stops both, 33 corpus pairs before and after |
+| 🟡 3 | §A says every pair the rule stops is a command that is not git; one is a git segment, `git add <dir>/{plan,questions}.md` | `docs/worktree-guard-spec.md:106` | **fixed** `731c3c17` | fixed at 731c3c17; executed: phase 7's method through the guard's own functions: 33 of 32,641, one git; the hooks at `a8f86f44` stop that pair alone; self-check 19 of 19 and 0 of 6; the pin at `tests/test_guard_resolves_the_tree_it_judges.py:855` holds the false sentence |
+| ⬜ 4 | An unquoted brace in a command the splitter cannot close (ANSI-C `$'\''`) is read only for a bare `git`: `{g..g}it switch feature/x` there is silent | `hooks/worktree-guard.py:2409` | **fixed** `731c3c17` | fixed at 731c3c17; executed: silent in an ACTIVE tree, bash runs `git switch feature/x`; `{git,}` in its place denies; the brace-free `g""it` twin is silent at `5623d728` too, so the class is deferred and only the brace line is proposed |
+| ⬜ 5 | The false git share is copied into ledger row S22, the changelog fragment, `questions.md` M2, M4, P1 and phase 7 | `seal/ledger/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way.md:86` | answered | corrected at 46d8181c: ledger rows S11b and S22, `changelog.md`, `questions.md` M2, M4 and P1, phases 7 and 10 and `overview.md` carry 34 of 32,715 with its one git pair; a correction of the run's paperwork, following 🟡 3 |
+| ⬜ 6 | Three `NAME NOT IN TREE` insertions split a sentence; the markers themselves are a fair use | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/rounds/round-2-report.md:85` | answered | corrected at 46d8181c: each of the three markers stands at the end of the sentence it split, on the line that names the removed unit; a correction of the run's paperwork; also `:91` and `plan.md:112`; 30 marker lines counted in the range |
 | 🟢 | round 3's yellow 1 is closed — a brace behind a runner's operand, a redirection or a glued `(` stops | `tests/test_worktree_guard.py:1937` | confirmed | executed: each denies in an ACTIVE tree and is silent in a clean one, through `main()` and `_segment_finding` |
 | 🟢 | round 3's yellow 2 is closed — empty and runner alternatives stop | `tests/test_worktree_guard.py:1945` | confirmed | executed: the four spellings deny in an ACTIVE tree |
 | 🟢 | round 3's yellow 3 is closed — a brace after an `&` cut stops | `tests/test_worktree_guard.py:1949` | confirmed | executed: denies; every segment now carries the brace test, so the cut needs no reader of its own |
