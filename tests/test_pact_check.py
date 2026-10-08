@@ -36,6 +36,18 @@ pc = load()
 checker = pc.load(pc.CHECKER, "evidence_for_pact_tests")
 
 
+def test_a_clause_heading_quoted_in_a_fence_is_not_a_second_clause():
+    """#867: `clause_hash` reads a clause's heading where a renderer shows
+    one, as the checker reads a document's. A pact that quotes its own
+    `## A` inside a closed fence has one clause `## A`, hashed over the lines
+    as written. Seen red against the raw lines: two clauses."""
+    text = "# Pact\n\n## A\n\nterms\n\n```markdown\n## A\n```\n\n## B\n\nmore\n"
+    digest, why = pc.clause_hash(checker, text, '"## A"')
+    assert why is None, why
+    lines = checker.gfm_lines(text)
+    assert digest == checker.content_hash(lines[2:10])
+
+
 def git(repo, *args):
     return subprocess.run(
         ["git", "-C", str(repo), *args],

@@ -653,6 +653,19 @@ def test_a_heading_indented_three_spaces_is_a_heading_and_an_issue_number_is_not
     assert ec.resolve("d.md", '"## B"', text) == [(7, 9)]
 
 
+def test_text_regions_reads_a_heading_on_the_lines_it_is_shown():
+    """#867, `text_regions`' own contract: the text is matched on LINES as
+    written and a heading is read on SHOWN, so a heading's section ends at
+    a shown heading and not at one a fence quotes."""
+    text = "## A\n\nbody\n\n```\n## A2\n```\n\n## Z\n"
+    lines = ec.gfm_lines(text)
+    shown = ec.markdown_lines(text)
+    assert ec.text_regions(lines, "## A", True, shown) == [(1, 8)]
+    assert ec.text_regions(lines, "## A", True) == [(1, 5)]
+    # The quoted line itself is no heading: its region is its paragraph.
+    assert ec.text_regions(lines, "## A2", True, shown) == [(5, 7)]
+
+
 def test_the_generic_rule_needs_a_declaration_not_a_mention(repo):
     """`handler(x)` called somewhere is not `handler`'s declaration.
 
