@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 878 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `24cfb66f8f52be855bcf1fe8379ae887c401e37f..fadd8270b309f73581a8edfb2399a61d9f85c5f1`, 2 commits |
 | Contract changes | none |
 | New units | none |
