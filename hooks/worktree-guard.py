@@ -2270,16 +2270,15 @@ def _hidden_in(tokens):
 def _segment_finding(tokens, braced=False):
     """(shape, finding) for one segment; (None, None) where there is none.
 
-    A brace that makes the command word itself is the brace shape too:
-    `{git,} switch x` and `{,git} rebase a b` are git to bash and no git to
-    the frozen reading, so `_git_finding` is never asked of them (round 1 of
-    work item 1791384157, yellow 3). A word counts where one of its comma
-    alternatives, with the text around the braces, is a path whose last part
-    is `git`; `{.gitignore,README.md}` spells no git and stops nothing."""
+    A brace in the command word is the brace shape too, where the frozen
+    reading reads no git: `{git,} switch x` is git to bash and none to that
+    reading, so `_git_finding` is never asked of it (round 1 of work item
+    1791384157, yellow 3). Which words count, and when, is
+    `_brace_command_at`'s."""
     parsed = parse_git(tokens)
     if parsed:
         return _git_finding(tokens, parsed, braced)
-    if braced and any(_brace_spells_git(t) for t in tokens):
+    if braced and _brace_command_at(tokens) is not None:
         return "unrecognised", Finding("brace", _spoken(tokens))
     finding = _hidden_in(tokens)
     return ("unrecognised", finding) if finding else (None, None)
@@ -2291,7 +2290,8 @@ _ONE_BRACE = re.compile(r"([^{}]*)\{([^{}\s]*,[^{}\s]*)\}([^{}]*)")
 
 def _brace_spells_git(word) -> bool:
     """Whether bash makes the word `git`, or a path ending in `git`, out of
-    WORD's one comma brace: `{git,}`, `{,git}`, `/usr/bin/{git,x}`."""
+    WORD's one comma brace, which `_ONE_BRACE` reads exactly: `{git,}`,
+    `{,git}`, `/usr/bin/{git,x}`."""
     match = _ONE_BRACE.fullmatch(word)
     if not match:
         return False
@@ -2299,6 +2299,32 @@ def _brace_spells_git(word) -> bool:
     return any(
         os.path.basename(head + alt + tail) == "git" for alt in alternatives.split(",")
     )
+
+
+def _brace_command_at(tokens):
+    """The index of the word that makes TOKENS' command word a brace shape,
+    or None.
+
+    The words read are the segment's command word, as the frozen reading
+    finds it (`cmdline.command_word`), and every word before it. One of them
+    holding a brace expansion (`_BRACE`) counts where `_ONE_BRACE` cannot take
+    it apart exactly, whatever bash would make of it, and where it can, only
+    if one of its alternatives spells `git` (`_brace_spells_git`). So `{echo,
+    printf} x` stops nothing, while a nested brace, a sequence, two braces or
+    a `${…}` beside one (`{{git,},} switch x`, `{g..g}it switch x`) is a shape
+    the guard does not recognise and stops where the tree matters: predicting
+    what bash makes of every brace is an unbounded list, and the guard stops
+    on what it does not recognise rather than growing one (round 2 of work
+    item 1791384157, yellow 1). A brace after the command word is an argument
+    and stops nothing here: `cat {.gitignore,README.md}`."""
+    command, _unplaced = cmdline.command_word(list(tokens))
+    leading = tokens[: len(tokens) - len(command) + 1] if command else tokens
+    for at, word in enumerate(leading):
+        if not _BRACE.search(word):
+            continue
+        if not _ONE_BRACE.fullmatch(word) or _brace_spells_git(word):
+            return at
+    return None
 
 
 def shape_of(tokens, braced=False):
@@ -2463,10 +2489,20 @@ def _finding_tree(tokens, wheres, cwd):
     handed to a shell (`sh -c 'git -C W switch x'`) is no git to either
     reading, so its own `-C` and `cd` are not read and it is judged in the
     tree it was typed from: a named limit (`docs/worktree-guard-spec.md`
-    §*Known limits*; round 1 of work item 1791270162, yellow 5)."""
+    §*Known limits*; round 1 of work item 1791270162, yellow 5).
+
+    A brace in the command word (`_brace_command_at`) is git to bash from that
+    word on, so the `-C` git reads is read off the words after it: `{git,} -C
+    W switch x` is judged in `W` (round 2 of work item 1791384157, yellow
+    2)."""
     if tokens is None:
         return cwd
     here, target = worktree_consent.place(tokens, wheres, cwd)
+    at = _brace_command_at(tokens) if parse_git(tokens) is None else None
+    if at is not None:
+        parsed = parse_git(["git", *tokens[at + 1 :]])
+        if parsed and parsed[2]:
+            return apply_chdir(here, parsed[2])
     if parse_git(tokens) is None and wide is not None:
         try:
             parsed = _wide_git(tokens)

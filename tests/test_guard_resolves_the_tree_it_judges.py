@@ -845,6 +845,13 @@ def test_the_guard_policy_names_the_brace_shape_and_its_costs():
         # Round 1 of work item 1791384157, yellow 3.
         "A brace that makes the command word itself (`{git,} switch x`, which "
         "bash runs as `git switch x`) is the same shape",
+        # Round 2 of work item 1791384157, yellows 1 and 2.
+        "a brace the guard cannot take apart exactly, nested, a sequence, two "
+        "braces or a `${…}` beside one, is unrecognised whatever bash would make "
+        "of it",
+        "and the segment is judged in the tree the `-C` after the brace word names",
+        "Of 34,633 recorded command and directory pairs, the command-word rule "
+        "stops none",
     ):
         assert sentence in text, sentence
 

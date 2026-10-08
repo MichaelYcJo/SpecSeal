@@ -1917,7 +1917,18 @@ def test_a_brace_expansion_in_a_git_word_is_unrecognised(
 
 
 @pytest.mark.parametrize(
-    "command", ["{git,} rebase main feature/x", "{,git} switch feature/x"]
+    "command",
+    [
+        "{git,} rebase main feature/x",
+        "{,git} switch feature/x",
+        # Round 2 of work item 1791384157, yellow 1: braces the guard does not
+        # take apart, each run by bash as `git switch feature/x`. Red at
+        # `e0c5a191`.
+        "{{git,},} switch feature/x",
+        "{,{git,}} switch feature/x",
+        "{g..g}it switch feature/x",
+        "${HOME}/bin/{git,} switch feature/x",
+    ],
 )
 def test_a_brace_that_makes_the_command_word_is_unrecognised(
     monkeypatch, capsys, repo, tmp_path, command
@@ -1925,7 +1936,10 @@ def test_a_brace_that_makes_the_command_word_is_unrecognised(
     """#856's class, one instance further (round 1 of work item 1791384157,
     yellow 3): bash makes `git` itself of the brace, so the frozen reading
     reads no git and the guard said nothing in an ACTIVE tree. Red at
-    `1680ea76`."""
+    `1680ea76`. Since round 2, a command word holding a brace the guard
+    cannot take apart exactly is unrecognised whatever it makes, so the
+    nested, sequence and `${…}`-adjacent spellings stop too, without the
+    guard predicting what bash makes of them."""
     empty = tmp_path / "no-projects"
     empty.mkdir()
     monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(empty))
@@ -1938,15 +1952,52 @@ def test_a_brace_that_makes_the_command_word_is_unrecognised(
 
 @pytest.mark.parametrize(
     "command",
-    ["echo {a,b}", "ls {x,y}.md && git status", "cat {.gitignore,README.md}"],
+    [
+        "echo {a,b}",
+        "ls {x,y}",
+        "ls {x,y}.md && git status",
+        "cat {.gitignore,README.md}",
+        # Round 2: a command-word brace taken apart exactly that makes no git,
+        # and braces in arguments, which make no command word whatever they
+        # are.
+        "{echo,printf} x",
+        "echo {{a,b},c}",
+        "echo {git,} x",
+    ],
 )
 def test_a_brace_in_no_git_word_stays_silent(monkeypatch, capsys, repo, command):
-    """The other side of yellow 3: a brace in a segment whose words spell no
-    git stops nothing, and neither does one in a word that only holds the
-    letters `git` among others (`{.gitignore,README.md}`), which a text test
-    for `git` would stop in every dirty tree."""
+    """The other side of yellow 3: a brace outside the command word stops
+    nothing (`cat {.gitignore,README.md}`'s command word is `cat`), and a
+    command-word brace the guard takes apart exactly stops only where one of
+    its alternatives is `git`."""
     in_state(monkeypatch, repo, "dirty")
     assert verdict(monkeypatch, capsys, repo, command) == ("silent", "")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "{{git,}} -C {w} switch feature/x",
+        "{{git,}} -C {w} rebase main feature/x",
+        "{{{{git,}},}} -C {w} switch feature/x",
+    ],
+)
+def test_a_brace_command_word_is_judged_in_the_tree_its_c_names(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """Round 2 of work item 1791384157, yellow 2. The frozen reading reads
+    no git in `{git,} -C W switch x`, so the brace finding was judged in the
+    tree it was typed from and said nothing with `W` dirty and the session's
+    tree clean. Its `-C` is read off the words after the brace word now, as
+    git would read them. Red at `e0c5a191`."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    (w / "f.txt").write_text("changed\n", encoding="utf-8")
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": ([], [], True))
+    decision, reason = verdict(monkeypatch, capsys, repo, command.format(w=w))
+    assert decision == "ask" and STOP in reason, reason
 
 
 @pytest.mark.parametrize(
