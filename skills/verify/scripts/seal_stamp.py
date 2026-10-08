@@ -772,9 +772,9 @@ def write_values(common, session, values, now=None):
 def read_values(path):
     """A values file as the gate wrote it, with each row a `(label, value)`
     pair or None. Raises `ValueError` with the refusal sentence for a file
-    that cannot be read or is not in that shape. A `scale` key, which a gate
-    before #853 wrote on every file, is read as nothing: such a file draws as
-    one written without it."""
+    that cannot be read or is not in that shape. A `scale` key, which every
+    gate through 0.21's cycle writes (`broad_gate.SCALE_FOR_OLDER_HOOKS`), is
+    read as nothing: such a file draws as one written without it."""
     try:
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)

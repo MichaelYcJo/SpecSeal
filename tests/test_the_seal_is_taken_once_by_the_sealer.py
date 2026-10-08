@@ -3215,8 +3215,10 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(a_sealed_run):
 
 def test_the_values_file_holds_this_runs_panel(a_sealed_run):
     """S2 and S13 of 1790562543. The file holds the rows `panel` returned for
-    this run — in `panel`'s order — and, since #853, no scale. Nothing
-    downstream re-derives a row: the drawing is these values.
+    this run — in `panel`'s order — and the constant `scale` 0.9, read by
+    nothing since #853 and written for 0.21's cycle so a hook older than
+    #853 still draws it (#869 round 1's 🟡 3). Nothing downstream re-derives
+    a row: the drawing is these values.
 
     #666's A5: the whole sequence, positively, so a row that went missing
     cannot pass by being absent. The branch continues under `tree` and the
@@ -3243,8 +3245,9 @@ def test_the_values_file_holds_this_runs_panel(a_sealed_run):
         ("chain", "✓ exit 0"),
         ("rounds", "2"),
     ], values["rows"]
-    # #853: the disc has one size, and the file carries no scale.
-    assert "scale" not in values, values
+    # #869 round 1's 🟡 3: a constant for the installed hook, for one
+    # release; this assertion goes with `SCALE_FOR_OLDER_HOOKS`.
+    assert values["scale"] == gate_module().SCALE_FOR_OLDER_HOOKS == 0.9, values
     assert values["session"] == "s-1" and values["item"] == str(repo / ITEM)
     assert (values["tree"], values["base"]) == (
         short(repo, "HEAD"),

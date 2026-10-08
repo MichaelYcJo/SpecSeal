@@ -172,11 +172,13 @@ the first real seal on each background.
 says nothing where the main session's `python3` is under 3.12, the floor
 `seal_stamp.py` refuses below (macOS ships 3.9); where that session's
 working directory is outside the clone the run sealed; or where its plugin
-predates the hook. A hook older than #853 is silent over a values file a
-newer gate wrote, too: it refuses a file that carries no `scale`, and leaves
-it pending until the plugin is updated. So every `SEALED` line that names a
-values file names `seal-stamp --from <path>` too, and a stamp that did not
-appear is drawn by hand from it, once.
+predates the hook. A hook older than #853 refuses a values file that carries
+no numeric `scale`, so through 0.21's cycle the gate still writes `"scale":
+0.9`, which nothing in the tree reads, and the installed hook and
+`seal-stamp` draw what the tree's gate writes; the first release after 0.21
+stops writing it. So every `SEALED` line that names a values file names
+`seal-stamp --from <path>` too, and a stamp that did not appear is drawn by
+hand from it, once.
 Enforced by: nothing — no case, hook or workflow can observe a screen; the
 owner reads it on the first real run after a change to this surface.
 

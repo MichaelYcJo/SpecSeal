@@ -37,8 +37,8 @@ oldest pending blocks as fit `MESSAGE_BUDGET` together with their disc. The
 rest stay pending for the next `Stop`, and only one block that does not fit
 with its disc alone is drawn without it. A stamp may therefore be drawn
 without its disc, or at a later `Stop`, but never smaller: the disc has one
-size. No file is claimed without its stamp being printed. A `scale` a file
-written before #853 carries is read as nothing.
+size. No file is claimed without its stamp being printed. The `scale` a file
+carries is read as nothing.
 
 **Claim before print.** Each file is rendered, then renamed to `.drawn.json`
 (`seal_stamp.claim`), and only a file this process renamed is printed. Two

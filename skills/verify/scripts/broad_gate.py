@@ -3752,6 +3752,17 @@ DRAWN_AT_TURN_END = (
     "{path}; where none appears, `seal-stamp --from {command}` draws it"
 )
 
+# The `scale` every values file still carries, and what it was before #853
+# retired the scale. Read by nothing in this tree. Written for one release
+# cycle, 0.21's, because the gate a session runs is the tree's copy (`main`
+# hands over to it) while the `Stop` hook that draws the file, and the
+# `seal-stamp` a person types, are the installed plugin's: one older than
+# #853 refuses a values file without a numeric `scale` and leaves the seal
+# undrawn (#869 round 1's 🟡 3). Remove it, and its pin in
+# `tests/test_the_seal_is_taken_once_by_the_sealer.py`, in the first release
+# after 0.21, once no installed plugin older than #853 is left to draw.
+SCALE_FOR_OLDER_HOOKS = 0.9
+
 # The line after the `SEALED` line on a recorded seal (#666). `seal` writes
 # the cell into the working tree and commits nothing, CI reads the record at
 # HEAD, and a pull request marked ready over an uncommitted cell fails on a
@@ -3808,10 +3819,10 @@ def signal(stamp, root, tree, base, item, rows, branch=None, pr=None):
     The values file carries `branch` and `pr` beside the keys it always had,
     which `seal_stamp.label` reads for the line above the drawing; a hook
     older than this gate ignores both and draws the rows under its own
-    label. It carries no `scale` since #853: the disc has one size. A hook
-    older than #853 refuses a file without one and leaves it pending, which
-    the `SEALED` line's `seal-stamp --from` draws (`docs/the-broad-gate.md`
-    §*Where the stamp is drawn*)."""
+    label. Its `scale` is read by nothing since #853 — the disc has one size
+    — and is still written, as the constant `SCALE_FOR_OLDER_HOOKS`, for
+    the one release cycle a hook older than #853 can meet the file
+    (`docs/the-broad-gate.md` §*Where the stamp is drawn*)."""
     head = f"SEALED   {stamp.sealed_names(tree, base.commit, branch, base.ref)}"
     if item is None:
         return head + NOTHING_RECORDED
@@ -3824,6 +3835,7 @@ def signal(stamp, root, tree, base, item, rows, branch=None, pr=None):
         "pr": pr,
         "item": item,
         "session": session or None,
+        "scale": SCALE_FOR_OLDER_HOOKS,
         "rows": rows,
     }
     common = common_dir(root)
