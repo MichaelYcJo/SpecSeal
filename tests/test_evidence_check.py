@@ -665,3 +665,37 @@ def test_the_vendored_config_file_reader_agrees_with_the_shared_one(tmp_path, sh
     elif shape == "undecodable":
         path.write_bytes(b"| Item | Value |\n|---|---|\n| Mode | \xff |\n")
     assert ec.vendored_config_text(str(tmp_path)) == config.config_text(str(tmp_path))
+
+
+def test_the_vendored_heading_rule_agrees_with_the_shared_one():
+    """#867. The checker reads a markdown heading by
+    `unverified_check.py#heading_level` where it is the plugin's copy, and
+    by its twin where `evidence-ci` vendored it alone; this holds the twin to
+    the rule over the heading's shapes, each with and without a line end."""
+    from test_unverified_rows_close import uc
+
+    ec = _checker("ec_vendored_headings")
+    assert ec.heading_rule().__module__ == "specseal_unverified_reader", (
+        "the plugin's copy must ask the shared reader, not its vendored twin"
+    )
+    for line in (
+        "## B",
+        "   ## B",
+        "    ## B",
+        "\t## B",
+        "#",
+        "######",
+        "####### seven",
+        "#\tx",
+        "#hello",
+        "#120) wrapped",
+        "## closed ##",
+        " # one space",
+        "",
+        "plain",
+        "> # quoted",
+    ):
+        for end in ("", "\n", "\r\n"):
+            assert ec.vendored_heading_level(line + end) == uc.heading_level(
+                line + end
+            ), repr(line + end)

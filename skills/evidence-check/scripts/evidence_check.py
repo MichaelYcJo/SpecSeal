@@ -526,12 +526,51 @@ def parsed_spans(text):
     return out
 
 
+def vendored_heading_level(line):
+    """`unverified_check.py#heading_level`, for a copy with no reader beside
+    it: CommonMark 4.2's ATX heading — at most three spaces, one to six `#`,
+    then a space, a tab or the end of the line — as its level, or None.
+    `tests/test_evidence_check.py#test_the_vendored_heading_rule_agrees_with_the_shared_one`
+    holds the two equal."""
+    indent = len(line) - len(line.lstrip(" "))
+    if indent > 3:
+        return None
+    s = line[indent:]
+    n = len(s) - len(s.lstrip("#"))
+    if 1 <= n <= 6 and (len(s) == n or s[n] in " \t\r\n"):
+        return n
+    return None
+
+
+@functools.cache
+def heading_rule():
+    """`heading_level`: the shared reader's where this is the plugin's own
+    copy, and the vendored twin where it is not (#867), beside `fence_rule`
+    and `cell_rule`."""
+    reader = shared_reader()
+    return reader.heading_level if reader is not None else vendored_heading_level
+
+
 def heading_level(line):
-    m = re.match(r"^(#{1,6})\s", line)
-    return len(m.group(1)) if m else None
+    """The level of the markdown heading LINE is, or None — the one rule,
+    `heading_rule()`, under the name every caller here and
+    `pact_check.py#clause_hash` already spell. It used to be `^#{1,6}\\s` on
+    any line, so a heading indented up to three spaces was not one, and a
+    `## B` quoted inside a fence was: the regions below read it on the lines
+    a renderer shows (`markdown_lines`)."""
+    return heading_rule()(line)
 
 
-def text_regions(lines, anchor, markdown=False):
+def markdown_lines(text):
+    """TEXT's lines as GFM ends them, with every line inside a closed fence
+    blanked (`unquoted`) — the lines a renderer shows a heading on (#867).
+    The count and the line numbers are `gfm_lines(text)`'s, so a region found
+    here is the same region there, and its hash is taken over the lines as
+    written: where a region ENDS moves, its bytes do not."""
+    return gfm_lines(unquoted(text))
+
+
+def text_regions(lines, anchor, markdown=False, shown=None):
     """Every region a text anchor matches, 1-based and inclusive.
 
     A markdown heading owns everything down to the next heading at its level or
@@ -543,17 +582,24 @@ def text_regions(lines, anchor, markdown=False):
     and YAML, and reading one as a heading made a 23-line comment block resolve
     to its first line alone. Found by migrating this repository's own ledger,
     not by reasoning about it.
+
+    **A heading is read on SHOWN, the lines a renderer shows** (#867):
+    `markdown_lines` of the same text, which the caller passes for a markdown
+    file. A `## B` quoted in a closed fence opens no section and ends none.
+    The text is still matched on LINES as written, so an anchor on a line
+    inside a fence finds its paragraph as it did.
     """
+    shown = lines if shown is None else shown
     want = " ".join(anchor.split())
     out = []
     for i, line in enumerate(lines):
         if " ".join(line.split()) != want:
             continue
-        level = heading_level(line) if markdown else None
+        level = heading_level(shown[i]) if markdown else None
         if level is not None:
             j = i + 1
             while j < len(lines):
-                k = heading_level(lines[j])
+                k = heading_level(shown[j])
                 if k is not None and k <= level:
                     break
                 j += 1
@@ -582,6 +628,9 @@ def heading_path(lines, parts):
     Each part narrows inside the section the previous one opened, so a heading
     that repeats across a document is disambiguated by its parent rather than
     by a line number. Zero matches or several is the caller's BROKEN.
+
+    LINES are `markdown_lines` (#867): a heading quoted in a closed fence is a
+    blank line there, so it is no part of any path and ends no section.
     """
     regions = [(1, len(lines))]
     for part in parts:
@@ -660,9 +709,12 @@ def resolve_unit(path, locator, text):
     if locator.startswith('"'):
         body = unescape(locator[1:-1])
         if markdown:
+            # A heading is read where a renderer shows one (#867).
+            shown = markdown_lines(text)
             parts = [p for p in body.split(HEADING_SEP) if p.strip()]
             if parts and heading_level(parts[0].strip()) is not None:
-                return heading_path(lines, parts), False
+                return heading_path(shown, parts), False
+            return text_regions(lines, body, markdown, shown), False
         return text_regions(lines, body, markdown), False
     if path.endswith(".py"):
         spans = py_spans(text)
@@ -937,7 +989,10 @@ def file_units(rel, body):
             if len(places) == 1:
                 units.append((name, places[0], False))
     elif rel.endswith(".md"):
+        # Headings read where a renderer shows one (#867); a quoted heading
+        # in a closed fence is a blank line here and no unit.
         seen = {}
+        lines = markdown_lines(body)
         for i, line in enumerate(lines):
             level = heading_level(line)
             if level is None:
@@ -2431,18 +2486,20 @@ def citation_for(root, path, number, body=None):
     raw = gfm_lines(body)
     lines = gfm_lines(unquoted(body))
     rel = SEAL_PREFIX + os.path.relpath(path, seal_home(root)).replace(os.sep, "/")
+    # The headings are read on the shown lines (#867), so a heading quoted in
+    # a closed fence in a release file is never a citation's section.
     trail = []
     for n in range(number - 1, 0, -1):
-        level = heading_level(raw[n - 1])
+        level = heading_level(lines[n - 1])
         if level is not None and all(level < held for held, _ in trail):
-            trail.insert(0, (level, raw[n - 1].strip()))
+            trail.insert(0, (level, lines[n - 1].strip()))
     texts = [text for _, text in trail]
     tries = [texts[-1:], texts] + [[text] for text in reversed(texts[:-1])]
     cell = re.split(r"(?<!\\)\|", lines[number - 1].strip()[1:])[0]
     for parts in tries:
         if not parts or any("`" in text for text in parts):
             continue
-        found = heading_path(raw, parts)
+        found = heading_path(lines, parts)
         if len(found) != 1 or not found[0][0] < number <= found[0][1]:
             continue
         literal = unique_literal(lines, found[0], number, cell)
