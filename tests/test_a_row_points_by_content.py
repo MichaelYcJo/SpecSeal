@@ -485,10 +485,10 @@ def test_the_major_unit_resolves_without_a_parser(repo):
     those projects the brittle version of this design.
 
     The rule needs no parser and no dependency: the name followed by `(`, `{`
-    or `:`, then the block to the next line at the same or lower indentation.
-    That closes a suite in an indentation language and lands on the closing
-    brace in a brace language, because the brace sits at the declaration's own
-    indent.
+    or `:`, then the bracket walk to the line where every bracket opened
+    since the declaration has closed, the closing line itself left out
+    (#870). These spans are the ones the indentation rule gave a one-line
+    signature, kept so a row it bounded right keeps its hash.
     """
     assert ec.resolve("svc.ts", "handler", BRACE) == [(3, 8)]
     assert ec.resolve("svc.ts", "Box", BRACE) == [(11, 14)]
@@ -682,8 +682,8 @@ def test_the_generic_rule_needs_a_declaration_not_a_mention(repo):
     )
     # `const r = handler(1);` is a CALL: what precedes the name contains `=`,
     # so it is not a declaration line. The region stops AT the closing brace
-    # rather than including it — the brace sits at the declaration's own
-    # indent and carries no claim.
+    # rather than including it — a line of nothing but closers carries no
+    # claim (#870).
     assert ec.resolve("svc.js", "handler", text) == [(4, 5)]
     plain = "// handler is described here\n\nfunction handler(x) {\n  return x;\n}\n"
     assert ec.resolve("svc.js", "handler", plain) == [(3, 4)], (
@@ -2220,11 +2220,14 @@ def test_a_call_after_a_statement_keyword_is_not_a_declaration(repo):
     assert ec.resolve("app.js", "render", text) == [(1, 2)]
     for kw in ("return", "throw", "yield", "await", "if", "while", "case", "not"):
         lines = ["function render(x) {", "  return x;", "}", "", f"{kw} render(y);"]
-        assert ec.generic_units(lines, "render") == ([(1, 2)], False), kw
+        assert ec.generic_units(lines, "render", "brace", "js") == (
+            [(1, 2)],
+            False,
+        ), kw
     # Declaration modifiers are NOT statement keywords: nothing here narrows
     # what `export async function f(` and friends already match.
     decl = ["export async function render(x) {", "  return x;", "}"]
-    assert ec.generic_units(decl, "render") == ([(1, 2)], False)
+    assert ec.generic_units(decl, "render", "brace", "js") == ([(1, 2)], False)
 
 
 def test_a_gone_symbol_in_a_parsing_python_file_is_broken_with_the_hint(repo):
@@ -2252,12 +2255,15 @@ def test_a_gone_symbol_in_a_parsing_python_file_is_broken_with_the_hint(repo):
     assert run(["."], str(repo)).returncode == 0
 
 
-def test_a_syntax_error_still_falls_back_to_the_text_rule(repo):
-    """The fallback survives for the one thing it was for: a file ast cannot
-    read at all."""
+def test_a_syntax_error_is_refused_rather_than_read_by_the_text_rule(repo):
+    """The fallback survived for a file ast cannot read at all, and there it
+    hashed a multi-line `def` without its body (#870). It is a refusal now,
+    and the reason travels with the empty answer."""
     text = "def handler(x):\n    return x + 1\n\ndef broken(:\n"
     assert ec.py_spans(text) is None
-    assert ec.resolve("bad.py", "handler", text) == [(1, 2)]
+    assert ec.resolve("bad.py", "handler", text) == []
+    refused = ec.resolve_unit("bad.py", "handler", text).refused
+    assert "cannot parse this file" in refused, refused
 
 
 def test_a_module_constant_resolves_through_ast_in_a_parsing_file(repo):
@@ -2589,9 +2595,9 @@ def test_a_declaration_whose_modifier_is_a_keyword_elsewhere_still_resolves(repo
     The blocklist refused both — real code, BROKEN, exit 2 (round 5, 🔴 C).
     It may now only NARROW a set of candidates, never empty it."""
     cs = ["public new void Render(int x) {", "  return;", "}"]
-    assert ec.generic_units(cs, "Render") == ([(1, 2)], True)
+    assert ec.generic_units(cs, "Render", "brace", "cs") == ([(1, 2)], True)
     swift = ["enum State {", "  case loading(String)", "}"]
-    assert ec.generic_units(swift, "loading") == ([(2, 2)], True)
+    assert ec.generic_units(swift, "loading", "brace", "swift") == ([(2, 2)], True)
     # The second half of the tuple is the whole point: these two survived only
     # because nothing unblocked did, and the consumers have to know that.
 
@@ -2943,7 +2949,7 @@ def test_generic_units_reports_nothing_rather_than_a_resurrection(repo):
     """`(blocked, True)` was returned even when `blocked` was empty, so a file
     with no candidate at all was reported as having a resurrected one — a
     sentence the consumers then acted on (round 7, 🟡 N)."""
-    assert ec.generic_units(["a = 1", "b = 2"], "missing") == ([], False)
+    assert ec.generic_units(["a = 1", "b = 2"], "missing", "block") == ([], False)
 
 
 def test_a_moved_unit_in_a_semicolonless_file_is_broken_with_its_destination(repo):
@@ -2983,17 +2989,25 @@ def test_a_moved_unit_in_a_semicolonless_file_is_broken_with_its_destination(rep
 def test_a_multi_line_declaration_with_a_bare_name_is_still_sure(repo):
     """The widening is bounded by the SPAN, and the bound is what carries it.
 
-    A shell function is the case that needs it: `render() {` has nothing
-    before the name and an opening paren, exactly like a call, and only the
-    block it opens tells them apart. Without the one-line bound every one of
-    those would be a place the rule is unsure of.
+    A class method in shorthand is the case that needs it: `render() {` has
+    nothing before the name and an opening paren, exactly like a call, and
+    only the block it opens tells them apart. Without the one-line bound
+    every one of those would be a place the rule is unsure of. (This was a
+    shell function until #870: shell has no bounding rule now, and the
+    property is the same in a brace language.)
     """
-    shell = "render() {\n  echo x\n}\n"
-    assert ec.generic_units(shell.splitlines(), "render") == ([(1, 2)], False)
+    method = "class View {\n  render() {\n    return 1;\n  }\n}\n"
+    assert ec.generic_units(method.splitlines(), "render", "brace", "js") == (
+        [(2, 3)],
+        False,
+    )
     keyworded = "function render(x) {\n  return x;\n}\n"
-    assert ec.generic_units(keyworded.splitlines(), "render") == ([(1, 2)], False)
+    assert ec.generic_units(keyworded.splitlines(), "render", "brace", "js") == (
+        [(1, 2)],
+        False,
+    )
     # And the one-liner it is meant to catch, in the same file shape.
-    assert ec.generic_units(["render(y)"], "render") == ([(1, 1)], True)
+    assert ec.generic_units(["render(y)"], "render", "brace", "js") == ([(1, 1)], True)
 
 
 def test_a_blocked_declaration_can_be_recorded_by_hand(repo):

@@ -270,6 +270,25 @@ about 1.7 s. The cost was the parse and not the rows, so no row left: a row
 still leaves the ledger only with its code.
 Enforced by: tests/test_a_row_points_by_content.py::test_rows_citing_one_file_cost_one_parse, tests/test_a_row_points_by_content.py::test_a_file_edited_between_two_reads_gets_its_new_spans
 
+<!-- specs/1791384159-a-unit-the-extractor-cannot-bound-is-refused -->
+**A unit no rule can bound is refused, and never hashed over a span that
+leaves its body out.** Which rule bounds a unit is decided once, by the
+file's suffix: `ast` for Python, the heading path for markdown, a bracket
+walk over an allow-list of brace languages, YAML's own block structure, and
+nothing for any other suffix. A rule that meets a unit it cannot bound — a
+Python file the running interpreter cannot parse, brackets that do not
+balance, a string that never ends, a suffix with no rule — answers `BROKEN`,
+says why on the line, and names a quoted-line anchor as the way on. The
+indentation rule this replaces bounded a multi-line TypeScript signature at
+the line that opened its body, so a rewrite of the body read `ok` and
+`--reverify` had nothing to notice (#848). A guess that reads more shapes
+would keep reading `ok` over code nobody re-read on the next shape it did
+not know; a refusal with the remedy on its line costs one edit to the row.
+The walk leaves a last line of nothing but closers out of the span, so a row
+the old rule bounded right keeps its hash and the only `DRIFTED` an
+installer meets on upgrade is a body the old span left out.
+Enforced by: tests/test_a_unit_the_extractor_cannot_bound_is_refused.py::test_a_prettier_signature_keeps_its_body_in_the_span, tests/test_a_unit_the_extractor_cannot_bound_is_refused.py::test_a_bare_symbol_in_a_suffix_no_rule_names_is_refused_with_the_remedy, tests/test_a_unit_the_extractor_cannot_bound_is_refused.py::test_a_python_file_that_will_not_parse_is_refused_naming_the_interpreter
+
 ## A correction a merge dropped
 
 <!-- specs/1789969379-a-conflict-resolved-by-side-reverts-the-other-sides-corrections -->
