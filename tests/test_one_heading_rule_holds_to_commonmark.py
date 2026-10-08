@@ -32,6 +32,7 @@ import subprocess
 
 import pytest
 from commonmark_oracle import heading_lines, hidden_text, setext_lines
+from conftest import on_disk
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -155,12 +156,16 @@ def test_a_seeded_generated_corpus():
 
 
 def tracked_markdown():
+    """Every tracked `.md` file the working tree holds. Both callers judge
+    what they find, so a tracked file the tree deleted is skipped
+    (`on_disk`) rather than read into a `FileNotFoundError`."""
     listed = subprocess.run(
         ["git", "-C", ROOT, "ls-files", "-z", "--", "*.md"],
         capture_output=True,
         check=True,
     ).stdout.decode("utf-8")
-    return [path for path in listed.split("\0") if path]
+    present, _missing = on_disk(ROOT, [path for path in listed.split("\0") if path])
+    return present
 
 
 def test_every_tracked_markdown_file():
