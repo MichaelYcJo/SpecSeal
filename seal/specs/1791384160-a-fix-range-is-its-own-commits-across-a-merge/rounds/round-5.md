@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 878 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `be2ce805b6263d5aec9ae6b0f1f8e561077cf45c..be2ce805b6263d5aec9ae6b0f1f8e561077cf45c`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,8 +30,8 @@ Verifying round 5 of round 4's fixes: 6445933a..76de29c3 (f2d7d9ab, 76de29c3), p
 | 🟢 | round 4's note 3 is closed — the guard's docstring says it is a word list that other words pass | `tests/test_the_range_rule_states_no_shape.py:17` | confirmed | read; what the docstring newly says about the four carriers is this round's note 1 |
 | 🟢 | round 4's note 4 is closed — the silent-state row says "squashed away" again, outside the guard's reading | `skills/code-review/scripts/chain_check.py:4585` | confirmed | executed: a listed word in `fragment_left_behind`'s linking sentence is red, and outside it passes |
 | 🟢 | round 4's note 5 is closed — the fragment section's input sentence carries no shape clause | `docs/the-record-layout.md:100` | confirmed | read; the clause survives only in `spec.md:170`, excused and accepted by `survivor-check` |
-| ⬜ 1 | The guard's docstring and ledger row 16 say each of the four range readers' docstrings reaches the list through its linking sentence; nothing checks that a docstring keeps its link, and `touched` dropping it leaves the guard and rule 17 green | `tests/test_the_range_rule_states_no_shape.py:12` | open | executed: `touched`'s link replaced by a shape sentence, 69 passed; the paste-ready case passes at the target and is red under that edit |
-| ⬜ 2 | Ledger row 16 rests "every sentence linking the home (the four docstrings' among them)" on the linking case and does not anchor it | `seal/ledger/1791384160-a-fix-range-is-its-own-commits-across-a-merge.md:16` | open | read: the anchors carry `SHAPE_WORDS`, the home case, the list case and `RULES`; a correction to the run's paperwork, not counted in Needs a fix |
+| ⬜ 1 | The guard's docstring and ledger row 16 say each of the four range readers' docstrings reaches the list through its linking sentence; nothing checks that a docstring keeps its link, and `touched` dropping it leaves the guard and rule 17 green | `tests/test_the_range_rule_states_no_shape.py:12` | answered | a note, left as it stands: the guard is a word list by its own docstring, and review is what keeps a carrier's link in place; a per-carrier check would be new mechanism in a fix pass; executed: `touched`'s link replaced by a shape sentence, 69 passed; the paste-ready case passes at the target and is red under that edit |
+| ⬜ 2 | Ledger row 16 rests "every sentence linking the home (the four docstrings' among them)" on the linking case and does not anchor it | `seal/ledger/1791384160-a-fix-range-is-its-own-commits-across-a-merge.md:16` | answered | a note, left as it stands: ledger row 16's anchors name the guard module, which holds the case the claim depends on; read: the anchors carry `SHAPE_WORDS`, the home case, the list case and `RULES`; a correction to the run's paperwork, not counted in Needs a fix |
 
 ## Paste-ready fixes
 
