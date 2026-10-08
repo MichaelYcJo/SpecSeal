@@ -31,6 +31,7 @@ Two readers of a range walked it by the shape of its merges and read another wor
 
 - `skills/code-review/scripts/chain_check.py`: both sides added new functions at the same place, this item's `paths_of` and #837's `notes_of` and `carried_notes`. All three are kept, in that order, and no line of either side changed.
 - `tests/test_the_rules_have_one_owner.py`: both items added a rule numbered 17. #837's rule, *a note closes once, at the run's end*, keeps 17, because it reached the release branch first. This item's rule is now 18, with its owner, sentence and carriers unchanged. The guard's docstring and the ledger row S12, S14, S16 now say rule 18. The phase records keep "rule 17", the number the rule had when they were written.
+- The ledger: after the merge, `close`, the one-owner test's `RULES` and two sections of the orchestration each hold both items' edits, so no reading on either side matched them. `evidence-check --reverify --into` re-stamped 48 rows in place: 25 in this item's fragment and 23 in #837's, `seal/ledger/1791384154-a-records-finding-closes-once-at-the-runs-end.md`. Each claim was read against the merged code first. `changelog.md` is unchanged, because the merge changes nothing either item ships.
 
 ## Not verified
 
