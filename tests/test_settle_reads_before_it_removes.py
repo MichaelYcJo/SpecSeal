@@ -16,6 +16,7 @@ import glob
 import importlib.util
 import io
 import os
+import re
 import subprocess
 import sys
 
@@ -1841,26 +1842,46 @@ def real_ledgers():
     ]
 
 
+# The coordinate pattern `settle.py` kept until #867, frozen here as the
+# oracle S7 is measured against. Comparing with the checker's own pattern,
+# which `coordinate_paths` is built from, could only go red for a missing
+# name (#867 round 1, 🟡 4); this copy is the grammar as it was, so a change
+# to what `settle` attributes in a released ledger goes red here.
+SETTLE_COPY_AT_0_20_0 = re.compile(
+    r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
+    r"#(?:\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"
+    r"(?:>\"(?:[^\"\n]|\\\")+\")?"
+    r"@[0-9a-f]{6,12}"
+)
+
+
+def released_by_0_20_0():
+    """`seal/ledger.md` and the release files up to 0.20.0: the corpus the
+    frozen copy was measured over. A later release may cite a locator form
+    the checker gained after the copy was frozen, which the copy never
+    read, so it is not in the corpus."""
+    out = []
+    for path in real_ledgers():
+        name = os.path.basename(path)[: -len(".md")]
+        parts = name.split(".")
+        if not all(p.isdigit() for p in parts) or tuple(map(int, parts)) <= (0, 20, 0):
+            out.append(path)
+    return out
+
+
 def test_settle_reads_a_coordinate_by_the_checkers_own_grammar():
     """S7 of #867. `settle` kept a narrowed copy of the coordinate pattern;
-    it reads `evidence_check.py#ANCHOR_RE` now, so a locator form the checker
-    gains is a coordinate here too. Over this repository's released ledgers
-    every path `coordinate_paths` attributes is the path of a checker match,
-    in order. Measured when the copy went: the copy and the checker matched
-    the same 8,218 spans, so no segment moved. Seen red against 5623d728's
-    `settle.py`, which has no `coordinate_paths`."""
-    spec = importlib.util.spec_from_file_location(
-        "ec_for_settle_grammar",
-        os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py"),
-    )
-    ec = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(ec)
+    it reads `evidence_check.py#ANCHOR_RE` now. Over the ledgers released by
+    0.20.0 every path `coordinate_paths` attributes is the one the copy
+    attributed, in order, so no segment moved (8,218 spans when the copy
+    went). Seen red with the checker's quoted locator narrowed to refuse a
+    `\\"`, which the frozen copy still reads."""
     assert not hasattr(settle, "COORDINATE_RE"), "a second grammar is back"
     seen = 0
-    for path in real_ledgers():
+    for path in released_by_0_20_0():
         with open(path, encoding="utf-8") as f:
             for line in f.read().split("\n"):
-                want = [m.group("path") for m in ec.ANCHOR_RE.finditer(line)]
+                want = [m.group("path") for m in SETTLE_COPY_AT_0_20_0.finditer(line)]
                 assert settle.coordinate_paths(line) == want, line
                 seen += len(want)
     assert seen > 8000, seen
