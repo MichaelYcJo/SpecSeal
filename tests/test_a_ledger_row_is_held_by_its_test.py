@@ -475,6 +475,209 @@ def test_the_resolver_hands_each_caller_its_own_answer():
     assert ec.named_unit(HELD, ["TestA", "test_b"]) == ("def",)
     assert ec.named_unit(HELD, ["test_b"]) == ()
     assert ec.named_unit("def (:\n", ["x"]) is None
+    # Round 1, ⬜ 4: a name is one identifier; `A.b` is not `A::b`.
+    assert ec.named_unit(HELD, ["TestA.test_b"]) == ()
+
+
+# --- round 1 -------------------------------------------------------------------
+
+
+def released_test_row(repo, freeze):
+    """A released row naming `test_holds`, then the test renamed, then one
+    `Corrected ·` row in a fragment re-pointing the claim at the new name."""
+    if freeze:
+        (repo / "seal").mkdir(exist_ok=True)
+        (repo / "seal" / "config.md").write_text(
+            "# Repository config\n\n| Item | Value |\n|---|---|\n"
+            "| Ledger frozen from | 1 |\n",
+            encoding="utf-8",
+        )
+    section = "### 1000000001-the-first-item"
+    row = f"| R1 · held | `{TESTS}::test_holds` | seen red | 2026-01-01 | |"
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        f"## 0.1.0 — 2026-01-01\n\n{section}\n\n{row}\n", encoding="utf-8"
+    )
+    (repo / TESTS).write_text(
+        HELD.replace("def test_holds", "def test_renamed"), encoding="utf-8"
+    )
+    cite = f'seal/releases/0.1.0.md#"{section}">"R1 · held"@{ec.content_hash([row])}'
+    fragment(
+        repo,
+        [
+            f"| Corrected · held | `{cite}`, `{TESTS}::test_renamed` | seen red, "
+            "then green | 2026-02-01 | Corrected 2026-02-01 by work item "
+            "2000000001: re-pointed |"
+        ],
+    )
+
+
+def test_a_released_test_row_re_pointed_by_a_correction_reads_clean(repo, script):
+    """Round 1, 🔴 1. A released row naming a test that was renamed is
+    repaired by one `Corrected ·` row naming the new test: the released row
+    is superseded, so its gone test is not read again, as a superseded row's
+    hashes are not. Red before the fix: BROKEN, exit 2."""
+    released_test_row(repo, freeze=True)
+    out = run(["--strict", "."], repo, script)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert findings(out.stdout) == [], out.stdout
+    assert total(out.stdout).startswith("total: 2 ok"), out.stdout
+
+
+def test_reverify_leaves_a_superseded_test_row_unnamed(repo):
+    """Round 1, 🔴 1, the in-place writer: without the freeze `--reverify`
+    reads the released file too, and a superseded row's gone test is no
+    longer named on a `LEFT` line. Red before the fix: `LEFT`, exit 1."""
+    released_test_row(repo, freeze=False)
+    out = run(["--reverify", "--checked", "2026-10-08", "."], repo)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "test_holds" not in out.stdout, out.stdout
+
+
+def test_a_corrections_own_gone_test_is_still_broken(repo):
+    """Round 1, 🔴 1's other half: the correcting row starts a family of its
+    own, and its own test is read like any row's."""
+    released_test_row(repo, freeze=True)
+    (repo / TESTS).write_text(HELD, encoding="utf-8")
+    out = run(["--strict", "."], repo)
+    assert out.returncode == 2, out.stdout
+    assert [(s, c) for s, c, _ in findings(out.stdout)] == [
+        ("BROKEN", f"{TESTS}::test_renamed")
+    ], out.stdout
+
+
+@pytest.mark.parametrize(
+    "rel, text, node",
+    [
+        ("tests/helpers.py", "def test_x():\n    assert True\n", "test_x"),
+        ("tests/conftest.py", "def test_x():\n    assert True\n", "test_x"),
+        (
+            "tests/test_init.py",
+            "class TestI:\n    def __init__(self):\n        pass\n\n"
+            "    def test_x(self):\n        assert True\n",
+            "TestI::test_x",
+        ),
+    ],
+    ids=["not a test file", "conftest", "class with __init__"],
+)
+def test_a_test_the_suite_does_not_collect_holds_nothing(repo, script, rel, text, node):
+    """Round 1, 🟡 2 (a): a statically readable test is in a `test_*.py` or
+    `*_test.py` file, and its class has no `__init__`."""
+    (repo / rel).write_text(text, encoding="utf-8")
+    fragment(repo, [held(f"`{rel}::{node}`")])
+    out = run(["--strict", "."], repo, script)
+    assert out.returncode == 2, out.stdout + out.stderr
+    ((status, coord, detail),) = findings(out.stdout)
+    assert (status, coord) == ("MALFORMED", f"{rel}::{node}"), out.stdout
+    assert "pytest does not collect by default" in detail, detail
+
+
+NEVER = (
+    "is marked to be skipped or to fail unconditionally, so the suite stays "
+    "green whatever the code does and nothing holds the claim"
+)
+
+
+@pytest.mark.parametrize(
+    "text, node",
+    [
+        (
+            "import pytest\n\n@pytest.mark.skip\ndef test_x():\n    assert False\n",
+            "test_x",
+        ),
+        (
+            "import pytest\n\n@pytest.mark.skip(reason='later')\n"
+            "def test_x():\n    assert False\n",
+            "test_x",
+        ),
+        (
+            "import pytest\n\n@pytest.mark.xfail\ndef test_x():\n    assert False\n",
+            "test_x",
+        ),
+        (
+            "import pytest\n\n@pytest.mark.xfail(reason='known')\n"
+            "def test_x():\n    assert False\n",
+            "test_x",
+        ),
+        (
+            "import pytest\npytestmark = pytest.mark.skip\n\n"
+            "def test_x():\n    assert False\n",
+            "test_x",
+        ),
+        (
+            "import pytest\npytestmark = [pytest.mark.slow, pytest.mark.skip]\n\n"
+            "def test_x():\n    assert False\n",
+            "test_x",
+        ),
+        (
+            "import pytest\n\n@pytest.mark.skip\nclass TestS:\n"
+            "    def test_x(self):\n        assert False\n",
+            "TestS::test_x",
+        ),
+        (
+            "import pytest\n\nclass TestS:\n    pytestmark = pytest.mark.xfail\n\n"
+            "    def test_x(self):\n        assert False\n",
+            "TestS::test_x",
+        ),
+    ],
+    ids=[
+        "skip",
+        "skip with a reason",
+        "xfail",
+        "xfail with a reason",
+        "module pytestmark",
+        "module pytestmark list",
+        "class decorator",
+        "class pytestmark",
+    ],
+)
+def test_a_test_that_cannot_fail_holds_nothing(repo, script, text, node):
+    """Round 1, 🟡 2 (b): a test carrying an unconditional `skip` or `xfail`
+    mark, on itself, a class around it or its module, leaves the suite green
+    whatever the code does."""
+    (repo / "tests" / "test_never.py").write_text(text, encoding="utf-8")
+    fragment(repo, [held(f"`tests/test_never.py::{node}`")])
+    out = run(["--strict", "."], repo, script)
+    assert out.returncode == 2, out.stdout + out.stderr
+    ((status, coord, detail),) = findings(out.stdout)
+    assert (status, coord) == ("MALFORMED", f"tests/test_never.py::{node}")
+    assert detail.startswith(f"{NEVER} — name it in Code grounds"), detail
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "import sys\nimport pytest\n\n@pytest.mark.skipif(sys.platform == 'x', "
+        "reason='x')\ndef test_x():\n    assert True\n",
+        "import sys\nimport pytest\n\n@pytest.mark.xfail(sys.platform == 'x', "
+        "reason='x')\ndef test_x():\n    assert True\n",
+        "import pytest\n\n@pytest.mark.slow\ndef test_x():\n    assert True\n",
+    ],
+    ids=["skipif", "xfail with a condition", "another mark"],
+)
+def test_a_conditional_mark_is_left_to_the_reader(repo, text):
+    """Round 1, 🟡 2: `skipif`, and an `xfail` given a condition, run where
+    the condition is false; whether that is here is the suite's to say."""
+    (repo / "tests" / "test_maybe.py").write_text(text, encoding="utf-8")
+    fragment(repo, [held("`tests/test_maybe.py::test_x`")])
+    out = run(["--strict", "."], repo)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert findings(out.stdout) == [], out.stdout
+
+
+def test_a_coordinate_quoting_a_scope_is_no_test(repo, script):
+    """Round 1, 🟡 3, S11 and D3: a coordinate is unambiguous by its shape,
+    so `::` inside its quoted locator is no node id. Red before the fix: two
+    MALFORMED on a ledger holding no test row."""
+    doc = repo / "docs" / "guide.md"
+    doc.parent.mkdir()
+    doc.write_text("# Guide\n\n## The Foo::bar form\n\nText.\n", encoding="utf-8")
+    fragment(repo, [held('`docs/guide.md#"## The Foo::bar form"@00000000`')])
+    run(["--reverify", "."], repo, script)
+    out = run(["--strict", "."], repo, script)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert findings(out.stdout) == [], out.stdout
 
 
 # --- S13 -----------------------------------------------------------------------

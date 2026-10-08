@@ -1685,9 +1685,9 @@ def check_ledger(ledger, root, maps, default_repo=None, families=None):
         )
     findings = check_text(body, root, maps, default_repo)
     findings.extend(read_by_family)
-    # A row held by a test is read on every row, citing or not (#836): a
-    # `Corrected ·` row naming a test is how a released row moves onto it.
-    findings.extend(held_by_tests(text, root, maps, default_repo))
+    # A row held by a test (#836) is read here unless a family holds it: then
+    # `family_view` read it, and read nothing of a superseded family's rows.
+    findings.extend(held_by_tests(text, root, maps, default_repo, owned))
     findings.extend(old_format_rows(text))
     findings.extend(malformed_rows(text))
     findings.extend(overflow_rows(text))
@@ -2249,12 +2249,16 @@ NOT_A_TEST = (
 
 
 def node_tokens(cell):
-    """Every code span of CELL that holds `::`: what a Code grounds cell names
-    as a test, parsed or not, in cell order."""
+    """Every code span of CELL that holds `::` and no coordinate: what a Code
+    grounds cell names as a test, parsed or not, in cell order. A span
+    holding a coordinate or a pact anchor is that coordinate, whatever its
+    quoted locator says -- a heading `## A::b`, a C++ scope (round 1, 🟡 3)."""
     return [
         m.group(2).strip()
         for m in CODE_SPAN_RE.finditer(cell)
         if NODE_SEP in m.group(2)
+        and not ANCHOR_RE.search(m.group(2))
+        and not PACT_ANCHOR_RE.search(m.group(2))
     ]
 
 
@@ -2313,13 +2317,33 @@ def named_unit(text, names):
     kinds = unit_kinds(text)
     if kinds is None:
         return None
+    if any("." in name for name in names):
+        # One identifier per part: `A.b` is not `A::b` (round 1, ⬜ 4).
+        return ()
     return kinds.get(".".join(names), ())
 
 
-def collected(names, kinds):
-    """Whether pytest collects what NAMES name by default: a function named
-    `test...` or a class named `Test...`, at the top level or inside classes
-    named `Test...`. KINDS is `unit_kinds` of its file."""
+# pytest's default test-file names; a `conftest.py` is never collected from.
+TEST_FILE_RE = re.compile(r"test_[^/]*\.py|[^/]*_test\.py")
+
+
+def collected(names, kinds, path):
+    """Whether what NAMES name in the file PATH is a test by what can be read
+    without running pytest: a file named `test_*.py` or `*_test.py`, a
+    function named `test...` or a class named `Test...`, at the top level or
+    inside classes named `Test...`, none of them with an `__init__`. KINDS is
+    `unit_kinds` of the file.
+
+    **That is all `OK` says** (round 1, 🟡 2). Whether pytest collects the
+    test under a repository's own configuration, and whether it passes, are
+    the suite's answers; deriving more of pytest's collection rules here
+    would be a list nobody finishes."""
+    if not TEST_FILE_RE.fullmatch(path.rsplit("/", 1)[-1]):
+        return False
+    for depth in range(1, len(names) + 1):
+        outer = ".".join(names[:depth])
+        if kinds.get(outer) == ("class",) and outer + ".__init__" in kinds:
+            return False
     for depth in range(1, len(names)):
         if not names[depth - 1].startswith("Test") or kinds.get(
             ".".join(names[:depth])
@@ -2331,11 +2355,77 @@ def collected(names, kinds):
     )
 
 
+# The marks that leave the suite green whatever the code does. `skipif` and
+# an `xfail` given a condition run where the condition is false, and are left
+# to the reader.
+NEVER_FAILS = ("skip", "xfail")
+NEVER_RUNS = (
+    "is marked to be skipped or to fail unconditionally, so the suite stays "
+    "green whatever the code does and nothing holds the claim"
+)
+
+
+def unconditional(mark):
+    """Whether the expression MARK is `pytest.mark.skip` or `pytest.mark.xfail`
+    applied with no condition, or a list or tuple holding one: `skip` takes
+    none, and `xfail` takes one as its first positional argument."""
+    if isinstance(mark, (ast.List, ast.Tuple)):
+        return any(unconditional(element) for element in mark.elts)
+    call = isinstance(mark, ast.Call)
+    target = mark.func if call else mark
+    name = (
+        target.attr
+        if isinstance(target, ast.Attribute)
+        else target.id
+        if isinstance(target, ast.Name)
+        else None
+    )
+    if name == "skip":
+        return True
+    return name == "xfail" and not (call and mark.args)
+
+
+def never_fails(text, names):
+    """Whether the test NAMES name in the Python TEXT, a class around it, or
+    its module carries an unconditional skip or xfail mark (round 1, 🟡 2):
+    as a decorator, or in a `pytestmark` assigned in the module or the class."""
+
+    def marked(body):
+        for node in body:
+            targets = (
+                node.targets
+                if isinstance(node, ast.Assign)
+                else [node.target]
+                if isinstance(node, ast.AnnAssign)
+                else []
+            )
+            if any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in targets):
+                if node.value is not None and unconditional(node.value):
+                    return True
+        return False
+
+    scope = ast.parse(text).body
+    if marked(scope):
+        return True
+    for name in names:
+        node = next((n for n in scope if getattr(n, "name", None) == name), None)
+        if node is None:
+            return False
+        if any(unconditional(d) for d in node.decorator_list):
+            return True
+        scope = node.body
+        if isinstance(node, ast.ClassDef) and marked(scope):
+            return True
+    return False
+
+
 def node_finding(token, root, maps, default_repo=None):
     """`(status, token, detail)` for one test a Code grounds cell names: OK
-    where it is one unit pytest collects by default, BROKEN where its file or
-    its unit is not there, and MALFORMED where it does not parse as a node id
-    or names a unit that is not a test. Never DRIFTED: there is no hash."""
+    where it is one unit that reads as a test (`collected`) and carries no
+    unconditional skip or xfail (`never_fails`), BROKEN where its file or its
+    unit is not there, and MALFORMED where it does not parse as a node id,
+    names a unit that is not a test, or names one that cannot fail. Never
+    DRIFTED: there is no hash."""
     m = NODE_ID_RE.fullmatch(token)
     if m is None:
         return ("MALFORMED", token, f"does not parse as a test — {TEST_FORM}")
@@ -2372,16 +2462,31 @@ def node_finding(token, root, maps, default_repo=None):
             f"{'.'.join(names)} is defined {len(own)} times in {path}; a test "
             "is defined once",
         )
-    if not collected(names, kinds):
+    if not collected(names, kinds, path):
         return ("MALFORMED", token, f"a {own[0]} {NOT_A_TEST}")
-    return ("OK", token, f"a {own[0]} pytest collects")
+    if never_fails(body, names):
+        return (
+            "MALFORMED",
+            token,
+            f"{NEVER_RUNS} — {TEST_FORM}; or, where no test holds it, write "
+            "`path#anchor@hash`",
+        )
+    return ("OK", token, f"a {own[0]} that reads as a test")
 
 
-def held_by_tests(text, root, maps, default_repo=None):
+def held_by_tests(text, root, maps, default_repo=None, unread=()):
     """`node_finding` for every test a Code grounds cell of TEXT names, each
-    distinct token once, as MALFORMED counts a text once."""
+    distinct token once, as MALFORMED counts a text once.
+
+    UNREAD is the line numbers left to another reader: a row a family holds
+    is read by `family_view`, which reads no row of a family a `Corrected ·`
+    row supersedes, so a released row whose test is gone is re-pointed by one
+    correction, as a row whose unit is gone is (round 1, 🔴 1)."""
     findings, seen = [], set()
-    for cells, column in grounds_cells(text):
+    for number, header, cells in ledger_table_rows(text):
+        column = cell_index(header, cells, CODE_GROUNDS)
+        if number in unread or column < 0:
+            continue
         for token in node_tokens(cells[column]):
             if token not in seen:
                 seen.add(token)
@@ -2947,6 +3052,12 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
             continue
         by_coord = {}
         for key in sorted(members, key=lambda k: (str(k[0]), k[1])):
+            # A member's tests (#836), read here and not by `check_ledger`, so
+            # a superseded family's are not read at all (round 1, 🔴 1).
+            _, _, header, cells = row(key)
+            grounds = cell_index(header, cells, CODE_GROUNDS)
+            for token in node_tokens(cells[grounds]) if grounds >= 0 else ():
+                emit(key, node_finding(token, root, maps, default_repo))
             cite = citations.get(key)
             for m in ANCHOR_RE.finditer(row(key)[1]):
                 if cite is not None and m.span() == cite.span():
@@ -3773,10 +3884,18 @@ def reverify(
         # re-stamped, because the hash is not what is wrong.
         malformed.extend((coord, why) for _, coord, why in malformed_rows(text))
         # A test row has no hash to re-stamp and is never dated; one whose
-        # test is gone or is no test is named, as a malformed row is (#836).
+        # test is gone or is no test is named, as a malformed row is (#836),
+        # unless a `Corrected ·` row supersedes its family (round 1, 🔴 1).
+        here = file_identity(ledger)
         untested.extend(
             (coord, f"{status} — {why}")
-            for status, coord, why in held_by_tests(text, root, maps, default_repo)
+            for status, coord, why in held_by_tests(
+                text,
+                root,
+                maps,
+                default_repo,
+                {n for i, n in superseded if i == here},
+            )
             if status != "OK"
         )
         overflow.extend(

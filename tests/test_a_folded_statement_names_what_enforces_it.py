@@ -181,6 +181,13 @@ def test_a_method_named_bare_is_named(tmp_path):
     ], found
 
 
+def test_a_method_spelled_with_a_dot_is_named(tmp_path):
+    """Round 1, ⬜ 4 of #836: `::A.b` is not the documented `::A::b`, and a
+    target in a spelling nothing documents does not resolve."""
+    found = planted(tmp_path, "**Rule.**\nEnforced by: tests/test_x.py::TestA.test_b\n")
+    assert len(found) == 1 and "no def or class named TestA.test_b" in found[0]
+
+
 def test_a_constant_is_no_def_or_class(tmp_path):
     """The ledger's resolver knows constants too; `fold-check` still accepts
     a `def` or a `class` and nothing else."""
