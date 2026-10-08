@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 882 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `4fc8f1d30b374b1bd9d2a9721e39bbc8a957b364..efc04d1f11294686852254936c9095b384fb1692`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,9 +25,9 @@ Verifying round 2 of round 1's fixes: 9f186d2a..105d96ea (8 commits) plus the ta
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | Under `--worktree`, `config_at_head`'s notice names the absolute disk path where HEAD names `seal/config.md at HEAD`, and the new case's first-word assertion fails on a path holding a space | `skills/code-review/scripts/chain_check.py:1103` | open | executed: probe calling `pact_notices` in both modes over an undecodable config; read: the case's assertion |
-| ⬜ 2 | Under `--worktree`, a directory at `seal/config.md` gives no notice when there is no `seal/pact.md` and no declaration, because `pact_notices` returns before `config_at_head`; K26 says HEAD and `--worktree` alike | `skills/code-review/scripts/chain_check.py:4360` | open | executed: the same tree prints the notice at HEAD and nothing under `--worktree` |
-| ⬜ 3 | `survivors.md` attributes all 29 silenced places to `settle.py`'s copy; two matched `rider_check.py`'s removed pattern, one of them the checker's own grammar | `seal/specs/1791384156-config-rows-coordinates-and-headings-have-one-reader/survivors.md:10` | open | executed: the sweep with the oracle removed names 33, 27 from `settle.py:196` and 2 from `rider_check.py:158`; a correction to a record, outside Needs a fix |
+| ⬜ 1 | Under `--worktree`, `config_at_head`'s notice names the absolute disk path where HEAD names `seal/config.md at HEAD`, and the new case's first-word assertion fails on a path holding a space | `skills/code-review/scripts/chain_check.py:1103` | answered | a note, left as it stands: the notice names the path it read in each mode, and a checkout path with a space is outside what the case pins; executed: probe calling `pact_notices` in both modes over an undecodable config; read: the case's assertion |
+| ⬜ 2 | Under `--worktree`, a directory at `seal/config.md` gives no notice when there is no `seal/pact.md` and no declaration, because `pact_notices` returns before `config_at_head`; K26 says HEAD and `--worktree` alike | `skills/code-review/scripts/chain_check.py:4360` | answered | a note, left as it stands: the default mode, which CI runs, prints the notice; `--worktree` returns before it only where nothing would read the config anyway; executed: the same tree prints the notice at HEAD and nothing under `--worktree` |
+| ⬜ 3 | `survivors.md` attributes all 29 silenced places to `settle.py`'s copy; two matched `rider_check.py`'s removed pattern, one of them the checker's own grammar | `seal/specs/1791384156-config-rows-coordinates-and-headings-have-one-reader/survivors.md:10` | answered | corrected at efc04d1f: `survivors.md` names the two places that matched the rider's stamp pattern; executed: the sweep with the oracle removed names 33, 27 from `settle.py:196` and 2 from `rider_check.py:158`; a correction to a record, outside Needs a fix |
 | 🟢 | round 1's blocking finding 1 is closed — the doubled freeze row's case reads the path with `os.sep` as `/` | `tests/test_a_released_row_is_read_again_in_a_fragment.py:861` | confirmed | read at c6e32946; the case passes on macOS (executed); the Windows shards were pending at bb48b1b5, see the question row |
 | 🟢 | round 1's blocking finding 2 is closed — the survivor sweep names four places and `survivors.md` excuses each | `seal/specs/1791384156-config-rows-coordinates-and-headings-have-one-reader/survivors.md` | confirmed | executed: exit 1 with four places, exit 0 with the file exempting; read: the release job passes at bb48b1b5 |
 | 🟢 | round 1's yellow 3 is answered — one `Corrected · C1` row replaces the two re-reads and states the exit-2 refusal | `seal/ledger/1791384156-config-rows-coordinates-and-headings-have-one-reader.md` | confirmed | read; `bin/evidence-check --strict .` exit 0 and `bin/correction-check` exit 0, executed |
