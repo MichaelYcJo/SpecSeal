@@ -337,38 +337,42 @@ def test_the_walk_bounds_the_shapes_a_formatter_writes(rel, text, name, span):
 
 # --- Q1: each family's forms are blanked, a case per form ------------------
 
-# Every fixture holds a bracket inside each string, char and comment form of
-# its language that would end the unit early, or never, if it were read as
-# code. Each unit ends at its last line, so its span is (1, last - 1).
+# Every fixture holds an OPENING bracket inside each string, char and comment
+# form of its language, so a form read as code leaves a bracket open and the
+# unit is refused. A stray closer would not show it: the body's deeper lines
+# carry the walk past an early close, and the closer-only last line is left
+# out either way (measured by mutating each form, #870). Holes hold a nested
+# string with a bracket in it, so a hole read as content ends its string
+# early. Each unit ends at its last line, so its span is (1, last - 1).
 FORMS = {
     "js": (
         "f.ts",
         "function f(a) {\n"
-        '  const s = "}";\n'
-        "  const t = '{';\n"
-        "  const u = `x ${ {k: 1}.k } }`;\n"
+        '  const s = "{";\n'
+        "  const t = '(';\n"
+        "  const u = `[ ${ {k: 1}.k }`;\n"
         "  const v = `{\n"
         "  `;\n"
-        "  // }\n"
-        "  /* { */\n"
+        "  // {\n"
+        "  /* ( */\n"
         "  return a;\n"
         "}\n",
     ),
     "c": (
         "f.c",
         "int f(int a) {\n"
-        "  char c = '}';\n"
-        '  const char *s = "{\\"";\n'
+        "  char c = '{';\n"
+        '  const char *s = "(\\"";\n'
         "  int n = 1'000;\n"
-        "  /* } */\n"
-        "  // {\n"
+        "  /* { */\n"
+        "  // (\n"
         "  return a;\n"
         "}\n",
     ),
     "cpp": (
         "f.cpp",
         "int f(int a) {\n"
-        '  auto r = R"x(})x";\n'
+        '  auto r = R"x({)x";\n'
         '  auto p = u8R"(")";\n'
         "  char c = '{';\n"
         "  return a;\n"
@@ -378,66 +382,66 @@ FORMS = {
         "F.java",
         "String f(int a) {\n"
         '  String b = """\n'
-        "      }\n"
+        "      {\n"
         '      """;\n'
-        "  char c = '}';\n"
-        '  return "{";\n'
+        "  char c = '(';\n"
+        '  return "[";\n'
         "}\n",
     ),
     "cs": (
         "F.cs",
         "string F(int a) {\n"
-        '  var v = @"C:\\{dir}""}";\n'
-        '  var i = $"{a} }}{{ {d["k"]}";\n'
+        '  var v = @"C:\\" + a + "(";\n'
+        '  var i = $"{a} }}{{ {d["{"]}";\n'
         '  var r = """\n'
-        "    }\n"
+        "    {\n"
         '    """;\n'
-        "  char c = '{';\n"
-        '  return $@"{a}\\";\n'
+        "  char c = '(';\n"
+        '  return $@"{d["{"]}\\";\n'
         "}\n",
     ),
     "kotlin": (
         "f.kt",
         "fun f(a: Int): String {\n"
-        '  val s = "${ mapOf(1 to "}").size } }"\n'
+        '  val s = "${ mapOf(1 to "{").size } ("\n'
         '  val r = """\n'
         "    { ${a}\n"
         '  """\n'
-        "  val c = '}'\n"
-        "  /* outer /* inner } */ still comment { */\n"
+        "  val c = '['\n"
+        "  /* outer /* inner ( */ still comment { */\n"
         "  return s\n"
         "}\n",
     ),
     "swift": (
         "f.swift",
         "func f(a: Int) -> String {\n"
-        '  let s = "\\( [a].count ) }"\n'
-        '  let r = #"raw "}" here"#\n'
+        '  let s = "\\( d["{"] ) ("\n'
+        '  let r = #"raw "{" here"#\n'
         '  let m = """\n'
         "    {\n"
         '    """\n'
-        "  /* a /* nested { */ } */\n"
+        "  /* a /* nested { */ ( */\n"
         "  return s\n"
         "}\n",
     ),
     "go": (
         "f.go",
         "func f(a int) string {\n"
-        "\tr := '}'\n"
-        "\ts := `{\n"
+        "\tr := '{'\n"
+        "\ts := `(\n"
         "\t`\n"
-        '\tt := "}"\n'
+        '\tt := "["\n'
         "\treturn s\n"
         "}\n",
     ),
     "rust": (
         "f.rs",
         "fn f(a: &'static str) -> &'static str {\n"
-        "    let c = '}';\n"
-        '    let r = r#"{"}"#;\n'
+        "    let c = '{';\n"
+        '    let r = r#"("{"#;\n'
         '    let s = "multi\n'
-        '    { line";\n'
-        "    /* outer /* inner { */ } */\n"
+        '    [ line";\n'
+        "    /* outer /* inner { */ ( */\n"
         "    a\n"
         "}\n",
     ),
@@ -528,6 +532,14 @@ def test_a_walk_refusal_reaches_past_a_unit_it_does_not_cross():
     that unit: the line after it is lexed as code again."""
     text = 'function g() {\n  return 1;\n}\n\nconst s = "open;\n'
     assert ec.resolve_unit("f.js", "g", text) == ([(1, 2)], False)
+
+
+def test_nothing_below_a_raw_string_the_walk_cannot_read_is_bounded():
+    """Where an unreadable form ends is exactly what is unknown, so every
+    line below it is refused too, and a unit above it is not."""
+    text = 'int g() {\n  return 0;\n}\n\nauto r = R"a b(x)a b";\n\nint f() {\n  return 1;\n}\n'
+    assert ec.resolve_unit("f.cpp", "g", text) == ([(1, 2)], False)
+    assert "line 5 holds a raw string" in ec.resolve_unit("f.cpp", "f", text).refused
 
 
 def test_the_lexed_stream_is_computed_once_per_text():
