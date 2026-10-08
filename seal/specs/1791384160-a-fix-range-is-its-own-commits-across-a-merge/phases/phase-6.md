@@ -53,6 +53,14 @@ sibling's squash" to say which integration commit owes a fragment, and that
 is no claim about ownership. The fragment section's input sentence was
 written to the list anyway.
 
+*Corrected after round 4 (⬜ 3, ⬜ 4):* reading the four docstrings whole made
+the guard refuse a true row, and "gone from this clone once its branch
+merged" was a false rewording of it, because a merge commit keeps the target.
+The row says "squashed away" again. The guard now reads the home's section
+and the linking sentences only, and each of the four docstrings reaches it
+through its own linking sentence. Its docstring now says it is a word list,
+which a shape stated in other words passes.
+
 **Seen red (§15), each by `bin/mutation-check`, executed:**
 
 - round 3's 🟡 2 sentence pasted back into the home turns the home case red;
