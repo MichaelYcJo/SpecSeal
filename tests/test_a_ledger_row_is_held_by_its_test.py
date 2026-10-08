@@ -475,3 +475,69 @@ def test_the_resolver_hands_each_caller_its_own_answer():
     assert ec.named_unit(HELD, ["TestA", "test_b"]) == ("def",)
     assert ec.named_unit(HELD, ["test_b"]) == ()
     assert ec.named_unit("def (:\n", ["x"]) is None
+
+
+# --- S13 -----------------------------------------------------------------------
+
+
+def prose(rel):
+    """REL's text with every run of whitespace one space, so a pin holds a
+    sentence however the paragraph is wrapped."""
+    with open(os.path.join(ROOT, rel), encoding="utf-8") as handle:
+        return " ".join(handle.read().split())
+
+
+@pytest.mark.parametrize(
+    "rel, sentence",
+    [
+        (
+            "docs/the-evidence-ledger.md",
+            "**A row may name the test that holds its claim instead of a hash over "
+            "the code.**",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "**The checker reads that the test is there, and the suite reads that "
+            "it passes.**",
+        ),
+        ("docs/the-evidence-ledger.md", "**A row is one form or the other.**"),
+        (
+            "docs/the-evidence-ledger.md",
+            "**A released row moves onto its test by one `Corrected ·` row, written "
+            "when an edit reaches it, and never in bulk by a feature branch.**",
+        ),
+        ("docs/the-evidence-ledger.md", "**`path::name` has one resolver.**"),
+        (
+            "templates/ledger.md",
+            "| <claim> | `tests/test_x.py::test_y`, … | how the test was seen red | "
+            "<date seen red, then green> | |",
+        ),
+        (
+            "templates/ledger.md",
+            "| <claim> | `path#anchor@hash`, … | what reading the code showed | "
+            "<date read> | |",
+        ),
+        (
+            "skills/evidence-check/SKILL.md",
+            "**A row held by a test takes three of these, and never `DRIFTED`** "
+            "(#836).",
+        ),
+        (
+            "skills/evidence-check/SKILL.md",
+            "A row held by a test has no hash to rewrite: the run writes nothing on "
+            "it and dates nothing",
+        ),
+        (
+            "skills/evidence-ci/SKILL.md",
+            "**Update the copy before the ledger holds a row held by a test.**",
+        ),
+        (
+            "skills/evidence-ci/SKILL.md",
+            "an older vendored copy reads it as `MALFORMED`, *cites no coordinate*",
+        ),
+    ],
+)
+def test_the_documents_state_the_test_row(rel, sentence):
+    """S13. Each sentence a person reads to write or update a test row, pinned
+    where it stands (`agent-contract` §14)."""
+    assert sentence in prose(rel), f"{rel} no longer says: {sentence!r}"
