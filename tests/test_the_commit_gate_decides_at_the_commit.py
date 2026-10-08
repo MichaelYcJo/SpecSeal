@@ -1600,6 +1600,9 @@ def test_the_policy_names_the_one_session_reader():
         "A process is a Claude session by one test, its executable's basename "
         "is `claude` (`hooks/hooksession.py#is_claude`)",
         "`env -i` empties `CLAUDE_PID` as it empties the session variable",
+        # Round 1 of work item 1791384157, yellow 4.
+        "it reads `CLAUDE_PID` only where the hook's own "
+        "`CLAUDE_CODE_SESSION_ID` is the session it records",
     ):
         assert sentence in text, sentence
 

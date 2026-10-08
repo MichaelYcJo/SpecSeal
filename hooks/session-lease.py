@@ -85,10 +85,18 @@ def main():
         return
     leases = os.path.join(gd, "specseal-leases")
     record = {"ts": int(time.time()), "host": socket.gethostname()}
-    # Failure is silent, as everything here is: a reader that raises records
-    # no pid, which the guard reads as unattributable.
+    # `CLAUDE_PID` is this session's only where the environment is this
+    # session's: a `claude` started from another session's Bash inherits that
+    # session's pid, and a hook the harness gives no variable of its own would
+    # record it in this session's lease, where no reader of this session looks
+    # (round 1 of work item 1791384157, yellow 4). So the variable is read
+    # only beside a `CLAUDE_CODE_SESSION_ID` that is the payload's own, and
+    # the walk answers everywhere else, as it did before #868 (§13). Failure
+    # is silent, as everything here is: a reader that raises records no pid,
+    # which the guard reads as unattributable.
     try:
-        pid = hooksession.claude_pid()
+        own = os.environ.get(hooksession.SESSION_VARIABLE) == payload.get("session_id")
+        pid = hooksession.claude_pid(None if own else {})
     except Exception:
         pid = None
     if pid is not None:

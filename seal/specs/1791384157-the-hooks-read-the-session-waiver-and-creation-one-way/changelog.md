@@ -13,7 +13,10 @@
   2. Which process is the session. The lease writer, the commit gate's
      lease route and the guard's count of other sessions test a process by
      one rule, its basename is `claude`, and read `CLAUDE_PID` first where
-     the harness exports it. The lease writer used to accept any name
+     the harness exports it. The lease writer reads it only beside its own
+     session's `CLAUDE_CODE_SESSION_ID`, so a session started from another
+     session's Bash, which inherits the outer pid, records its own process
+     instead. The lease writer used to accept any name
      holding `claude`, so it could record a lease no reader matched. The
      git hook stubs test one session variable, `CLAUDE_CODE_SESSION_ID`;
      they also tested `CLAUDECODE`, which nothing behind them read.

@@ -389,9 +389,29 @@ def test_the_lease_records_the_pid_the_harness_exports(repo, monkeypatch):
     finds no process named `claude` (an extension host). Red at `5623d728`,
     where the lease recorded no pid."""
     monkeypatch.setenv("CLAUDE_PID", "4242")
+    # The variable is read as this session's only beside this session's id
+    # (round 1 of work item 1791384157, yellow 4).
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "sess-exported")
     stub_process_tree(monkeypatch, 100, {100: (1, "code")})
     rec = run_main_in_process(repo, monkeypatch, "sess-exported")
     assert rec["pid"] == 4242, rec
+
+
+@pytest.mark.parametrize("outer", ["the-outer-session", None])
+def test_a_pid_exported_for_another_session_is_not_recorded(repo, monkeypatch, outer):
+    """Round 1 of work item 1791384157, yellow 4. A `claude` started from
+    another session's Bash inherits that session's `CLAUDE_PID`, and a hook
+    the harness gives no variable of its own would record it in the inner
+    session's lease, which no reader of the inner session matches. Where the
+    environment's session id is not the payload's, absent included, the lease
+    records the walk's answer, as before #868. Red at `1680ea76`, where it
+    recorded 4242."""
+    monkeypatch.setenv("CLAUDE_PID", "4242")
+    if outer:
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", outer)
+    stub_process_tree(monkeypatch, 100, {100: (50, "/bin/zsh"), 50: (1, "claude")})
+    rec = run_main_in_process(repo, monkeypatch, "sess-inner")
+    assert rec["pid"] == 50, rec
 
 
 @pytest.mark.parametrize("value", ["", "x", "0", "1", "-5"])

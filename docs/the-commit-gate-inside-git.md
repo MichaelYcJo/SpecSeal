@@ -59,14 +59,17 @@ short-cut tests that name and no other. Where it is absent, as under `env
 is the session's `claude` process: `CLAUDE_PID` where the environment carries
 it, an observed value, and else its nearest ancestor whose name is `claude`.
 The lease writer records its pid by the same reader, so the lease it writes
-is the one the hook finds (#868). A process is a Claude session by one test,
+is the one the hook finds (#868), and it reads `CLAUDE_PID` only where the
+hook's own `CLAUDE_CODE_SESSION_ID` is the session it records: a `claude`
+started from another session's Bash inherits that session's pid, so
+elsewhere the writer walks. A process is a Claude session by one test,
 its executable's basename is `claude` (`hooks/hooksession.py#is_claude`),
 which the worktree guard's count of other sessions uses too. Two leases
 naming one pid are no session. With neither, the commit is the person's
 (`questions.md` P2, answer (a)), and the stub leaves before Python starts
 wherever no lease file stands in the clone. `hooks/hooksession.py` holds the
 two routes and the names they read.
-Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_no_variable_and_no_lease_is_a_persons_own_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_the_lease_names_the_session_when_no_variable_is_exported, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_an_emptied_environment_is_still_judged_through_the_lease, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_an_emptied_lease_directory_starts_no_python, tests/test_the_commit_gate_decides_at_the_commit.py::test_the_lease_route_reads_the_exported_pid_with_no_ps_run, tests/test_the_commit_gate_decides_at_the_commit.py::test_the_one_session_variable_is_the_one_the_stub_and_the_reader_name, tests/test_lease_liveness.py::test_the_lease_records_the_process_the_hook_reads_back, tests/test_lease_liveness.py::test_the_lease_records_the_pid_the_harness_exports, tests/test_lease_liveness.py::test_the_guard_counts_the_sessions_the_one_test_names
+Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_no_variable_and_no_lease_is_a_persons_own_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_the_lease_names_the_session_when_no_variable_is_exported, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_an_emptied_environment_is_still_judged_through_the_lease, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_an_emptied_lease_directory_starts_no_python, tests/test_the_commit_gate_decides_at_the_commit.py::test_the_lease_route_reads_the_exported_pid_with_no_ps_run, tests/test_the_commit_gate_decides_at_the_commit.py::test_the_one_session_variable_is_the_one_the_stub_and_the_reader_name, tests/test_lease_liveness.py::test_the_lease_records_the_process_the_hook_reads_back, tests/test_lease_liveness.py::test_the_lease_records_the_pid_the_harness_exports, tests/test_lease_liveness.py::test_the_guard_counts_the_sessions_the_one_test_names, tests/test_lease_liveness.py::test_a_pid_exported_for_another_session_is_not_recorded
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **The arms, the marks and the declaration are the ones
