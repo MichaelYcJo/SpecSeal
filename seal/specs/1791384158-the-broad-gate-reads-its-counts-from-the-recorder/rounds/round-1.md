@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 880 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `4f44e5c9f39b4b141fc5a9a09a9b4774eaf5497f..96f6d42b502839607c3197b47ebf20dde6429429`, 4 commits |
 | Contract changes | none |
 | New units | SCALE_FOR_OLDER_HOOKS (depth 1) |
