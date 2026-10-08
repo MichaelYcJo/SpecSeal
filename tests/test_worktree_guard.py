@@ -1995,6 +1995,32 @@ def test_a_brace_that_makes_the_command_word_is_unrecognised(
         "echo {1..+3}",
         "echo \\${a,b}",
         'echo {"a b",c}',
+        # Round 5, yellow 1: a `$` that begins a quote is no parameter
+        # expansion, and bash and zsh make `git` of `$''{g..g}it`. The quoted
+        # span stands in as a space now, never as nothing. Red at `b9a4bcff`.
+        "$''{g..g}it switch feature/x",
+        "$''{g..g}it rebase main feature/x",
+        '$""{git,} -C . switch feature/x',
+        "echo $'x'{a,b}",
+        # Round 5, yellow 2: whitespace inside a substitution or a parameter
+        # expansion is no word boundary to bash, which makes `git` of each.
+        # The test reads the text, not the words. Red at `b9a4bcff`.
+        "{git,$(: x)} switch feature/x",
+        "{git,`: x`} switch feature/x",
+        "{git,${x:- }} switch feature/x",
+        # Round 5's deliberate over-stops: the test reads no word boundary and
+        # no nesting, and keeps one exception, a `${` holding no `,` or `..`.
+        # So a case-modifying `${a,}`, unquoted braces bash makes two words
+        # of, a brace group holding a comma and a reflog range across two
+        # braces stop, though bash expands none of them. A stop where the tree
+        # matters is the price; a missed brace was a silent switch.
+        "echo ${a,}",
+        "git log ${x,}",
+        "echo {a, b}",
+        "git commit -m '{a,b}' && echo {c, d}",
+        "git commit -m '{a,b}' && { echo x,y; }",
+        "git diff HEAD@{1}..HEAD@{0}",
+        "git log @{u}..@{1}",
     ],
 )
 def test_a_brace_in_any_word_is_the_brace_shape(
@@ -2122,26 +2148,26 @@ def test_a_brace_segment_composes_its_c_values_as_git_does(
         "awk '{print $1, $2}' f.txt",
         'echo \'{"a":1,"b":2}\'',
         "jq '{a: .x, b: .y}' f.json",
-        "echo ${a,}",
         "cat <<EOF\n{a,b}\nEOF",
-        "echo {a, b}",
-        # The same unquoted two words beside a quoted brace: the command
-        # holds no brace expansion, so the quoted one stays quoted.
-        "git commit -m '{a,b}' && echo {c, d}",
         "echo \\{a,b\\}",
         "git log @{-1}..HEAD",
+        # A quoted parameter expansion says nothing, whatever it holds.
+        'echo "${a,}"',
     ],
 )
 def test_what_the_shell_does_not_expand_stays_silent(
     monkeypatch, capsys, repo, command
 ):
-    """Round 4 of work item 1791384157, yellow 2's other side. The brace test
-    errs toward stopping, and these stay silent through quoting and word
-    boundaries rather than through an exception list: a parameter expansion
-    (`${HOME}`, `${a,}`), braces with no `,` or `..` (`{}`, `{a}`, `find`'s
-    `{}`, `@{-1}`), quoted text (`awk`, JSON, `jq`), a heredoc body, unquoted
-    whitespace that makes two words of the braces, and escaped braces. Each
-    is silent in every tree."""
+    """Round 4 of work item 1791384157, yellow 2's other side, and round 5's.
+    The brace test errs toward stopping, and these stay silent through
+    quoting and one exception rather than through a list: a parameter
+    expansion holding no `,` or `..` (`${HOME}`), braces with no `,` or `..`
+    before a later `}` (`{}`, `{a}`, `find`'s `{}`, `@{-1}..HEAD`), quoted
+    text (`awk`, JSON, `jq`, a quoted `${a,}`), a heredoc body and escaped
+    braces. Each is silent in every tree. Three forms this case held in round
+    4 (`echo ${a,}`, `echo {a, b}` and the same beside a quoted brace) stop
+    since round 5, a deliberate over-stop pinned in
+    `test_a_brace_in_any_word_is_the_brace_shape`."""
     for state in STATES:
         in_state(monkeypatch, repo, state)
         got = verdict(monkeypatch, capsys, repo, command)
@@ -2224,10 +2250,9 @@ def test_the_brace_stop_reads_in_korean(monkeypatch, capsys, repo):
         'git commit -m "{a, b}"',
         "git log --format=%h -- 'docs/{a,b}.md'",
         "git commit -m x && echo '{a,b}'",
-        "git log ${x,}",
-        # A brace GROUP holds whitespace and expands nothing, so a quoted
-        # brace beside it stays quoted.
-        "git commit -m '{a,b}' && { echo x,y; }",
+        # `git log ${x,}` and a brace group holding a comma beside a quoted
+        # brace stood here until round 5; both stop since, a deliberate
+        # over-stop (`test_a_brace_in_any_word_is_the_brace_shape`).
         # S19: in a segment that is not git, too.
         "echo '{a,b}'",
         'printf "{a, b}"',
@@ -2236,9 +2261,8 @@ def test_the_brace_stop_reads_in_korean(monkeypatch, capsys, repo):
 )
 def test_a_quoted_brace_in_a_git_word_stays_listed(monkeypatch, capsys, repo, command):
     """S12 and S19 of work item 1791384157: a brace the shell does not
-    expand, because it is quoted, holds whitespace or is a parameter
-    expansion, leaves the shape what it was in every segment, silent in every
-    tree."""
+    expand because it is quoted leaves the shape what it was in every
+    segment, silent in every tree."""
     for state in STATES:
         in_state(monkeypatch, repo, state)
         got = verdict(monkeypatch, capsys, repo, command)

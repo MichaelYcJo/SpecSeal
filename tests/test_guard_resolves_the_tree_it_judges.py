@@ -853,17 +853,29 @@ def test_the_guard_policy_names_the_brace_shape_and_its_costs():
         "A brace segment is judged in the tree the walk places it in and in every "
         "tree a `-C <dir>` word pair among its words names, each pair alone and "
         "the pairs composed in order as git composes them",
-        "an unquoted `{` followed later in the same word by a `}`, with a `,` or "
-        "a `..` between them",
-        "Of 32,715 distinct command and directory pairs recorded by 2026-10-08, "
-        "the rule stops 34: 33 a command that is not git, and one a git segment",
         "by the method `phases/phase-7.md` of work item 1791384157 writes down",
+        # Round 5, yellows 1 and 2 and white 3: the text, not the words, and
+        # the deliberate over-stops.
+        "A brace expansion is read off the command's text, not its words",
+        "each quoted span (`'…'`, `\"…\"`, `$'…'`, `$\"…\"`) and each escape "
+        "stands in as one space",
+        "One exception is kept: a `${` whose span holds no brace, `,` or `..` is "
+        "a parameter expansion",
+        "a case-modifying `${a,}`, unquoted braces bash makes two words of (`echo "
+        "{a, b}`), a brace group holding a comma (`{ echo x,y; }`)",
+        "a reflog range across two braces (`git diff HEAD@{1}..HEAD@{0}`)",
+        "Of 33,208 distinct command and directory pairs recorded by 2026-10-08, "
+        "the rule stops 42: 41 a command that is not git, and one a git segment",
     ):
         assert sentence in text, sentence
     for gone in (
         "the command-word rule stops none",
         "every one a command that is not git",
         "the segment is judged in the tree the `-C` after the brace word names",
+        # Round 5: the word boundary and the `$` the round 4 reading kept.
+        "an unquoted `{` followed later in the same word by a `}`",
+        "a `$` directly before the `{` (`${HOME}`, `${a,}`, a parameter expansion)",
+        "Of 32,715 distinct command and directory pairs",
     ):
         assert gone not in text, gone
 

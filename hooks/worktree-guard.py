@@ -2001,31 +2001,21 @@ BODY_DEPTH = 32
 _OPENERS = ("$(", "`", "<(", ">(")
 
 # A brace expansion bash and zsh perform before the command runs (#856), read
-# so that it errs toward stopping: an unquoted `{` followed later in the same
-# word by a `}`, with a `,` or a `..` between them. Nothing about what is
-# between is read, so a signed sequence (`{+1..3}`), a nested brace and a
-# brace bash would refuse all count. Round 4 of work item 1791384157 found the
-# narrower test (`{a,b}` with no brace inside, sequences of digits or single
-# letters) missing what bash expands, and the direction is the guard's:
-# a brace it cannot tell about is a stop where the tree matters.
+# so that it errs toward stopping: a `{`, later a `,` or a `..`, later a `}`.
+# No word boundary and no nesting is read, so a signed sequence (`{+1..3}`),
+# a nested brace, a brace bash would refuse and whitespace inside a
+# substitution (`{git,$(: x)}`, which bash makes `git`) all count. Rounds 4
+# and 5 of work item 1791384157 each found a narrower test missing what bash
+# expands, because the text had been reshaped before the test read it: a
+# quote deleted outright put a `$` against a `{` (`$''{g..g}it`), and the
+# splitter cut a brace in two at a substitution's whitespace. The direction
+# is the guard's: a brace it cannot tell about is a stop where the tree
+# matters, and what this costs is named in `docs/worktree-guard-spec.md` §A.
 #
-# This is the test on a command's text with its quoted spans and escapes
-# taken out (`_unquoted_brace`), so a quoted brace, an escaped one (`\{a,b\}`)
-# and a heredoc body are silent by the shell's own quoting, and a word ends at
-# whitespace, so `{a, b}`, which the shell makes two words of, is silent too.
-# A `$` directly before the `{` there is a parameter expansion (`${HOME}`,
-# `${a,}`), which the shell's grammar makes no brace expansion, and an
-# escaped `\$` is gone with the escape, so `\${a,b}` (`$a $b` to bash) stops.
-# `{}`, `{a}`, `find`'s `{}` and `@{-1}..HEAD` hold no `,` or `..` before a
-# `}` in their word.
-_BRACE = re.compile(r"(?<!\$)\{\S*?(?:,|\.\.)\S*?\}")
-
-# The same test on a word the frozen splitter made, asked only where the
-# command's text holds one (`_unquoted_brace`). The splitter has taken the
-# quotes and escapes off, so whitespace inside the braces was quoted (`{"a
-# b",c}` is two words to bash) and a `$` before them may have been escaped:
-# neither is read as an exception here.
-_BRACE_IN_WORD = re.compile(r"\{.*?(?:,|\.\.).*?\}", re.S)
+# `_unquoted_brace` asks it of the command's text with every quoted span and
+# escape standing in as a space; a segment asks it of its words joined, which
+# is the same text with the quotes off, once the command's text holds one.
+_BRACE = re.compile(r"\{.*?(?:,|\.\.).*?\}", re.S)
 
 
 def _unquoted_brace(text) -> bool:
@@ -2040,10 +2030,19 @@ def _unquoted_brace(text) -> bool:
     an unquoted one anywhere else on the line read as unquoted in both, which
     costs a stop where the tree matters. Where `hooks/tokens.py` did not load,
     every brace reads as unquoted, so a broken reader costs a stop and never a
-    silence."""
+    silence.
+
+    Each quoted span (`'…'`, `"…"`, `$'…'`, `$"…"`) and each escape stands in
+    as one space, never as nothing: deleted, the `$` of `$''{g..g}it` met the
+    `{` (round 5 of work item 1791384157, yellow 1). Then the one exception:
+    a `${` whose span holds no brace, `,` or `..` is a parameter expansion
+    (`${HOME}`, `${x:- }`) and stands in as a space too. `${a,}` holds a `,`
+    and stays, a deliberate over-stop."""
     if tokens is None:
         return bool(_BRACE.search(text or ""))
-    return bool(_BRACE.search(tokens.QUOTED_SPANS.sub("", text or "")))
+    bare = re.sub(r"\$?(?:" + tokens.QUOTED_SPANS.pattern + ")", " ", text or "")
+    bare = re.sub(r"\$\{(?:[^{},.]|\.(?!\.))*\}", " ", bare)
+    return bool(_BRACE.search(bare))
 
 
 class Finding(tuple):
@@ -2209,7 +2208,7 @@ def _git_finding(tokens, parsed, braced=False):
         return "creation", None
     if sub == "switch":
         return "switch", None
-    if braced and any(_BRACE_IN_WORD.search(t) for t in tokens):
+    if braced and _BRACE.search(" ".join(tokens)):
         return "unrecognised", Finding("brace", words)
     hidden = _hidden_mover(sub, args)
     if hidden:
@@ -2299,7 +2298,7 @@ def _segment_finding(tokens, braced=False):
     parsed = parse_git(tokens)
     if parsed:
         return _git_finding(tokens, parsed, braced)
-    if braced and any(_BRACE_IN_WORD.search(t) for t in tokens):
+    if braced and _BRACE.search(" ".join(tokens)):
         return "unrecognised", Finding("brace", _spoken(tokens))
     finding = _hidden_in(tokens)
     return ("unrecognised", finding) if finding else (None, None)
@@ -2453,6 +2452,9 @@ def _first_finding_in(body, depth):
             return finding
     for _first, finding, _tokens in _merged_findings(items, braced):
         return finding
+    # A brace the text holds and no segment's words hold, as `main` reads it.
+    if braced and not any(_BRACE.search(" ".join(t)) for _sep, t in items):
+        return Finding("brace", " ".join(text.split()))
     for finding in _command_findings(text, clean, depth):
         return finding
     return None
@@ -3040,6 +3042,15 @@ def main():
     unrecognised += [
         (len(walked), finding, None, ()) for finding in _command_findings(judged, clean)
     ]
+    # The brace test reads the text, so a brace no one segment's words hold
+    # (a brace group holding a comma, a brace the splitter cut at a `;`
+    # inside a substitution) is the command's, judged where a body is: the
+    # test may stop more than bash expands, never less (round 5 of work item
+    # 1791384157).
+    if braced and not any(_BRACE.search(" ".join(t)) for t, _wheres in walked):
+        unrecognised.append(
+            (len(walked), Finding("brace", " ".join(judged.split())), None, ())
+        )
     unrecognised.sort(key=lambda found: found[0])
 
     # The stop of `spec.md` In 3, taken before the ladder because it stops

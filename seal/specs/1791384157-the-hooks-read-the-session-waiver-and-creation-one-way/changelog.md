@@ -49,16 +49,21 @@
     guard does not try to tell which: it reads neither what a brace spells
     nor where it stands. A brace segment is judged in the tree it runs in
     and in every tree a `-C <dir>` among its words names, alone and composed
-    in order as git composes them. A brace is read so that it errs toward
-    stopping: an unquoted `{` with a `,` or a `..` before a later `}` in the
-    same word. A quoted or escaped brace (`git commit -m '{a,b}'`,
+    in order as git composes them. A brace is read off the command's text
+    so that it errs toward stopping: with every quoted span standing in as
+    a space, a `{`, later a `,` or a `..`, later a `}`, with no word
+    boundary read, so `$''{g..g}it` and `{git,$(: x)}`, which bash makes
+    `git`, stop. A quoted or escaped brace (`git commit -m '{a,b}'`,
     `echo '{a,b}'`), a heredoc body, `${HOME}`, `{}` and `{a}` change
     nothing. What this costs: `cat {a,b}`, `ls x/{a,b}.md` and
-    `A={a,b} ls` stop too, where the tree matters; under `automation` that
-    is a `deny` the model rewrites, and otherwise one `ask`. Of 32,715
-    recorded command and directory pairs, 34 stop: 33 a command that is not
-    git and one a git `git add` of a `{plan,questions}` path (counted by the
-    method in the work item's `phases/phase-7.md`, corrected in round 4).
+    `A={a,b} ls` stop too, where the tree matters, and so do `${a,}`,
+    `echo {a, b}`, a brace group holding a comma and
+    `git diff HEAD@{1}..HEAD@{0}`, which bash expands nothing in; under
+    `automation` that is a `deny` the model rewrites, and otherwise one
+    `ask`. Of 33,208 recorded command and directory pairs, 42 stop: 41 a
+    command that is not git and one a git `git add` of a
+    `{plan,questions}` path (counted by the method in the work item's
+    `phases/phase-7.md`, corrected in rounds 4 and 5).
   - The git hook stubs' bytes change by one variable name, so the installer
     rewrites every opted-in clone's three stubs at the next session, as it
     does when the plugin moves.
