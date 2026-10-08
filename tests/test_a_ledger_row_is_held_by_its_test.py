@@ -680,6 +680,19 @@ def test_a_coordinate_quoting_a_scope_is_no_test(repo, script):
     assert findings(out.stdout) == [], out.stdout
 
 
+def test_a_pact_anchor_quoting_a_scope_is_no_test(repo):
+    """Round 1, 🟡 3's other coordinate: a pact anchor's quoted heading path
+    may hold `::` too, and it is a clause of a pact, not a test."""
+    grounds = (
+        f"`src/service.py#handler@{handler_hash(repo)}`, "
+        '`pact:shared/"## The A::b clause"@abcdef12`'
+    )
+    fragment(repo, [held(grounds)])
+    out = run(["--strict", "."], repo)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert findings(out.stdout) == [], out.stdout
+
+
 # --- S13 -----------------------------------------------------------------------
 
 
