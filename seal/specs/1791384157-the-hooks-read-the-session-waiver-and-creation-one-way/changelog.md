@@ -60,7 +60,7 @@
     `echo {a, b}`, a brace group holding a comma and
     `git diff HEAD@{1}..HEAD@{0}`, which bash expands nothing in; under
     `automation` that is a `deny` the model rewrites, and otherwise one
-    `ask`. Of 33,208 recorded command and directory pairs, 42 stop: 41 a
+    `ask`. Of 33,287 recorded command and directory pairs, 42 stop: 41 a
     command that is not git and one a git `git add` of a
     `{plan,questions}` path (counted by the method in the work item's
     `phases/phase-7.md`, corrected in rounds 4 and 5).

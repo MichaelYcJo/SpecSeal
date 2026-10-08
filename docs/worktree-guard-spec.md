@@ -125,7 +125,7 @@ command's. A brace in an assignment word before a command (`A={a,b} ls`),
 which neither bash nor zsh expands, stops too, because the rule reads no
 position. A brace in an argument of a command that is not git (`cat {a,b}`)
 stops where the tree matters: under the press it is a `deny` the model
-rewrites as `cat a b`, and otherwise one `ask`. Of 33,208 distinct command
+rewrites as `cat a b`, and otherwise one `ask`. Of 33,287 distinct command
 and directory pairs recorded by 2026-10-08, the rule stops 42: 41 a command
 that is not git, and one a git segment, `git add` of a path holding
 `{plan,questions}`, which the owner's rule (c) stopped before the rule was
@@ -196,7 +196,7 @@ stops ask no person anything; without it each is one `ask`. Over the
 before 2026-10-03, the shapes stop 315 tree-blind, 55 of them pairs the
 guard before #826 did not stop at its most cautious, and they let through
 none it stopped (work item 1791270162, `phases/phase-3.md`). The brace
-shape adds 42 of 33,208 pairs recorded by 2026-10-08, 41 a brace in a
+shape adds 42 of 33,287 pairs recorded by 2026-10-08, 41 a brace in a
 command that is not git and one a git segment, as the brace paragraph above
 says.
 Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git, tests/test_worktree_guard.py::test_the_stop_names_each_tree_that_matters_in_both_languages, tests/test_worktree_guard.py::test_a_cut_group_is_judged_in_the_tree_its_own_c_names, tests/test_worktree_guard.py::test_a_brace_expansion_in_a_git_word_is_unrecognised, tests/test_worktree_guard.py::test_a_quoted_brace_in_a_git_word_stays_listed, tests/test_worktree_guard.py::test_the_brace_stop_reads_in_korean, tests/test_worktree_guard.py::test_a_brace_that_makes_the_command_word_is_unrecognised, tests/test_worktree_guard.py::test_a_brace_in_any_word_is_the_brace_shape, tests/test_worktree_guard.py::test_a_brace_command_word_is_judged_in_the_tree_its_c_names, tests/test_worktree_guard.py::test_a_c_a_brace_hides_is_the_named_limit, tests/test_worktree_guard.py::test_a_quoted_brace_beside_an_unquoted_one_stops_on_both, tests/test_worktree_guard.py::test_a_brace_segment_composes_its_c_values_as_git_does, tests/test_worktree_guard.py::test_what_the_shell_does_not_expand_stays_silent, tests/test_worktree_guard.py::test_a_brace_in_a_command_that_will_not_split_stops

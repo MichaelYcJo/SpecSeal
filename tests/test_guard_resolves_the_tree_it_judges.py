@@ -864,7 +864,7 @@ def test_the_guard_policy_names_the_brace_shape_and_its_costs():
         "a case-modifying `${a,}`, unquoted braces bash makes two words of (`echo "
         "{a, b}`), a brace group holding a comma (`{ echo x,y; }`)",
         "a reflog range across two braces (`git diff HEAD@{1}..HEAD@{0}`)",
-        "Of 33,208 distinct command and directory pairs recorded by 2026-10-08, "
+        "Of 33,287 distinct command and directory pairs recorded by 2026-10-08, "
         "the rule stops 42: 41 a command that is not git, and one a git segment",
     ):
         assert sentence in text, sentence
