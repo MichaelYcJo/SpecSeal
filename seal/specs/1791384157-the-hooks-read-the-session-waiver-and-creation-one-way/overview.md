@@ -1,9 +1,9 @@
 # 1791384157-the-hooks-read-the-session-waiver-and-creation-one-way — overview
 
 📋 implement applied
-· spec:     (filled when the work item closes)
-· evidence: (filled when the work item closes)
-· verified: (filled when the work item closes)
+· spec:     `spec.md` In 1–6 and S1–S16, `plan.md` phases 1–6 and Alternatives, `questions.md` (#856 = (c), M1–M3, W1, W2); `docs/worktree-guard-spec.md` §A, §*Creation consent*, §*Which tree*, §*Known limits*; `docs/the-commit-gate-inside-git.md` §*The commit gate inside git*; `docs/commit-review-gate-spec.md` §*commit-review-gate (PreToolUse, Bash)*; `docs/the-review-and-parity-arms.md` §*Parity arm*; agent contract §12, §13, §15
+· evidence: `seal/ledger/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way.md`: 19 rows for S1–S15, 7 `Corrected ·` rows (W7, G3, W1, W3, W4, T1, M1) and 51 `Re-read ·` rows written by `evidence-check --reverify --into`
+· verified: executed — the corpus probe, every new case red before its code or its mutation, `bin/mutation-check` on each new unit, the modules each phase names, the 45 modules touching a changed hook, the eight suite-wide guard modules, `bin/evidence-check . --strict` and `bin/correction-check`; read — the Windows branches, and whether a hook process sees `CLAUDE_PID`; not run — the full suite, which is the sealer's
 
 ## Why this work exists
 
@@ -29,11 +29,28 @@ refuses what it does not recognise.
 | Item | Who must answer |
 |---|---|
 | Whether a hook process the harness spawns sees `CLAUDE_PID` (`questions.md` M1, the hook half); the Bash-child half was executed in phase 1 | the repository owner |
+| Windows: the consent writer reading through the backslash-doubling adapter, the lease route and the stub without `CLAUDECODE`, and the S10 cases, which skip there because the `git` shim is a POSIX script; all read, none run on Windows | the repository owner, through the CI Windows leg at the pull request |
+| The full suite, lint and typecheck over the whole tree | the sealer, spawned by the orchestrator after the review rounds |
 
 ## Not done
 
-Nothing yet.
+- `spec.md` S6's `CLAUDECODE= git commit -m x` standing aside: not built,
+  because `is_plain` refuses the assignment first (divergence row above).
+- `seal/releases/0.20.0.md` R1 takes a `Re-read ·` row rather than the
+  `Corrected ·` row `spec.md` S14 named: R1's claim already says `--root` is
+  read "off the words once their redirections are off". The phrase S14 meant
+  was the docstring's, which phase 3 corrected.
+- No PreToolUse refusal text changed to name `git -c
+  specseal.waive=review` (divergence row above).
 
 ## Fed back into the spec
 
-None yet.
+Inferred during implementation, for a planner to overturn:
+
+- The one consent-token reader reads the bare words before a split fails
+  and none after it (`hooks/tokens.py#given`, In 3 amended by phase 1's
+  measurement).
+- The frozen body fallback is an argument to `tokens.given`, handed by the
+  guard, so `hooks/tokens.py` stays outside the frozen reader's importers.
+- A `git diff HEAD` on a branch with no commit is a failure the parity arm
+  asks about, like any other (In 4).
