@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 881 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `2f0d14b37e1fbeb08d00e62a716078e6cc5dd7f8..acc52a6aa2249b5049dff354f6bd7defada9c1f9`, 6 commits |
 | Contract changes | _segment_finding → shape_of, _first_finding_in, main, round-1-report.md, round-1.md, pytest |
 | New units | _ONE_BRACE (depth 1); _brace_spells_git (depth 1); test_a_pid_exported_for_another_session_is_not_recorded (depth 1); test_a_brace_that_makes_the_command_word_is_unrecognised (depth 1); test_a_brace_in_no_git_word_stays_silent (depth 1) |
