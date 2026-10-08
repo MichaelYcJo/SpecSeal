@@ -67,8 +67,10 @@ The second names the tests that hold the claim, as pytest spells a node id —
 `tests/test_x.py::TestA::test_b` for a method. It has no hash, so no edit
 drifts it: `evidence-check` reads that each test is there, and the suite reads
 that it passes. Write it wherever a test holds the claim, and the first form
-where none does. Only names pytest collects by default are tests: a function
-named `test…`, a class named `Test…`.
+where none does. A test is what reads as one without running pytest: a
+function named `test…` or a class named `Test…` in a `test_*.py` or
+`*_test.py` file, under no unconditional `skip` or `xfail` mark. Whether
+pytest collects it and whether it passes are the suite's to say.
 
 ## Scope decisions
 

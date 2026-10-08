@@ -278,16 +278,20 @@ branch had touched.
 **A row held by a test takes three of these, and never `DRIFTED`** (#836).
 Where the Code grounds cell names tests as pytest spells a node id —
 `tests/test_x.py::test_y`, `tests/test_x.py::TestA::test_b` for a method —
-each is `OK` where it is one unit pytest collects by default (a function
-named `test…`, a class named `Test…`, at the top level or inside such a
-class); `BROKEN` where its file or unit is gone, or the unit is defined
-twice, and a method written bare is told its spelling; `MALFORMED` where the
-token is no node id, names a unit that is no test, or shares the cell with a
-code coordinate. Write the test where it holds the claim, and
-`path#anchor@hash` where none does. The checker reads that the test is
-there; the suite reads that it passes. A node id outside the Code grounds
-cell is prose. `docs/the-evidence-ledger.md` §*A claim held by a test* is the
-rule.
+each is `OK` where it reads as a test without running pytest (a file named
+`test_*.py` or `*_test.py`, a function named `test…` or a class named
+`Test…`, at the top level or inside such a class, no class with an
+`__init__`) and carries no unconditional `skip` or `xfail` mark; `BROKEN`
+where its file or unit is gone, or the unit is defined twice, and a method
+written bare is told its spelling; `MALFORMED` where the token is no node
+id, names a unit that is no test, names one that cannot fail, or shares the
+cell with a code coordinate. Write the test where it holds the claim, and
+`path#anchor@hash` where none does. `OK` is what reading the file can tell:
+whether pytest collects the test under your configuration, and whether it
+passes, are the suite's answers. A node id outside the Code grounds cell, or
+inside a coordinate's quoted locator, is prose. A superseded row's tests are
+not read again, as its hashes are not. `docs/the-evidence-ledger.md` §*A
+claim held by a test* is the rule.
 
 **An ambiguous MAJOR unit is BROKEN, loudly, and never a measurement.** With
 two places to look, an `OK` would be a claim about whichever one the code

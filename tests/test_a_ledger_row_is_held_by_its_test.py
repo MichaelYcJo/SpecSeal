@@ -751,6 +751,33 @@ def prose(rel):
             "skills/evidence-ci/SKILL.md",
             "an older vendored copy reads it as `MALFORMED`, *cites no coordinate*",
         ),
+        # Round 1, 🟡 2 (a) and (b), and 🔴 1.
+        (
+            "docs/the-evidence-ledger.md",
+            "`OK` says what reading the file can tell and no more: whether pytest "
+            "collects the test under the repository's own configuration, and "
+            "whether it passes, are the suite's answers, not the ledger's.",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "A test under an unconditional `skip` or `xfail` mark, on itself, a "
+            "class around it or its module, holds nothing",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "the superseded row's tests are not read again, as its hashes are not.",
+        ),
+        (
+            "skills/evidence-check/SKILL.md",
+            "`OK` is what reading the file can tell: whether pytest collects the "
+            "test under your configuration, and whether it passes, are the suite's "
+            "answers.",
+        ),
+        (
+            "templates/ledger.md",
+            "under no unconditional `skip` or `xfail` mark. Whether pytest collects "
+            "it and whether it passes are the suite's to say.",
+        ),
     ],
 )
 def test_the_documents_state_the_test_row(rel, sentence):

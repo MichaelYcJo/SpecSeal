@@ -23,9 +23,11 @@ sees (#585).
 A row may name instead the tests that hold its claim, as pytest spells them
 (`tests/test_x.py::test_y`), in its Code grounds cell and nowhere else
 (#836). Such a row has no hash and never drifts: each test is OK where it
-is one unit pytest collects by default, BROKEN where its file or unit is
-gone, and MALFORMED where it is no test or shares the cell with a code
-coordinate. Whether the test passes is the suite's to say.
+is one unit that reads as a test without running pytest and carries no
+unconditional skip or xfail mark, BROKEN where its file or unit is gone, and
+MALFORMED where it is no test, cannot fail, or shares the cell with a code
+coordinate. Whether pytest collects it and whether it passes are the
+suite's to say.
 
 **A coordinate names a place by content, never by position.** A line number
 moves for edits that have nothing to do with the claim, so a coordinate made of
