@@ -119,7 +119,11 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-10-05 against "## Phases"@1029389b. -->
+        RE-MEASURED 2026-10-08, after #837 added a paragraph to this section
+        below the example: one invocation for the line alone, one with
+        everything above it, `_hides_a_commit` True for the file -- the same
+        three answers as at `5623d728`, before that paragraph.
+        Verified 2026-10-08 against "## Phases"@0805cac3. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
