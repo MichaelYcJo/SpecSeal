@@ -107,10 +107,8 @@ by the framer on 2026-10-08).** `hooks/worktree-guard.py:2007-2029`
 (`_BRACE`, `_unquoted_brace`: the pattern and the command-level quoting
 read, both kept); `:2178-2196` (`_git_finding`, the brace arm after the
 creation and switch checks, kept); `:2270-2284` (`_segment_finding`, which
-asks `_brace_command_at` (NAME NOT IN TREE since phase 9) for a non-git segment — the line the reframe
-replaces with `_git_finding`'s own test, `any(_BRACE.search(t) for t in
-tokens)`); `:2287-2327` (`_ONE_BRACE`, `_brace_spells_git`, NAME NOT IN TREE since phase 9
-`_brace_command_at` — the units that leave); NAME NOT IN TREE since phase 9; `:2346-2400`
+asks `_brace_command_at` for a non-git segment — the line the reframe replaces with `_git_finding`'s own test, `any(_BRACE.search(t) for t in tokens)`; NAME NOT IN TREE since phase 9);
+`:2287-2327` (`_ONE_BRACE`, `_brace_spells_git`, `_brace_command_at` — the units that leave; NAME NOT IN TREE since phase 9); `:2346-2400`
 (`_merged_findings`, which reads a cut group's frozen-git parts through
 `_git_finding` and so already reads their braces; a part with no frozen git
 is read as its own segment by `main`'s loop, so `2>&1 {git,} switch x`'s

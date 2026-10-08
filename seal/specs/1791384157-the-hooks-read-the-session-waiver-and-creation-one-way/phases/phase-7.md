@@ -20,14 +20,30 @@ zsh. Nothing in the tree but the record.
 
 ## What this phase found
 
-**The reframed rule stops 31 of 32,498 recorded pairs, tree-blind, and
-none of them is a git segment.** Every one is a brace in an argument of a
-command that is not git: paths for `rm -f`, `ls`, `grep`, `cat`, `sed` and
-`for`, such as `ls seal/specs/<id>/{spec,plan,questions}.md`. No recorded
-pair holds a brace in an assignment word, and none holds a quoted brace
-beside an unquoted one, so two of In 5's three named costs cost no recorded
-command. As an upper bound, because the corpus records no tree: a pair
-stops only where its tree matters.
+**The reframed rule stops 34 of 32,715 recorded pairs, tree-blind, and one
+of them is a git segment** (corrected in round 4; this paragraph said 31 of
+32,498 and none git). The one is `git add` of a path holding
+`{plan,questions}`, from a 2026-09-23 transcript, a command the
+owner-confirmed rule (c) stopped before the reframe. The other 33 are a brace
+in an argument of a command that is not git: paths for `rm -f`, `ls`,
+`grep`, `cat`, `sed` and `for`, such as
+`ls seal/specs/<id>/{spec,plan,questions}.md`. No recorded pair holds a
+brace in an assignment word, and none holds a quoted brace beside an
+unquoted one, so two of In 5's three named costs cost no recorded command;
+one pair holds a zsh `${(f)…}` expansion in an assignment beside another
+brace in the same command. As an upper bound, because the corpus records no
+tree: a pair stops only where its tree matters.
+
+**Why the first count missed the git pair (round 4).** The probe behind 31
+read the judgment text through `_judgment_text` a second time, which step 2
+below does not say. The git pair sits after a heredoc on its line; the first
+pass removes the heredoc body, and the second, reading the `<<` again with no
+body after it, drops the rest of the line, `git add` with it. The corrected
+count reads the command once and each substitution body once, as step 2
+says, over the corpus as it stood when round 4 ran it and the rule as round
+4 left it (`_BRACE` read to err toward stopping). Phase 1's M2 missed the
+same pair; the probe that ran it is deleted, so whether by the same second
+pass is not established.
 
 **M5: neither shell expands a brace in an assignment word.** Executed in a
 scratch directory the probe created and removed: `bash -c 'A={a,b}; printf
@@ -75,22 +91,24 @@ forms do.
 | `-Users-x-orca-workspaces-SpecSeal-OLD-main-2` | 1 (1) |
 | `-Users-x--Trash-SpecSeal`, `-Users-x-Documents-GitHub-SpecSeal-OLD`, `-Users-x-Documents-GitHub-<org>-SpecSeal-OLD` | 0 |
 
-32,498 distinct pairs, 10,739 of them holding the bare word `git`.
+32,498 distinct pairs when this phase ran, 10,739 of them holding the bare
+word `git`; 32,715 when round 4 re-counted.
 
-**M4.**
+**M4**, as corrected in round 4 (this phase's run gave 31, 0, 31, 0, 0).
 
 | | Pairs |
 |---|---|
-| stopped by the reframed rule | 31 |
-| of them, a git segment stops | 0 |
-| of them, a segment that is not git stops | 31 |
+| stopped by the reframed rule | 34 |
+| of them, a git segment stops | 1 |
+| of them, a segment that is not git stops | 33 |
 | of them, an assignment word stops | 0 |
 | of them, a quoted brace stands beside the unquoted one | 0 |
 
 Phase 1 counted 33 pairs holding an unquoted brace outside every git word
-over 32,431 pairs; this count is 31 over 32,498. The corpus moves between
-runs (transcripts leave, this session's enter), so the two are not a
-difference in the rule.
+over 32,431 pairs, and none inside one; round 4 counts 34 over 32,715, one
+of them git. The corpus moves between runs (transcripts leave, this
+session's enter), so the totals are not a difference in the rule; the git
+pair is a difference in the count.
 
 The probe and its scratch directory lived outside the tree and were deleted
 when this record was written.

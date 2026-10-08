@@ -24,8 +24,9 @@ printed `{a,b}`, so the `Not verified` table keeps its three rows: the hook
 half of M1, the Windows branches, and the full suite.
 
 **The changelog already carries the figure.** Phase 9 rewrote the brace
-bullet with phase 7's 31 of 32,498 and a pointer to the method, so this
-phase added nothing to it.
+bullet with phase 7's figure and a pointer to the method, so this phase
+added nothing to it (round 4 corrected the figure to 34 of 32,715, one of
+them git, in both places).
 
 **The survivors file held.** `bin/survivor-check --range
 origin/release/v0.21.0...HEAD --exempt …/survivors.md` exits 0 with the

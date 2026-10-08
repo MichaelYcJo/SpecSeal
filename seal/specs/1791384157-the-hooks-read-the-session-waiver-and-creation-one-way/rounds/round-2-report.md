@@ -82,14 +82,12 @@ matches how a POSIX shlex closes a single quote at the backslash.
 
 ## 🟡 1 — Three brace shapes bash makes `git` of are still silent
 
-`hooks/worktree-guard.py:2292` (`_brace_spells_git`, with `_ONE_BRACE` at — NAME NOT IN TREE since the reframe
-`:2289`).
+`hooks/worktree-guard.py:2292` (`_brace_spells_git`, with `_ONE_BRACE` at `:2289`). NAME NOT IN TREE since the reframe.
 
 `_ONE_BRACE` takes one comma brace with no brace in the text around it. NAME NOT IN TREE since the reframe.
 `_BRACE`, which decides that the command holds a brace at all, accepts
 more: a sequence, a brace inside a brace, and a brace beside `${…}`. A word
-that `_BRACE` sees and `_ONE_BRACE` cannot read returns `False`, so the (NAME NOT IN TREE since the reframe)
-segment is no git and stops nothing.
+that `_BRACE` sees and `_ONE_BRACE` cannot read returns `False`, so the segment is no git and stops nothing. NAME NOT IN TREE since the reframe.
 
 Executed, each through bash and through the guard's own segment reading:
 
