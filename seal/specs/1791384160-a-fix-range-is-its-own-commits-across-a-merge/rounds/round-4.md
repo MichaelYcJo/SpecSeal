@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 878 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-5 |
 | Fix range | `6445933a4845ccba449c37bf636df539b403ea3f..76de29c33fced53ec0b798f32f97a6c855c187bc`, 2 commits |
 | Contract changes | none |
 | New units | test_a_sentence_linking_the_home_uses_no_listed_word (depth 1) |
