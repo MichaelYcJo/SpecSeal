@@ -632,8 +632,8 @@ OUT_OF_CLASS = {
     ("skills/code-review/scripts/chain_check.py", "added_on_branch"): (1, GIT),
     ("skills/code-review/scripts/chain_check.py", "restored_from"): (1, GIT),
     ("skills/code-review/scripts/round_record.py", "head_moved"): (1, GIT),
-    ("skills/code-review/scripts/round_record.py", "touched"): (1, GIT),
-    ("skills/code-review/scripts/round_record.py", "tracked_at"): (1, GIT),
+    # `touched` and `tracked_at` left this list with #860: both read a git
+    # listing with `-z` now, so neither splits on lines at all.
     ("skills/code-review/scripts/round_record.py", "worktrees_of"): (1, GIT),
     ("skills/implement/scripts/seal.py", "gitlinks_under_root"): (1, GIT),
     ("skills/implement/scripts/seal.py", "other_worktrees"): (1, GIT),

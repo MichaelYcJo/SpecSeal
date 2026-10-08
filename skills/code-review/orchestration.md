@@ -408,9 +408,12 @@ holds the rule and what each refusal costs.
 
 Two more rows, and `round_record.py close --range <a>..<b>` derives both from
 the fix range: `Contract changes` from an AST comparison of every top-level
-Python unit the range touches, with the call sites found by search, and `New
-units` from the same comparison with a depth per entry. It refuses depth 2
-before writing any cell. The rows cost no question to anyone, because the diff
+Python unit the range's own commits changed, with the call sites found by
+search, and `New units` from the same comparison with a depth per entry.
+Both rows read the range's own commits and no other:
+`docs/the-record-layout.md` §*A range owns the commits that descend from its
+start* owns which those are. `close` refuses depth 2 before
+writing any cell. The rows cost no question to anyone, because the diff
 answers them.
 
 | The row | What goes in it |

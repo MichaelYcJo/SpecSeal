@@ -375,7 +375,9 @@ may have landed elsewhere. Nothing compares the range against the fixes, and
 nothing can here: `fix_surface` measures the surface from this same range, so
 the two agree by construction rather than by checking each other. What is
 closed is the narrower thing #344 measured, a range that stops meaning what it
-said.
+said. The surface reads the range's own commits, which
+`docs/the-record-layout.md` §*A range owns the commits that descend from its
+start* defines.
 
 **The grandfathering is the checker's and not the generator's.** The table
 above is what `chain_check` does at the pull request. `round_record.py close`
@@ -689,7 +691,9 @@ an unbounded domain the arrow's limit declines.
 carries a `.py` path — `path:line`, `path#unit`, `path::unit` — that resolves,
 at round K's `Target SHA`, to a top-level unit round K-1's `Fix range` added or
 changed: present at both ends with a different `ast.dump`, so a re-commented
-unit has not changed. The form is a whole token, a code span or a word: a path
+unit has not changed, and written by one of the range's own commits
+(`docs/the-record-layout.md` §*A range owns the commits that descend from its
+start*). The form is a whole token, a code span or a word: a path
 that is the tail of a longer token, and a `#name` apart from its path, are no
 form. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and nor do a name
 with no `.py` path, whatever stands beside it, a module-level line, a
