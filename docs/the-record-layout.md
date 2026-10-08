@@ -99,9 +99,8 @@ On a linear history that is every commit after the fragment last changed. A
 move lists both its paths, so a file moved under `tests/` is named. The
 notice reads `<round 1's Target SHA>..HEAD` wherever it runs. On CI's
 checkout HEAD is the pull request merged into its base, so there the range
-also holds every base commit that has round 1's target as an ancestor, which
-a branch checkout that has not merged the base does not hold, and CI can
-name a commit a local run does not.
+also holds every base commit that has round 1's target as an ancestor, and
+CI can name a commit a branch checkout does not.
 Each commit is attributed to the round whose `Fix range` owns it, to *after
 the last round*, or to *outside every round's fix range* for a commit between
 two rounds' ranges. It prints and never refuses, which is the measurement
@@ -120,10 +119,8 @@ Enforced by: skills/code-review/scripts/chain_check.py::fragment_left_behind, te
 ## A range owns the commits that descend from its start
 
 **A range `a..b` owns exactly the commits `git log --ancestry-path
---no-merges a..b` lists: a non-merge commit that has `a` as an ancestor and
-that `b` reaches.** That is the whole test `chain_check.py#own_commits` runs,
-and every reader of a range in `round-record` and `chain-check` imports it.
-It does not read which parent of a merge a commit sits behind, which branch
+--no-merges a..b` lists.** That is the whole test `chain_check.py#own_commits`
+runs. It does not read which parent of a merge a commit sits behind, which branch
 the commit was made on, or when it was made. Whether a given commit of a
 given history is owned is answered by running `own_commits` on that history.
 `tests/test_a_range_owns_what_git_lists_for_it.py` holds the histories the

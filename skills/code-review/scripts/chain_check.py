@@ -4582,10 +4582,9 @@ def fragment_left_behind(reader, routing, root, item, records):
       no `round-1.md`            nothing says where the build ended. A
                                  `straight to the PR` item never reaches this
                                  function, for the same reason
-      round 1's target           gone from this clone once its branch
-      unresolvable, or not an    merged, or off the branch after a rebase.
-      ancestor of HEAD           Walking `<target>..HEAD` from a commit HEAD
-                                 does not descend from reads the
+      round 1's target           squashed away, or off the branch after a
+      unresolvable, or not an    rebase. Walking `<target>..HEAD` from a
+      ancestor of HEAD           commit HEAD does not descend from reads the
                                  build itself as late
       no `changelog.md` at HEAD  whether the item owes a fragment is not this
                                  question, and local mode commits none

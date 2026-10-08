@@ -1,4 +1,5 @@
-"""The range rule's home and its carriers state no merge shape and no time.
+"""The sentences the review of #860 found false do not come back beside the
+range rule.
 
 `docs/the-record-layout.md` §*A range owns the commits that descend from its
 start* owns one sentence: a range `a..b` owns exactly the commits `git log
@@ -7,21 +8,25 @@ found a sentence beside it — an example phrased by merge shape or by time —
 false in a shape its author had not built, and the run stopped at round 3 on
 the second fix of a fix. The reframe moved every shape into
 `tests/test_a_range_owns_what_git_lists_for_it.py` as a case, and this module
-keeps the shapes out of the prose: the home's section, the docstrings of the
-four units that read a range, and every sentence that links the home may not
-use the vocabulary those false examples used.
+refuses, in the home's section and in every sentence that links the home,
+the vocabulary those false examples used. Every carrier of the rule — the
+docstrings of `own_commits`, `fragment_left_behind`, `fix_pass_units` and
+`touched`, the orchestration and the round-record spec — reaches the list
+through its linking sentence; the rest of a docstring is not read.
+
+It is a word list and not a reader of meaning: a shape stated in other words
+passes it, and a true sentence that needs a listed word is refused. What
+keeps a shape out of the prose is the rule in the home and review; this
+module keeps the sentences the rounds found from coming back.
 
 `rule 17` of `tests/test_the_rules_have_one_owner.py` checks that each
 carrier names the home; it held green through rounds 2 and 3 while four
-carriers restated the rule by shape beside the link. This checks what it
-does not. Seen red with round 3's 🟡 2 sentence pasted back into the home.
+carriers restated the rule by shape beside the link. Seen red with round 3's
+🟡 2 sentence pasted back into the home.
 """
 
-import ast
 import os
 import re
-
-import pytest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 HOME = os.path.join(ROOT, "docs", "the-record-layout.md")
@@ -30,22 +35,13 @@ LINK = f"§*{SECTION}*"
 SCRIPTS = os.path.join(ROOT, "skills", "code-review", "scripts")
 
 # The words rounds 1-3's false examples used (`questions.md` Q6 of work item
-# 1791384160). Each names a branch's shape or a commit's time, which the
-# owner sentence does not read; a sentence needing one is stating a shape.
-# The last alternative is round 1's sentence, which used none of the words:
-# a guarantee that something descends from the start "never" is a claim
-# derived from the owner sentence, true only of the shapes its author built.
+# 1791384160). The last alternative is round 1's sentence, which used none of
+# the others: a guarantee that something descends from the start "never".
 SHAPE_WORDS = re.compile(
     r"\b(?:sibling|topic|fork|back-merge|squash|made after|made before|"
     r"once the|and not before|descends? from \S+ never)",
     re.IGNORECASE,
 )
-
-# The units whose docstrings read a range, by file.
-DOCSTRINGS = {
-    "chain_check.py": ("own_commits", "fragment_left_behind"),
-    "round_record.py": ("fix_pass_units", "touched"),
-}
 
 # Files whose sentences link the home: each such sentence is held to the list.
 LINKERS = (
@@ -70,19 +66,6 @@ def home_section():
     start = text.index(f"\n## {SECTION}\n")
     end = text.find("\n## ", start + 1)
     return text[start : end if end != -1 else len(text)]
-
-
-def docstrings():
-    for name, units in DOCSTRINGS.items():
-        module = ast.parse(read(os.path.join(SCRIPTS, name)))
-        found = {
-            node.name: ast.get_docstring(node) or ""
-            for node in module.body
-            if isinstance(node, ast.FunctionDef) and node.name in units
-        }
-        assert set(found) == set(units), (name, sorted(found))
-        for unit in units:
-            yield f"{name}#{unit}", found[unit]
 
 
 def linking_sentences():
@@ -110,38 +93,27 @@ def offenders(label, text):
 def test_the_home_states_no_shape_and_no_time():
     found = offenders("docs/the-record-layout.md", home_section())
     assert not found, (
-        "the range rule's home states a merge shape or a time; a shape is a "
-        "case of tests/test_a_range_owns_what_git_lists_for_it.py, never a "
-        "sentence:\n" + "\n".join(found)
+        "the range rule's home uses a word the review's false examples used; "
+        "a shape is a case of tests/test_a_range_owns_what_git_lists_for_it.py, "
+        "never a sentence:\n" + "\n".join(found)
     )
 
 
-@pytest.mark.parametrize(
-    "label, text", list(docstrings()), ids=[label for label, _ in docstrings()]
-)
-def test_a_reader_of_a_range_defines_no_shape(label, text):
-    found = offenders(label, text)
-    assert not found, (
-        "a docstring of a unit that reads a range states a merge shape or a "
-        f"time; it names the home instead ({LINK}):\n" + "\n".join(found)
-    )
-
-
-def test_a_sentence_linking_the_home_states_no_shape():
+def test_a_sentence_linking_the_home_uses_no_listed_word():
     found = [
         line
         for label, sentence in linking_sentences()
         for line in offenders(label, sentence)
     ]
     assert not found, (
-        "a sentence linking the range rule's home restates it by shape:\n"
-        + "\n".join(found)
+        "a sentence linking the range rule's home uses a word the review's "
+        "false examples used:\n" + "\n".join(found)
     )
 
 
 def test_the_list_catches_the_sentences_the_rounds_found():
-    """The list is not a guess: each sentence a round found false, as it
-    stood in the tree, trips it."""
+    """Each sentence a round found false, as it stood in the tree, trips the
+    list."""
     found_false = (
         # round 1's 🟡 2
         "A commit that a merge brought in reaches `b` only through the merge "

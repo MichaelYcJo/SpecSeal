@@ -346,8 +346,7 @@ RULES = {
     "17 a range owns the commits that descend from its start": (
         RECORD_LAYOUT,
         "A range `a..b` owns exactly the commits `git log --ancestry-path "
-        "--no-merges a..b` lists: a non-merge commit that has `a` as an "
-        "ancestor and that `b` reaches.",
+        "--no-merges a..b` lists.",
         {
             CHAIN_CHECK: RANGE_OWNER,
             ROUND_RECORD: RANGE_OWNER,
