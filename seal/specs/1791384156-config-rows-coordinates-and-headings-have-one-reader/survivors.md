@@ -9,8 +9,10 @@ frame quoting that sentence, a record of its own time.
 
 At the build's head the sweep named 33 places (round 1, 🔴 2). Twenty-nine
 of them were patterns of their own — a redirection, an HTML tag, a pact
-name, a slug — sharing only character classes with `settle.py`'s removed
-copy of the coordinate grammar. Round 1's fix pass froze that copy as S7's
+name, a slug — sharing only character classes with a removed pattern:
+twenty-seven with `settle.py`'s copy of the coordinate grammar, and two
+with `rider_check.py`'s stamp pattern, whose `@[0-9a-f]{6,12}` the oracle
+also holds (round 2, ⬜ 3). Round 1's fix pass froze that copy as S7's
 oracle in `tests/test_settle_reads_before_it_removes.py#SETTLE_COPY_AT_0_20_0`,
 so the copy's text stands in the tree again and the sweep no longer reads it
 as removed. Those 29 were read too, and none was a sentence this work
