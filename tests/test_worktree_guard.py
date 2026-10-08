@@ -2023,6 +2023,7 @@ def test_a_brace_that_makes_the_command_word_is_unrecognised(
         "git log @{u}..@{1}",
         "echo ${r%..*}",
         'echo "$({ echo x,y; })"',
+        "{ echo x,y; }",
     ],
 )
 def test_a_brace_in_any_word_is_the_brace_shape(
