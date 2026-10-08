@@ -9,7 +9,8 @@ of the form
 
 and classifies each:
 
-  BROKEN   the anchor is not in the file, or is in it more than once
+  BROKEN   the anchor is not in the file, or is in it more than once, or
+           no rule can bound a unit in that file (#870)
   DRIFTED  the anchor is there and the content under it has changed
   OK       the anchor is there and the content is what the row recorded
   EXTERNAL path not in this repo and no --map given — cannot judge here
@@ -813,6 +814,11 @@ def resolve_unit(path, locator, text):
     no places and the reason, which `judge` prints as BROKEN with the
     quoted-line remedy on the line.
 
+    Its input class is the rule's, in #835's words: OBSERVED for `ast` and
+    YAML's block structure, an OWNED locator for a markdown heading path and
+    for a quoted line, and a GUESS for the bracket walk, which is why the
+    walk refuses whatever it cannot balance or lex rather than answering.
+
     Round 4's 🔴 1, round 5's 🔴 C and round 6's 🔴 J are three attempts at one
     rule, and the two failure modes are the same ambiguity: without the
     resurrection a C# `public new void Render(int x)` reads BROKEN, with it a
@@ -1323,8 +1329,8 @@ def generic_units(lines, name, rule, family=None):
             span, why = block_span(lines, i), None
         pre_words = pre.replace("*", " ").replace("&", " ").split()
         # Nothing before the name, an opening paren, and a span of ONE line is
-        # a call in every language — Swift, Kotlin, Go, Ruby and Lua end no
-        # statement with a semicolon, so the structural guard above never
+        # a call in every language — Swift, Kotlin and Go end no statement
+        # with a semicolon, so the structural guard above never
         # reached them and `render(y)` left behind by a move read as the unit
         # (round 7, 🔴 L). Marked rather than dropped, because a one-line
         # declaration has the same shape and the recorded hash tells them
@@ -1483,6 +1489,11 @@ SCAN_SIZE_CAP = 256 * 1024
 def file_units(rel, body):
     """[(spelling, (start, end), unsure)] — every unit in one file, resolvable
     ones only, each saying whether the declaration rule is sure of it.
+
+    Bounded by `bounding_rule`'s rule for REL, whose input class each unit
+    carries: OBSERVED (`ast`, YAML), OWNED (markdown headings) or a GUESS that
+    refuses (the bracket walk). A file no rule bounds yields no units, so the
+    rename scan and `--migrate` name nothing there (#870).
 
     The flag exists for `--migrate`, which writes an anchor: a place the rule
     is unsure of is not one to anchor a row onto without other evidence. The

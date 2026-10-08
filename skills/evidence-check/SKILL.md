@@ -89,11 +89,39 @@ parent: `"## Verify / ### Scope"`.
 `ast` is an exactness upgrade for `.py`, not the only road — most projects
 adopting this are mostly code that is not Python.
 
-The generic rule needs no parser and no dependency: **the name followed by
-`(`, `{`, `=` or `:`, with only declaration keywords before it, then the block
-to the next line at the same or lower indentation.** That closes a suite in an
-indentation language and lands on the closing brace in a brace language,
-because the brace sits at the declaration's own indent.
+**One table decides which rule bounds a unit, by the file's suffix, and a
+suffix it does not name is refused** (`evidence_check.py#bounding_rule`):
+
+| Suffix | Rule | What it refuses |
+|---|---|---|
+| `.py`, `.pyi` | `ast`, the running interpreter's own parse | a file that interpreter cannot parse: `BROKEN`, naming its version and the error's line. Nothing falls through to a text rule |
+| `.md` | the heading path | a bare symbol, which names no heading |
+| `.ts .tsx .js .jsx .mjs .cjs .c .h .cc .cpp .hpp .cs .java .kt .kts .swift .go .rs` | the bracket walk | a unit it cannot balance or lex: `BROKEN`, saying why |
+| `.yml`, `.yaml` | the block rule | nothing: a key with no value is one line |
+| anything else, and no suffix | none | every bare symbol: `BROKEN`, ``no bounding rule for `.rb`; anchor a quoted line instead`` |
+
+A quoted line resolves in every file whatever the table says, because the run
+of non-blank lines it sits in is a structure the file itself shows; it is the
+remedy every refusal names.
+
+The declaration is found the same way for the bracket walk and the block
+rule: **the name followed by `(`, `{`, `=` or `:`, with only declaration
+keywords before it.** Where it ENDS is the rule's.
+
+- **The bracket walk** reads the file as a bracket stream with each
+  language's strings, chars and comments blanked, and ends the unit at the
+  first line whose end has every bracket opened since the declaration closed
+  and whose next non-blank line is neither deeper than the declaration nor an
+  opening `{`. That bounds a signature whose parameters run over several
+  lines (#848: the `(` stays open until `): number {`), an Allman `{` on the
+  line after the signature, and a constant whose value continues on deeper
+  lines. A last line holding nothing but closing brackets, `;` and `,` is left
+  out, so a row bounded right before keeps its hash. A bracket that is never
+  closed, one closed that nobody opened, a pair closed with the wrong kind,
+  and a string or comment that never ends are each a refusal.
+- **The block rule** is YAML's own structure: the key line and every
+  following line deeper than it, plus the `- ` items YAML lets a key's value
+  start at the key's own indent (`on:` / `- push`).
 
 `=` is there because a module-level constant is a unit too, and a common one to
 cite. The colon is stricter — it declares only when the name opens the line —
@@ -106,8 +134,8 @@ one-declaration-one-call file BROKEN-ambiguous. A line with nothing at all
 before the name whose statement ends — `render(1);` — is a call on structure
 rather than on vocabulary, and is refused whatever the keyword list says.
 
-Swift, Kotlin, Go, Ruby and Lua end no statement with a semicolon, so that
-guard never reached them. **A line with nothing before the name, an opening
+Swift, Kotlin and Go end no statement with a semicolon, so that guard never
+reached them. **A line with nothing before the name, an opening
 paren, and a span of ONE line is treated as uncertain in every language**, and
 the span is what bounds it: `render() {` opens a block and stays a declaration
 the rule is sure of, while `render(y)` alone does not.
@@ -131,8 +159,11 @@ the row migrates.
 place and the hash it holds — `1-2@a1b2c3d4` — so recording it is a copy
 rather than a computation somebody has to do themselves.
 
-Where it cannot resolve a unit, that is `BROKEN` and a person looks. Loud and
-honest beats a per-language parser nobody maintains.
+Where it cannot resolve a unit, that is `BROKEN` and a person looks; where it
+finds one it cannot bound, the refusal says why and names the quoted-line
+anchor. Loud and honest beats a per-language parser nobody maintains, and it
+beats a span that leaves the body out, which read `ok` through any rewrite of
+the body.
 
 ### Marker comments in the source are not the mechanism
 
@@ -265,7 +296,7 @@ branch had touched.
 
 | Verdict | Meaning | Action |
 |---|---|---|
-| `BROKEN` (exit 2) | the MAJOR unit — or its whole file — is not there, or the unit is there more than once | fix the coordinate now. Where the content still exists the line names the destination, graded by proof: `identical content at <where> (renamed?/moved?)` is content identity across a repo-wide scan and `--reverify` acts on it; `same name at <path> (content differs)` is a labelled fact only; several matches are counted, never named |
+| `BROKEN` (exit 2) | the MAJOR unit — or its whole file — is not there, or the unit is there more than once, or no rule can bound a unit in that file (a suffix the table does not name, a `.py` the interpreter cannot parse, a brace unit the walk cannot balance or lex) | fix the coordinate now. A refusal's line says why and names the remedy, a quoted-line anchor, and it carries no destination: a unit nobody could bound was never found, so it cannot have moved. Where the content still exists the line names the destination, graded by proof: `identical content at <where> (renamed?/moved?)` is content identity across a repo-wide scan and `--reverify` acts on it; `same name at <path> (content differs)` is a labelled fact only; several matches are counted, never named |
 | `OLD-FORMAT` (exit 2, `--strict` or not) | an old `path:line` row from before content anchoring, which nothing measures any more | run `evidence-check --migrate .` — a red build naming the migrator beats a green build checking nothing |
 | `MALFORMED` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | a row's `Code grounds` cell holds a coordinate that does not parse — a placeholder or short hash, no path, a bare `"` inside a quoted locator, a minor anchor that is not quoted — or cites no coordinate at all while the row claims something. Before this verdict such a row entered no count and the totals read clean | write it as `path#anchor@hash`: a `"` inside a quoted locator as `\"`, the hash as `@00000000` until `--reverify` fills it. `--reverify` names the row and leaves it, because which reading of an unparseable coordinate was meant is not the checker's call. Exit 1 here means *fix the coordinate*, not *re-read*: the verdict word on the row says which of the two exit 1 is |
 | `OVERFLOW` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | a table row in a ledger file splits into more cells than its table's header, so the text past the last column is in no column and no reader sees it — usually an unescaped `\|` inside a cell. A row under no header, which is every fragment row, is counted against the five columns `templates/ledger.md` declares for a ledger row. The line is named with both counts | write a `\|` inside a cell as `\\|`; a table that is not ledger rows takes a header of its own. `--reverify` names the row and leaves it, and still rewrites the row's hashes where their anchors resolve, because the hash is not what is wrong. Exit 1 here means *escape the pipe*, not *re-read* |
@@ -405,7 +436,9 @@ this rule, one there was checked. Now it is not, and nothing says so.
 | Anchor | Region |
 |---|---|
 | a symbol in `.py` | the whole `def`/`class` span, **decorators included** — a decorator carries behaviour |
-| a symbol elsewhere | the declaration line to the next line at its indent or lower, so a closing brace ends it |
+| a symbol in a brace language | the declaration line to the line where every bracket it opened has closed, that line left out when it holds only closers |
+| a YAML key | the key line, every line deeper, and the `- ` items at the key's own indent |
+| a symbol in any other file | none — refused, with the quoted-line anchor named |
 | a markdown heading path | down to the next heading at its level or above, which is what a reader means by a section |
 | a minor anchor | the statement it names, capped so a claim cannot quietly grow to a whole unit |
 | any other line | the contiguous run of non-blank lines it sits in — a paragraph, a table, a block of code |
@@ -752,9 +785,20 @@ absent, or the record is wrong, and the marker is one comment away.
   import are nearly all of it.
 - A name match with different content never fixes anything — `main`,
   `resolve` and `check` collide across files as a matter of course.
-- The generic unit rule stops AT a closing brace rather than including it. The
-  brace carries no claim, and a language-aware rule for what closes a block is
-  the per-language parser this deliberately does not have.
+- The bracket walk reads eighteen suffixes, each with its language's string,
+  char and comment forms (`evidence_check.py#_literal_at` holds the table). A
+  suffix joins only with its forms written down and a case for each. Forms it
+  does not lex, and what each does: a JS regex literal and JSX text are read
+  as code, a C# raw string's holes are read as content, and both branches of
+  a C preprocessor conditional are read. A bracket these leave open refuses
+  the unit; an apostrophe in JSX text opens a string its line never closes,
+  which refuses it too. What stays silent is a misread that re-balances by
+  accident.
+- A refused bare symbol on upgrade: a row citing one in a suffix with no rule,
+  or in a `.py` the running interpreter cannot parse, reads `BROKEN` with the
+  remedy on its line. A row citing a brace-language unit whose body the
+  indentation rule left out reads `DRIFTED` once: re-read the unit, then
+  `--reverify`.
 - A `path#name` whose name holds a hyphen or starts with a digit is not read at
   all, so a multi-word heading anchor such as `README.md#known-limits` is
   checked by nobody. And a `#` line GitHub does not render as a heading — in
