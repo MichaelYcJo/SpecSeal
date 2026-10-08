@@ -42,6 +42,14 @@ The rules are the two consent reads 0.16.0 had, joined:
     comments on purpose, reads its apostrophe as a quote. Over the recorded
     runs that kept four of the guard's tokens and read none the base's reads
     did not (work item 1791384157, `phases/phase-1.md`).
+    A quote this splitter cannot close is not always one bash refuses, and
+    ANSI-C quoting is the known disagreement, in both directions: `$'it\\'s'`
+    is one closed word to bash, while shlex closes the quote at `\\'` and
+    reads the rest as a quote that never closes. So a waiver typed after
+    `git commit -m $'it\\'s'` is refused although bash runs the command, and
+    a token inside `echo $'it\\'s [shared-tree-ok] x'` is read although bash
+    quotes it, as every base read did too (round 1 of work item 1791384157,
+    white 6). The waiver typed in front is the way on in the first.
 
 **This is the one reader of a consent token** (#868). The commit gate's
 `has_marker`, the worktree guard's `has_token` and the old spelling handed to
