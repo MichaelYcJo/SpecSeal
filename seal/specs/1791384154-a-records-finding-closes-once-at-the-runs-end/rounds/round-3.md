@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 879 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `9a95178c7ac6efa254411d318e07a1cecb4b52e4..7ce2a4c023f0bb6ce046594dd44729d5f0e1c991`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,9 +25,9 @@ Verifying round 3 of round 2's fixes: be3c452a..b0e52bb2 (23f22eb4, wording only
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | `NOTES_FROM`'s comment says the owner fixed the release's scope at the batch; the owner's answer 7 declined to split the release, the release also carries #834's build (1791382684, before the batch), and #871 to #874 sit unframed in its milestone | `skills/code-review/scripts/chain_check.py:861` | open | read: the #834 handoff, answer 7 and question 7; executed: the milestone holds 26 open issues. The value and the assumption are right; only the grounds overstate |
-| ⬜ 2 | PR #879's body names the cutoff `1791384154`, which round 1 moved, and calls this review the first run under the new rule | `PR #879 body:19` | open | read: `gh pr view 879`; executed: the squash message is COMMIT_MESSAGES, so the body does not reach git history. A GitHub write, the orchestrator's |
-| ⬜ 3 | `overview.md`'s *Not verified* row hands the real-run check to this item's own rounds, which all closed with the installed 0.20.0 generator | `seal/specs/1791384154-a-records-finding-closes-once-at-the-runs-end/overview.md:29` | open | read: `round-2-fixes.md` carries rows for two notes, which this branch's `close` refuses; a correction, not counted by `Needs a fix` |
+| ⬜ 1 | `NOTES_FROM`'s comment says the owner fixed the release's scope at the batch; the owner's answer 7 declined to split the release, the release also carries #834's build (1791382684, before the batch), and #871 to #874 sit unframed in its milestone | `skills/code-review/scripts/chain_check.py:861` | answered | a note, left as it stands: the value and the assumption are right; only the grounds sentence reads wider than answer 7, which kept the release whole; read: the #834 handoff, answer 7 and question 7; executed: the milestone holds 26 open issues. The value and the assumption are right; only the grounds overstate |
+| ⬜ 2 | PR #879's body names the cutoff `1791384154`, which round 1 moved, and calls this review the first run under the new rule | `PR #879 body:19` | answered | corrected in the pull request body by the orchestrator: the cutoff value and the "first run under the new rule" sentence; read: `gh pr view 879`; executed: the squash message is COMMIT_MESSAGES, so the body does not reach git history. A GitHub write, the orchestrator's |
+| ⬜ 3 | `overview.md`'s *Not verified* row hands the real-run check to this item's own rounds, which all closed with the installed 0.20.0 generator | `seal/specs/1791384154-a-records-finding-closes-once-at-the-runs-end/overview.md:29` | answered | corrected at 7ce2a4c0: the row names the first review run after the plugin carrying this rule is installed; read: `round-2-fixes.md` carries rows for two notes, which this branch's `close` refuses; a correction, not counted by `Needs a fix` |
 | 🟢 | round 2's should-fix finding 1 is closed — the five carriers state one assumption, no item of the release framed after the batch, and one remedy, and none says more | `skills/code-review/scripts/chain_check.py:868` | confirmed | read: the five side by side; executed: no work-item id at or past 1791384163 in any local ref, #860's reframe keeps 1791384160, and the siblings' fix-word notes are three and two |
 | 🟢 | round 2's note 2 is closed — the changelog names the eleven items and what moves the cutoff | `seal/specs/1791384154-a-records-finding-closes-once-at-the-runs-end/changelog.md:21` | confirmed | read |
 | 🟢 | round 2's note 3 is closed — the `release` job is green at the head and nothing names `round-1.md` | `seal/specs/1791384154-a-records-finding-closes-once-at-the-runs-end/rounds/round-1.md:36` | confirmed | read: CI `release` passes at `fe3480d2`, judged as draft; executed: `chain_check.py` at the head and over the merge, draft exit 0, ready exit 1 on `Broad gate` and `Pass` beside `nobody` only |
