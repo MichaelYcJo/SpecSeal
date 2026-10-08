@@ -3761,8 +3761,8 @@ DRAWN_AT_TURN_END = (
 # cycle, 0.21's, because the gate a session runs is the tree's copy (`main`
 # hands over to it) while the `Stop` hook that draws the file, and the
 # `seal-stamp` a person types, are the installed plugin's: one older than
-# #853 refuses a values file without a numeric `scale` and leaves the seal
-# undrawn (#869 round 1's 🟡 3). Remove it, and its pin in
+# #853 refuses a values file without a numeric `scale` and leaves the
+# sealer's stamp undrawn (#869 round 1's 🟡 3). Remove it, and its pin in
 # `tests/test_the_seal_is_taken_once_by_the_sealer.py`, in the first release
 # after 0.21, once no installed plugin older than #853 is left to draw.
 SCALE_FOR_OLDER_HOOKS = 0.9

@@ -12,13 +12,16 @@
   says so and names the three causes, instead of saying no summary was
   printed. Where a record holds a line that is not the recorder's, the form
   says how many lines were passed over and prints no count, and a file that
-  would read `new` from such a base reads `new?` instead.
+  would read `new` from such a base reads `new?` instead. Where a test had
+  no file of its own, so the record could not place it, no count is printed
+  either, rather than one short of pytest's own line (#884).
 - **The release seal reads the same record through the gate's own reader
   (#869).** The `seal` job runs the suite at the tag with the recorder
   loaded and no JUnit file, and `release_seal.py` takes its passed and
   skipped counts from that record. A record with no session for the run's
   key, a line that is not the recorder's, a session that stopped part-way,
-  or a failure or an error in it gives no seal, with the reason on a
+  a test with no file of its own (#884), or a failure or an error in it
+  gives no seal, with the reason on a
   `::warning::` line, as an unreadable JUnit file did. Drawing a seal by
   hand now names `SUITE_RECORDS` and `SUITE_KEY` instead of `SUITE_XML`
   (`docs/release-checklist.md`).
@@ -41,10 +44,8 @@
 
 - **The stamp's scale (#853).** Since the disc became one size in 0.20.0,
   the scale changed nothing the stamp drew. `--scale` is gone from
-  `seal-stamp` and `broad-gate`, the gate writes no `scale` into the values
-  file, and a values file that still carries one draws as before. The
-  drawing is byte for byte the same. In this repository, a seal sealed by
-  the tree's gate before the plugin is updated stays pending under the
-  installed 0.20.0 hook, which refuses a file with no `scale`;
-  `seal-stamp --from <path>`, which the `SEALED` line names, draws it, and
-  so does the next turn after the update.
+  `seal-stamp` and `broad-gate`, and the drawing is byte for byte the same.
+  The values file still carries `"scale": 0.9` through this release's
+  cycle, read by nothing, because a `Stop` hook or `seal-stamp` from 0.20.0
+  refuses a file without one; the release after this one stops writing it.
+  A values file draws whether it carries a `scale` or not.
