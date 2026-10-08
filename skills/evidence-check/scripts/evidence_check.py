@@ -20,6 +20,13 @@ that cites none (#299), and OVERFLOW for a table row that splits into more
 cells than its table's header, whose text past the last column no reader
 sees (#585).
 
+A row may name instead the tests that hold its claim, as pytest spells them
+(`tests/test_x.py::test_y`), in its Code grounds cell and nowhere else
+(#836). Such a row has no hash and never drifts: each test is OK where it
+is one unit pytest collects by default, BROKEN where its file or unit is
+gone, and MALFORMED where it is no test or shares the cell with a code
+coordinate. Whether the test passes is the suite's to say.
+
 **A coordinate names a place by content, never by position.** A line number
 moves for edits that have nothing to do with the claim, so a coordinate made of
 one rots on contact: the row gets re-anchored, which resets whatever the row
@@ -1678,6 +1685,9 @@ def check_ledger(ledger, root, maps, default_repo=None, families=None):
         )
     findings = check_text(body, root, maps, default_repo)
     findings.extend(read_by_family)
+    # A row held by a test is read on every row, citing or not (#836): a
+    # `Corrected ·` row naming a test is how a released row moves onto it.
+    findings.extend(held_by_tests(text, root, maps, default_repo))
     findings.extend(old_format_rows(text))
     findings.extend(malformed_rows(text))
     findings.extend(overflow_rows(text))
@@ -2174,11 +2184,18 @@ def malformed_rows(text):
         spans = [m.group(2).strip() for m in CODE_SPAN_RE.finditer(left)]
         words = CODE_SPAN_RE.sub(" ", left).split()
         refused = [s for s in spans + words if refused_coordinate(s)]
+        tests = node_tokens(cell)
+        # A citing row's first coordinate names a ledger line, not code, and
+        # is not the other form (#836, D4): `family_view` grades it apart.
+        code = list(ANCHOR_RE.finditer(cell))[1 if citing_verb(cells) else 0 :]
         if refused:
             for coord in refused:
                 found(coord, malformed_remedy(coord))
+        elif tests and code:
+            found(cell, MIXED_ROW)
         elif (
             cell
+            and not tests
             and not ANCHOR_RE.search(cell)
             and not OLD_COORD_RE.search(unpacted)
             and any(c for i, c in enumerate(cells) if i != column)
@@ -2187,8 +2204,188 @@ def malformed_rows(text):
                 cell,
                 "cites no coordinate, so nothing checks the claim — write "
                 "`path#anchor@hash` in the Code grounds cell, the hash as "
-                "`@00000000`, then run `evidence-check --reverify .`",
+                "`@00000000`, then run `evidence-check --reverify .`; or, "
+                f"where a test holds the claim, {TEST_FORM}",
             )
+    return findings
+
+
+# --- a claim held by a test (#836) -------------------------------------------
+#
+# A row's Code grounds cell may name, instead of coordinates, the tests that
+# hold its claim, in pytest's own node-id spelling, each in backticks:
+# `tests/test_x.py::test_y`, or `tests/test_x.py::TestA::test_b` for a method.
+# Such a row has no hash, so nothing in it drifts: this reads that each test
+# is there, and the suite reads that it passes. `docs/the-evidence-ledger.md`
+# §*A claim held by a test* is the rule.
+#
+# **Only a code span in the Code grounds cell is read**, through
+# `grounds_cells`: `a::b` is a spelling prose uses -- a C++ scope, a Rust path,
+# a quoted `Enforced by:` line -- where a coordinate's `#...@hex` shape is
+# unambiguous. Measured before this was written: no Code grounds cell of this
+# repository's ledgers held `::` anywhere, in a span or out of one.
+#
+# **The names after the path, joined with `.`, are the qualified name
+# `py_spans` keys on**, so a method is `Class.method` to both readers. The
+# path ends `.py` and the names are identifiers: a parametrised id
+# (`::test_y[case]`) names no `def`, and is refused with the function's form.
+NODE_SEP = "::"
+NODE_ID_RE = re.compile(
+    r"(?P<path>[^\s:`]+\.py)(?P<names>(?:" + NODE_SEP + r"[A-Za-z_][A-Za-z0-9_]*)+)"
+)
+TEST_FORM = (
+    "name it in Code grounds as pytest spells it, `tests/test_x.py::test_y`, or "
+    "`tests/test_x.py::TestA::test_b` for a method"
+)
+MIXED_ROW = (
+    "holds a test and a code coordinate, and a row is one form or the other — "
+    "keep the test where it holds the claim and move the coordinates out, or "
+    "keep the coordinates and move the test to Verified behavior"
+)
+NOT_A_TEST = (
+    "pytest does not collect by default, so nothing holds the claim — "
+    f"{TEST_FORM}; or, where no test holds it, write `path#anchor@hash`"
+)
+
+
+def node_tokens(cell):
+    """Every code span of CELL that holds `::`: what a Code grounds cell names
+    as a test, parsed or not, in cell order."""
+    return [
+        m.group(2).strip()
+        for m in CODE_SPAN_RE.finditer(cell)
+        if NODE_SEP in m.group(2)
+    ]
+
+
+@functools.cache
+def _parsed_kinds(text):
+    """`unit_kinds`'s answer, stored once per distinct text, or None. The walk
+    is `parsed_spans`', so the two key a unit by one qualified name."""
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return None
+    out = {}
+
+    def walk(node, prefix, in_function):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                name = prefix + child.name
+                kind = "class" if isinstance(child, ast.ClassDef) else "def"
+                out.setdefault(name, []).append(kind)
+                walk(child, name + ".", not isinstance(child, ast.ClassDef))
+            elif isinstance(child, (ast.Assign, ast.AnnAssign)) and not in_function:
+                targets = (
+                    child.targets if isinstance(child, ast.Assign) else [child.target]
+                )
+                for t in targets:
+                    elts = t.elts if isinstance(t, (ast.Tuple, ast.List)) else [t]
+                    for n in elts:
+                        if isinstance(n, ast.Name):
+                            out.setdefault(prefix + n.id, []).append("constant")
+            else:
+                walk(child, prefix, in_function)
+
+    walk(tree, "", False)
+    return {name: tuple(kinds) for name, kinds in out.items()}
+
+
+def unit_kinds(text):
+    """`{qualified name: (kind, ...)}` for the Python TEXT, one kind per
+    definition -- `def`, `class` or `constant` -- or None where it will not
+    parse. A fresh dict per caller, as `py_spans` hands out."""
+    kinds = _parsed_kinds(text)
+    return None if kinds is None else dict(kinds)
+
+
+def named_unit(text, names):
+    """What NAMES -- the parts of a `path::name(::name)*` target after its
+    path -- name in the Python TEXT: the kinds of every definition of that
+    qualified name, `()` where there is none, or None where TEXT will not
+    parse.
+
+    **The one resolver of `path::name`** (#836): a ledger's test row is read
+    through it here, and `fold-check` loads this module to read an `Enforced
+    by:` target with it. What each accepts is its own: a test here, any
+    `def` or `class` there.
+    """
+    kinds = unit_kinds(text)
+    if kinds is None:
+        return None
+    return kinds.get(".".join(names), ())
+
+
+def collected(names, kinds):
+    """Whether pytest collects what NAMES name by default: a function named
+    `test...` or a class named `Test...`, at the top level or inside classes
+    named `Test...`. KINDS is `unit_kinds` of its file."""
+    for depth in range(1, len(names)):
+        if not names[depth - 1].startswith("Test") or kinds.get(
+            ".".join(names[:depth])
+        ) != ("class",):
+            return False
+    own, last = kinds.get(".".join(names), ()), names[-1]
+    return (own == ("def",) and last.startswith("test")) or (
+        own == ("class",) and last.startswith("Test")
+    )
+
+
+def node_finding(token, root, maps, default_repo=None):
+    """`(status, token, detail)` for one test a Code grounds cell names: OK
+    where it is one unit pytest collects by default, BROKEN where its file or
+    its unit is not there, and MALFORMED where it does not parse as a node id
+    or names a unit that is not a test. Never DRIFTED: there is no hash."""
+    m = NODE_ID_RE.fullmatch(token)
+    if m is None:
+        return ("MALFORMED", token, f"does not parse as a test — {TEST_FORM}")
+    path, names = m.group("path"), m.group("names").split(NODE_SEP)[1:]
+    repo, rel = place(root, maps, default_repo, path)
+    if repo is None:
+        return ("BROKEN", token, "path escapes the repository")
+    body = read(os.path.join(repo, rel))
+    if body is None:
+        return ("BROKEN", token, "file not found")
+    kinds = unit_kinds(body)
+    if kinds is None:
+        return ("BROKEN", token, f"{path} does not parse as Python")
+    own = named_unit(body, names)
+    if not own:
+        detail = f"no def or class named {NODE_SEP.join(names)} in {path}"
+        homes = sorted(
+            q
+            for q in kinds
+            if len(names) == 1
+            and q.endswith("." + names[0])
+            and kinds.get(q.rpartition(".")[0]) == ("class",)
+        )
+        if homes:
+            detail += (
+                f" — it is a method of {homes[0].rpartition('.')[0]}, and a "
+                f"method is written `{path}::{NODE_SEP.join(homes[0].split('.'))}`"
+            )
+        return ("BROKEN", token, detail)
+    if len(own) > 1:
+        return (
+            "BROKEN",
+            token,
+            f"{'.'.join(names)} is defined {len(own)} times in {path}; a test "
+            "is defined once",
+        )
+    if not collected(names, kinds):
+        return ("MALFORMED", token, f"a {own[0]} {NOT_A_TEST}")
+    return ("OK", token, f"a {own[0]} pytest collects")
+
+
+def held_by_tests(text, root, maps, default_repo=None):
+    """`node_finding` for every test a Code grounds cell of TEXT names, each
+    distinct token once, as MALFORMED counts a text once."""
+    findings, seen = [], set()
+    for cells, column in grounds_cells(text):
+        for token in node_tokens(cells[column]):
+            if token not in seen:
+                seen.add(token)
+                findings.append(node_finding(token, root, maps, default_repo))
     return findings
 
 
@@ -3542,7 +3739,7 @@ def reverify(
     (#792).
     """
     global PLANNED
-    unreadable, malformed, overflow = [], [], []
+    unreadable, malformed, untested, overflow = [], [], [], []
     scan_cache = {}
     # The family judgment (#785), over every ledger the repository carries
     # as well as LEDGERS, so a narrowing that leaves out the file holding a
@@ -3575,6 +3772,13 @@ def reverify(
         # this command prints no per-ledger heading; its hashes are still
         # re-stamped, because the hash is not what is wrong.
         malformed.extend((coord, why) for _, coord, why in malformed_rows(text))
+        # A test row has no hash to re-stamp and is never dated; one whose
+        # test is gone or is no test is named, as a malformed row is (#836).
+        untested.extend(
+            (coord, f"{status} — {why}")
+            for status, coord, why in held_by_tests(text, root, maps, default_repo)
+            if status != "OK"
+        )
         overflow.extend(
             (f"{built_name(ledger, root)} {coord}", why)
             for _, coord, why in overflow_rows(text)
@@ -3873,6 +4077,8 @@ def reverify(
         print(f"  LEFT  {path}  ledger unreadable")
     for coord, why in malformed:
         print(f"  LEFT  {coord}  MALFORMED — {why}")
+    for coord, why in untested:
+        print(f"  LEFT  {coord}  {why}")
     for where, why in overflow:
         print(f"  LEFT  {where}  OVERFLOW — {why}")
     for where in undatable:
@@ -3890,7 +4096,8 @@ def reverify(
             "text it names moves with every re-stamp of it, so it is left at the "
             "hash its row recorded"
         )
-    return 1 if unreadable or malformed or overflow or undatable or unsettled else 0
+    left_any = unreadable or malformed or untested or overflow or undatable
+    return 1 if left_any or unsettled else 0
 
 
 # --- the freeze, and the citing rows a re-read writes (#715) -----------------
