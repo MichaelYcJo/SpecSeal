@@ -690,10 +690,10 @@ an unbounded domain the arrow's limit declines.
 carries a `.py` path — `path:line`, `path#unit`, `path::unit` — that resolves,
 at round K's `Target SHA`, to a top-level unit round K-1's `Fix range` added or
 changed: present at both ends with a different `ast.dump`, so a re-commented
-unit has not changed, and written by one of the range's own commits, so a unit
-a merge brought in has not (`docs/the-record-layout.md` §*A range owns the
-commits that descend from its start*). The form is a whole token, a code span
-or a word: a path
+unit has not changed, and written by one of the range's own commits — a
+non-merge commit with the range's start as an ancestor, whatever branch it was
+made on (`docs/the-record-layout.md` §*A range owns the commits that descend
+from its start*). The form is a whole token, a code span or a word: a path
 that is the tail of a longer token, and a `#name` apart from its path, are no
 form. A 🟢, ❓ or ⬜ row commissions no fix and never lands, and nor do a name
 with no `.py` path, whatever stands beside it, a module-level line, a

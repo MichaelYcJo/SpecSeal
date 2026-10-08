@@ -366,10 +366,11 @@ holds the rule and what each refusal costs.
 Two more rows, and `round_record.py close --range <a>..<b>` derives both from
 the fix range: `Contract changes` from an AST comparison of every top-level
 Python unit the range's own commits changed, with the call sites found by
-search, and `New units` from the same comparison with a depth per entry. A
-merge of the base inside the range brings none of its units into either row:
+search, and `New units` from the same comparison with a depth per entry.
+Ownership is ancestry: a merge of the base brings into either row only the
+units of non-merge commits with `a` among their ancestors, on any branch.
 `docs/the-record-layout.md` §*A range owns the commits that descend from its
-start* owns which commits are the range's own. It refuses depth 2 before
+start* owns that rule and its examples. `close` refuses depth 2 before
 writing any cell. The rows cost no question to anyone, because the diff
 answers them.
 

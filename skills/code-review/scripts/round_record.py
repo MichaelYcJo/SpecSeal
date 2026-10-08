@@ -2348,8 +2348,12 @@ def fix_pass_units(reader, root, a, b):
     nothing about changed ones (`questions.md` Q2 of #823).
 
     Kept only where one of the range's own commits added or changed the unit
-    (`own_units`, #860): a unit a merge in the range brought in was written
-    by nobody this run reviewed, so a finding inside it is no fix of a fix.
+    (`own_units`, #860). A commit is the range's own when it is a non-merge
+    commit that has `a` as an ancestor, whatever branch it was made on, so a
+    unit a merge brought in lands exactly when the commit that wrote it was
+    made on top of `a`; a sibling's squash on a base that never merged `a`
+    wrote nothing this run reviewed, and a finding inside its unit is no fix
+    of a fix (`chain.own_commits`).
     """
     units = {}
     mine = own_units(reader, root, chain.own_commits(root, a, b) or [])
@@ -3388,8 +3392,10 @@ def touched(root, a, b):
     """The paths the range's own commits changed that `b` carries, sorted.
 
     The commits are `chain.own_commits`: the non-merge commits that descend
-    from `a` and that `b` reaches (#860). A path only a merge brought in is
-    not this range's, and the path-level answer is the first of two filters:
+    from `a` and that `b` reaches, whatever branch each was made on (#860).
+    A path only a merge brought in is this range's exactly when a commit made
+    on top of `a` changed it, and the path-level answer is the first of two
+    filters:
     `own_units` is the second, because a file an own commit touched can
     carry a merged-in unit too. A path the range deleted is not at `b`, so
     deletions are left out, and with `--no-renames` a move is its old path
@@ -4437,7 +4443,8 @@ def close(args):
                 f"own commits — those that descend from {a[:7]} and that "
                 f"{b[:7]} reaches, merges left out: it lies outside --range "
                 f"{a[:7]}..{b[:7]}, or it is a merge, or a commit a merge "
-                "brought in. A fix the range does not own is a fix the surface "
+                f"brought in that was not made on top of {a[:7]}. A fix the "
+                "range does not own is a fix the surface "
                 f"below was not measured on (`{chain.FRAGMENT_DOC}` "
                 f"§*{chain.RANGE_RULE}*). No cell was written"
             )
@@ -4445,7 +4452,8 @@ def close(args):
     paths = touched(root, a, b)
     changed, added, heuristic, at_a, at_b = measure(reader, root, a, b, paths)
     # The two ends' surface, kept to what an owned commit wrote (#860): a
-    # file an own commit touched can still carry units a merge brought in.
+    # file an own commit touched can still carry units that a commit not made
+    # on top of `a` wrote and a merge brought in.
     mine = own_units(reader, root, owned)
     changed = [unit for unit in changed if unit in mine]
     added = [unit for unit in added if unit in mine]
