@@ -882,6 +882,63 @@ def test_a_deferred_row_whose_third_cell_begins_with_its_home_says_it_once(repo)
     assert "executed" in one[4], "the reviewer's grounds"
 
 
+def test_a_deferred_verdict_cells_home_ends_at_the_dash(repo):
+    """#866 S4. `fix_table` took the whole rest of the verdict cell as the
+    home, so `deferred #854 — the run is capped` wrote that whole sentence
+    into the Verdict cell, and the gate, the panel and the release seal each
+    read a different home out of it. The home is `chain.deferred_parts`'
+    reading: `#854`, and what followed the dash leads the note, the third
+    cell's reasoning behind it."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table("| 1 | deferred #854 — the run is capped | why |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[3] == "deferred #854", (one, out)
+    assert one[4] == "#854 — the run is capped — why; executed", one
+
+
+def test_a_bare_deferred_verdict_reads_its_home_from_the_third_cell(repo):
+    """#866: a bare `deferred` beside a third cell reads that cell as if the
+    word stood in front of it, through the same `deferred_parts`, so the home
+    is `#309` and not the third cell whole — which used to land in the
+    Verdict cell as `deferred #309 — the parity arm is out of scope`."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table("| 1 | deferred | #309 — the parity arm is out of scope |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[3] == "deferred #309", (one, out)
+    assert one[4] == "#309 — the parity arm is out of scope; executed", one
+
+
+def test_a_deferred_verdict_glued_to_its_home_is_not_the_word(repo):
+    """#866: `deferred—#12`, the dash touching the word, is not `deferred` to
+    `verdict_of`, which leaves it open at the gate. The fix table used to
+    close it with its own prefix test; it refuses it now, as it refuses any
+    verdict outside its three words, and nothing is written."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, _ = close(
+        repo, 1, fix_table("| 1 | deferred\N{EM DASH}#12 | why |\n"), f"{a}..{b}"
+    )
+    assert code == 2, out
+    assert "deferred <home>" in out, out
+
+
 def test_the_unknown_finding_refusal_says_so_when_the_table_holds_no_id(repo):
     """Round 1's ⬜ 5. The parenthetical names the ids the verdict table does
     hold, so on an empty mapping it rendered as `(which has )` and the reader

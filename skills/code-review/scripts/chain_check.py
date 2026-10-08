@@ -1779,6 +1779,76 @@ def verdict_of(seen, col):
     return s
 
 
+# Where a deferral's home ends and a note begins: a space, an em dash, a
+# space -- the join `round_record.py close` writes between a home and the
+# fix pass's note, and the one the generator's prose uses. Built by codepoint
+# for the reason `SEPARATORS` gives.
+DASH = chr(0x2014)
+HOME_END = f" {DASH} "
+# The marks a home's TEXT loses: a code span's backticks, asterisks, and an
+# underscore only at a word's edge, so `tests/test_x.py` keeps its name
+# (round 2's 🟡 2 of #666). `EMPHASIS` removes every underscore, which is
+# right for matching a verdict WORD and wrong for the file a deferral names;
+# the word is still matched by `verdict_of`, through `EMPHASIS`.
+HOME_MARKS = re.compile(r"`|\*+|(?<!\w)_+|_+(?!\w)")
+# A home that names an issue and nothing else.
+ISSUE_RE = re.compile(r"#(\d+)")
+
+
+def deferred_parts(cell):
+    """(home, note) for a `deferred <home>` verdict cell, or (None, "").
+
+    ONE reader of where a deferral went (#866), for the broad gate's panel,
+    the release seal and the fix table `close` applies, which read the same
+    cell three ways before: the panel searched the rest for the first issue
+    or path, the release seal counted every `#N` anywhere in the cell, and
+    the fix table took the whole rest of the cell as the home.
+
+    The grammar is the writer's. `close` writes `deferred <home>` and joins a
+    note behind it with `HOME_END`; `new` writes `deferred the frame`. So:
+
+      the word    matched by `verdict_of`, and only a cell it calls
+                  `deferred` has a home -- a bare `deferred`, or the word and
+                  a separator, is `deferred (no home)` and answers None
+      the home    what follows the word and its `SEPARATORS`, after
+                  `HOME_MARKS` and a trailing stop come off, up to the first
+                  `HOME_END` or the end of the cell, in the case it was
+                  written in
+      the note    what follows that `HOME_END`, or ""
+
+    Nothing searches the home for an issue or a path: `deferred to #664` has
+    the home `to #664`, which names no issue (`issue_of`), and that is what
+    the cell says. `docs/review-chain-spec.md` §*The reopening — one, and
+    then the run is capped* states the rule.
+    """
+    if verdict_of([cell], 0) != DEFERRED:
+        return None, ""
+    s = HOME_MARKS.sub("", cell).strip().rstrip(".").strip()
+    head = MARKER.sub("", s)
+    if head:
+        s = head
+    if not s.lower().startswith(DEFERRED):
+        return None, ""
+    home, _cut, note = s[len(DEFERRED) :].strip(SEPARATORS).partition(HOME_END)
+    home = home.strip()
+    return (home or None), (note.strip() if home else "")
+
+
+def deferred_home(cell):
+    """The home a `deferred <home>` verdict cell names, or None
+    (`deferred_parts`)."""
+    return deferred_parts(cell)[0]
+
+
+def issue_of(home):
+    """N where a deferral's home is exactly `#N`, and None otherwise (#866).
+
+    `deferred_home`'s answer is the input, so an issue is recognised in the
+    home the writer wrote and never searched for in prose around it."""
+    found = ISSUE_RE.fullmatch(home or "")
+    return int(found.group(1)) if found else None
+
+
 def open_blocking(reader, lines, rel):
     """(rows, errors) — the rows the last round left open, each labelled.
 

@@ -2909,52 +2909,6 @@ def sealed_record(item, root):
     return Record(path, rows, lines, generator.chain, reader)
 
 
-# What a home looks like inside a deferral's prose: an issue, or a file — a
-# path whose last part carries an extension, so `CI/CD`, `and/or` and
-# `stdout/stderr` stay words and an issue after them is still found (round 2
-# of #666).
-HOME_TOKEN = re.compile(r"#\d+|[\w-][\w.-]*(?:/[\w.-]+)*\.[A-Za-z]\w+\b")
-# Where a home written as words ends: a spaced dash, or a sentence's stop.
-HOME_END = re.compile(rf" [{chr(0x2014)}{chr(0x2013)}-] |\. ")
-
-
-def deferred_home(chain, cell):
-    """The home a `deferred <home>` verdict cell names, or None.
-
-    `chain_check.verdict_of` hands back the bare word for a homed deferral —
-    it answers *is this closed*, and the home is not part of that answer — so
-    the home is read here off the same cell, after `MARKER` and up to the
-    same separators (`SEPARATORS`), and only for a row `verdict_of` already
-    called `deferred`. The marks are taken off by a narrower pattern than
-    `chain_check.EMPHASIS`, which removes every `_`: code spans, asterisks,
-    and an underscore only at a word's edge, so `tests/test_x.py` keeps its
-    name (round 2's 🟡 2 of #666). Written inline, as `suite_counts` writes
-    its clock, because `re` caches it.
-
-    **An issue or a path anywhere in what follows is the home** (round 1's
-    🟡 2 of #666): the tree writes `deferred — issue #97 already holds…` and a
-    person types `deferred to #664` or `deferred → #664`, and the first word
-    after `deferred` was `issue`, `to` and `→`. Where there is neither, the
-    words up to the first spaced dash or full stop are the home, so `phase 9
-    of this branch` prints whole rather than as `phase`. What is returned is
-    ASCII, because the letter twin exists for a console that is not UTF-8:
-    leading punctuation goes (`MARKER`), and anything else outside ASCII
-    reads `?`, the way such a console would print it."""
-    marks = re.sub(r"`|\*+|(?<!\w)_+|_+(?!\w)", "", cell)
-    s = chain.MARKER.sub("", marks.strip())
-    if not s.lower().startswith(chain.DEFERRED):
-        return None
-    rest = s[len(chain.DEFERRED) :].strip(chain.SEPARATORS)
-    found = HOME_TOKEN.search(rest)
-    if found:
-        home = found.group(0)
-    else:
-        words = chain.MARKER.sub("", rest)
-        home = HOME_END.split(words, maxsplit=1)[0] if words else ""
-    home = home.rstrip(".,;:)")
-    return home.encode("ascii", "replace").decode("ascii") or None
-
-
 def rounds_rows(item, record):
     """The `rounds` row and, where it has one, the row beneath it (#666).
 
@@ -2971,7 +2925,11 @@ def rounds_rows(item, record):
     `chain_check.verdict_of` calls `deferred` or `deferred (no home)` and
     lists the distinct homes after `→`, in table order, a homeless deferral
     counted and naming none. The two were ` . ` and `->` until #832 (`SEP`,
-    `ARROW`).
+    `ARROW`). A home is `chain_check.deferred_home`'s answer (#866): what
+    stands after the word up to the first ` — `, as `close` writes it, so a
+    home written as prose prints as that prose. It reaches the panel as
+    ASCII, anything outside it reading `?`, because the letter twin maps only
+    the owner's characters and a home is somebody's text.
 
     Read off the table regardless of `capped`, because the two come apart in
     this tree: measured 2026-10-01 over every work item whose last record has
@@ -3003,7 +2961,8 @@ def rounds_rows(item, record):
     for _line, seen in found:
         word = chain.verdict_of(seen, col)
         if word == chain.DEFERRED:
-            home = deferred_home(chain, seen[col])
+            home = chain.deferred_home(seen[col])
+            home = home.encode("ascii", "replace").decode("ascii") if home else None
             if home and home not in homes:
                 homes.append(home)
         elif word != f"{chain.DEFERRED} {chain.NO_HOME}":

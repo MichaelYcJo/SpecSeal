@@ -486,10 +486,10 @@ branch as issues too, and bounded nothing the count did not.
 a fix word: `deferred #170` and `deferred seal/follow-up.md` close a finding
 on the issue or the file it went to, and produced no code — so `no fixes to
 check` beside them is the truth, and a last record whose every verdict reads
-that way may tick `Pass`. A bare `deferred`, the word with nothing after it,
-stays OPEN — the direction every verdict the checker cannot read takes. It
-says something was left and not where, which is the state a `nobody` with no
-reason is refused for.
+that way may tick `Pass`. The home is what stands after the word, up to the
+first ` — ` (`chain_check.deferred_parts`), and names an issue only where it
+is exactly `#N`. A bare `deferred` stays OPEN, as every verdict the checker
+cannot read does: it says something was left and not where.
 
 ### Where a leftover goes — the ladder, and why a new issue is not the default
 

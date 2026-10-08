@@ -4359,70 +4359,41 @@ def test_a_record_with_no_rows_or_no_record_prints_the_count_alone(tmp_path):
     assert gate.rounds_rows(str(item), home) == [("rounds", "0")]
 
 
-def test_the_home_is_read_off_the_cell_after_the_word(tmp_path):
-    """`verdict_of` hands back the bare word for a homed deferral, so the home
-    comes off the cell itself, through the same normalisation: emphasis off,
-    the word, then the separators, then the home's first word."""
-    gate, chain = gate_module(), check_module()
-    for cell, home in (
-        ("deferred #664", "#664"),
-        ("**deferred** #664", "#664"),
-        ("deferred — #664, see the issue", "#664"),
-        ("Deferred seal/follow-up.md.", "seal/follow-up.md"),
-        ("deferred", None),
-        ("fixed abc1234", None),
-    ):
-        assert gate.deferred_home(chain, cell) == home, cell
-
-
 @pytest.mark.parametrize(
     "cell, home",
     [
         ("deferred #664", "#664"),
         ("**deferred** #664.", "#664"),
-        ("deferred to #664", "#664"),
-        ("deferred → #664", "#664"),
-        ("deferred (#664)", "#664"),
-        ("deferred — issue #97 already holds this axis", "#97"),
-        ("deferred `seal/follow-up.md`", "seal/follow-up.md"),
-        ("deferred [#664](https://example.com/664)", "#664"),
-        ("deferred phase 9 of this branch", "phase 9 of this branch"),
-        ("deferred → later", "later"),
-        # A path or a `.md` file after other words is still the home.
-        ("deferred to seal/follow-up.md", "seal/follow-up.md"),
-        ("deferred into the follow-up.md file", "follow-up.md"),
-        # Words joined by a slash are words, not a path (round 2's 🟡 1).
-        ("deferred — the stdout/stderr split is #700's", "#700"),
-        ("deferred to whoever owns CI/CD next", "to whoever owns CI/CD next"),
-        ("deferred — read/write order is in seal/follow-up.md", "seal/follow-up.md"),
-        ("deferred and/or #701", "#701"),
-        # A path written from `./` is still the file, and words in a code
-        # span lose the span's marks.
-        ("deferred see ./seal/follow-up.md", "seal/follow-up.md"),
-        ("deferred `phase 9 of this branch`", "phase 9 of this branch"),
-        ("deferred **phase 9 of this branch**", "phase 9 of this branch"),
-        # A file name keeps its underscores (round 2's 🟡 2).
+        ("deferred #854 — the run is capped", "#854"),
+        # A file keeps its underscores (round 2's 🟡 2 of #666).
+        ("deferred `tests/test_a_b.py`", "tests/test_a_b.py"),
+        ("deferred the frame", "the frame"),
+        # Prose prints as the prose it is: the panel used to find `#664` and
+        # `#97` inside these two (#866).
+        ("deferred to #664", "to #664"),
         (
-            "deferred `tests/test_the_gate_names_every_step_ci_runs.py`",
-            "tests/test_the_gate_names_every_step_ci_runs.py",
+            "deferred — issue #97 already holds this axis",
+            "issue #97 already holds this axis",
         ),
-        (
-            "deferred to `skills/verify/scripts/broad_gate.py`'s owner",
-            "skills/verify/scripts/broad_gate.py",
-        ),
+        # ASCII on the panel, anything else reading `?`.
+        ("deferred → #664", "? #664"),
     ],
 )
-def test_a_deferrals_home_is_read_whole(cell, home):
-    """Round 1's 🟡 2, over the shapes the tree's records and a person
-    write: the home is an issue or a path wherever it stands, and the words
-    where it is neither, never the first word alone — and what reaches the
-    panel is ASCII, because the letter twin is for a console that is not
-    UTF-8."""
-    gate, chain = gate_module(), check_module()
-    assert chain.verdict_of([cell], 0) == chain.DEFERRED, cell
-    found = gate.deferred_home(chain, cell)
-    assert found == home, (cell, found)
-    assert found.isascii(), found
+def test_the_panels_home_is_the_gates_home(tmp_path, cell, home):
+    """#866 S2 on the panel: the homes after `→` are
+    `chain_check.deferred_home`'s answers, in ASCII because the letter twin
+    maps only the owner's characters. The fourteen prose shapes this case
+    replaces read an issue or a path out of the rest of the cell, which no
+    other reader of the cell did."""
+    chain = check_module()
+    assert chain.deferred_home(cell) is not None, cell
+    rows = rounds_of(
+        tmp_path, capped_record(verdicts=f"| 🟡 1 | a | `f.py:1` | {cell} | why |\n")
+    )
+    assert rows[0] == ("rounds", "3 · capped"), rows
+    # A home too long for one row continues beneath (`wrapped`).
+    assert all(label == "" for label, _ in rows[1:]), rows
+    assert " ".join(value for _, value in rows[1:]) == f"1 deferred → {home}", rows
 
 
 def test_a_capped_run_is_sealed_with_its_deferral_on_the_stamp(repo, tmp_path):

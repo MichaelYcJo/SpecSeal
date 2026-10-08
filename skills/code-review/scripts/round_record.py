@@ -3854,12 +3854,12 @@ def fix_table(reader, path, notes=False):
     # and the `note` line below now cuts the commit's own code span, where it
     # used to cut the hex alone. It was right that the repair belongs here and
     # not in `chain.SEPARATORS` -- that constant is read by the `deferred`
-    # home below and by `chain_check`'s own readers -- and its stated REASON
-    # did not hold at this site: `chain.EMPHASIS` is ``[*_`]+`` and runs over
-    # the verdict cell one line before `SEPARATORS` is reached, so a home
-    # written as a code span already arrives with its backticks gone
-    # (measured 2026-09-14). The other two callers are still a real cost and
-    # nothing has measured them, so the constant is left alone.
+    # home reader (`chain.deferred_parts`) and by `chain_check`'s own readers
+    # -- and its stated REASON did not hold at this site: a home written as a
+    # code span loses its backticks to `chain.HOME_MARKS` before
+    # `SEPARATORS` is reached (it was `chain.EMPHASIS` when this was measured,
+    # 2026-09-14). The other two callers are still a real cost and nothing has
+    # measured them, so the constant is left alone.
     header = NOTES_HEADER if notes else FIXES_HEADER
     label = NOTES_TABLE_LABEL if notes else FIX_TABLE_LABEL
     text = read_text(path, label)
@@ -3944,11 +3944,18 @@ def fix_table(reader, path, notes=False):
                     "third cell. An answer nobody can argue with is not one"
                 )
             out[key] = (ANSWERED, third, "")
-        elif word == DEFERRED_WORD or (
-            word.startswith(DEFERRED_WORD)
-            and word[len(DEFERRED_WORD)] in chain.SEPARATORS
+        elif chain.verdict_of([seen[1]], 0) in (
+            DEFERRED_WORD,
+            f"{DEFERRED_WORD} {chain.NO_HOME}",
         ):
-            home = verdict[len(DEFERRED_WORD) :].strip(chain.SEPARATORS) or third
+            # The home is `chain.deferred_parts`' reading of the cell (#866),
+            # the one the gate, the panel and the release seal take: up to the
+            # first ` — `, and what follows it is note rather than home. A bare
+            # `deferred` takes its home from the third cell, read the same way
+            # as if the word stood in front of it.
+            home, tail = chain.deferred_parts(seen[1])
+            if home is None and third:
+                home, third = chain.deferred_parts(f"{DEFERRED_WORD} {third}")
             if not home:
                 raise Refused(
                     f"{name} is `{DEFERRED_WORD}` with no home. Write "
@@ -3984,7 +3991,13 @@ def fix_table(reader, path, notes=False):
             # above it already tested to be a separator, so none of them can
             # leave a stop behind.
             rest = third[len(home) :] if third.startswith(home) else third
-            out[key] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS + "."))
+            # What followed the home in the verdict cell leads the note, and
+            # the third cell's reasoning follows it, joined the way `close`
+            # joins a home to its note (#866 S4).
+            note = f" {DASH} ".join(
+                part for part in (tail, rest.strip(chain.SEPARATORS + ".")) if part
+            )
+            out[key] = (DEFERRED_WORD, home, note)
         elif any(
             word.startswith(w) and word[len(w)] in chain.SEPARATORS for w in admitted
         ):

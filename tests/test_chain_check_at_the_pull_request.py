@@ -3503,3 +3503,56 @@ def test_a_record_carrying_the_row_is_read_and_one_without_it_prints(repo):
         f"{printed_without_a_row} notices over one record with no row: a "
         "record that predates the row has to print, not go quiet"
     )
+
+
+# --- #866: a deferral's home has one reader ----------------------------------
+
+
+@pytest.mark.parametrize(
+    "cell, home, note, issue",
+    [
+        ("deferred #664", "#664", "", 664),
+        ("**deferred** #664.", "#664", "", 664),
+        ("deferred — #664", "#664", "", 664),
+        (
+            "deferred #854 — the run is capped; two spellings",
+            "#854",
+            "the run is capped; two spellings",
+            854,
+        ),
+        ("deferred seal/follow-up.md", "seal/follow-up.md", "", None),
+        ("deferred `seal/follow-up.md`", "seal/follow-up.md", "", None),
+        # A file name keeps its underscores, which `EMPHASIS` would take.
+        ("deferred `tests/test_x_y.py`", "tests/test_x_y.py", "", None),
+        ("deferred the frame", "the frame", "", None),
+        ("Deferred a new issue", "a new issue", "", None),
+        # The prose shapes: the home is what stands after the word, and it
+        # names no issue — the panel used to find one inside each.
+        ("deferred to #664", "to #664", "", None),
+        ("deferred → #664", "→ #664", "", None),
+        (
+            "deferred — issue #97 already holds this axis",
+            "issue #97 already holds this axis",
+            "",
+            None,
+        ),
+        ("deferred", None, "", None),
+        ("deferred —", None, "", None),
+        ("fixed abc1234", None, "", None),
+        # No space after the word is not the word, at the gate or here.
+        ("deferred—#12", None, "", None),
+    ],
+)
+def test_a_deferrals_home_is_what_stands_after_the_word(cell, home, note, issue):
+    """#866 S2: `deferred_parts` is the one reader of a deferral's home, in
+    the grammar `close` writes — the text after the word and its separators,
+    cut at the first ` — ` — and `issue_of` names an issue only where that
+    home is exactly `#N`. A cell `verdict_of` does not call `deferred` has
+    no home, so the panel, the release seal and the fix table cannot read a
+    home the gate does not."""
+    check = load_by_path(CHECK, "specseal_chain_check_for_homes")
+    assert check.deferred_parts(cell) == (home, note), cell
+    assert check.deferred_home(cell) == home, cell
+    assert check.issue_of(check.deferred_home(cell)) == issue, cell
+    if home is not None:
+        assert check.verdict_of([cell], 0) == check.DEFERRED, cell

@@ -319,9 +319,11 @@ def chain_counts(root, pulls):
     is a work item where exactly one `routing.md` under `root` names its head
     branch (`hooks/routing.py#item_dir`), and its rounds are
     `hooks/routing.py#rounds`. `deferred` is the number of distinct issues
-    named in a Verdicts cell whose verdict is `deferred`, read with
-    `chain_check.verdict_table` and `#verdict_of`; a home that is a file
-    names no issue. A round record whose verdict table cannot be read, or
+    that are the home of a Verdicts cell whose verdict is `deferred`, read
+    with `chain_check.verdict_table`, `#verdict_of`, `#deferred_home` and
+    `#issue_of` (#866): a home names an issue only where it is exactly `#N`,
+    so a file, the frame, or an issue mentioned in the note behind the home
+    counts none. A round record whose verdict table cannot be read, or
     holds a row the table reader skipped, leaves `deferred` None -- an
     incomplete count is a wrong number -- a `rounds` that cannot be listed
     leaves `rounds` None as well, and a reader
@@ -378,8 +380,9 @@ def chain_counts(root, pulls):
                 unread.append(path)
                 continue
             for _line, seen in rows:
-                if chain.verdict_of(seen, col) == chain.DEFERRED:
-                    deferred.update(int(n) for n in re.findall(r"#(\d+)", seen[col]))
+                issue = chain.issue_of(chain.deferred_home(seen[col]))
+                if issue is not None:
+                    deferred.add(issue)
     if lost:
         print(
             f"the chain rows are not read: {', '.join(lost)} carry "

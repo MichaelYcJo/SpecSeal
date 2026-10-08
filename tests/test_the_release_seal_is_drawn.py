@@ -436,13 +436,15 @@ def test_the_chain_rows_count_items_rounds_capped_and_deferred(tmp_path):
     """S10. One work item declaring the pull request's branch, three rounds
     whose verdicts defer #12, then #13 and #14, then a file: one item, three
     rounds, one capped, three distinct issues. A pull request no declaration
-    names is not an item, and its label still counts."""
+    names is not an item, and its label still counts. Each home is one cell's
+    (#866), so #14's note naming #15 counts no fourth."""
     root = tree(
         tmp_path,
         verdicts=[
             ["fixed", "deferred #12"],
             [
-                "**deferred** #13, #14",
+                "**deferred** #13",
+                "deferred #14 — the same axis as #15",
                 "answered, and #99 was deferred by another round",
             ],
             ["deferred seal/follow-up.md", "deferred #12"],
@@ -453,6 +455,21 @@ def test_the_chain_rows_count_items_rounds_capped_and_deferred(tmp_path):
         pr(21, "fix/nobody-declared-this"),
     ]
     assert seal().chain_counts(root, pulls) == (1, 3, 1, 3)
+
+
+def test_the_seal_counts_the_issue_a_deferral_went_to_not_every_mention(tmp_path):
+    """#866 S3. `deferred #854 — fixed in 0.20.0 as #858` went to #854; the
+    note behind the dash mentions #858 and sent nothing there. With
+    `deferred #854` beside it, one issue was deferred to. A home written as
+    prose, `deferred to #700`, names no issue, as `issue_of` reads it."""
+    root = tree(
+        tmp_path,
+        verdicts=[
+            ["deferred #854 — fixed in 0.20.0 as #858", "deferred #854"],
+            ["deferred to #700"],
+        ],
+    )
+    assert seal().chain_counts(root, [pr(20, "feat/12-an-item")]) == (1, 2, 0, 1)
 
 
 def test_a_tree_whose_records_are_not_there_is_not_read_never_zero(tmp_path, capsys):
