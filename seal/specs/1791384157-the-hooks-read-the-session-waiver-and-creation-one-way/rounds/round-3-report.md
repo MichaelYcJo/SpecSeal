@@ -11,7 +11,7 @@
 ## What this round was asked
 
 Answer round 2's five verdicts, and judge round 2's New units as code:
-`_brace_command_at`, the lease case
+`_brace_command_at` (NAME NOT IN TREE since the reframe), the lease case
 `test_a_pid_beside_no_session_id_on_either_side_is_not_recorded`, and the
 `-C` tree case. The spawn named three questions. Is the rule's boundary (the
 command word and the words before it) where bash decides what runs? Can a
@@ -20,7 +20,7 @@ measured the way phase 1 measured? The run is capped: this round ends it.
 
 ## The account, and what the code does
 
-The smith's account says `_brace_command_at` reads "the command word and every
+The smith's account says `_brace_command_at` (NAME NOT IN TREE since the reframe) reads "the command word and every
 word before it", so a command-word brace stops wherever bash would make a git
 of it. The code at `hooks/worktree-guard.py:2320` takes that boundary from the
 frozen reader's `cmdline.command_word`. That reader was built to find a
@@ -49,7 +49,7 @@ same class and severity round 2 gave its 🟡 1.
 
 ### 🟡 1 — the boundary stops before the word bash runs
 
-`hooks/worktree-guard.py:2320` (`hooks/worktree-guard.py#_brace_command_at`,
+`hooks/worktree-guard.py:2320` (`hooks/worktree-guard.py#_brace_command_at`, NAME NOT IN TREE since the reframe,
 a unit round 2's fixes created).
 
 `leading` ends at whatever `cmdline.command_word` returns. Executed at the
@@ -86,10 +86,10 @@ the corpus count stays at zero.
 
 ### 🟡 2 — an exact brace can hand the command word to the next word
 
-`hooks/worktree-guard.py:2325` (`hooks/worktree-guard.py#_brace_command_at`).
+`hooks/worktree-guard.py:2325` (`hooks/worktree-guard.py#_brace_command_at`; NAME NOT IN TREE since the reframe).
 
 An exact brace counts only where an alternative spells `git`
-(`_brace_spells_git`). But bash drops an empty unquoted word, and a runner
+(`_brace_spells_git`; NAME NOT IN TREE since the reframe). But bash drops an empty unquoted word, and a runner
 runs the words after it. Executed, each **silent** in an ACTIVE tree, and run
 by bash as `git switch feature/x`:
 
@@ -189,7 +189,7 @@ it is ⬜ and stays out of `Needs a fix`.
 |---|---|---|---|---|
 | 🟡 1 | A command-word brace behind a runner's option or operand, behind a leading redirection, or with a glued `(` is silent in an ACTIVE tree: `timeout 5 {git,} switch x`, `2>/dev/null {git,} switch x`, `({git,} switch x)` | `hooks/worktree-guard.py:2320` | open | executed: 8 spellings silent at the target; bash runs `git switch feature/x` for each one run; all stop with the paste-ready fix, 369 passed, corpus 0 |
 | 🟡 2 | An exact brace whose alternative is empty or a runner hands the command word on: `{,} git switch x`, `{env,} git switch x` are silent | `hooks/worktree-guard.py:2325` | open | executed: 4 spellings silent; bash runs `git switch feature/x`; zsh does not; deny with the fix, and `-C W` is judged in `W` |
-| 🟡 3 | A brace command word after an `&` cut is read by no brace reader: `2>&1 {git,} switch x` is silent | `hooks/worktree-guard.py:2392` | open | executed: silent at the target and with 🟡 1's fix alone; deny once `_merged_findings` asks `_brace_command_at` |
+| 🟡 3 | A brace command word after an `&` cut is read by no brace reader: `2>&1 {git,} switch x` is silent | `hooks/worktree-guard.py:2392` | open | executed: silent at the target and with 🟡 1's fix alone; deny once `_merged_findings` asks `_brace_command_at` (NAME NOT IN TREE since the reframe) |
 | ⬜ 4 | The new lease case's `None` parameter inherits the runner's session id and always sends an empty payload id, so it cannot be red | `tests/test_lease_liveness.py:401` | open | executed: `[None]` passed at `e0c5a191`; the paste-ready case's `[None-None]` and `[-]` are red there and green at the target |
 | ⬜ 5 | An inexact brace in an assignment word before the command word asks, where bash expands none | `hooks/worktree-guard.py:2321` | open | executed: `A={{a,b},c} ls` and `A={a..c} ls` ask in a dirty tree; read: bash expands no brace in an assignment word; stopping direction, no recorded pair |
 | ⬜ 6 | The 34,633 figure carries no method and no self-check, where phase 1 recorded both | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/rounds/round-2-fixes.md:23` | open | a correction of the run's paperwork; executed: re-measured over 34,775 pairs, self-check 8 of 8, 0 stops |
@@ -219,7 +219,7 @@ it is ⬜ and stays out of `Needs a fix`.
 
 ## Paste-ready fixes
 
-### 🟡 1 and 🟡 2 — `_brace_command_at`, `hooks/worktree-guard.py`
+### 🟡 1 and 🟡 2 — `_brace_command_at`, `hooks/worktree-guard.py` (NAME NOT IN TREE since the reframe)
 
 ```python
     command, _unplaced = cmdline.command_word(list(tokens))

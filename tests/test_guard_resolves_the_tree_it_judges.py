@@ -835,25 +835,42 @@ def test_the_guard_policy_names_the_brace_shape_and_its_costs():
     for sentence in (
         "**A brace expansion is unrecognised (#856).** bash and zsh make other "
         "words of `{main,feature/x}`, `--ro{,}` and `{1..3}` before git runs",
-        "its plain spelling is the words written out as the shell would make them",
-        "A command holding a quoted brace in one git segment and an unquoted one "
-        "anywhere else stops on both",
-        "a `git -C` value or a `cd` operand holding a brace is read as one word",
-        "Of the 32,431 distinct command and directory pairs recorded by "
-        "2026-10-08, none holds a git word with an unquoted brace expansion",
+        "plain spelling is the words written out as the shell would make them",
+        "value or a `cd` operand holding a brace is read as one word",
         "`git worktree {add,} ../wt f`",
-        # Round 1 of work item 1791384157, yellow 3.
-        "A brace that makes the command word itself (`{git,} switch x`, which "
-        "bash runs as `git switch x`) is the same shape",
-        # Round 2 of work item 1791384157, yellows 1 and 2.
-        "a brace the guard cannot take apart exactly, nested, a sequence, two "
-        "braces or a `${…}` beside one, is unrecognised whatever bash would make "
-        "of it",
-        "and the segment is judged in the tree the `-C` after the brace word names",
-        "Of 34,633 recorded command and directory pairs, the command-word rule "
-        "stops none",
+        # S24 of the reframe after round 3.
+        "A word holding an unquoted brace expansion, in any segment, makes that "
+        "segment an unrecognised shape, whatever its command word is and "
+        "whatever bash would make of the brace",
+        "Three costs are named.",
+        "A command holding a quoted brace in one segment and an unquoted one in "
+        "another stops on both",
+        "A brace in an assignment word before a command (`A={a,b} ls`), which "
+        "neither bash nor zsh expands, stops too",
+        "A brace in an argument of a command that is not git (`cat {a,b}`) stops "
+        "where the tree matters",
+        "in the tree the walk places it in and in every tree a `-C <dir>` word "
+        "pair among its words names",
+        "Of 32,498 distinct command and directory pairs recorded by 2026-10-08, "
+        "the rule stops 31, every one a command that is not git",
+        "by the method `phases/phase-7.md` of work item 1791384157 writes down",
     ):
         assert sentence in text, sentence
+    for gone in (
+        "the command-word rule stops none",
+        "the segment is judged in the tree the `-C` after the brace word names",
+    ):
+        assert gone not in text, gone
+
+
+def test_the_guard_policy_names_a_brace_hidden_c_among_the_known_limits():
+    """S24 of work item 1791384157's reframe: §*Known limits*' bullet on a
+    string handed to a shell names a `-C` a brace hides too. Red against
+    `a8f86f44`'s text."""
+    assert (
+        "and so is a `-C` a brace hides in a segment that is not git (`{git,} "
+        "{-C,} W switch x`)"
+    ) in _policy_text()
 
 
 def test_the_consent_writer_composes_the_creations_own_dash_c(repo, tmp_path):

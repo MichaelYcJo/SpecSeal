@@ -41,21 +41,20 @@
     fails meets the parity question, where it was let through as a change
     confined to `docs/` and `seal/`. That includes `git commit -a` or a
     pathspec on a branch with no commit yet.
-  - `git rebase {main,feature/x}`, `git rebase --ro{,} feature/x`, `git
-    stash {branch,} x` and `git worktree {add,} ../wt f` stop where the tree
-    matters, like every unrecognised shape, with the words written out as
-    the plain spelling. bash expands the braces before git reads them, and
-    the two rebases and the stash switch the branch. A brace in the command
-    word stops too: `{git,} switch x`, which bash runs as `git switch x`,
-    and any command-word brace the guard cannot take apart exactly, such as
-    `{{git,},} switch x` or `{g..g}it switch x`, whatever bash makes of it.
-    The guard does not try to predict those; it judges them in the tree the
-    `-C` after the brace word names. A quoted brace (`git commit -m
-    '{a,b}'`), a brace in an argument (`cat {.gitignore,README.md}`) and a
-    command-word brace it reads exactly that makes no git (`{echo,printf}
-    x`) change nothing. No recorded pair holds a git word with an unquoted
-    brace expansion, and of 34,633 recorded pairs the command-word rule
-    stops none, so neither stop costs a recorded command.
+  - A command holding an unquoted brace expansion in any word stops where
+    the tree matters, like every unrecognised shape, with the words written
+    out as the plain spelling. bash makes other words of a brace before the
+    command runs, so `git rebase {main,feature/x}` switches to `feature/x`,
+    and `{git,} switch x` and `{env,} git switch x` are `git switch x`. The
+    guard does not try to tell which: it reads neither what a brace spells
+    nor where it stands. A brace segment that is not git is judged in the
+    tree it runs in and in every tree a `-C <dir>` among its words names. A
+    quoted brace (`git commit -m '{a,b}'`, `echo '{a,b}'`) changes nothing.
+    What this costs: `cat {a,b}`, `ls x/{a,b}.md` and `A={a,b} ls` stop too,
+    where the tree matters; under `automation` that is a `deny` the model
+    rewrites, and otherwise one `ask`. Of 32,498 recorded command and
+    directory pairs, 31 stop, every one a command that is not git (counted
+    by the method in the work item's `phases/phase-7.md`).
   - The git hook stubs' bytes change by one variable name, so the installer
     rewrites every opted-in clone's three stubs at the next session, as it
     does when the plugin moves.

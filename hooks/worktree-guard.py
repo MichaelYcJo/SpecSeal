@@ -2270,61 +2270,22 @@ def _hidden_in(tokens):
 def _segment_finding(tokens, braced=False):
     """(shape, finding) for one segment; (None, None) where there is none.
 
-    A brace in the command word is the brace shape too, where the frozen
-    reading reads no git: `{git,} switch x` is git to bash and none to that
-    reading, so `_git_finding` is never asked of it (round 1 of work item
-    1791384157, yellow 3). Which words count, and when, is
-    `_brace_command_at`'s."""
+    A brace in any word of a segment the frozen reading reads as no git is
+    the brace shape too, on the test `_git_finding` uses for a git segment
+    (the reframe of work item 1791384157 after round 3). Nothing about the
+    brace is read: not what bash makes of it, and not where it stands. Rounds
+    1-3 each read a little more of that (the command word's alternatives,
+    every word up to the command word, a runner's operand) and each round
+    found the next spelling bash builds `git` from (`{env,} git switch x`,
+    `2>&1 {git,} switch x`), so the guard stops on the brace instead, as on
+    every shape it does not recognise."""
     parsed = parse_git(tokens)
     if parsed:
         return _git_finding(tokens, parsed, braced)
-    if braced and _brace_command_at(tokens) is not None:
+    if braced and any(_BRACE.search(t) for t in tokens):
         return "unrecognised", Finding("brace", _spoken(tokens))
     finding = _hidden_in(tokens)
     return ("unrecognised", finding) if finding else (None, None)
-
-
-# One comma brace in a word, with the text before and after it.
-_ONE_BRACE = re.compile(r"([^{}]*)\{([^{}\s]*,[^{}\s]*)\}([^{}]*)")
-
-
-def _brace_spells_git(word) -> bool:
-    """Whether bash makes the word `git`, or a path ending in `git`, out of
-    WORD's one comma brace, which `_ONE_BRACE` reads exactly: `{git,}`,
-    `{,git}`, `/usr/bin/{git,x}`."""
-    match = _ONE_BRACE.fullmatch(word)
-    if not match:
-        return False
-    head, alternatives, tail = match.groups()
-    return any(
-        os.path.basename(head + alt + tail) == "git" for alt in alternatives.split(",")
-    )
-
-
-def _brace_command_at(tokens):
-    """The index of the word that makes TOKENS' command word a brace shape,
-    or None.
-
-    The words read are the segment's command word, as the frozen reading
-    finds it (`cmdline.command_word`), and every word before it. One of them
-    holding a brace expansion (`_BRACE`) counts where `_ONE_BRACE` cannot take
-    it apart exactly, whatever bash would make of it, and where it can, only
-    if one of its alternatives spells `git` (`_brace_spells_git`). So `{echo,
-    printf} x` stops nothing, while a nested brace, a sequence, two braces or
-    a `${…}` beside one (`{{git,},} switch x`, `{g..g}it switch x`) is a shape
-    the guard does not recognise and stops where the tree matters: predicting
-    what bash makes of every brace is an unbounded list, and the guard stops
-    on what it does not recognise rather than growing one (round 2 of work
-    item 1791384157, yellow 1). A brace after the command word is an argument
-    and stops nothing here: `cat {.gitignore,README.md}`."""
-    command, _unplaced = cmdline.command_word(list(tokens))
-    leading = tokens[: len(tokens) - len(command) + 1] if command else tokens
-    for at, word in enumerate(leading):
-        if not _BRACE.search(word):
-            continue
-        if not _ONE_BRACE.fullmatch(word) or _brace_spells_git(word):
-            return at
-    return None
 
 
 def shape_of(tokens, braced=False):
@@ -2489,20 +2450,10 @@ def _finding_tree(tokens, wheres, cwd):
     handed to a shell (`sh -c 'git -C W switch x'`) is no git to either
     reading, so its own `-C` and `cd` are not read and it is judged in the
     tree it was typed from: a named limit (`docs/worktree-guard-spec.md`
-    §*Known limits*; round 1 of work item 1791270162, yellow 5).
-
-    A brace in the command word (`_brace_command_at`) is git to bash from that
-    word on, so the `-C` git reads is read off the words after it: `{git,} -C
-    W switch x` is judged in `W` (round 2 of work item 1791384157, yellow
-    2)."""
+    §*Known limits*; round 1 of work item 1791270162, yellow 5)."""
     if tokens is None:
         return cwd
     here, target = worktree_consent.place(tokens, wheres, cwd)
-    at = _brace_command_at(tokens) if parse_git(tokens) is None else None
-    if at is not None:
-        parsed = parse_git(["git", *tokens[at + 1 :]])
-        if parsed and parsed[2]:
-            return apply_chdir(here, parsed[2])
     if parse_git(tokens) is None and wide is not None:
         try:
             parsed = _wide_git(tokens)
@@ -2511,6 +2462,34 @@ def _finding_tree(tokens, wheres, cwd):
         if parsed and parsed[2]:
             return apply_chdir(here, parsed[2])
     return target
+
+
+def _finding_trees(finding, tokens, wheres, cwd):
+    """Every directory an unrecognised shape's verdict is about.
+
+    `_finding_tree`'s one, and for a brace segment the frozen reading reads
+    as no git, also every tree a `-C <dir>` word pair among its words names,
+    composed onto the directory the segment is placed in: `{git,} -C W switch
+    x` and `{env,} git -C W switch x` are judged in the session's tree AND in
+    `W`, because which word bash makes the command of is the thing the guard
+    does not read (the reframe of work item 1791384157, In 5, S20; round 2's
+    yellow 2). More trees is the stopping direction. The pair is two plain
+    words, `-C` and the word after it, the way `cmdline_base.parse_git` reads
+    a git segment's `-C`; a glued `-C<dir>` is read by neither. A `-C` a brace
+    hides (`{git,} {-C,} W switch x`) is not read, the named limit a string
+    handed to a shell already has."""
+    trees = [_finding_tree(tokens, wheres, cwd)]
+    if (
+        tokens is None
+        or getattr(finding, "kind", None) != "brace"
+        or parse_git(tokens) is not None
+    ):
+        return trees
+    here, _target = worktree_consent.place(tokens, wheres, cwd)
+    for at, word in enumerate(tokens[:-1]):
+        if word == "-C":
+            trees.append(apply_chdir(here, [tokens[at + 1]]))
+    return trees
 
 
 def _sessions(top, session_id, seen):
@@ -2636,9 +2615,11 @@ def _described(finding):
         return (
             tr(
                 "a word holding a brace expansion (`{a,b}`, `{1..3}`), which the "
-                "shell turns into other words before git reads them",
-                "중괄호 확장(`{a,b}`, `{1..3}`)이 든 단어이며, 셸은 git 이 읽기 전에 "
-                "이를 다른 단어들로 바꿉니다",
+                "shell turns into other words before the command runs, so this "
+                "guard cannot tell which command that is",
+                "중괄호 확장(`{a,b}`, `{1..3}`)이 든 단어이며, 셸은 명령이 실행되기 "
+                "전에 이를 다른 단어들로 바꾸므로 이 guard 는 어떤 명령인지 알 수 "
+                "없습니다",
             ),
             tr(
                 "Write the words out as the shell would make them, as in `git "
@@ -3055,18 +3036,21 @@ def main():
     seen = {}
     placed = set()
     trees = []
-    for _index, _found, tokens, wheres in unrecognised:
-        at = _finding_tree(tokens, wheres, cwd)
-        if at in placed:
-            continue
-        placed.add(at)
-        at_top = repo_paths(at)[0]
-        if at_top and at_top not in [top for top, _state in trees]:
-            matters, active, idle, reliable, entries = tree_matters(
-                at_top, session_id, at, seen
-            )
-            if matters:
-                trees.append((at_top, (active, idle, reliable, entries)))
+    # A brace segment that is not git is judged in more than one tree
+    # (`_finding_trees`); the finding is listed once, and each tree is looked
+    # up once like any other.
+    for _index, found, tokens, wheres in unrecognised:
+        for at in _finding_trees(found, tokens, wheres, cwd):
+            if at in placed:
+                continue
+            placed.add(at)
+            at_top = repo_paths(at)[0]
+            if at_top and at_top not in [top for top, _state in trees]:
+                matters, active, idle, reliable, entries = tree_matters(
+                    at_top, session_id, at, seen
+                )
+                if matters:
+                    trees.append((at_top, (active, idle, reliable, entries)))
     if trees:
         stop_unrecognised(
             [found[1] for found in unrecognised],

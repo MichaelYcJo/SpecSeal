@@ -12,7 +12,7 @@
 | Contract changes | run_main_in_process → round-1-report.md, round-1.md, pytest |
 | New units | _brace_command_at (depth 1); test_a_pid_beside_no_session_id_on_either_side_is_not_recorded (depth 1); test_a_brace_command_word_is_judged_in_the_tree_its_c_names (depth 1) |
 | Fix of a fix | first — 🟡 1 at hooks/worktree-guard.py#_brace_spells_git, a unit round-1's fixes added |
-| Needs a fix | yes — 🟡 1 (braces `_brace_spells_git` cannot read stay silent) and 🟡 2 (the command-word brace is judged in the typed tree) |
+| Needs a fix | yes — 🟡 1 (braces `_brace_spells_git` cannot read stay silent; NAME NOT IN TREE since the reframe) and 🟡 2 (the command-word brace is judged in the typed tree) |
 | Loses a record or crashes | no |
 
 - [x] Pass

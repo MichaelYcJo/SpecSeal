@@ -164,9 +164,9 @@ to name.
    about where a brace stands.** Phase 3 built the paragraph above for a
    segment the frozen reading reads as git. Round 1 found `{git,} rebase …`,
    a segment that reading reads as no git; the fix read the command word's
-   comma alternatives (`_brace_spells_git`). Round 2 found nested, range and
+   comma alternatives (`_brace_spells_git`, NAME NOT IN TREE since phase 9). Round 2 found nested, range and
    `${…}` braces; the fix read every brace up to `cmdline.command_word`
-   (`_brace_command_at`). Round 3 found braces behind a runner's operand,
+   (`_brace_command_at`, NAME NOT IN TREE since phase 9). Round 3 found braces behind a runner's operand,
    behind a redirection, glued to `(`, alternatives that are empty or a
    runner (`{,} git switch x`, `{env,} git switch x`), and the `&` cut
    (`2>&1 {git,} switch x`) — eight spellings silent in an ACTIVE tree, each
@@ -189,7 +189,7 @@ to name.
    as git keeps the order phase 3 built — a switch and a creation keep their
    own rules, and the brace arm comes before every other kind — and a
    segment it reads as no git is the brace shape on the same test and
-   nothing else: `_brace_command_at`, `_brace_spells_git` and `_ONE_BRACE`
+   nothing else: `_brace_command_at`, `_brace_spells_git` and `_ONE_BRACE` (NAME NOT IN TREE since phase 9)
    leave the tree, and the guard no longer asks `cmdline.command_word`
    about a brace. The plain spelling is the words written out as the shell
    would make them, or the braces quoted where they are meant literally,
@@ -236,7 +236,7 @@ to name.
    subject goes are retired or rewritten against the one reader, and the
    build names each in `phases/phase-N.md`.
 
-   Since the reframe: `hooks/worktree-guard.py#_brace_command_at`,
+   Since the reframe: `hooks/worktree-guard.py#_brace_command_at` (NAME NOT IN TREE since phase 9),
    `#_brace_spells_git`, `#_ONE_BRACE`, and the brace branch of
    `#_finding_tree` that parsed the words after a brace word as git (round
    2's `-C` read). `tests/test_worktree_guard.py#test_a_brace_in_no_git_word_stays_silent`
@@ -306,7 +306,7 @@ to name.
 | S18 | A brace in any word of any segment stops where the tree matters and is silent in a clean single-stream tree: `cat {.gitignore,README.md}`, `echo {a,b}`, `ls {x,y}.md && git status`, `{echo,printf} x`, `echo {{a,b},c}`, `echo {git,} x`, `A={a,b} ls`, `A={{a,b},c} ls`, `for f in x/{a,b}.md; do echo $f; done` — `ask` in a dirty tree, `deny` under the press and in an ACTIVE tree, naming the brace and the segment's words | `test_a_brace_in_no_git_word_stays_silent` rewritten as `test_a_brace_in_any_word_is_the_brace_shape`, its parameters kept; red at a8f86f44 by construction (each silent there) |
 | S19 | A quoted brace stays what it was in every segment: `echo '{a,b}'`, `printf "{a, b}"`, `cat 'x/{a,b}.md'` are silent in every tree, and S12's forms are unchanged; the named cost holds: `echo '{a,b}' ; ls {c,d}` stops on both segments and the reason names both | `test_a_quoted_brace_in_a_git_word_stays_listed` extended; one case pinning the cost |
 | S20 | A brace segment the frozen reading reads as no git is judged in the tree it is placed in and in every tree a `-C <dir>` pair in its words names: `{git,} -C W switch x`, `{env,} git -C W switch x`, `timeout 5 {git,} -C W switch x`, `2>&1 {git,} -C W switch x` deny with `S` clean and `W` ACTIVE, naming `W`, and ask with `S` dirty and `W` clean, naming `S`; `{git,} {-C,} W switch x` with `S` clean and `W` dirty is silent, the named limit | `test_a_brace_command_word_is_judged_in_the_tree_its_c_names` extended with the `S`-dirty direction, the three new forms and the limit; the `S`-dirty direction and the runner forms red at a8f86f44 |
-| S21 | `_brace_command_at`, `_brace_spells_git` and `_ONE_BRACE` are absent from `hooks/worktree-guard.py`, and `_finding_tree` parses no words after a brace word as git | `phases/phase-9.md`'s removal table; `uvx ruff check hooks/` for what they imported |
+| S21 | `_brace_command_at`, `_brace_spells_git` and `_ONE_BRACE` (NAME NOT IN TREE, by this scenario's claim) are absent from `hooks/worktree-guard.py`, and `_finding_tree` parses no words after a brace word as git | `phases/phase-9.md`'s removal table; `uvx ruff check hooks/` for what they imported |
 | S22 | The over-stop of the reframed rule is counted over the recorded corpus by phase 1's method — the pairs the rule stops tree-blind, split by whether the stopping segment's command word is `git`, with the assignment-word pairs and the quoted-beside-unquoted pairs counted apart — after a self-check that stops S17's thirteen round-3 spellings and none of S19's quoted forms; the figure, the corpus table and the method are in `phases/phase-7.md`, and §A, the changelog and ledger row S11b carry it with a pointer to the method | `phases/phase-7.md`; the probe deleted; the policy pin for §A's figure |
 | S23 | `test_a_pid_beside_no_session_id_on_either_side_is_not_recorded` builds both absences: the environment variable removed or empty, the payload key absent or empty, four parameters; `test_a_pid_exported_for_another_session_is_not_recorded`'s `outer=None` removes the variable; `run_main_in_process` leaves `session_id` out of the payload for `None` | the four parameters green at a8f86f44; `[None-None]` and `[-]` red with `hooks/session-lease.py` at e0c5a191, shown in `phases/phase-8.md` as round 3's ⬜ 4 executed it |
 | S24 | `docs/worktree-guard-spec.md` §A says a brace in any word of any segment is the brace shape, names the three costs, the union of trees and the figure with its method, and §*Known limits* adds a `-C` a brace hides to the string-handed-to-a-shell bullet; the changelog fragment's brace bullet says the same and names no command-word rule | the policy pin cases, each sentence with its `Enforced by:` line |
@@ -333,7 +333,7 @@ to name.
   word on the one test `_git_finding` uses; `_finding_tree` answers the
   placed tree and every `-C <dir>` tree for a non-git brace segment (how a
   finding carries more than one tree is `questions.md` W3);
-  `_brace_command_at`, `_brace_spells_git` and `_ONE_BRACE` are gone.
+  `_brace_command_at`, `_brace_spells_git` and `_ONE_BRACE` are gone (NAME NOT IN TREE).
 - `hooks/commit-review-gate.py`: `git` → `gate.git`; `has_marker` →
   `tokens.given`; `changed_paths` answers `None` on a failed diff.
 - Policy: the four documents S15 names, with `Enforced by:` lines.

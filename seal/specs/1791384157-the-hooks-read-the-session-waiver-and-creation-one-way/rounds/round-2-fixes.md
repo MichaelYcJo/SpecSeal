@@ -16,8 +16,8 @@ last. Fix range `ce3b0652..` the commit that adds this file.
 🟡 1 follows the orchestrator's direction rather than the report's
 paste-ready text: no spelling test was added. A segment the frozen reading
 reads as no git is read for a brace in its command word and every word before
-it. A brace the guard takes apart exactly (`_ONE_BRACE`) stops where an
-alternative spells `git` (`_brace_spells_git`, kept because it keeps
+it. A brace the guard takes apart exactly (`_ONE_BRACE`, NAME NOT IN TREE since the reframe) stops where an
+alternative spells `git` (`_brace_spells_git`, NAME NOT IN TREE since the reframe, kept because it keeps
 `{echo,printf} x` silent); any other brace there is an unrecognised shape
 whatever bash makes of it. A brace in an argument stops nothing, which also
 narrows round 1's rule, which read every word of the segment. Over 34,633
