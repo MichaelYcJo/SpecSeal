@@ -60,7 +60,7 @@ the new `MIXED_ROW` and `NOT_A_TEST` sentences. Phase 5 reads the drift of
 `reverify`'s rows on top of the frame's list.
 
 **No new function is named `test…`.** The frame's text calls the reader of
-one token a *test node*, and a function spelled `test_node` in a module a
+one token a *test node*, and a function spelled test_node in a module a
 test imports by attribute is one rename away from pytest collecting it. It
 is `node_finding`.
 
