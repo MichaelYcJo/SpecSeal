@@ -22,7 +22,7 @@ the review chain, and one has not started.
 | #836 | 1791384153 | #887 (draft) | round 2 recorded at da1a0cd3: 🟡 1, 🟡 2, `Fix of a fix: first`, one reopening left | **on hold** — see §*Review of the run*; do not spawn the fix pass until the owner decides |
 | #870, #848 | 1791384159 | #889 (draft) | round 1 recorded at 8b0d4d7a: 🟡 1–3 | **on hold** — see §*Review of the run* |
 | #868, #856 | 1791384157 | #881 (draft, `chain: reframed`) | reframed after round 3; the redesign's round 5 closed at 11b6ed14 (2 fixed, 2 answered) | **on hold** — see §*Review of the run*; the next record would be round 6, which ends the run |
-| #866 | 1791384155 | none yet | see its branch's `handoff.md` | finish the build, then the draft PR and round 1 |
+| #866 | 1791384155 | none yet | phases 1–4 closed; phase 5 stopped mid-edit and committed as an unverified `wip:` | finish phase 5 (or revert the wip), build 6–7, then the draft PR and round 1 — its branch's `handoff.md` |
 | #835 | 1791384152 | none | framed; not started | builds **last**, after #836, #870, #866, #868 land |
 | #834 (its own build) | 1791382684 | none | the inventory only | after #835 |
 
