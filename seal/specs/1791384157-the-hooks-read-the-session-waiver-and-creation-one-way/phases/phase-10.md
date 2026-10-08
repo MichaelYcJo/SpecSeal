@@ -26,7 +26,7 @@ half of M1, the Windows branches, and the full suite.
 **The changelog already carries the figure.** Phase 9 rewrote the brace
 bullet with phase 7's figure and a pointer to the method, so this phase
 added nothing to it (round 4 corrected the figure to 34 of 32,715, one of
-them git, in both places).
+them git, in both places, and round 5 to 42 of 33,287).
 
 **The survivors file held.** `bin/survivor-check --range
 origin/release/v0.21.0...HEAD --exempt …/survivors.md` exits 0 with the

@@ -82,7 +82,7 @@ all three, and the fake `git` ran `switch feature/x` for the `$( )` and the
 command.
 
 The guard misses them twice. The text test does not match, because the
-`\S` run stops at the space. The word test (`_BRACE_IN_WORD`, at `:2212` in
+`\S` run stops at the space. The word test (`_BRACE_IN_WORD`, NAME NOT IN TREE since round 5's fixes, at `:2212` in
 `_git_finding` and `:2302` in `_segment_finding`) is asked once per word the
 frozen splitter made. The splitter cuts `{git,$(: x)}` into `{git,$(:` and
 `x)}`, and neither word holds a whole brace. All three spellings, with
@@ -136,7 +136,7 @@ written down nowhere, so the self-check behind 34 cannot be re-run as it
 ran.
 
 One smaller point belongs with it. Step 4 names `_BRACE` for the word test,
-and the guard asks `_BRACE_IN_WORD`. Both give 34 and one git pair. Under
+and the guard asks `_BRACE_IN_WORD` (NAME NOT IN TREE since round 5's fixes). Both give 34 and one git pair. Under
 the guard's own test, the zsh `${(f)…}` pair's assignment word matches, so
 the assignment column reads 1 and not 0. The prose already names that pair.
 The table's 0 is correct only for step 4 as written.
@@ -172,7 +172,7 @@ This is a correction to the run's paperwork, under `seal/specs/` and
 
 ## Round 4's new units
 
-- `_BRACE_IN_WORD` is right as a pattern: it crosses whitespace and takes no
+- `_BRACE_IN_WORD` (NAME NOT IN TREE since round 5's fixes) is right as a pattern: it crosses whitespace and takes no
   `$` exception, as its comment says. Where it is asked is the second half of
   🟡 2: once per word, after the splitter has cut a brace in two.
 - `test_a_brace_segment_composes_its_c_values_as_git_does` is sound. Both
@@ -192,7 +192,7 @@ This is a correction to the run's paperwork, under `seal/specs/` and
 | 🟡 1 | A `$` that begins a quote (`$''`, `$'x'`, `$""`) is left before the `{` when the quote is taken out, so `$''{g..g}it switch feature/x` reads as a parameter expansion and is silent in an ACTIVE tree; bash and zsh run `git switch feature/x` | `hooks/worktree-guard.py:2046` | open | executed: bash 3.2.57 and zsh 5.9 make `$''{g..g}it` the word `git`, a fake git ran `switch feature/x`; four spellings silent in an ACTIVE tree at the target; with the fix the three proposed parameters are red at the target and green, the 13 silent forms stay silent |
 | 🟡 2 | Whitespace inside `$( … )`, backticks or `${ … }` ends the brace's word for `_BRACE` and for the per-word test, so `{git,$(: x)} switch feature/x`, its backtick twin and `{git,${x:- }} switch feature/x` are silent in an ACTIVE tree; bash runs `git switch feature/x` | `hooks/worktree-guard.py:2021` | open | executed: bash prints `[git]` for all three and a fake git ran `switch feature/x`; the splitter cuts the word into `{git,$(:` and `x)}`; with the fix all three deny, three guard modules 416 passed, corpus 34 of 33,088 unchanged; also `:2212` and `:2302`; not #886, whose command word a substitution makes |
 | ⬜ 3 | A reflog range (`git diff HEAD@{1}..HEAD@{0}`, `git log @{u}..@{1}`) asks in a dirty tree, and §A's silent list names `@{-1}` without saying that a range across two reflog braces stops | `docs/worktree-guard-spec.md:80` | open | executed: both `ask`, naming the brace shape; it is the stopping direction the orchestrator chose, so one clause naming the cost is all it asks |
-| ⬜ 4 | The 34-pair self-check ran 21 must-stop and 15 must-not forms, but phase 7 step 6, its `Self-check` line and `questions.md` M4 name 19 and 6, the extra forms are written nowhere, and ledger S22 carries both figures | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/phases/phase-7.md:75` | open | a correction of the run's paperwork; executed: steps 1 to 5 re-run to 34 of 33,077, one git, none assignment; step 4's `_BRACE` and the guard's `_BRACE_IN_WORD` agree on 34 and differ on the assignment column (0 against 1) |
+| ⬜ 4 | The 34-pair self-check ran 21 must-stop and 15 must-not forms, but phase 7 step 6, its `Self-check` line and `questions.md` M4 name 19 and 6, the extra forms are written nowhere, and ledger S22 carries both figures | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/phases/phase-7.md:75` | open | a correction of the run's paperwork; executed: steps 1 to 5 re-run to 34 of 33,077, one git, none assignment; step 4's `_BRACE` and the guard's `_BRACE_IN_WORD` (NAME NOT IN TREE since round 5's fixes) agree on 34 and differ on the assignment column (0 against 1) |
 | 🟢 | round 4's yellow 1 is closed — the `-C` union composes in order and covers a git segment whose brace stands before its `-C` | `hooks/worktree-guard.py:2488` | confirmed | executed: the four new parameters fail with the guard of `fba9fff0` and pass at the target; seven more spellings with `-C ''`, `-C ""`, absolute values first and mid-chain each deny naming `W` |
 | 🟢 | round 4's yellow 2 is closed — a signed sequence and a brace after an escaped `$` stop | `hooks/worktree-guard.py:2021` | confirmed | executed: the four new parameters of the brace-shape test fail at `fba9fff0` and pass at the target; the class stays open as this round's 🟡 1 and 🟡 2 |
 | 🟢 | round 4's yellow 3 is closed — §A says 34 of 32,715 with one git pair, and its pin holds the sentence | `docs/worktree-guard-spec.md:116` | confirmed | read: the sentence and its pin at `tests/test_guard_resolves_the_tree_it_judges.py:828`; executed: phase 7's steps 1 to 5 re-run to 34 with one git pair |
@@ -213,7 +213,7 @@ This is a correction to the run's paperwork, under `seal/specs/` and
 | the same selection at the target | 38 passed |
 | `_BRACE` mutated to cross whitespace and drop its `$` exception (`.*?` for each `\S*?`, no lookbehind), the silent test | 2 failed of 13 (`echo ${a,}`, the `&& echo {c, d}` form) |
 | `git diff HEAD@{1}..HEAD@{0}` and `git log @{u}..@{1}`, dirty tree | `ask`, naming the brace shape |
-| phase 7 steps 1 to 5, written from the record alone, guard at the target | 34 of 33,077 pairs; one git; assignment 0 with step 4's `_BRACE`, 1 with the guard's `_BRACE_IN_WORD` |
+| phase 7 steps 1 to 5, written from the record alone, guard at the target | 34 of 33,077 pairs; one git; assignment 0 with step 4's `_BRACE`, 1 with the guard's `_BRACE_IN_WORD` (NAME NOT IN TREE since round 5's fixes) |
 | the paste-ready fixes for 🟡 1 and 🟡 2 applied in the clone | the six proposed parameters fail at the target and pass with the fixes; the brace-shape and silent tests 33 passed; `tests/test_worktree_guard.py`, `tests/test_guard_resolves_the_tree_it_judges.py` and `tests/test_the_guard_asks_once_per_session.py` exit 0, 416 passed; corpus 34 of 33,088 by step 4, the word test and the joined test |
 | `gh pr checks 881` at `b9a4bcff` | exit 0: lint, ledger, release, both grammar jobs, ubuntu, three macOS groups and four Windows groups pass |
 | `bin/evidence-check --strict`, `survivor-check`, `correction-check` | not run by this round; the smith's exit 0 is carried, and the sealer's broad gate runs them |
