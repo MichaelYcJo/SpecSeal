@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 878 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `d2b765876c8ba9e1ef1f8f5b9518767f5c2f718f..27920e587aa2345c12ff9edcc7200d198e874744`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1 (CI red on the suite-wide path-list guard) and 🟡 2 (the rule's home states a limit-free guarantee two merge shapes break) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,11 +25,11 @@ Round 1 of the build at 7e68ed00, against origin/release/v0.21.0. The spawn name
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The S10 case lists paths with `git ls-tree` and is unclassified in the suite-wide path-list guard, so CI fails on ubuntu and on windows group 2 | `tests/test_a_shrunken_corpus_declines_to_judge.py:245` | open | executed: CI on PR #878, 2 failed on each leg; reproduced in the clone (exit 1), and green with the paste-ready fix (exit 0, 17 passed) |
-| 🟡 2 | The rule's home says a merged-in commit descends from the range's start never; a back-merge makes a sibling's commit owned, and an own commit on a topic forked before the start is not owned, and the limit paragraph names neither | `docs/the-record-layout.md:121` | open | executed: probe A owned `S(sibling)`, probe B dropped `topic-fix` and `topic.py`; the same sentence also appears at `docs/the-record-layout.md:101`, in the two docstrings and in two ledger rows |
-| ⬜ 3 | `own_units` shows and diffs prose paths that `measure` skips, and `own_commits` runs twice per `close` and per `fix_pass_units` | `skills/code-review/scripts/round_record.py:2384` | open | read; cost only |
-| ⬜ 4 | A `Contract changes` entry can be a sibling's signature change when an own commit changed only the unit's body | `skills/code-review/scripts/round_record.py:4450` | open | read; the home's sentence is true, its consequence is unstated |
-| ⬜ 5 | "It refuses depth 2" now has a document as its antecedent | `skills/code-review/orchestration.md:372` | open | read |
+| 🔴 1 | The S10 case lists paths with `git ls-tree` and is unclassified in the suite-wide path-list guard, so CI fails on ubuntu and on windows group 2 | `tests/test_a_shrunken_corpus_declines_to_judge.py:245` | **fixed** `e6fc73f9` | fixed at e6fc73f9 — the S10 case is classified in `LISTS_A_FIXTURE` with the reason the paste-ready fix gave; `tests/test_a_shrunken_corpus_declines_to_judge.py` 17 passed; executed: CI on PR #878, 2 failed on each leg; reproduced in the clone (exit 1), and green with the paste-ready fix (exit 0, 17 passed) |
+| 🟡 2 | The rule's home says a merged-in commit descends from the range's start never; a back-merge makes a sibling's commit owned, and an own commit on a topic forked before the start is not owned, and the limit paragraph names neither | `docs/the-record-layout.md:121` | **fixed** `27920e58` | fixed at 27920e58 — the home's ownership sentence names the squashed sibling it holds for, and its limit paragraph names both shapes the probes measured; the fragment section, `own_commits`' and `fragment_left_behind`'s docstrings, the ledger fragment's S7–S9, S12 and `Corrected · S2, S3, S4, S6` rows, `overview.md` and `phases/phase-1.md` say the same. `changelog.md` is unchanged: none of its sentences states the limit-free claim; executed: probe A owned `S(sibling)`, probe B dropped `topic-fix` and `topic.py`; the same sentence also appears at `docs/the-record-layout.md:101`, in the two docstrings and in two ledger rows |
+| ⬜ 3 | `own_units` shows and diffs prose paths that `measure` skips, and `own_commits` runs twice per `close` and per `fix_pass_units` | `skills/code-review/scripts/round_record.py:2384` | answered | a note, left as it stands: a cost, not a wrong answer — `own_units` reads prose files `measure` skips, and `own_commits` runs twice per `close`; read; cost only |
+| ⬜ 4 | A `Contract changes` entry can be a sibling's signature change when an own commit changed only the unit's body | `skills/code-review/scripts/round_record.py:4450` | answered | a note, left as it stands: a signature a merged-in sibling changed reaches `Contract changes` only where an own commit also changed that unit, and the row then names a real change in the unit the fix touched; read; the home's sentence is true, its consequence is unstated |
+| ⬜ 5 | "It refuses depth 2" now has a document as its antecedent | `skills/code-review/orchestration.md:372` | answered | a note, left as it stands: the sentence at `skills/code-review/orchestration.md:372` reads in its section, where the refusal it names is `close`'s; read |
 | 🟢 | `close`'s two new refusals both raise before any cell is written | `skills/code-review/scripts/round_record.py:4370` | confirmed | read: `parse_range` at 4370 and the guard at 4422-4443, with the first write after 4516 |
 | 🟢 | The `-z` readers parse hostile names verbatim, and `-I` hides no call site the old split read | `skills/code-review/scripts/round_record.py:3711` | confirmed | executed: probes D and E |
 
