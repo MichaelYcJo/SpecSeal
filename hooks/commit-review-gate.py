@@ -85,7 +85,6 @@ that runs, and why the obvious alternative does not.
 import collections
 import json
 import os
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -568,21 +567,6 @@ def commit_shape(tokens):
     return commits_all, paths
 
 
-def git(args, cwd):
-    try:
-        out = subprocess.run(
-            ["git", *args],
-            cwd=cwd or None,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=5,
-        )
-        return out.stdout.strip() if out.returncode == 0 else ""
-    except Exception:
-        return ""
-
-
 def read_mark(cwd, git_dir, name):
     """Contents of a <git-dir> mark file, or "" when absent/unreadable."""
     if not git_dir:
@@ -609,12 +593,23 @@ def changed_paths(cwd, invocations):
     no files. The output side needs no such care — `--name-only` prints paths
     from the repository root wherever it runs, checked directly — so only the
     pathspec argument was ever wrong.
+
+    None where any `git diff` failed (#868). A failure used to read as an
+    empty diff, so a commit git could not list reached the parity arm as one
+    confined to the document roots and the arm said nothing;
+    `gate.touches_code(None)` is True, so it asks. That includes a commit
+    whose `HEAD` does not exist yet, an `-a` or a pathspec on an unborn
+    branch, where `git diff HEAD` fails.
     """
     paths = set()
+    failed = []
 
     def collect(where, args):
-        out = git(["diff", "--name-only", *args], where or cwd)
-        paths.update(line for line in out.splitlines() if line)
+        out = gate.lines(gate.git(["diff", "--name-only", *args], where or cwd))
+        if out is None:
+            failed.append(args)
+        else:
+            paths.update(out)
 
     collect(cwd, ["--cached"])
     for inv in invocations:
@@ -623,7 +618,7 @@ def changed_paths(cwd, invocations):
             collect(inv.where, ["HEAD"])
         if pathspecs:
             collect(inv.where, ["HEAD", "--", *pathspecs])
-    return paths
+    return None if failed else paths
 
 
 # `seal/` as a string rather than `optin.HOME` joined under anything: these
@@ -657,44 +652,25 @@ def touches_code(cwd, invocations):
 def has_marker(command, marker):
     """True when `marker` appears as a bare word of the command.
 
-    Inside a quoted message it is prose — `git commit -m "drop [no-review]
-    from the docs"` describes work, it does not waive a gate. An unparseable
-    command falls back to the substring test: the marker is the author's
-    explicit opt-out and refusing to read it is worse than reading it loosely.
+    `hooks/tokens.py#given` is the reader, the one every consent read shares
+    (#868): this gate, the worktree guard's `has_token` and the old spelling
+    handed to the git hooks split a command one way. Inside a quoted message
+    the marker is prose — `git commit -m "drop [no-review] from the docs"`
+    describes work, it does not waive a gate — and a here-document body is
+    not read (#773).
 
-    **Cleanliness is measured HERE, on the command as written.** It used to
-    arrive from the judgment read, and when that read began dropping comments
-    the two texts stopped agreeing: `git commit -m x  # don't [no-review]`
-    parses cleanly once the comment is gone, so the strict scan ran — on the
-    raw command, where the apostrophe swallows the marker into a quote that
-    never closes. The waiver was honoured before that change and refused
-    after, with nothing to tell the user why. A CONSENT read has to measure
-    its own text as well as read it. The parameter that used to carry the
-    judgment read's answer is gone rather than defaulted, so there is no
-    argument left to pass it through again.
-
-    **A here-document body is not read (#773).** The same scan runs a second
-    time over `tokens.without_bodies(command)`, which keeps the comments, and
-    the marker counts only where both scans find it. Each scan measures its
-    own cleanliness, for the reason above. The second one alone would let a
-    token through that the command as written never offered: taking a body
-    out can close a split the raw text left open. The AND means this read can
-    only refuse where the base read honoured, and never the other way round.
-    A token inside a body a shell runs is refused too, and the way on is the
-    token typed in front of the Bash call's own command.
+    **A command that does not split waives nothing from where its split
+    fails.** This read used to fall back to the substring test there, on the
+    argument that refusing the author's explicit opt-out was worse than
+    reading it loosely. That argument was made while the PreToolUse reading
+    was the only gate, and since #692 the refusal names `git -c
+    specseal.waive=review`, which reads no text at all; reading loosely is
+    the one direction that waives with nobody asked. So `git commit -m 'x
+    [no-review]` is refused now, and so is `git commit -m x  # don't
+    [no-review]`, whose apostrophe opens a quote before the marker. A marker
+    written before the point the split fails is still read.
     """
-    return _reads_marker(command, marker) and _reads_marker(
-        tokens.without_bodies(command), marker
-    )
-
-
-def _reads_marker(text, marker):
-    """`has_marker`'s scan of one text: a bare word where `text` splits
-    cleanly, the substring test where it does not."""
-    segments, clean = split_segments(text)
-    if not clean:
-        return marker in text
-    return any(tok == marker for toks in segments for tok in toks)
+    return marker in tokens.given(command)
 
 
 def already_asked(cwd, git_dir, session):
@@ -1102,8 +1078,10 @@ def judge(cwd, top, command, invocations, clean):
     if not top:
         return [], ""
 
-    head = git(["rev-parse", "--verify", "--quiet", "HEAD"], cwd)
-    git_dir = git(["rev-parse", "--git-dir"], cwd)
+    # `gate.git`, the one runner (#868). An unborn branch has no HEAD and a
+    # directory outside a repository no git directory: git's ordinary no.
+    head = gate.git(["rev-parse", "--verify", "--quiet", "HEAD"], cwd) or ""
+    git_dir = gate.git(["rev-parse", "--git-dir"], cwd) or ""
 
     # Two independent opt-ins. A repo can declare either, both, or neither,
     # so each is checked on its own rather than nested behind the other.
@@ -1419,7 +1397,7 @@ def main():
         if pressed():
             decide("deny", unreadable_reason(unreadable, True, len(stopped), True))
             return
-        here = git(["rev-parse", "--git-dir"], cwd)
+        here = gate.git(["rev-parse", "--git-dir"], cwd) or ""
         first = bool(session) and not already_asked(cwd, here, session)
         decide(
             "deny" if first else "ask",

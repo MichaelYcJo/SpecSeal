@@ -424,6 +424,108 @@ def test_the_parity_arms_plain_prompt_names_its_own_marker(repo):
     assert "[no-parity]" in reason and "[no-review]" not in reason
 
 
+def a_git_whose_diff_fails(tmp_path):
+    """A directory holding a `git` that exits 128 for any `diff` and runs the
+    real git otherwise (`questions.md` W1 of work item 1791384157: the shim,
+    because it names the failure on every git version)."""
+    import shutil
+    import stat
+
+    real = shutil.which("git")
+    assert real, "no git on PATH"
+    shim = tmp_path / "shim"
+    shim.mkdir()
+    script = shim / "git"
+    script.write_text(
+        "#!/bin/sh\n"
+        'for a in "$@"; do [ "$a" = diff ] && exit 128; done\n'
+        f'exec "{real}" "$@"\n',
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    return f"{shim}{os.pathsep}{os.environ.get('PATH', '')}"
+
+
+def test_a_diff_git_could_not_take_is_asked_about_by_the_parity_arm(repo, tmp_path):
+    """S10 of work item 1791384157 (#868), the PreToolUse reading. Where `git
+    diff` fails, the commit's paths are unknown, and a change git could not
+    list is not a change confined to `docs/` and `seal/`, so the parity arm
+    asks. Red at `5623d728`, where the failure read as an empty diff and the
+    arm said nothing."""
+    if os.name == "nt":
+        pytest.skip("the shim is a POSIX shell script")
+    parity_repo(repo)
+    stage(repo, "service.py")
+    path = a_git_whose_diff_fails(tmp_path)
+    out = run_hook(
+        "commit-review-gate.py",
+        payload(parity_only("git commit -m x"), repo),
+        env={"PATH": path},
+    )
+    assert decision_of(out) == "deny", out
+    assert "[no-parity]" in out, out
+
+
+def test_a_diff_git_could_not_take_is_asked_about_at_pre_commit(
+    repo, tmp_path, monkeypatch
+):
+    """S10 of work item 1791384157 (#868), the git hook. `pre-commit` reads the
+    staged paths with `git diff --cached`; where that fails, the parity arm
+    stands. Red at `5623d728`, where the hook let the commit through."""
+    if os.name == "nt":
+        pytest.skip("the shim is a POSIX shell script")
+    import io
+
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "hooks"))
+    import commitgate
+    import gate
+
+    parity_repo(repo)
+    declare_routing(repo)
+    stage(repo, "service.py")
+    environ = {"CLAUDE_CODE_SESSION_ID": "s10"}
+    assert commitgate.pre_commit(str(repo), environ, io.StringIO()) == 1
+    monkeypatch.setenv("PATH", a_git_whose_diff_fails(tmp_path))
+    assert gate.git(["diff", "--cached", "--name-only"], str(repo)) is None
+    stream = io.StringIO()
+    assert commitgate.pre_commit(str(repo), environ, stream) == 1, stream.getvalue()
+    assert "[no-parity]" in stream.getvalue() or "parity" in stream.getvalue()
+
+
+def test_the_backstop_hands_the_parity_arm_none_where_git_could_not_list(
+    repo, tmp_path, monkeypatch
+):
+    """S10 of work item 1791384157 (#868), the backstop's path reader:
+    `reference-transaction` lists what a commit past `--no-verify` carries
+    with `git diff` over its base, and a failure there is None, which
+    `gate.touches_code` answers True. A break reading the failure as an empty
+    list survived every case until this one."""
+    if os.name == "nt":
+        pytest.skip("the shim is a POSIX shell script")
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "hooks"))
+    import commitgate
+    import gate
+
+    head = git(repo, "rev-parse", "HEAD").stdout.strip()
+    stage(repo, "service.py")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "commit",
+        "-qm",
+        "c",
+    )
+    new = git(repo, "rev-parse", "HEAD").stdout.strip()
+    assert commitgate._paths_between(str(repo), head, new)() == ["service.py"]
+    monkeypatch.setenv("PATH", a_git_whose_diff_fails(tmp_path))
+    listed = commitgate._paths_between(str(repo), head, new)()
+    assert listed is None, listed
+    assert gate.touches_code(listed)
+
+
 def test_parity_mark_matching_head_allows(repo):
     parity_repo(repo)
     stage(repo, "service.py")

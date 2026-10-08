@@ -63,7 +63,22 @@ DOC_ROOTS = ("docs/", "seal/")
 
 
 def git(args, cwd):
-    """git's stdout, stripped, or "" on any failure."""
+    """git's stdout, stripped; "" for an empty answer, None for a failure.
+
+    A non-zero exit, a git that cannot be started and a timeout are each
+    None, so a caller can tell git saying nothing from git saying it could
+    not answer (#868). This is the one runner the commit gate's two readings
+    use: the PreToolUse reading kept a copy that answered "" for both, and a
+    path reader that took a failed `git diff` for an empty one let a commit
+    git could not list through the parity arm as one confined to the document
+    roots. A caller for which a non-zero exit is git's ordinary *no* --
+    `rev-parse --verify --quiet` on an unborn branch, `config --get-all` with
+    no key, `symbolic-ref -q` on a detached HEAD, `rev-parse --git-dir`
+    outside a repository -- says so at its own line with `or ""`.
+
+    It answers rather than raises: a git hook that raises refuses the commit
+    with a traceback and no reason, and a PreToolUse gate that raises is
+    skipped by `hooks/dispatch.py`, which is silence."""
     try:
         out = subprocess.run(
             ["git", *args],
@@ -74,8 +89,18 @@ def git(args, cwd):
             timeout=5,
         )
     except (OSError, subprocess.SubprocessError):
-        return ""
-    return out.stdout.strip() if out.returncode == 0 else ""
+        return None
+    if out.returncode != 0:
+        return None
+    return (out.stdout or "").strip()
+
+
+def lines(out):
+    """The non-empty lines of a `git` answer, or None where git failed: the
+    shape a path reader hands `arms_missing`."""
+    if out is None:
+        return None
+    return [line for line in out.splitlines() if line]
 
 
 def read_mark(cwd, git_dir, name):
@@ -91,7 +116,11 @@ def read_mark(cwd, git_dir, name):
 
 
 def touches_code(paths):
-    """True when one of `paths` is outside the document roots."""
+    """True when one of `paths` is outside the document roots, or when
+    `paths` is None: a change git could not list is not a change confined to
+    `docs/` and `seal/`, so the parity arm asks (#868)."""
+    if paths is None:
+        return True
     return any(not path.startswith(DOC_ROOTS) for path in paths)
 
 
@@ -99,10 +128,11 @@ def arms_missing(cwd, top, waived, paths, head=None):
     """The arms this commit is missing in the repository at `top`, in order.
 
     `waived` holds the arms the command waived. `paths` is a zero-argument
-    callable returning the paths the commit carries; it is asked only when the
-    parity arm otherwise stands, because reading them costs a `git diff` the
-    review arm never needs. `head` is the HEAD the marks are compared with,
-    read here when the caller did not.
+    callable returning the paths the commit carries, or None where git could
+    not list them; it is asked only when the parity arm otherwise stands,
+    because reading them costs a `git diff` the review arm never needs.
+    `head` is the HEAD the marks are compared with, read here when the caller
+    did not.
 
     `top` is "" where `cwd` is no repository, and nothing is missing there:
     the direction this gate has always failed in, with `optin` stating the
@@ -111,8 +141,9 @@ def arms_missing(cwd, top, waived, paths, head=None):
     if not top:
         return []
     if head is None:
-        head = git(["rev-parse", "--verify", "--quiet", "HEAD"], cwd)
-    git_dir = git(["rev-parse", "--git-dir"], cwd)
+        # An unborn branch exits non-zero here: no HEAD is git's ordinary no.
+        head = git(["rev-parse", "--verify", "--quiet", "HEAD"], cwd) or ""
+    git_dir = git(["rev-parse", "--git-dir"], cwd) or ""
     missing = []
     if (
         REVIEW not in waived

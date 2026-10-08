@@ -171,11 +171,11 @@ try:
 except (Exception, SystemExit):
     wide = None
 
-# The consent reads' rules, shared with the commit gate (#773, #780): asked
-# only for `without_bodies`, the command with its here-document bodies taken
-# out. Guarded like the import above, because this guard's rows do not need
-# it: where it cannot load, `has_token` finds the bodies with the frozen
-# reader instead.
+# The one consent-token reader, shared with the commit gate (#773, #780,
+# #868): `has_token` is `tokens.given`, and the brace reading takes its quoted
+# spans (#856). Guarded like the import above, because this guard's rows do
+# not need it: where it cannot load, no token is read and every brace reads
+# as unquoted, each costing a prompt and never a silence.
 try:
     import tokens
 except (Exception, SystemExit):
@@ -361,69 +361,43 @@ def has_token(command: str, token: str) -> bool:
     silent. Shell prose is usually quoted, so the residual is narrow, but it
     is a residual and not a property.
 
-    **No substring fallback for a command that does not parse cleanly**, and
-    that is where this parts company with the commit gate's `has_marker`,
-    which does fall back. The asymmetry above is the reason: reading a marker
-    loosely costs one skipped check the user is being asked about anyway,
-    while reading this token loosely turns the guard off with nobody asked.
+    **No substring fallback for a command that does not parse cleanly**: a
+    quote that never closes ends the read, and nothing inside it is a word.
     Measured: `git worktree add ../wt f && echo "we agreed on [worktree-ok]
-    yesterday` carries the token as a substring and gives no consent.
+    yesterday` carries the token as a substring and gives no consent. Since
+    #868 the commit gate's `has_marker` reads the same way.
 
     **Comments are NOT dropped here**, and that is the one way this read
     differs from the judgment read `split_command` does. A retry token is
     written in a comment on purpose — `git worktree add ../wt f
     # [worktree-ok]` is the documented form — so dropping comments first would
-    throw away the only place the token is ever written.
+    throw away the only place the token is ever written. A parenthesis riding
+    on a word is not part of it, so `(git worktree add ../wt f
+    [worktree-ok])` carries the token: creation is the one verdict in this
+    guard with no `ask` behind it, which turns an unreadable token into a loop
+    with no way out.
 
     **A here-document body is not read** (#780). A token counts only where
     the command as written AND the command with its bodies taken out both
-    carry it, the rule `hooks/tokens.py#given` keeps for the commit gate
-    since #773. A body is text a command only carries, so a
-    `[shared-tree-ok]` written in one passed a switch nobody answered, and a
-    `[worktree-ok]` there lowered the single-stream deny to an ask. The AND
-    is what keeps the second read from finding more than the first: taking a
-    body out can let the splitter finish a command it gave up on, and a
-    token only that read finds is one the command as written never offered.
+    carry it. A body is text a command only carries, so a `[shared-tree-ok]`
+    written in one passed a switch nobody answered, and a `[worktree-ok]`
+    there lowered the single-stream deny to an ask.
+
+    Every one of those rules is `hooks/tokens.py#given`'s, the one reader of
+    a consent token (#868): this guard, the commit gate and the old spelling
+    handed to the git hooks split a command one way. Where `hooks/cmdline.py`
+    cannot load, or the body read raises for any other reason, the frozen
+    reader's `drop_heredoc_bodies` finds the bodies instead, handed to
+    `given` as its fallback: falling back to the command as written would
+    bring #780 back whenever that module is broken, and reading no token at
+    all would leave the single-stream creation deny with no way past (`plan.md`
+    G and H of work item 1791163981). Where `hooks/tokens.py` itself did not
+    load, no token is read, and the cost is the prompt the token would have
+    spared.
     """
-
-    # A closing parenthesis rides on the last word of a segment, so a token
-    # written at the end of `(git worktree add ../wt f [worktree-ok])` arrived
-    # here with a `)` on it and matched nothing. The judgment read strips a
-    # subshell opener, so that command now classifies — and creation is the
-    # one verdict in this guard with no `ask` behind it, which turns an
-    # unreadable token into a loop with no way out rather than one more
-    # prompt. Widening a CONSENT read is the safe direction; the judgment
-    # read is where a stray parenthesis must not decide anything.
-    def carries(text):
-        segments, _clean = _tokenize(text)
-        return any(
-            tok == token or tok.strip("()") == token
-            for toks in segments
-            for tok in toks
-        )
-
-    return carries(command) and carries(_without_bodies(command))
-
-
-def _without_bodies(command: str) -> str:
-    """COMMAND with its here-document bodies taken out and its comments kept,
-    for `has_token`.
-
-    `tokens.without_bodies`, the body reader every consent read shares
-    (#773). It imports `hooks/cmdline.py` when it runs, so where that module
-    cannot load, or where the read raises for any other reason, the frozen
-    reader's `drop_heredoc_bodies` finds the bodies instead, the one
-    `_judgment_text` already uses. Falling back to the command as written
-    would bring #780 back whenever that module is broken, and reading no
-    token at all would leave the single-stream creation deny, which has no
-    `ask` behind it, with no way past (`plan.md` G and H of work item
-    1791163981)."""
-    if tokens is not None:
-        try:
-            return tokens.without_bodies(command)
-        except (Exception, SystemExit):
-            pass
-    return cmdline.drop_heredoc_bodies(command)
+    if tokens is None:
+        return False
+    return token in tokens.given(command, cmdline.drop_heredoc_bodies)
 
 
 # The characters that make ONE segment do something besides run its command
