@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 876 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `d4e2eb7e1374cb0e70a3ceb6dfa68cbfc444dc28..d4e2eb7e1374cb0e70a3ceb6dfa68cbfc444dc28`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,10 +25,10 @@ Verifying round 2 of round 1's fixes: the range ce72430e..ef383561 plus the tabl
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The docstring and the refusal message say a key beside `include:` changes which jobs the entries are, and GitHub processes `include:` after `exclude:`, so an `exclude:` beside it removes no entry | `tests/test_ci_gives_the_checks_what_they_need.py:149` | open | GitHub's workflow syntax reference, "All `include` combinations are processed after `exclude`" (read); the refusal itself is safe; inside `matrix_include_entries`, a unit round 1's fixes created |
-| ⬜ 2 | The docstring says two other readings of `test.yml` remain, and at least five other test modules read the file | `tests/test_ci_gives_the_checks_what_they_need.py:127` | open | `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py:446`, `tests/test_the_windows_leg_runs_in_shards_that_make_the_whole.py:68`, `tests/test_the_suite_has_a_command_that_is_cheap_twice.py:980`, `tests/test_ci_gives_the_checks_what_they_need.py:325` (read); inside `matrix_include_entries` |
-| ⬜ 3 | Ledger S4 says two other readings of `test.yml` stay, the same overreach as ⬜ 2 | `seal/ledger/1791384162-the-macos-test-leg-runs-in-shards.md:6` | open | the same readers as ⬜ 2; correction to the run's paperwork |
-| ⬜ 4 | No case pins the stop at `matrix:`'s own indentation: changing `<= floor` to `< floor` leaves every case green, and the fixture's `fail-fast: false` sits before `matrix:` where the loop never reads it | `tests/test_ci_gives_the_checks_what_they_need.py:181` | open | mutation M1 survived, 26 passed (executed); probe Q4 reads a `max-parallel:` after the matrix and is red under M1 (executed); the mutant refuses a valid shape rather than misreading one |
+| ⬜ 1 | The docstring and the refusal message say a key beside `include:` changes which jobs the entries are, and GitHub processes `include:` after `exclude:`, so an `exclude:` beside it removes no entry | `tests/test_ci_gives_the_checks_what_they_need.py:149` | answered | a note, left as it stands: refusing an `exclude:` beside `include:` is the safe direction, and only the stated reason (GitHub processes `include:` after `exclude:`) is wider than the docs; recorded here and in the pull request body; GitHub's workflow syntax reference, "All `include` combinations are processed after `exclude`" (read); the refusal itself is safe; inside `matrix_include_entries`, a unit round 1's fixes created |
+| ⬜ 2 | The docstring says two other readings of `test.yml` remain, and at least five other test modules read the file | `tests/test_ci_gives_the_checks_what_they_need.py:127` | answered | a note, left as it stands: the docstring names the two readings that take Python versions out of `test.yml` without the reader; other modules read other parts of the file; `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py:446`, `tests/test_the_windows_leg_runs_in_shards_that_make_the_whole.py:68`, `tests/test_the_suite_has_a_command_that_is_cheap_twice.py:980`, `tests/test_ci_gives_the_checks_what_they_need.py:325` (read); inside `matrix_include_entries` |
+| ⬜ 3 | Ledger S4 says two other readings of `test.yml` stay, the same overreach as ⬜ 2 | `seal/ledger/1791384162-the-macos-test-leg-runs-in-shards.md:6` | answered | a note, left as it stands: the same wording as ⬜ 2, in ledger S4's claim; no check reads the count; the same readers as ⬜ 2; correction to the run's paperwork |
+| ⬜ 4 | No case pins the stop at `matrix:`'s own indentation: changing `<= floor` to `< floor` leaves every case green, and the fixture's `fail-fast: false` sits before `matrix:` where the loop never reads it | `tests/test_ci_gives_the_checks_what_they_need.py:181` | answered | a note, left as it stands: the surviving mutant would refuse a valid shape and never misread one; the stop at `matrix:`'s own indentation is pinned only through the tree's `test.yml`; mutation M1 survived, 26 passed (executed); probe Q4 reads a `max-parallel:` after the matrix and is red under M1 (executed); the mutant refuses a valid shape rather than misreading one |
 | 🟢 | round 1's finding 1 is closed — a key beside `include:`, before or after it, is refused naming its line, and so is an `include:` outside `matrix:` | `tests/test_ci_gives_the_checks_what_they_need.py:183` | confirmed | probes Q1 to Q3 and Q5 to Q8, executed; M2 to M5 each red, executed; the tree's `test.yml` reads as eight entries |
 | 🟢 | round 1's note 2 stands as answered — both shapes are still refused, and the tree has neither | `tests/test_ci_gives_the_checks_what_they_need.py:104` | confirmed | unchanged by the fix; Q1 reads every entry of the tree, executed |
 | 🟢 | round 1's note 3 is closed — the reader is `matrix_include_entries`, and its docstring says why it has no `pytest_` prefix | `tests/test_ci_gives_the_checks_what_they_need.py:120` | confirmed | every importer uses the new name (read); the four modules that call it, 124 passed, executed |
