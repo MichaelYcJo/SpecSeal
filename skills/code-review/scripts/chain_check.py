@@ -843,6 +843,36 @@ REFRAME_EXIT = (
     f"records. A `Reframed <date> by <who>, after round <N>.` line at the "
     f"foot of `spec.md` is what lets the records after this one be written"
 )
+# A note (#837): the `#` cell's ⬜, the reviewer's mark for a finding that
+# reads badly while the behaviour and the fact stay right
+# (`skills/code-review/SKILL.md` §*Findings format*). A note commissions
+# nothing while the run runs and closes once at its end, through
+# `round_record.py notes`; `NOTES_OWNER` names where the rule is stated.
+NOTE = "\N{WHITE LARGE SQUARE}"
+# Where a note closed on a fix word becomes an error, as the unix second in a
+# work item's directory name. NOT the id of the work item that added the rule,
+# which is what the other cutoffs use: the release batch #837 shipped in was
+# framed in one sitting, 1791384152 through 1791384162, and each item of it
+# runs its rounds under the installed 0.20.0 `close`, which demands a
+# fix-table row for a ⬜ and admits `fixed` -- #858's round 1 closed three
+# that way and #864's two. One past the batch (round 1's 🟡 2 of #837).
+#
+# WHAT IT ASSUMES: that no item of that release is framed after the batch.
+# The owner fixed the release's scope at the batch on 2026-10-08, and the
+# rule holds while that does. An item framed later for the same release
+# would pass this id and still run under the previous `close`, so whoever
+# frames one moves this cutoff past its id in the same change (round 2's
+# 🟡 1 of #837). The reasoning is otherwise `STRICT_FROM`'s. Measured
+# 2026-10-07: 35 ⬜ rows of 14 committed records closed `fixed` before it,
+# and they print.
+NOTES_FROM = 1791384163
+NOTES_OWNER = (
+    "`skills/code-review/orchestration.md` §*A note closes once, at the "
+    "run's end* owns the rule"
+)
+# What a note's id is once the marker in front of it is off: digits alone,
+# the language `round_record.py`'s `FINDING_ID_RE` keys a row by.
+NOTE_ID_RE = re.compile(r"\d+")
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -1072,15 +1102,55 @@ def read_record(root, rel):
     the two -- the wrong direction for the only enforcement left.
 
     `--worktree` reads the file on disk instead, for a check run on a record
-    BEFORE its commit; CI never passes it (see `WORKTREE`).
+    BEFORE its commit; CI never passes it (see `WORKTREE`). It decodes the
+    bytes as the HEAD read does, replacing what is not UTF-8, so the two
+    modes read one file the same way and neither raises (#867 round 1,
+    🟡 5: a strict read raised `UnicodeDecodeError` out of the whole check).
+    `seal/config.md` is not read here: `config_at_head` reads it strictly,
+    because a config is a set of rows whose loss is a refusal, not a record.
     """
     if WORKTREE:
         try:
-            with open(os.path.join(root, *rel.split("/")), encoding="utf-8") as f:
+            with open(
+                os.path.join(root, *rel.split("/")), encoding="utf-8", errors="replace"
+            ) as f:
                 return f.read()
         except OSError:
             return None
     return git(root, "show", f"HEAD:{rel}")
+
+
+def config_at_head(root, rel, config):
+    """`(text, refusal)` for `seal/config.md` as this check reads a record —
+    HEAD's blob, or the file on disk under `--worktree` — told apart into
+    the states `hooks/config.py#config_text` tells apart (#867 round 1,
+    🟡 5): nothing there is `(None, None)`; a blob or file that will not read
+    as UTF-8 text, or a tree at that path, is `(None, CONFIG's sentence)`.
+    CONFIG is the loaded `hooks/config.py`. Before this the pact notices read
+    the config by `read_record`'s lenient decode at HEAD and raised under
+    `--worktree`."""
+    if WORKTREE:
+        return config.config_text(os.path.dirname(os.path.join(root, *rel.split("/"))))
+    spec = f"HEAD:{rel}"
+    kind = git(root, "cat-file", "-t", spec)
+    if kind is None:
+        return None, None
+    where = f"{rel} at HEAD"
+    if kind.strip() != "blob":
+        return None, config.unreadable_config(
+            where, OSError(0, f"a {kind.strip()} in git, not a file")
+        )
+    out = subprocess.run(
+        ["git", "-C", root, "cat-file", "blob", spec], capture_output=True
+    )
+    if out.returncode != 0:
+        return None, config.unreadable_config(
+            where, OSError(0, out.stderr.decode("utf-8", "replace").strip())
+        )
+    try:
+        return out.stdout.decode("utf-8"), None
+    except UnicodeDecodeError as undecodable:
+        return None, config.unreadable_config(where, undecodable)
 
 
 def round_records(routing, root, item):
@@ -1235,19 +1305,24 @@ def field(rows, label):
     return None
 
 
-def heading_level(line):
-    """How many `#` open the line, or None where none does.
+_heading_reader = None
 
-    The reader's own test for a heading is `startswith("#")` (`headings` in
-    `unverified_check.py`), and this keeps it: a `#120` at column 0 is a
-    heading here exactly as it is there, because only a fence tells a
-    Markdown heading from a Python comment and `readable` has already
-    blanked the fences. What this adds is the DEPTH, which is the one thing a
-    section's end turns on.
-    """
-    if not line.startswith("#"):
-        return None
-    return len(line) - len(line.lstrip("#"))
+
+def heading_level(line):
+    """The level of the ATX heading LINE is, or None: the one spelling of a
+    markdown heading, `unverified_check.py#heading_level` (#867), loaded at
+    the first line asked. The lines it is asked of are `readable`'s, so a
+    fence has already been blanked.
+
+    It used to be `startswith("#")` with a depth, so a wrapped line
+    beginning `#120)` at column 0 was a level-1 heading and ended a
+    `## Verdicts` section above the rows under it — the permissive direction
+    on the one kind of record this checker exists for, since `open_blocking`
+    then saw no open 🔴 below that line."""
+    global _heading_reader
+    if _heading_reader is None:
+        _heading_reader = load(READER, "specseal_unverified_reader_for_headings")
+    return _heading_reader.heading_level(line)
 
 
 def section_end(lines, start):
@@ -1821,6 +1896,36 @@ def closed_with_a_fix(reader, lines, rel):
     if col < 0:
         return False
     return any(verdict_of(seen, col) in FIX_WORDS for _line, seen in rows)
+
+
+def note_rows(rows, col):
+    """[(line, id, open)] for the numbered rows whose `#` cell carries ⬜ (#837).
+
+    `rows` is `(line, cells already run through `reader.visible`)` — the
+    shape `verdict_table` returns, and the shape `round_record.py` builds
+    from its own table walk — and `col` is the Verdict column. `open` is the
+    verdict's reading through `verdict_of`, so a note is open exactly when any
+    other row would be.
+
+    **The marker in the `#` cell is the whole test**, the one the reviewer
+    writes: `MARKER` takes the run of non-word characters off the front, the
+    ⬜ has to be among them, and what is left has to be digits. A bare ⬜ with
+    no id commissions nothing by `docs/round-record-spec.md` §*A verdict row
+    that commissions nothing* and is not a note anybody owes an answer. The
+    `Location` cell is not read: a note located in code is a note, and a 🟡
+    located in a record is the reviewer's 🟡 (`spec.md` of #837, Scope 2).
+    """
+    out = []
+    for line, seen in rows:
+        cell = seen[0].strip() if seen else ""
+        found = MARKER.match(cell)
+        if found is None or NOTE not in found.group(0):
+            continue
+        rest = cell[found.end() :].strip()
+        if not NOTE_ID_RE.fullmatch(rest):
+            continue
+        out.append((line, int(rest), verdict_of(seen, col) not in CLOSED_WORDS))
+    return out
 
 
 def fix_range(reader, root, rel):
@@ -4312,6 +4417,8 @@ def pact_notices(routing, root, declarations):
     home = routing.optin.HOME
     config_rel = f"{home}/config.md"
     pact_rel = f"{home}/{PACT_FILE}"
+    # Whether there is anything at the path; its rows are read strictly below,
+    # by `config_at_head`, once the reader is loaded.
     config_text = read_record(root, config_rel)
     pact_text = read_record(root, pact_rel)
     specs = []
@@ -4341,6 +4448,17 @@ def pact_notices(routing, root, declarations):
             cited.append((rel, match.group("name").lower()))
 
     notices = []
+    config_text, unreadable = config_at_head(root, config_rel, config)
+    if unreadable:
+        notices.append(
+            (
+                config_rel,
+                0,
+                f"the pact relationship was not read: {unreadable}. Nothing "
+                "about a pact moves this check's exit status, so this is a "
+                "notice",
+            )
+        )
     pacts, notify, refusals = config.pact_declaration(config_text or "")
     for written, _normalised, name in pacts:
         count = sum(1 for _rel, n in cited if n == name)
@@ -4538,6 +4656,107 @@ def commits_after(root, target, tip="HEAD"):
         commits.append((full, short, [p for p in rest.split("\0") if p]))
     commits.reverse()
     return commits
+
+
+def notes_of(reader, root, rel):
+    """`note_rows` for one record git carries, each with its verdict word.
+
+    [(line, id, open, word)], empty for a record this cannot read: the
+    unreadable table is already an error from `open_blocking`, and a second
+    cause named here would not be the cause.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return []
+    rows, col, _header, _errors = verdict_table(reader, reader.readable(text), rel)
+    if col < 0:
+        return []
+    words = {line: verdict_of(seen, col) for line, seen in rows}
+    return [
+        (line, n, is_open, words[line]) for line, n, is_open in note_rows(rows, col)
+    ]
+
+
+def carried_notes(reader, root, records, strict=True):
+    """(errors, notices) for the work item's notes, ONCE per item (#837).
+
+    Two arms, and they read different scopes for a reason.
+
+      a note closed on a fix word, on   an error for a work item begun at or
+      EVERY record                       after `NOTES_FROM`, a notice before.
+                                         A note commissions no reader, and
+                                         `fixed` commissions one; wherever it
+                                         stands it says the wrong thing
+      a note still open, on every        an error at a ready pull request and
+      record of the CURRENT run          a notice on a draft. The run carries
+                                         its notes open until it ends, so a
+                                         draft over an open note is the
+                                         ordinary state of a review running
+
+    The current run is `runs_of`'s last, so a stopped run is not read once
+    the redesign's records exist; `round_record.py notes` closes its notes at
+    the `second`, before the framer is spawned, and `round_record.py new`
+    refuses the redesign's first record while one is open. Neither
+    arm has a cutoff on the second reading: 0 of the 73 numbered ⬜ rows the
+    corpus held on 2026-10-07 were open.
+    """
+    errors, notices = [], []
+    for rel in records:
+        for line, n, _open, word in notes_of(reader, root, rel):
+            if word not in FIX_WORDS:
+                continue
+            began = item_began(rel)
+            message = (
+                f"{NOTE} {n} closes on `{word}`. A note commissions nothing — "
+                "no fix pass and no reader — so it never closes on a fix word: "
+                "it is carried open and closed once at the run's end by "
+                "`round-record notes`, `answered` with `corrected at <sha>` as "
+                "its grounds, `answered` with the grounds it stands on, or "
+                f"`{DEFERRED} <home>`. {NOTES_OWNER}"
+            )
+            if began is not None and began >= NOTES_FROM:
+                errors.append((rel, line, message))
+            else:
+                notices.append(
+                    (
+                        rel,
+                        line,
+                        f"{message}. Work items begun before {NOTES_FROM} are "
+                        "excused this and print instead",
+                    )
+                )
+    runs = runs_of(reader, root, records)
+    for rel in runs[-1] if runs else []:
+        for line, n, is_open, _word in notes_of(reader, root, rel):
+            if not is_open:
+                continue
+            said = (
+                f"{NOTE} {n} is still open. A note is carried open until the "
+                "run ends and closed there, once, by `round-record notes "
+                "--item <dir> --fixes <table> --at <sha>`, which refuses "
+                f"before the last record reads `{CHECKED_BY} | {NO_FIXES}`. "
+                f"{NOTES_OWNER}"
+            )
+            if strict:
+                errors.append(
+                    (
+                        rel,
+                        line,
+                        f"{said}. A ready pull request over an open note is a "
+                        "run whose notes nobody closed",
+                    )
+                )
+            else:
+                notices.append(
+                    (
+                        rel,
+                        line,
+                        f"{said}. It prints because a draft is not a request "
+                        "to merge; pressing *Ready for review* re-runs this "
+                        "check and fails the pull request if it is still open",
+                    )
+                )
+    return errors, notices
 
 
 def fragment_left_behind(reader, routing, root, item, records):
@@ -5454,6 +5673,12 @@ def main(argv=None):
         )
         errors.extend(left_errors)
         notices.extend(left_notices)
+        # ONCE per work item too (#837): a note is closed on the run's last
+        # record or carried open across all of them, so the question is the
+        # run's and not one record's.
+        note_errors, note_notices = carried_notes(reader, root, records, strict)
+        errors.extend(note_errors)
+        notices.extend(note_notices)
 
     for rel, line, message in notices:
         print(reader.annotate("notice", rel, line, message))

@@ -435,7 +435,9 @@ def clause_hash(checker, text, locator):
     if not parts or checker.heading_level(parts[0].strip()) is None:
         return None, "names no heading path, and a pact clause is addressed by one"
     lines = checker.gfm_lines(text)
-    regions = checker.heading_path(lines, parts)
+    # The clause's region as the checker reads a document's (#867): headings
+    # on the lines a renderer shows, the hash over the lines as written.
+    regions = checker.heading_path(checker.markdown_lines(text), parts)
     if len(regions) != 1:
         return None, (
             "resolves to no clause in the pact"

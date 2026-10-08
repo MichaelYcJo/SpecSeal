@@ -217,10 +217,15 @@ def main():
             f"evidence-check: this commit leaves {n} anchor{'s'[: n != 1]} broken"
         )
         lines += [f"  BROKEN  {coord}  {detail}" for coord, detail in broken]
-        frozen, _ = checker().frozen_from(root)
+        # A refusal -- a `config.md` that will not read, a `Ledger frozen
+        # from` row written twice or not a number -- is not quoted here: this
+        # hook says nothing about the config (#867). It only keeps the freeze
+        # on, so the repair named is never the in-place re-stamp that
+        # `--reverify` would refuse.
+        frozen, refused = checker().frozen_from(root)
         lines.append(
             FROZEN_REPAIR
-            if frozen is not None
+            if frozen is not None or refused
             else "`bin/evidence-check --reverify .` re-anchors what it can prove."
         )
     if old:

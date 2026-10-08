@@ -2713,6 +2713,52 @@ def test_the_absent_row_refusal_still_reaches_a_file_with_no_such_line(tmp_path)
     assert FENCED not in said, said
 
 
+def test_a_broad_gate_row_written_twice_is_refused_and_nothing_runs(tmp_path):
+    """S1 of #867, `broad-gate`'s half. A `Broad gate` row written twice has
+    no value: the gate exits 2 naming the row and the count, and no command
+    runs. Seen red against the first-wins reader, which ran the first
+    command."""
+    repo = tmp_path / "repo"
+    (repo / "seal").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / "seal" / "config.md").write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n"
+        f"| {ROW} | touch first-ran |\n| {ROW} | touch second-ran |\n",
+        encoding="utf-8",
+    )
+    module = gate_module()
+    with pytest.raises(module.Refused) as refused:
+        module.broad_command(str(repo / "seal"))
+    assert f"`{ROW}` appears 2 times — one value" in str(refused.value)
+    done = run_gate(repo, keep=tmp_path / "out")
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert f"`{ROW}` appears 2 times — one value" in done.stdout + done.stderr
+    assert not (repo / "first-ran").exists() and not (repo / "second-ran").exists()
+
+
+@pytest.mark.parametrize("shape", ["directory", "undecodable"])
+def test_an_unreadable_config_is_refused_not_reported_as_a_missing_row(tmp_path, shape):
+    """S3 of #867, `broad-gate`'s half. A `config.md` that is there and will
+    not read was no row, so the gate told a person to add a `Broad gate` row
+    the file already held. It is refused at exit 2 naming the path. Seen red
+    against the lenient reader: the absent-row refusal."""
+    home = tmp_path / "seal"
+    home.mkdir()
+    path = home / "config.md"
+    if shape == "directory":
+        path.mkdir()
+    else:
+        path.write_bytes(
+            b"| Item | Value |\n|---|---|\n| Broad gate | bin/test -q \xff |\n"
+        )
+    module = gate_module()
+    with pytest.raises(module.Refused) as refused:
+        module.broad_command(str(home))
+    said = str(refused.value)
+    assert f"{path} is there and cannot be read" in said, said
+    assert f"has no `{ROW}` row" not in said, said
+
+
 COMMENTED = "written inside an HTML comment"
 
 

@@ -1,35 +1,54 @@
 #!/usr/bin/env python3
-"""Say whether the plugin directory carries the version that just shipped.
+"""Say what the two marketplace files hold for this plugin -- and that the
+directory was not read.
 
 Until 2026-09-16 everybody running this plugin had installed it themselves, so
 a release that never reached them was one the owner could see was missing. A
-directory listing removes that: the people it reaches are people the owner
-cannot name, and `docs/release-checklist.md` §6 had no box that looked (#417).
+listing in the directory -- the catalog people browse inside Claude -- removes
+that: the people it reaches are people the owner cannot name, and
+`docs/release-checklist.md` §6 had no box that looked (#417).
+
+**The directory itself is not read here, because no script can read it.**
+Measured 2026-10-07: three of its pages answered HTTP 403 with a challenge
+page, to a plain client and to one carrying a browser user agent, and the
+documentation's index names no API for it (#858). What a script can read is
+the two marketplace files below, the public `.claude-plugin/marketplace.json`
+files: the community one calls itself a read-only mirror synced nightly from
+the review pipeline, and the official one calls itself a curated catalog that
+takes outside plugins through the same submission. Neither is the directory,
+so an absent entry in them says nothing about whether the plugin is published
+there. This used to print *not listed* and send the reader to submit, about a
+catalog it never read, on the day the owner's Console page showed the plugin
+published. The run now ends by saying the directory was not read and naming
+the page a person opens instead.
+
+**Three facts from the documentation, read 2026-10-07 and 2026-10-08**, which
+are why that closing names two pages and sends nobody to resubmit:
+
+  - a plugin submitted at the developer portal picks up new versions from
+    its tracked branch or tag and nothing is resubmitted; a version that
+    passes goes live by the plugin's publish setting, which by default waits
+    for somebody to select Publish;
+  - a listing made through the earlier Console form takes no new version
+    until a person moves it to the portal;
+  - *Published* is the only installable status, and *Not live yet* is a
+    status of its own -- marked published, with nothing listed yet.
 
 **This reports. It never fails a release**, and that is the whole design
-decision. The directories sync on somebody else's schedule -- measured, one of
-the two went twenty-two days without a commit in #417 and twenty-eight by the
-time this was written -- so a gate keyed to their state would go red for
-something no branch caused, and a red nobody can act on is the interruption
-`CLAUDE.md`'s first goal is against. The only non-zero exit here is a
-malformed argument, which is the author's mistake rather than the
-directories'.
+decision. The marketplace files sync on somebody else's schedule -- measured,
+one of the two went twenty-two days without a commit in #417 and twenty-eight
+by the time this was first written -- so a gate keyed to their state would go
+red for something no branch caused, and a red nobody can act on is the
+interruption `CLAUDE.md`'s first goal is against. The only non-zero exit here
+is a malformed argument, which is the author's mistake rather than the
+files'.
 
-Three facts per directory, which are the three the checklist box asks for:
+Three facts per marketplace file, which are the three the checklist box asks
+for:
 
-  listed      is there an entry under this plugin's name
+  entry       is there an entry under this plugin's name, and over how many
   pinned      which commit that entry names, where it names one
   reachable   whether that commit is an ancestor of `main` in this clone
-
-**What it cannot answer is whether a submission was accepted**, and saying so
-is part of the job. That is not readable from anywhere public. Neither is how
-an update reaches a plugin that is already listed: the community mirror is
-read-only and syncs from a pipeline nobody outside can see, and neither
-README says whether a listed plugin's updates are picked up from its source
-repository or have to be resubmitted. `questions.md` Q1 carries that as a
-person's to find out, and the answer changes nothing here -- a stale pin gets
-the same instruction under either one, because resubmitting an entry an
-automatic sync would have caught up is unnecessary and never wrong.
 
 **Four entry shapes, not one.** Measured 2026-09-22 over both files: of
 official's 310 entries, 157 carry `source` as an object with `url` and `sha`,
@@ -72,17 +91,21 @@ import console
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-# The two directory repositories, and the one form that submits to either.
-# They live here rather than in a document because they are real
-# organisations: `CONTRIBUTING.md` §*House rules*, *No real identifiers*,
-# keeps them out of prose and fixtures, and the script that reads them is
-# where a reader can check what was actually read.
-DIRECTORIES = (
+# The two repositories holding the marketplace files, and the two pages a
+# person opens for the directory's own answer. They live here rather than in a
+# document because they are real organisations' addresses: `CONTRIBUTING.md`
+# §*House rules*, *No real identifiers*, keeps them out of prose and fixtures,
+# and the script that reads or names them is where a reader can check what was
+# actually read and what was not.
+MARKETPLACES = (
     ("official", "anthropics/claude-plugins-official"),
     ("community", "anthropics/claude-plugins-community"),
 )
 MANIFEST = ".claude-plugin/marketplace.json"
-PORTAL = "clau.de/plugin-directory-submission"
+# The developer portal, where a portal listing's status and live version are.
+SUBMISSIONS_PAGE = "https://claude.ai/directory/manage"
+# The earlier submission form's page, where a Console listing is.
+CONSOLE_PAGE = "https://platform.claude.com/plugins/submissions"
 
 TIMEOUT = 20
 
@@ -116,7 +139,7 @@ def plugin_name(root):
 
     A literal here would be a second place the name is written down, and the
     name is the thing that cannot change any more -- users have the plugin
-    installed under it. Reading it means a rename shows up as *not listed*
+    installed under it. Reading it means a rename shows up as *not an entry*
     rather than as a check quietly grading the wrong name.
     """
     with open(
@@ -126,11 +149,11 @@ def plugin_name(root):
 
 
 def entry_for(text, name):
-    """The directory entry named `name`, with the count of entries read.
+    """The marketplace file's entry named `name`, with the count of entries read.
 
     `(entry or None, how many, None)` -- or `(None, 0, why not)` where the
-    payload cannot be read as a directory at all, which is the same kind of
-    report as a failed fetch.
+    payload cannot be read as a marketplace file at all, which is the same
+    kind of report as a failed fetch.
     """
     try:
         payload = json.loads(text)
@@ -188,7 +211,13 @@ def is_ancestor(root, sha, ref):
 
 
 def line(label, repo, text, error, name, root, ref):
-    """One directory's answer, as the lines the checklist box is read with."""
+    """One marketplace file's answer, as the lines the checklist box is read
+    with.
+
+    An absent entry is one line and the whole answer: which file, over how
+    many entries. It names no act, because the file is not the directory and
+    nothing here read the directory (#858).
+    """
     head = f"{label} ({repo}):"
     if error:
         return [
@@ -200,19 +229,15 @@ def line(label, repo, text, error, name, root, ref):
     if unreadable:
         return [f"{head} could not be read — {unreadable}."]
     if entry is None:
-        return [
-            f"{head} {name!r} is not listed, in {count} entries.",
-            f"    Submit it through {PORTAL}. Nothing here can do that, and "
-            "nothing here fails for it.",
-        ]
+        return [f"{head} {name!r} is not an entry in this file ({count} entries)."]
     sha, url = pinned(entry)
     if sha is None:
         return [
-            f"{head} listed, pinning no commit (source: {url or 'none'}).",
+            f"{head} an entry, pinning no commit (source: {url or 'none'}).",
             "    Nothing to compare a release against.",
         ]
     reachable = is_ancestor(root, sha, ref)
-    out = [f"{head} listed, pinning {sha[:12]} of {url or 'its own repository'}."]
+    out = [f"{head} an entry, pinning {sha[:12]} of {url or 'its own repository'}."]
     if reachable is None:
         out.append(
             f"    Whether {sha[:12]} is an ancestor of {ref} is unknown here — "
@@ -222,39 +247,65 @@ def line(label, repo, text, error, name, root, ref):
     elif reachable:
         out.append(
             f"    Reachable from {ref}. Compare it against the commit this "
-            "release tagged; where it is behind, the directory has not caught "
-            f"up yet — resubmit through {PORTAL}."
+            "release tagged; where it is behind, this file has not caught up "
+            "yet, and nothing here moves it."
         )
     else:
         out.append(
-            f"    NOT reachable from {ref}. The directory pins a commit this "
+            f"    NOT reachable from {ref}. This file pins a commit this "
             "repository's history does not contain, which is what a rewritten "
             "or squashed release branch leaves behind."
         )
     return out
 
 
+def closing():
+    """What the run did not read, and the page a person opens instead.
+
+    The directory answers a challenge page to any script (measured 2026-10-07,
+    #858), so its state is not among what this run says. Which page answers
+    *is it published, and at which version* depends on the kind of listing,
+    and the run cannot see the kind either, so it names both.
+    """
+    return [
+        "The directory -- the catalog people browse inside Claude -- was not "
+        "read: no script can reach it, so nothing above says whether this "
+        "plugin is published there.",
+        "A person opens the page for the kind of listing it has:",
+        f"    a portal listing:  the portal's Submissions page, {SUBMISSIONS_PAGE}"
+        " -- its status, and the version that is live",
+        f"    a Console listing: the Console page, {CONSOLE_PAGE}",
+        "A portal listing picks up each new version from its tracked branch "
+        "without a resubmission and puts it live by its publish setting -- "
+        "which by default waits for somebody to select Publish; a Console "
+        "listing takes none until it is moved to the portal.",
+    ]
+
+
 def main(argv=None):
     console.to_utf8()
     parser = argparse.ArgumentParser(
-        description="Report what the plugin directory carries for this plugin."
+        description="Report what the two marketplace files hold for this plugin."
     )
     parser.add_argument("--root", default=ROOT, help="repository root (default: this)")
     parser.add_argument("--ref", default="main", help="the ref a pin is compared to")
     args = parser.parse_args(argv)
 
     root = os.path.abspath(args.root)
-    name = plugin_name(root)
+    try:
+        name = plugin_name(root)
+    except (OSError, ValueError, KeyError) as error:
+        parser.error(
+            f"--root {root} has no readable .claude-plugin/plugin.json: {error}"
+        )
     print(f"plugin {name!r}, against {args.ref}\n")
-    for label, repo in DIRECTORIES:
+    for label, repo in MARKETPLACES:
         text, error = fetch(manifest_url(repo))
         for out in line(label, repo, text, error, name, root, args.ref):
             print(out)
         print()
-    print(
-        "Whether a submission has been ACCEPTED is readable from nowhere "
-        "public, so no answer above is about that."
-    )
+    for out in closing():
+        print(out)
     return 0
 
 

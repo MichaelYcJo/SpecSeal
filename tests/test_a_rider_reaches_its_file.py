@@ -781,3 +781,23 @@ def test_a_held_file_is_named_with_the_branch_holding_it():
     for target in rows("Riders waiting on a file another branch holds"):
         assert "held by" in target[0], target[0]
         assert target[-1].strip() not in ("", "—"), f"no answerer: {target}"
+
+
+def test_the_stamp_is_built_from_the_checkers_own_pieces():
+    """S6 of #867, the rider half. A stamp is a coordinate minus its path,
+    so its locator and hash are `evidence_check.py#ANCHOR_LOCATOR` and
+    `#ANCHOR_HASH`, read at `load_checker`; this file kept a copy of the two.
+    A locator form the checker gains is a stamp this reads. Seen red
+    against 5623d728's `rider_check.py`, which has no `stamp_pattern`."""
+    import types
+
+    assert not hasattr(riders, "NEW_STAMP"), "a second spelling is back"
+    assert riders.new_stamp().pattern == riders.stamp_pattern(CHECKER).pattern
+    wider = types.SimpleNamespace(
+        ANCHOR_LOCATOR=CHECKER.ANCHOR_LOCATOR + r"|tests/[a-z_]+\.py::[a-z_]+",
+        ANCHOR_HASH=CHECKER.ANCHOR_HASH,
+    )
+    stamp = "Verified 2026-10-08 against tests/test_x.py::test_y@abcdef12"
+    assert riders.new_stamp().search(stamp) is None
+    found = riders.stamp_pattern(wider).search(stamp)
+    assert found and found.group("locator") == "tests/test_x.py::test_y"

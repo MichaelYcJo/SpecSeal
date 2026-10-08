@@ -95,6 +95,22 @@ def test_no_row_means_every_specs_directory_outside_the_root(tmp_path, monkeypat
     assert not config.under_reference_root("specs/x/spec.md", ())
 
 
+def test_a_row_written_twice_or_a_file_that_will_not_read_is_the_default(tmp_path):
+    """#867. A `Reference specs` row written twice has no value, by
+    `hooks/config.py#config_value`'s rule; the reader used to take the
+    first. A file that is there and will not read is the default too, as it
+    was, and the reader no longer opens the file itself to find out. Seen red
+    against the first-wins reader: `('docs/adr',)`."""
+    home = str(tmp_path / "seal")
+    write_config(
+        home, table(("Reference specs", "docs/adr"), ("Reference specs", "none"))
+    )
+    assert config.reference_roots(home) is None
+    os.remove(os.path.join(home, "config.md"))
+    os.mkdir(os.path.join(home, "config.md"))
+    assert config.reference_roots(home) is None
+
+
 def test_none_declares_no_reference_root(tmp_path):
     home = str(tmp_path / "seal")
     write_config(home, table(("Reference specs", "None")))

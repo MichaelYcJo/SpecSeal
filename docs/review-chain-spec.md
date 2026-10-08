@@ -241,11 +241,11 @@ whose `Location` is under `seal/specs/`, `seal/ledger/`, `seal/releases/` or
 `seal/ledger.md` is about the run's own paperwork rather than about the tool,
 and it owes no fix pass and no reader. What `chain_check` or `evidence_check`
 refuses is corrected in the closing commit; what neither reads is prose,
-corrected in passing or not at all. `Needs a fix` does not count it, so a
+a ⬜ like any other. `Needs a fix` does not count it, so a
 verifying round that finds only such things has opened nothing needing a fix.
-In the fix table such a row closes `answered` with `corrected at <sha>` as its
-grounds, never `fixed`: `fixed` is a fix word, and a fix word commissions the
-reader a correction does not owe.
+A ⬜ closes at the run's end through `notes`, a 🟡 in its fix table; each
+closes `answered` with `corrected at <sha>` as its grounds, never `fixed`,
+which would commission the reader a correction does not owe.
 
 **Two cells, not one.** The Verdict cell holds the word alone and the
 correcting commit goes in `Commit or grounds` beside it. This section
