@@ -93,7 +93,7 @@ check skipping rather than stopping, the blocks drawn without their disc,
 
 | Removed item | Where it must land |
 |---|---|
-| `SCALE_FLOOR`, `SCALE_CEILING`, `DEFAULT_SCALE`, `SCALE_LADDER`, `SCALE_REFUSED`, `SCALE_NOT_A_NUMBER`, `SCALE_TOO_LARGE`, `check_scale` | none: the disc has one size; the comment where they stood says so |
+| `SCALE_FLOOR`, `SCALE_CEILING`, `DEFAULT_SCALE`, `SCALE_LADDER`, `SCALE_REFUSED`, `SCALE_NOT_A_NUMBER`, `SCALE_TOO_LARGE`, `check_scale` | none: the disc has one size; the comment where they stood says so <!-- NAME NOT IN TREE --> |
 | `--scale` on `seal-stamp` and `broad-gate`, `drawn_from`'s and `signal`'s scale argument, the values file's `scale` field | none; a file that carries one draws, the key read as nothing |
 | `admitted`'s second pass over higher rungs | `admitted`'s one pass: with the disc, or the first alone without |
 | the five scale-only cases and the scale parameters | the byte-for-byte case, the retirement cases and the tolerance pair |
