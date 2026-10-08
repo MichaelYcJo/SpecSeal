@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 880 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `4f44e5c9f39b4b141fc5a9a09a9b4774eaf5497f..96f6d42b502839607c3197b47ebf20dde6429429`, 4 commits |
+| Contract changes | none |
+| New units | SCALE_FOR_OLDER_HOOKS (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1 (the stale interpreter-registry row that turns CI red on three legs), 🟡 2 (counts short by unplaced reports on the panel and the release note), 🟡 3 (the scale window, which leaves every seal of the 0.21.0 cycle undrawn in this repository, and a recovery that refuses) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,11 +25,11 @@ Round 1 of the build at 0876a668, against 5623d728, since the release branch's #
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | CI is red on three legs: the interpreter registry still classifies `seal_stamp.py` for a `zip(..., strict=True)` that #853 removed | `tests/test_a_script_says_which_interpreter_it_needs.py:481` | open | executed: three CI logs at the target SHA and a run in the clone give the same single assertion |
-| 🟡 2 | the panel's `suite` row and the release note's `passed` count fewer tests than pytest ran when a report had no file of its own | `skills/verify/scripts/broad_gate.py:2796` | open | read: `path_of` writes no line for an unplaced report, so it counts under no category; 5623d728 read pytest's line, which counted it; branch-caused |
-| 🟡 3 | in this repository every seal of the 0.21.0 cycle is left undrawn, and the `seal-stamp --from` the `SEALED` line names refuses as well | `skills/verify/scripts/broad_gate.py:3817` | open | executed: the installed `seal-stamp` exits 2 on a file with no `scale`, and the tree's draws it; read: the installed gate hands over to the tree's copy at `broad_gate.py:3897` |
-| ⬜ 4 | a `-x` session whose only failure is its last test reads as stopped, and no reader is told | `skills/verify/scripts/broad_gate.py#RAN_TO_ITS_END` | open | executed: every test ran, `stopped` holds a `failures` entry, `unended` is 1 |
-| ⬜ 5 | `category_of` counts reports that pytest's line leaves out | `skills/verify/scripts/pytest_record/specseal_pytest_record.py#category_of` | open | read: pytest 9.1.1 `terminal.py:1450–1453` filters the reports it counts; not reproduced with a real plugin |
+| 🔴 1 | CI is red on three legs: the interpreter registry still classifies `seal_stamp.py` for a `zip(..., strict=True)` that #853 removed | `tests/test_a_script_says_which_interpreter_it_needs.py:481` | **fixed** `43a38107` | fixed at 43a38107; executed: three CI logs at the target SHA and a run in the clone give the same single assertion |
+| 🟡 2 | the panel's `suite` row and the release note's `passed` count fewer tests than pytest ran when a report had no file of its own | `skills/verify/scripts/broad_gate.py:2796` | **fixed** `80881f35` | fixed at 80881f35; read: `path_of` writes no line for an unplaced report, so it counts under no category; 5623d728 read pytest's line, which counted it; branch-caused |
+| 🟡 3 | in this repository every seal of the 0.21.0 cycle is left undrawn, and the `seal-stamp --from` the `SEALED` line names refuses as well | `skills/verify/scripts/broad_gate.py:3817` | **fixed** `6ea5686e` | fixed at 6ea5686e; executed: the installed `seal-stamp` exits 2 on a file with no `scale`, and the tree's draws it; read: the installed gate hands over to the tree's copy at `broad_gate.py:3897` |
+| ⬜ 4 | a `-x` session whose only failure is its last test reads as stopped, and no reader is told | `skills/verify/scripts/broad_gate.py#RAN_TO_ITS_END` | **fixed** `96f6d42b` | fixed at 96f6d42b; executed: every test ran, `stopped` holds a `failures` entry, `unended` is 1 |
+| ⬜ 5 | `category_of` counts reports that pytest's line leaves out | `skills/verify/scripts/pytest_record/specseal_pytest_record.py#category_of` | **fixed** `96f6d42b` | fixed at 96f6d42b; read: pytest 9.1.1 `terminal.py:1450–1453` filters the reports it counts; not reproduced with a real plugin |
 | 🟡 6 | a run at `HEAD` that `pytest.exit(returncode=0)` stopped seals with `✓` counts | `skills/verify/scripts/broad_gate.py#panel` | deferred new issue | executed: exit 0, `unended` 1, counts `1 passed`; pre-existing, because pytest printed `1 passed in 0.13s` and 5623d728's text reader took it; the overview's *Not done* names it |
 | 🟢 | the recorder's counts equal pytest's printed line | `skills/verify/scripts/broad_gate.py#suite_counts` | confirmed | executed on pytest 9.1.1: plain, `-n 2`, default verbosity, a collection error both ways, subtests |
 | 🟢 | the stamp draws the same bytes as 5623d728 at 0.90 | `skills/verify/scripts/seal_stamp.py#admitted` | confirmed | executed: both shapes, the no-disc rung, `admitted` at six budgets |
