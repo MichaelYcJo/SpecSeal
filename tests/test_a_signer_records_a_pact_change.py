@@ -462,21 +462,28 @@ def test_a_change_left_is_recorded_by_the_remedy_it_names(repo):
 
 
 @pytest.mark.parametrize(
-    "config_bytes, said",
+    "config_bytes, said, exit_code",
     [
         (
             b"| Item | Value |\n|---|---|\n| Pact | orders api |\n",
             "the `Pact` rows will not read: `orders api` holds a space",
+            1,
         ),
+        # Since #867 a `config.md` that will not read is refused when the
+        # freeze row is read, before the pact record is reached: exit 2, the
+        # path named, and nothing re-stamped either way.
         (
             b"| Item | Value |\n|---|---|\n| Pact | git@example.com:org/orders-api.git |"
             b"\n| Note | caf\xe9 |\n",
-            "the `Pact` rows will not read: seal/config.md could not be read",
+            "is there and cannot be read as UTF-8 text",
+            2,
         ),
     ],
     ids=["a Pact row that will not parse", "a config that is not UTF-8"],
 )
-def test_a_pact_row_that_will_not_read_leaves_the_row(repo, config_bytes, said):
+def test_a_pact_row_that_will_not_read_leaves_the_row(
+    repo, config_bytes, said, exit_code
+):
     """The silent path: the `Pact` rows will not read, so nothing could say
     whether the drifted row cites a declared pact. It was exit 0 with the
     ledger re-stamped and no line at all; it is a refusal now."""
@@ -486,8 +493,10 @@ def test_a_pact_row_that_will_not_read_leaves_the_row(repo, config_bytes, said):
     ledger = cite(repo, rows)
     move_serialize(repo)
     code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
-    assert code == 1, out
-    assert said in out and "nothing was re-stamped" in out, out
+    assert code == exit_code, out
+    assert said in out, out
+    if exit_code == 1:
+        assert "nothing was re-stamped" in out, out
     assert ledger.read_text(encoding="utf-8") == "".join(rows), out
 
 
@@ -1538,7 +1547,11 @@ def test_a_vendored_copy_whose_config_will_not_read_leaves_the_row(
     """A `seal/config.md` the vendored copy cannot open, or one that is not
     UTF-8, cannot rule `always` out either, so a moved row citing no clause
     is left, as the plugin's own reader leaves it (round 3 of PR #756,
-    yellow 1). Read leniently, the byte below hides the notify row."""
+    yellow 1). Read leniently, the byte below hides the notify row.
+
+    Since #867 the copy refuses such a file earlier, where it reads the
+    freeze row through its twin of `hooks/config.py#config_text`: exit 2,
+    the path named, and the ledger left exactly as it was."""
     old = unit_hash(repo, "src/orders.py", "serialize")
     ledger_rows = [row("O2", "", f"src/orders.py#serialize@{old}")]
     ledger = cite(repo, ledger_rows)
@@ -1556,7 +1569,7 @@ def test_a_vendored_copy_whose_config_will_not_read_leaves_the_row(
             code, out = _vendored(repo, tmp_path)
         finally:
             os.chmod(config, 0o644)
-    assert code == 1 and "may be `always`" in out, out
+    assert code == 2 and "is there and cannot be read" in out, out
     assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
 
 

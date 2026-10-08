@@ -138,8 +138,21 @@ def undeclared(root, common=None):
     undeclared, which is the direction `seal mode` already takes: a claim
     nobody can act on is not an answer somebody gave.
 
-    A file that cannot be OPENED is the one case that goes the other way; see
-    `unreadable` below for why the gate and the writer part company there.
+    `refused` -- a file that is there and will not read, or a `Mode` row
+    written twice -- goes the other way: it is silence, not a question.
+    `hooks/config.py#declared_mode` tells it apart from `none` (#867), so
+    this gate no longer opens the file a second time to find out. A file
+    that exists and cannot be opened -- a directory of that name, a
+    permission this process does not have, bytes this locale cannot decode
+    -- is not a repository that failed to answer. It is one whose answer
+    could not be read, and this module's docstring says what to do then: say
+    nothing, the way `hooks/optin.py` does. Not exotic, and it compounds:
+    `hooks/optin.py#repo_root` already records a repository under a path a
+    cp949 console cannot decode, and a `Record language` row hand-edited in a
+    non-UTF-8 locale puts those bytes in the file. A row written twice is the
+    same state one step on: there is an answer and nobody can say which, and
+    asking the mode question again would send a session to `seal mode`,
+    which refuses to write into that file.
 
     `common` is `main`'s already-resolved common git directory, handed down so
     this invocation asks git for it once; see `marker_dir` below.
@@ -147,38 +160,8 @@ def undeclared(root, common=None):
     home = optin.home_at(root, common)
     if not home:
         return ""
-    if unreadable(repo_config.config_path(home)):
-        return ""
     kind, _value = repo_config.declared_mode(home)
-    return "" if kind == "mode" else home
-
-
-def unreadable(path):
-    """True when `path` is there and this process cannot read it as text.
-
-    `hooks/config.py#declared_mode` folds no file, no row, an empty value and
-    a file that will not open into one answer, and that is right for the
-    WRITER: `seal mode` goes on to write the row either way. For a GATE the
-    fourth is different in kind. A file that exists and cannot be opened -- a
-    directory of that name, a permission this process does not have, bytes
-    this locale cannot decode -- is not a repository that failed to answer. It
-    is one whose answer could not be read, and this module's docstring says
-    what to do then: say nothing, the way `hooks/optin.py` does.
-
-    Not exotic, and it compounds. `hooks/optin.py#repo_root` already records a
-    repository under a path a cp949 console cannot decode; a `Record language`
-    row hand-edited in a non-UTF-8 locale puts those bytes in this file. The
-    escape is `seal mode`, and the row it would write is in the file nothing
-    can parse.
-    """
-    if not os.path.lexists(path):
-        return False
-    try:
-        with open(path, encoding="utf-8") as handle:
-            handle.read()
-    except (OSError, ValueError):
-        return True
-    return False
+    return "" if kind in ("mode", "refused") else home
 
 
 def git_dir_of(root, which="--absolute-git-dir"):

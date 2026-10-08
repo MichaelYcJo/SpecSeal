@@ -580,3 +580,122 @@ def test_the_vendored_cell_rule_agrees_with_the_shared_one():
         "",
     ):
         assert ec.vendored_split_row(line) == uc.split_row(line), line
+
+
+# The config table's own shapes, for S4 of #867: every shape the vendored
+# twin can meet in a CI checkout's `seal/config.md`. **No fence and no
+# comment**, on purpose: the twin is blind to both, as inventory row E46 of
+# #834 states, and a vendored copy reads a file whose table is its own. A
+# shape added here that holds either would hold the twin to a rule it does
+# not carry.
+_HEAD = "# Repository config\n\n| Item | Value |\n|---|---|\n"
+CONFIG_SHAPES = {
+    "plain": _HEAD + "| Mode | shared |\n| Broad gate | bin/test -q |\n",
+    "a doubled row": _HEAD + "| Mode | shared |\n| Mode | local |\n",
+    "an empty value": _HEAD + "| Mode |  |\n| Broad gate | x |\n",
+    "an escaped pipe": _HEAD + "| Broad gate | a \\| b |\n| Mode | shared |\n",
+    "a stray separator": _HEAD + "| Mode | shared |\n|---|---|\n| Broad gate | x |\n",
+    "a second header": _HEAD
+    + "| Mode | shared |\n| Item | Value |\n|---|---|\n| Broad gate | x |\n",
+    "no header": "| Mode | shared |\n| Broad gate | x |\n",
+    "rows above the header": "| Mode | local |\n\n" + _HEAD + "| Mode | shared |\n",
+    "an empty item": _HEAD + "|| x |\n| Mode | shared |\n",
+    "a three-column row": _HEAD
+    + "| Mode | shared |\n| a | b | c |\n| Broad gate | x |\n",
+    "prose under the table": _HEAD
+    + "| Mode | shared |\n\nsome prose\n| Broad gate | x |\n",
+    "a line before the first row": _HEAD + "| not a row\n| Mode | shared |\n",
+    "crlf": (_HEAD + "| Mode | shared |\n| Broad gate | x |\n").replace("\n", "\r\n"),
+    "no table": "# nothing here\n",
+}
+
+
+def _checker(name):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(name, SCRIPT)
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    return ec
+
+
+@pytest.mark.parametrize("name", sorted(CONFIG_SHAPES))
+def test_the_vendored_config_rule_agrees_with_the_shared_one(name):
+    """S4 of #867. A copy `evidence-ci` vendors alone cannot load
+    `hooks/config.py`, so it carries twins of the table walk and the value
+    rule; this holds both equal to the plugin's reader over the config
+    table's own shapes, item by item. The twin's table walk had no case at
+    all (inventory row E46 said it had one, and none existed), and it read a
+    stray separator, a second header and an empty item differently: seen red
+    against 5623d728's `vendored_config_rows` on those three shapes."""
+    from conftest import load_hook_module
+
+    config = load_hook_module("config.py", "specseal_config_for_the_twin")
+    ec = _checker("ec_vendored_config")
+    assert os.path.realpath(
+        ec.config_rule()[1].__code__.co_filename
+    ) == os.path.realpath(config.config_rows.__code__.co_filename), (
+        "the plugin's copy must ask hooks/config.py, not its vendored twin"
+    )
+    text = CONFIG_SHAPES[name]
+    rows = config.config_rows(text)
+    assert ec.vendored_config_rows(text) == rows, name
+    for item in ("Mode", "Broad gate", "Ledger frozen from", "x", ""):
+        assert ec.vendored_config_value(rows, item) == config.value_of(rows, item), (
+            name,
+            item,
+        )
+
+
+@pytest.mark.parametrize("shape", ["absent", "readable", "directory", "undecodable"])
+def test_the_vendored_config_file_reader_agrees_with_the_shared_one(tmp_path, shape):
+    """S4's file half: the twin of `hooks/config.py#config_text` tells an
+    absent file from one that is there and will not read, in the reader's
+    own sentence, so a vendored `--reverify` refuses exactly where the
+    plugin's does."""
+    from conftest import load_hook_module
+
+    config = load_hook_module("config.py", "specseal_config_for_the_file_twin")
+    ec = _checker("ec_vendored_config_file")
+    path = tmp_path / "config.md"
+    if shape == "readable":
+        path.write_text(CONFIG_SHAPES["plain"], encoding="utf-8")
+    elif shape == "directory":
+        path.mkdir()
+    elif shape == "undecodable":
+        path.write_bytes(b"| Item | Value |\n|---|---|\n| Mode | \xff |\n")
+    assert ec.vendored_config_text(str(tmp_path)) == config.config_text(str(tmp_path))
+
+
+def test_the_vendored_heading_rule_agrees_with_the_shared_one():
+    """#867. The checker reads a markdown heading by
+    `unverified_check.py#heading_level` where it is the plugin's copy, and
+    by its twin where `evidence-ci` vendored it alone; this holds the twin to
+    the rule over the heading's shapes, each with and without a line end."""
+    from test_unverified_rows_close import uc
+
+    ec = _checker("ec_vendored_headings")
+    assert ec.heading_rule().__module__ == "specseal_unverified_reader", (
+        "the plugin's copy must ask the shared reader, not its vendored twin"
+    )
+    for line in (
+        "## B",
+        "   ## B",
+        "    ## B",
+        "\t## B",
+        "#",
+        "######",
+        "####### seven",
+        "#\tx",
+        "#hello",
+        "#120) wrapped",
+        "## closed ##",
+        " # one space",
+        "",
+        "plain",
+        "> # quoted",
+    ):
+        for end in ("", "\n", "\r\n"):
+            assert ec.vendored_heading_level(line + end) == uc.heading_level(
+                line + end
+            ), repr(line + end)

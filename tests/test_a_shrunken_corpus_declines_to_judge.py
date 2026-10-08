@@ -178,6 +178,9 @@ APPLIES_THE_SHARED_GUARD = {
     # `decline_if_shrunken`, the way `shipped_python` above does.
     "tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py#tracked_python": 1,
     "tests/test_every_file_the_plugin_reads_or_writes_names_its_encoding.py#entry_points": 1,
+    # #867's heading rule held to markdown-it over every tracked `.md`. Both
+    # its callers judge what they find, so it skips the missing half.
+    "tests/test_one_heading_rule_holds_to_commonmark.py#tracked_markdown": 1,
 }
 
 # 2. It guards its own list by another predicate, which predates this work.

@@ -625,6 +625,47 @@ def test_only_a_real_heading_opens_a_section(repo):
     assert ec.resolve("d.md", '"## B"', text) == [(5, 7)]
 
 
+def test_a_heading_quoted_in_a_closed_fence_opens_no_section(repo):
+    """S8 of #867, the probe of #834 part 4 row E15 made a case. A `.md`
+    holding one real `## B` and one quoted inside a closed fence resolved
+    `"## B"` to two places — ambiguous, so BROKEN — and a fenced `##` ended
+    the section above it early. Read on the lines a renderer shows, the
+    fenced one is no heading: one place, and `## A` runs past the fence.
+    Seen red against `^#{1,6}\\s` on raw lines: two places for `## B`."""
+    text = "## A\n\nintro\n\n```markdown\n## B\n```\n\nmore\n\n## B\n\nreal\n"
+    assert ec.resolve("d.md", '"## B"', text) == [(11, 13)]
+    assert ec.resolve("d.md", '"## A"', text) == [(1, 10)]
+    units = {name: place for name, place, _unsure in ec.file_units("d.md", text)}
+    assert units['"## B"'] == (11, 13), units
+
+
+def test_a_heading_indented_three_spaces_is_a_heading_and_an_issue_number_is_not(
+    repo,
+):
+    """S8's two other shapes. CommonMark 4.2 lets a heading stand three
+    spaces in, and wants a space after the run, so `#84's line` at column 0
+    is prose and ends no section. Seen red against `^#{1,6}\\s`, which read
+    the indented heading as no heading; it already read `#84's` as prose."""
+    text = "## A\n\n#84's line\n\nbody\n\n   ## B\n\nlast\n"
+    assert ec.heading_level("   ## B") == 2
+    assert ec.heading_level("#84's line") is None
+    assert ec.resolve("d.md", '"## A"', text) == [(1, 6)]
+    assert ec.resolve("d.md", '"## B"', text) == [(7, 9)]
+
+
+def test_text_regions_reads_a_heading_on_the_lines_it_is_shown():
+    """#867, `text_regions`' own contract: the text is matched on LINES as
+    written and a heading is read on SHOWN, so a heading's section ends at
+    a shown heading and not at one a fence quotes."""
+    text = "## A\n\nbody\n\n```\n## A2\n```\n\n## Z\n"
+    lines = ec.gfm_lines(text)
+    shown = ec.markdown_lines(text)
+    assert ec.text_regions(lines, "## A", True, shown) == [(1, 8)]
+    assert ec.text_regions(lines, "## A", True) == [(1, 5)]
+    # The quoted line itself is no heading: its region is its paragraph.
+    assert ec.text_regions(lines, "## A2", True, shown) == [(5, 7)]
+
+
 def test_the_generic_rule_needs_a_declaration_not_a_mention(repo):
     """`handler(x)` called somewhere is not `handler`'s declaration.
 

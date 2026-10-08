@@ -151,17 +151,36 @@ OLD_STAMP = re.compile(
     r"Verified (?P<date>\d{4}-\d{2}-\d{2}) at (?P<sha>[0-9a-f]{7,40})\b"
 )
 
-# `Verified <date> against <anchor>@<hash>`. The locator alternatives and the
-# hash width are `evidence_check.ANCHOR_RE`'s, minus the path.
-NEW_STAMP = re.compile(
-    r"Verified (?P<date>\d{4}-\d{2}-\d{2}) against "
-    r"(?P<locator>\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"
-    r"@(?P<hash>[0-9a-f]{6,12})"
-)
+# `Verified <date> against <anchor>@<hash>`: a coordinate minus its path, so
+# its locator and its hash are the checker's own pieces,
+# `evidence_check.py#ANCHOR_LOCATOR` and `#ANCHOR_HASH`, built into the
+# pattern by `load_checker` (#867). A copy of the two alternatives stood here,
+# and a locator form the checker gained would have been a stamp this file
+# could not read.
+_new_stamp = None
+
+
+def stamp_pattern(checker):
+    """The `Verified <date> against <locator>@<hash>` pattern, its locator
+    and hash CHECKER's own pieces."""
+    return re.compile(
+        r"Verified (?P<date>\d{4}-\d{2}-\d{2}) against "
+        r"(?P<locator>" + checker.ANCHOR_LOCATOR + r")"
+        r"@(?P<hash>" + checker.ANCHOR_HASH + r")"
+    )
+
+
+def new_stamp():
+    """The stamp pattern `load_checker` built, loading the checker first
+    where nothing has yet."""
+    if _new_stamp is None:
+        load_checker()
+    return _new_stamp
 
 
 def load_checker(path=CHECKER):
-    """`evidence_check` as a module, or a sentence and exit 2.
+    """`evidence_check` as a module, or a sentence and exit 2. Loading it
+    builds the stamp pattern from its pieces (`stamp_pattern`).
 
     A missing file is a sentence naming the path rather than the
     `FileNotFoundError` `spec_from_file_location` hands back for any name
@@ -170,6 +189,7 @@ def load_checker(path=CHECKER):
     defect here to keep the two matching would have been the wrong half to be
     consistent with.
     """
+    global _new_stamp
     if not os.path.isfile(path):
         sys.stderr.write(
             f"rider_check: cannot find the anchor resolver at {path}. It is the "
@@ -180,6 +200,7 @@ def load_checker(path=CHECKER):
     spec = importlib.util.spec_from_file_location("evidence_check", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    _new_stamp = stamp_pattern(module)
     return module
 
 
@@ -378,7 +399,7 @@ class Rider:
         self.line = line
         self.body = "\n".join(text.splitlines()[start - 1 : end])
         self.old = OLD_STAMP.search(self.body)
-        self.new = NEW_STAMP.search(self.body)
+        self.new = new_stamp().search(self.body)
 
     def where(self):
         return f"{self.rel}:{self.line}"
@@ -606,8 +627,9 @@ def content_at(root, sha, rel):
 def restamp(body, date, locator, digest):
     """`body` with its stamp replaced by the new form, once."""
     new = f"Verified {date} against {locator}@{digest}"
-    if NEW_STAMP.search(body):
-        return NEW_STAMP.sub(lambda m: new, body, count=1)
+    stamp = new_stamp()
+    if stamp.search(body):
+        return stamp.sub(lambda m: new, body, count=1)
     return OLD_STAMP.sub(lambda m: new, body, count=1)
 
 
