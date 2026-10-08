@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 881 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `3700aa491e143f55e217e3e40d48f11f666a5e9a..3700aa491e143f55e217e3e40d48f11f666a5e9a`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | second — 🟡 1 at hooks/worktree-guard.py#_brace_command_at, a unit round-2's fixes added; 🟡 2 at hooks/worktree-guard.py#_brace_command_at, a unit round-2's fixes added; the fix passes stop here and the work item goes back to its framer |
 | Needs a fix | yes — 🟡 1 (a command-word brace behind a runner operand, a leading redirection or a glued `(` is silent), 🟡 2 (an exact brace whose alternative is empty or a runner is silent), 🟡 3 (a brace command word after an `&` cut is silent) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,12 +25,12 @@ Verifying round 3 of round 2's fixes: ce3b0652..c130e284 plus the close at ccd46
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A command-word brace behind a runner's option or operand, behind a leading redirection, or with a glued `(` is silent in an ACTIVE tree: `timeout 5 {git,} switch x`, `2>/dev/null {git,} switch x`, `({git,} switch x)` | `hooks/worktree-guard.py:2320` | open | executed: 8 spellings silent at the target; bash runs `git switch feature/x` for each one run; all stop with the paste-ready fix, 369 passed, corpus 0 |
-| 🟡 2 | An exact brace whose alternative is empty or a runner hands the command word on: `{,} git switch x`, `{env,} git switch x` are silent | `hooks/worktree-guard.py:2325` | open | executed: 4 spellings silent; bash runs `git switch feature/x`; zsh does not; deny with the fix, and `-C W` is judged in `W` |
-| 🟡 3 | A brace command word after an `&` cut is read by no brace reader: `2>&1 {git,} switch x` is silent | `hooks/worktree-guard.py:2392` | open | executed: silent at the target and with 🟡 1's fix alone; deny once `_merged_findings` asks `_brace_command_at` |
-| ⬜ 4 | The new lease case's `None` parameter inherits the runner's session id and always sends an empty payload id, so it cannot be red | `tests/test_lease_liveness.py:401` | open | executed: `[None]` passed at `e0c5a191`; the paste-ready case's `[None-None]` and `[-]` are red there and green at the target |
-| ⬜ 5 | An inexact brace in an assignment word before the command word asks, where bash expands none | `hooks/worktree-guard.py:2321` | open | executed: `A={{a,b},c} ls` and `A={a..c} ls` ask in a dirty tree; read: bash expands no brace in an assignment word; stopping direction, no recorded pair |
-| ⬜ 6 | The 34,633 figure carries no method and no self-check, where phase 1 recorded both | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/rounds/round-2-fixes.md:23` | open | a correction of the run's paperwork; executed: re-measured over 34,775 pairs, self-check 8 of 8, 0 stops |
+| 🟡 1 | A command-word brace behind a runner's option or operand, behind a leading redirection, or with a glued `(` is silent in an ACTIVE tree: `timeout 5 {git,} switch x`, `2>/dev/null {git,} switch x`, `({git,} switch x)` | `hooks/worktree-guard.py:2320` | deferred the frame | the frame — the second fix of a fix itself, in `_brace_command_at`; the framer redesigns how the guard meets a brace expansion; executed: 8 spellings silent at the target; bash runs `git switch feature/x` for each one run; all stop with the paste-ready fix, 369 passed, corpus 0 |
+| 🟡 2 | An exact brace whose alternative is empty or a runner hands the command word on: `{,} git switch x`, `{env,} git switch x` are silent | `hooks/worktree-guard.py:2325` | deferred the frame | the frame — the second fix of a fix, in `_brace_command_at`; the framer redesigns how the guard meets a brace expansion; executed: 4 spellings silent; bash runs `git switch feature/x`; zsh does not; deny with the fix, and `-C W` is judged in `W` |
+| 🟡 3 | A brace command word after an `&` cut is read by no brace reader: `2>&1 {git,} switch x` is silent | `hooks/worktree-guard.py:2392` | deferred the frame | the frame — the same class through the `&` split; it follows the frame's redesign; executed: silent at the target and with 🟡 1's fix alone; deny once `_merged_findings` asks `_brace_command_at` |
+| ⬜ 4 | The new lease case's `None` parameter inherits the runner's session id and always sends an empty payload id, so it cannot be red | `tests/test_lease_liveness.py:401` | deferred the frame | the frame — the lease case that cannot fail; the redesign's build strengthens it; executed: `[None]` passed at `e0c5a191`; the paste-ready case's `[None-None]` and `[-]` are red there and green at the target |
+| ⬜ 5 | An inexact brace in an assignment word before the command word asks, where bash expands none | `hooks/worktree-guard.py:2321` | deferred the frame | the frame — a brace in an assignment asks; the redesign decides what a brace anywhere means; executed: `A={{a,b},c} ls` and `A={a..c} ls` ask in a dirty tree; read: bash expands no brace in an assignment word; stopping direction, no recorded pair |
+| ⬜ 6 | The 34,633 figure carries no method and no self-check, where phase 1 recorded both | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/rounds/round-2-fixes.md:23` | deferred the frame | the frame — the over-stop figure's method; the redesign re-measures it; a correction of the run's paperwork; executed: re-measured over 34,775 pairs, self-check 8 of 8, 0 stops |
 | 🟢 | round 2's yellow 1 is closed for inexact braces in the command word | `tests/test_worktree_guard.py:1933` | confirmed | executed: 4 spellings red at `e0c5a191`, green at the target; the class continues in this round's 1 to 3 |
 | 🟢 | round 2's yellow 2 is closed for a brace word followed by its own `-C` | `tests/test_worktree_guard.py:1985` | confirmed | executed: 3 parameters red at `e0c5a191`, green at the target |
 | 🟢 | round 2's white 3 stays answered — one survivor row per place | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/survivors.md` | confirmed | read: 11 rows, each quoted; the hygiene `release` job passed at `ccd46c8b` |
