@@ -842,6 +842,9 @@ def test_the_guard_policy_names_the_brace_shape_and_its_costs():
         "Of the 32,431 distinct command and directory pairs recorded by "
         "2026-10-08, none holds a git word with an unquoted brace expansion",
         "`git worktree {add,} ../wt f`",
+        # Round 1 of work item 1791384157, yellow 3.
+        "A brace that makes the command word itself (`{git,} switch x`, which "
+        "bash runs as `git switch x`) is the same shape",
     ):
         assert sentence in text, sentence
 

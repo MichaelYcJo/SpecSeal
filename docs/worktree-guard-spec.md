@@ -72,8 +72,13 @@ is a parameter expansion and does not count), and its plain spelling is the
 words written out as the shell would make them. The quoting is read off the
 command's text, because the frozen splitter has taken the quotes off the
 words, so `git commit -m '{a,b}'` stays listed. A switch and a creation keep
-their own rules. Expanding the braces in the guard was the other answer, and
-it is not taken: it would be a shell prediction, the family that did not
+their own rules. A brace that makes the command word itself (`{git,} switch
+x`, which bash runs as `git switch x`) is the same shape, read from any word
+of a segment the frozen reading reads as no git where one of that word's
+alternatives spells `git` or a path ending in it; `cat
+{.gitignore,README.md}` spells none. Expanding the braces in the guard was
+the other answer, and it is not taken: it would be a shell prediction, the
+family that did not
 converge on one (#834), and the next spelling would reopen it. Two costs are
 named. A command holding a quoted brace in one git segment and an unquoted
 one anywhere else stops on both, because the quoting is the command's. And
@@ -145,7 +150,7 @@ by 2026-10-08, none holds a git word with an unquoted brace expansion, by any
 subcommand, so it stops no recorded command, and its over-stop is none either;
 33 pairs hold one outside every git word (work item 1791384157,
 `phases/phase-1.md`).
-Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git, tests/test_worktree_guard.py::test_the_stop_names_each_tree_that_matters_in_both_languages, tests/test_worktree_guard.py::test_a_cut_group_is_judged_in_the_tree_its_own_c_names, tests/test_worktree_guard.py::test_a_brace_expansion_in_a_git_word_is_unrecognised, tests/test_worktree_guard.py::test_a_quoted_brace_in_a_git_word_stays_listed, tests/test_worktree_guard.py::test_the_brace_stop_reads_in_korean
+Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git, tests/test_worktree_guard.py::test_the_stop_names_each_tree_that_matters_in_both_languages, tests/test_worktree_guard.py::test_a_cut_group_is_judged_in_the_tree_its_own_c_names, tests/test_worktree_guard.py::test_a_brace_expansion_in_a_git_word_is_unrecognised, tests/test_worktree_guard.py::test_a_quoted_brace_in_a_git_word_stays_listed, tests/test_worktree_guard.py::test_the_brace_stop_reads_in_korean, tests/test_worktree_guard.py::test_a_brace_that_makes_the_command_word_is_unrecognised, tests/test_worktree_guard.py::test_a_brace_in_no_git_word_stays_silent
 
 ### B. Worktree creation (`git worktree add`, or Agent/Task `isolation: "worktree"`)
 

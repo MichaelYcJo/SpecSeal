@@ -42,8 +42,11 @@
     stash {branch,} x` and `git worktree {add,} ../wt f` stop where the tree
     matters, like every unrecognised shape, with the words written out as
     the plain spelling. bash expands the braces before git reads them, and
-    the two rebases and the stash switch the branch. A quoted brace (`git
-    commit -m '{a,b}'`) changes nothing. No recorded pair holds a git word
+    the two rebases and the stash switch the branch. So does a brace that
+    makes the word `git` itself, `{git,} switch x`. A quoted brace (`git
+    commit -m '{a,b}'`) changes nothing, and neither does a brace in a word
+    that only contains the letters, `cat {.gitignore,README.md}`. No
+    recorded pair holds a git word
     with an unquoted brace expansion, so the stop costs no recorded command.
   - The git hook stubs' bytes change by one variable name, so the installer
     rewrites every opted-in clone's three stubs at the next session, as it

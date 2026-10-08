@@ -1917,6 +1917,39 @@ def test_a_brace_expansion_in_a_git_word_is_unrecognised(
 
 
 @pytest.mark.parametrize(
+    "command", ["{git,} rebase main feature/x", "{,git} switch feature/x"]
+)
+def test_a_brace_that_makes_the_command_word_is_unrecognised(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """#856's class, one instance further (round 1 of work item 1791384157,
+    yellow 3): bash makes `git` itself of the brace, so the frozen reading
+    reads no git and the guard said nothing in an ACTIVE tree. Red at
+    `1680ea76`."""
+    empty = tmp_path / "no-projects"
+    empty.mkdir()
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(empty))
+    in_state(monkeypatch, repo, "active")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and STOP in reason and BRACE_EN in reason, reason
+    in_state(monkeypatch, repo, "clean")
+    assert verdict(monkeypatch, capsys, repo, command) == ("silent", "")
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["echo {a,b}", "ls {x,y}.md && git status", "cat {.gitignore,README.md}"],
+)
+def test_a_brace_in_no_git_word_stays_silent(monkeypatch, capsys, repo, command):
+    """The other side of yellow 3: a brace in a segment whose words spell no
+    git stops nothing, and neither does one in a word that only holds the
+    letters `git` among others (`{.gitignore,README.md}`), which a text test
+    for `git` would stop in every dirty tree."""
+    in_state(monkeypatch, repo, "dirty")
+    assert verdict(monkeypatch, capsys, repo, command) == ("silent", "")
+
+
+@pytest.mark.parametrize(
     "command",
     [
         # A body is read with its own quoting.

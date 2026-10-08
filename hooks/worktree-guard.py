@@ -2268,12 +2268,37 @@ def _hidden_in(tokens):
 
 
 def _segment_finding(tokens, braced=False):
-    """(shape, finding) for one segment; (None, None) where there is none."""
+    """(shape, finding) for one segment; (None, None) where there is none.
+
+    A brace that makes the command word itself is the brace shape too:
+    `{git,} switch x` and `{,git} rebase a b` are git to bash and no git to
+    the frozen reading, so `_git_finding` is never asked of them (round 1 of
+    work item 1791384157, yellow 3). A word counts where one of its comma
+    alternatives, with the text around the braces, is a path whose last part
+    is `git`; `{.gitignore,README.md}` spells no git and stops nothing."""
     parsed = parse_git(tokens)
     if parsed:
         return _git_finding(tokens, parsed, braced)
+    if braced and any(_brace_spells_git(t) for t in tokens):
+        return "unrecognised", Finding("brace", _spoken(tokens))
     finding = _hidden_in(tokens)
     return ("unrecognised", finding) if finding else (None, None)
+
+
+# One comma brace in a word, with the text before and after it.
+_ONE_BRACE = re.compile(r"([^{}]*)\{([^{}\s]*,[^{}\s]*)\}([^{}]*)")
+
+
+def _brace_spells_git(word) -> bool:
+    """Whether bash makes the word `git`, or a path ending in `git`, out of
+    WORD's one comma brace: `{git,}`, `{,git}`, `/usr/bin/{git,x}`."""
+    match = _ONE_BRACE.fullmatch(word)
+    if not match:
+        return False
+    head, alternatives, tail = match.groups()
+    return any(
+        os.path.basename(head + alt + tail) == "git" for alt in alternatives.split(",")
+    )
 
 
 def shape_of(tokens, braced=False):
