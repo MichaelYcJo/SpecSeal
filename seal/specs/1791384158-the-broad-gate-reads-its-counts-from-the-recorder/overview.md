@@ -26,6 +26,13 @@ The seal's suite counts were read off text a test could print into, two stops pa
 | Q-M2's run | `questions.md` Q-M2: "this repository's own suite run once through `bin/test -q`" / four modules, and S5's tree on every run | narrowed | A full-suite run is the sealer's (contract §2), and the spawn prompt forbade it too; see *Not verified* |
 | Two released rows kept as re-reads | `spec.md` S15 lists "0.20.0 … corrections … where they say *at every scale* or name the ladder's rung" / 0.20.0's `Corrected · N5` and `Corrected · P1` say the `suite` row is "`✓` and pytest's counts" | `Re-read ·` | The counts are still pytest's own categories, now read off the record; neither row names a scale, a summary line or the text reader |
 
+`docs/release-checklist.md` §6 after the merge of `origin/release/v0.21.0`
+(452d891d): #858 rewrote the plugin directory's box and the paragraph above
+the commands, and this work rewrote the release note box's by-hand route; the
+two edits touch different boxes and state no conflicting fact, so both stand
+as merged. The ledger rows citing §6 — K14 and the re-reads of S9, P1c and W4
+— were read against the merged section and re-stamped.
+
 ## Not verified
 
 | Item | Who must answer |
