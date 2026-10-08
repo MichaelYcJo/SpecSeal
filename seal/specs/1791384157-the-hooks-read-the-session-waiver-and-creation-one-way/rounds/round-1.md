@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 881 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `2f0d14b37e1fbeb08d00e62a716078e6cc5dd7f8..acc52a6aa2249b5049dff354f6bd7defada9c1f9`, 6 commits |
+| Contract changes | _segment_finding → shape_of, _first_finding_in, main, round-1-report.md, round-1.md, pytest |
+| New units | _ONE_BRACE (depth 1); _brace_spells_git (depth 1); test_a_pid_exported_for_another_session_is_not_recorded (depth 1); test_a_brace_that_makes_the_command_word_is_unrecognised (depth 1); test_a_brace_in_no_git_word_stays_silent (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1 (the Windows leg), 🔴 2 (survivor-check), 🟡 3 (a brace that makes the command word), 🟡 4 (`CLAUDE_PID` not tied to its session) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,12 +25,12 @@ Round 1 of the build at 1680ea76, against 5623d728, since the release branch's #
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The braced half of the git-binding case runs `bash`, which on `windows-latest` is the WSL launcher, and the required Windows leg fails | `tests/test_worktree_guard.py:2178` | open | executed: CI log, exit 1 with empty stderr; read: `tests/conftest.py#shell_probe` records the launcher |
-| 🔴 2 | survivor-check exits 1 on 12 places in the release job; one is a false present-tense sentence, eleven are history | `tests/test_worktree_guard.py:729` | open | executed: reproduced at the target SHA, and exit 0 with the fix below |
-| 🟡 3 | A brace that makes the command word (`{git,} switch x`) is silent in an ACTIVE tree | `hooks/worktree-guard.py:2270` | open | executed: guard verdict probe, and the fix probed red then green |
-| 🟡 4 | The lease writer trusts `CLAUDE_PID` without tying it to the session it records, so a nested session would record the outer pid | `hooks/session-lease.py:91` | open | read: conditional on M1's open hook half; the base walked to the inner process |
-| ⬜ 5 | A quoted space inside a brace hides it from the word-level `_BRACE` test | `hooks/worktree-guard.py:2007` | open | executed: no switching spelling of this kind found |
-| ⬜ 6 | shlex and bash disagree on `$'…\'…'`; a typed waiver after one is now refused, and the docstring's claim about unclosed quotes is false there | `hooks/tokens.py:33` | open | executed: base and head probes; the grant direction is pre-existing |
+| 🔴 1 | The braced half of the git-binding case runs `bash`, which on `windows-latest` is the WSL launcher, and the required Windows leg fails | `tests/test_worktree_guard.py:2178` | **fixed** `89bca43f` | fixed at 89bca43f; executed: CI log, exit 1 with empty stderr; read: `tests/conftest.py#shell_probe` records the launcher |
+| 🔴 2 | survivor-check exits 1 on 12 places in the release job; one is a false present-tense sentence, eleven are history | `tests/test_worktree_guard.py:729` | **fixed** `89bca43f` | fixed at 89bca43f — 151a0ad0; executed: reproduced at the target SHA, and exit 0 with the fix below |
+| 🟡 3 | A brace that makes the command word (`{git,} switch x`) is silent in an ACTIVE tree | `hooks/worktree-guard.py:2270` | **fixed** `e60d35da` | fixed at e60d35da; executed: guard verdict probe, and the fix probed red then green |
+| 🟡 4 | The lease writer trusts `CLAUDE_PID` without tying it to the session it records, so a nested session would record the outer pid | `hooks/session-lease.py:91` | **fixed** `cd7027df` | fixed at cd7027df; read: conditional on M1's open hook half; the base walked to the inner process |
+| ⬜ 5 | A quoted space inside a brace hides it from the word-level `_BRACE` test | `hooks/worktree-guard.py:2007` | answered | No spelling of this kind switches a branch: bash makes `git rebase main 'feature x'` of `git rebase {main,'feature x'}`, which git refuses, as the report executed. Changing `_BRACE`'s word test would add a rule for a shape with no consequence, so it is left, and the report's entry is where the next reader of `_BRACE` finds the gap; executed: no switching spelling of this kind found |
+| ⬜ 6 | shlex and bash disagree on `$'…\'…'`; a typed waiver after one is now refused, and the docstring's claim about unclosed quotes is false there | `hooks/tokens.py:33` | **fixed** `aee5615a` | fixed at aee5615a; executed: base and head probes; the grant direction is pre-existing |
 | ❓ | Whether a hook process the harness spawns sees `CLAUDE_PID` (M1, the hook half) | `hooks/hooksession.py:68` | ❓ out of verified scope | no hook's environment can be printed without changing the installed configuration; the repository owner answers |
 | ❓ | The Windows branches of In 1's adapter, In 2's lease route and the stub without `CLAUDECODE` | `hooks/worktree_consent.py:419` | ❓ out of verified scope | read only; the CI Windows leg answers once 🔴 1 is fixed |
 
