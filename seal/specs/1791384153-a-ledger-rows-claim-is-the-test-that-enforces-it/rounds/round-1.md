@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 887 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `144aaf1a5aef0b7708542fc111ade47cfdc7c8d7..ecf51398379e1399cdd2867157e82b5e0c85f946`, 4 commits |
+| Contract changes | named_unit → phase-1.md, node_finding, target_problem, pytest; collected → spec.md, phase-1.md, round-1-report.md, round-1.md, collected, conftest_is_loaded, runner_reached, node_finding; held_by_tests → round-1-report.md, round-1.md, check_ledger, reverify |
+| New units | TEST_FILE_RE (depth 1); NEVER_FAILS (depth 1); NEVER_RUNS (depth 1); unconditional (depth 1); never_fails (depth 1); test_a_method_spelled_with_a_dot_is_named (depth 1); released_test_row (depth 1); test_a_released_test_row_re_pointed_by_a_correction_reads_clean (depth 1); test_reverify_leaves_a_superseded_test_row_unnamed (depth 1); test_a_corrections_own_gone_test_is_still_broken (depth 1); test_a_test_the_suite_does_not_collect_holds_nothing (depth 1); NEVER (depth 1); test_a_test_that_cannot_fail_holds_nothing (depth 1); test_a_conditional_mark_is_left_to_the_reader (depth 1); test_a_coordinate_quoting_a_scope_is_no_test (depth 1); test_a_pact_anchor_quoting_a_scope_is_no_test (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🔴 1 (a released test row cannot be re-pointed once its test is gone), 🟡 2 (`OK` for a test the suite never runs or that cannot fail), 🟡 3 (a no-node-id ledger fails on a coordinate quoting `::`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,11 +25,11 @@ Round 1 of the build at 9fda7dba, after the branch merged the release branch at 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A released test row whose test is renamed or removed stays BROKEN for good: `held_by_tests` reads superseded rows too, so the `Corrected ·` re-point the spec names does not clear it, and `--strict`, the broad gate, CI and the advisor stay red | `skills/evidence-check/scripts/evidence_check.py:1690` | open | executed, probe 2: `--strict` exit 2 with the `Corrected ·` row in place; both `--reverify` forms exit 0 and name nothing |
-| 🟡 2 | `collected` reads `OK` for a test pytest never collects (non-test file, conftest, class with `__init__`) or that can never fail (unconditional skip, xfail, module `pytestmark` skip) | `skills/evidence-check/scripts/evidence_check.py:2319` | open | executed, probe 1 part A: seven node ids `OK`, exit 0; pytest's own collection skipped three of them |
-| 🟡 3 | A hashed coordinate in a code span whose quoted locator holds `::` is read as a test: two `MALFORMED` findings on a ledger with no node id, `--strict` exit 2 | `skills/evidence-check/scripts/evidence_check.py:2251` | open | executed, probe 1 part B: base `OK`, head two `MALFORMED`; breaks S11 |
-| ⬜ 4 | `fold-check` accepts `path::A.b`, a dotted spelling of a method beside the documented `path::A::b` | `skills/settle/scripts/fold_check.py:308` | open | executed, probe 1 part C: `named_unit` answers `('def',)` for `A.b`; no target uses it today |
-| ⬜ 5 | Ledger lines 14 and 12 claim more than their named tests hold: the pact-anchor half of line 14 has no named test, and T12 names two of the cases it claims | `seal/ledger/1791384153-a-ledger-rows-claim-is-the-test-that-enforces-it.md:14` | open | read; a correction to the run's paperwork, outside `Needs a fix` |
+| 🔴 1 | A released test row whose test is renamed or removed stays BROKEN for good: `held_by_tests` reads superseded rows too, so the `Corrected ·` re-point the spec names does not clear it, and `--strict`, the broad gate, CI and the advisor stay red | `skills/evidence-check/scripts/evidence_check.py:1690` | **fixed** `c40b625e` | fixed at c40b625e; executed, probe 2: `--strict` exit 2 with the `Corrected ·` row in place; both `--reverify` forms exit 0 and name nothing |
+| 🟡 2 | `collected` reads `OK` for a test pytest never collects (non-test file, conftest, class with `__init__`) or that can never fail (unconditional skip, xfail, module `pytestmark` skip) | `skills/evidence-check/scripts/evidence_check.py:2319` | **fixed** `c40b625e` | fixed at c40b625e; executed, probe 1 part A: seven node ids `OK`, exit 0; pytest's own collection skipped three of them |
+| 🟡 3 | A hashed coordinate in a code span whose quoted locator holds `::` is read as a test: two `MALFORMED` findings on a ledger with no node id, `--strict` exit 2 | `skills/evidence-check/scripts/evidence_check.py:2251` | **fixed** `c40b625e` | fixed at c40b625e; executed, probe 1 part B: base `OK`, head two `MALFORMED`; breaks S11 |
+| ⬜ 4 | `fold-check` accepts `path::A.b`, a dotted spelling of a method beside the documented `path::A::b` | `skills/settle/scripts/fold_check.py:308` | **fixed** `c40b625e` | fixed at c40b625e; executed, probe 1 part C: `named_unit` answers `('def',)` for `A.b`; no target uses it today |
+| ⬜ 5 | Ledger lines 14 and 12 claim more than their named tests hold: the pact-anchor half of line 14 has no named test, and T12 names two of the cases it claims | `seal/ledger/1791384153-a-ledger-rows-claim-is-the-test-that-enforces-it.md:14` | answered | corrected at ecf51398; read; a correction to the run's paperwork, outside `Needs a fix` |
 | 🟢 | The `fold-check` resolver change answers every `Enforced by:` target in `docs/` as before | `skills/settle/scripts/fold_check.py:308` | confirmed | executed, probe 1 part C: 451 of 451 targets alike |
 | 🟢 | The `Corrected ·` test rows at ledger lines 15 to 18 each hold their claim as written | `seal/ledger/1791384153-a-ledger-rows-claim-is-the-test-that-enforces-it.md:15` | confirmed | read, each case body against its claim |
 | 🟢 | The integration re-stamps hold against the merged text | `seal/ledger/1791384156-config-rows-coordinates-and-headings-have-one-reader.md` | confirmed | read: S8, K21, W9, G9, two warden rows; G14 by its guard; four warden rows carried from the overview |
