@@ -3060,7 +3060,7 @@ def main():
     seen = {}
     placed = set()
     trees = []
-    # A brace segment that is not git is judged in more than one tree
+    # A brace segment, git or not, is judged in more than one tree
     # (`_finding_trees`); the finding is listed once, and each tree is looked
     # up once like any other.
     for _index, found, tokens, wheres in unrecognised:

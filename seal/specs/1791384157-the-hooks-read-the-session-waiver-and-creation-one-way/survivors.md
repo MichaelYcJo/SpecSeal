@@ -33,3 +33,5 @@ text changes.
 | `tests/test_guard_resolves_the_tree_it_judges.py` | The judgment read strips a subshell opener | still true; `has_token`'s half is told in the past tense |
 | `hooks/worktree-guard.py` | The commit gate learned this about | history told as history |
 | `tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py` | `has_marker` as it stood at `94d7b2e0` | `base_marker` states the base on purpose |
+| `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/spec.md` | A segment it reads as no git is judged in the tree `place` puts it in | the framer's record of the reframe; round 4 widened the union to every brace segment, recorded in `overview.md`'s divergence table |
+| `skills/code-review/scripts/survivor_check.py` | ([A-Z][A-Za-z]*\d+[a-z]?(?:-\d+)?) | a regular expression sharing character classes with `_BRACE`'s old pattern, not a sentence about it |
