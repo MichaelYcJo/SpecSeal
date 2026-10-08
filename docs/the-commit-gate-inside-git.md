@@ -81,7 +81,9 @@ that runs, the git-native waiver first: `git -c specseal.waive=review commit
 …` (and `=parity`), which git hands the hook through `GIT_CONFIG_PARAMETERS`
 and which inside a message is prose. The older `: '[no-review]'; git commit …`
 keeps working (`questions.md` P3, answer (a)): `hooks/answer-write.py` reads
-the bare word out of the Bash call, outside every heredoc body (#773), and
+the bare word out of the Bash call, outside every heredoc body (#773),
+through `hooks/tokens.py#given`, the one reader of a consent token, which
+the PreToolUse reading and the worktree guard read through too (#868), and
 `hooks/answers.py` carries it to the hook for that call alone. The parent and
 every subagent share one session id, so the answer is kept per call, under
 the payload's `tool_use_id` with the command beside it, and given only to a

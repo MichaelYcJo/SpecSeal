@@ -65,7 +65,7 @@ reading the next two phases undo, so phase 6 writes the `Re-read ·` and
 
 | Removed item | Where it must land |
 |---|---|
-| `hooks/worktree-guard.py#judgeable` and its docstring | `hooks/worktree_consent.py#place`, the docstring with it; a `Corrected ·` row in phase 6 for the released row citing it |
+| `hooks/worktree-guard.py#judgeable` and its docstring — NAME NOT IN TREE, removed here | `hooks/worktree_consent.py#place`, the docstring with it; a `Corrected ·` row in phase 6 for the released row citing it |
 | `hooks/worktree-guard.py#_tokenize_with_separators`' body and its rider | `hooks/worktree_consent.py#split_with_separators`; the guard keeps the name bound to it |
 | `hooks/worktree-guard.py#segment_cwd`'s body | `hooks/worktree_consent.py#segment_cwd`; the guard keeps the name bound to it |
 | `hooks/worktree_consent.py#creation_directory`'s placement loop (the first resolved entry) | `hooks/worktree_consent.py#place` |

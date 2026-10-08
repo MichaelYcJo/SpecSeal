@@ -611,12 +611,12 @@ OUT_OF_CLASS = {
     ),
     (".github/scripts/release_completeness_check.py", "subjects_since"): (1, GIT),
     (".github/scripts/run_tests.py", "venv_version"): (1, "`pyvenv.cfg`"),
-    ("hooks/commit-review-gate.py", "changed_paths.collect"): (1, GIT),
     ("hooks/dispatch.py", "first_line"): (1, "an exception's message"),
     ("hooks/githooks.py", "read_stub"): (1, "a git hook file this plugin wrote"),
     ("hooks/commitgate.py", "waived"): (1, GIT),
-    ("hooks/commitgate.py", "pre_commit"): (1, GIT),
-    ("hooks/commitgate.py", "_paths_between"): (1, GIT),
+    # The one path reader the commit gate's three path lists go through since
+    # #868 (`changed_paths`, `pre_commit`, `_paths_between`).
+    ("hooks/gate.py", "lines"): (1, GIT),
     ("hooks/git/reference-transaction.py", "main"): (
         1,
         "the `<old> <new> <ref>` lines git hands a reference-transaction hook",

@@ -158,8 +158,17 @@ and a body is text the command only carries (#773). The bodies it skips are
 the ones this reading already finds, and a token counts only where the command
 as written carries it too, so skipping a body can refuse a waiver and never
 grant one. A token inside a body a shell runs is refused with the rest; typed
-in front of the Bash call's own command, it waives.
-Enforced by: tests/test_gate_judges_the_repo_it_commits_to.py::test_a_commit_aimed_elsewhere_is_judged_there, tests/test_gate_judges_the_repo_it_commits_to.py::test_a_cd_reaches_the_repository_the_commit_lands_in, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s1_a_token_in_the_program_body_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s2_a_token_in_a_body_outside_the_shape_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s5_a_token_inside_a_body_a_shell_runs_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s6_neither_read_honours_a_token_the_base_did_not
+in front of the Bash call's own command, it waives. A command that does not
+split carries no token from where its split fails: a waiver inside a quote
+that never closes, or after an apostrophe that opens one in a comment (`#
+don't [no-review]`), is read as nothing, and the words before that point are
+read. The scan is `hooks/tokens.py#given`, the one reader the worktree guard
+and the git hooks' old spelling read through too (#868). It used to fall back
+to a substring wherever the command did not split, which is reading loosely
+in the one direction that waives with nobody asked; the refusal names the
+waiver typed in front, which splits, and the git hooks read `git -c
+specseal.waive=review` with no text read at all.
+Enforced by: tests/test_gate_judges_the_repo_it_commits_to.py::test_a_commit_aimed_elsewhere_is_judged_there, tests/test_gate_judges_the_repo_it_commits_to.py::test_a_cd_reaches_the_repository_the_commit_lands_in, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s1_a_token_in_the_program_body_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s2_a_token_in_a_body_outside_the_shape_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s5_a_token_inside_a_body_a_shell_runs_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s6_neither_read_honours_a_token_the_base_did_not, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_a_waiver_only_a_substring_holds_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_a_waiver_behind_an_apostrophe_in_its_comment_waives_nothing, tests/test_the_old_spellings_reach_the_hook.py::test_the_three_token_reads_answer_as_one
 
 <!-- specs/1788184145-the-gate-stops-the-session-editing-its-tests -->
 **A file edit goes through the `Edit` tool, because a shell command that only

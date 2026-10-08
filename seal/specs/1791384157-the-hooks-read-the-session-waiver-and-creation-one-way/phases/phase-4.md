@@ -70,7 +70,7 @@ verified*).
 
 | Removed item | Where it must land |
 |---|---|
-| `hooks/session-lease.py#owner_pid` and its substring walk at depth 15 | `hooks/hooksession.py#claude_pid` and `claude_ancestor`; the lease cases call `hooksession.claude_pid` |
+| `hooks/session-lease.py#owner_pid` and its substring walk at depth 15 — NAME NOT IN TREE, removed here | `hooks/hooksession.py#claude_pid` and `claude_ancestor`; the lease cases call `hooksession.claude_pid` |
 | the basename test written out in `hooksession.claude_ancestor`, `call_args` and the guard's `sessions_in_tree` | `hooks/hooksession.py#is_claude` |
 | `$CLAUDECODE` in `hooks/githooks.py#_P2` and the word `CLAUDECODE` in `hooks/tokens.py#steps_around_hooks` | nothing: neither is read by the Python side; `hooksession.SESSION_VARIABLE` is the one name |
-| `test_owner_pid_walks_past_the_shell`, `test_owner_pid_is_none_without_a_claude_ancestor` | renamed to `test_the_session_pid_walks_past_the_shell` and `test_the_session_pid_is_none_without_a_claude_ancestor`, asking `hooksession.claude_pid` |
+| `test_owner_pid_walks_past_the_shell`, `test_owner_pid_is_none_without_a_claude_ancestor` — NAME NOT IN TREE, renamed here | renamed to `test_the_session_pid_walks_past_the_shell` and `test_the_session_pid_is_none_without_a_claude_ancestor`, asking `hooksession.claude_pid` |

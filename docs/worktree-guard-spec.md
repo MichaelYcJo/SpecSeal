@@ -325,7 +325,7 @@ whole fact, the way the choice marker's is.
 - **The clone the guard judged.** The writer places a creation by the
   guard's own placement, `hooks/worktree_consent.py#place`, through the same
   tokenizing adapter, so the record lands under the clone whose tree the guard
-  judged (#868). Until 0.21.0 the writer took the first directory of the walk
+  judged (#868). Before #868 the writer took the first directory of the walk
   that it could compute, and that disagreed with the guard twice: `eval x ; cd
   A || git worktree add …` was filed under `A`, the branch the `||` skips, and
   `cd <missing> ; git worktree add …` under a directory that holds nothing, so

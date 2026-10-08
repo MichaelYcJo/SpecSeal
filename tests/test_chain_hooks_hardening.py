@@ -478,7 +478,6 @@ def test_a_diff_git_could_not_take_is_asked_about_at_pre_commit(
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "hooks"))
     import commitgate
-    import gate
 
     parity_repo(repo)
     declare_routing(repo)
@@ -486,10 +485,9 @@ def test_a_diff_git_could_not_take_is_asked_about_at_pre_commit(
     environ = {"CLAUDE_CODE_SESSION_ID": "s10"}
     assert commitgate.pre_commit(str(repo), environ, io.StringIO()) == 1
     monkeypatch.setenv("PATH", a_git_whose_diff_fails(tmp_path))
-    assert gate.git(["diff", "--cached", "--name-only"], str(repo)) is None
     stream = io.StringIO()
     assert commitgate.pre_commit(str(repo), environ, stream) == 1, stream.getvalue()
-    assert "[no-parity]" in stream.getvalue() or "parity" in stream.getvalue()
+    assert "parity" in stream.getvalue(), stream.getvalue()
 
 
 def test_the_backstop_hands_the_parity_arm_none_where_git_could_not_list(
@@ -524,6 +522,35 @@ def test_the_backstop_hands_the_parity_arm_none_where_git_could_not_list(
     listed = commitgate._paths_between(str(repo), head, new)()
     assert listed is None, listed
     assert gate.touches_code(listed)
+
+
+def _folded(name):
+    with open(os.path.join(ROOT, "docs", name), encoding="utf-8") as f:
+        return " ".join(f.read().split())
+
+
+def test_the_policy_says_one_reader_reads_a_token_and_a_failed_diff_asks():
+    """§14 of the agent contract, for S7, S8 and S10 of work item 1791384157
+    (#868): the consent-read paragraph of `docs/commit-review-gate-spec.md`
+    says a command that does not split carries no token from where its split
+    fails, `docs/the-commit-gate-inside-git.md` names the one reader, and
+    §*Parity arm* says a diff git could not take is asked about. Red against
+    `5623d728`'s texts."""
+    for name, sentence in (
+        (
+            "commit-review-gate-spec.md",
+            "A command that does not split carries no token from where its split fails",
+        ),
+        (
+            "the-commit-gate-inside-git.md",
+            "through `hooks/tokens.py#given`, the one reader of a consent token",
+        ),
+        (
+            "the-review-and-parity-arms.md",
+            "A diff git could not take is not a change confined to the document roots",
+        ),
+    ):
+        assert sentence in _folded(name), (name, sentence)
 
 
 def test_parity_mark_matching_head_allows(repo):

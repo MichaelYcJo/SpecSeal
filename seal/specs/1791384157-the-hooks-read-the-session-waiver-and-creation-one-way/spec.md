@@ -66,7 +66,7 @@ to name.
    value first.** `hooks/hooksession.py` owns it:
    - `is_claude(comm)`: `os.path.basename(comm) == "claude"`, the test
      `hooksession.claude_ancestor` (hs:59), `call_args` (hs:95) and the
-     guard's `sessions_in_tree` (wg:1228) already use. `hooks/session-lease.py#owner_pid`'s
+     guard's `sessions_in_tree` (wg:1228) already use. `hooks/session-lease.py#owner_pid`'s — NAME NOT IN TREE since phase 4 removed it
      `"claude" in comm` at depth 15 (sl:78) goes: the lease it writes is read
      back by `claude_ancestor` at depth 20 with the stricter test, and a pid
      only the looser test finds is a lease no reader matches, which
@@ -220,7 +220,7 @@ to name.
 - `hooks/hooksession.py`, three names the build adds (NAME NOT IN TREE): `SESSION_VARIABLE`, `is_claude(comm)`,
   `claude_pid(environ=None)`; `session` and `from_lease` keep their
   signatures.
-- `hooks/session-lease.py#owner_pid` → `hooksession.claude_pid()`.
+- `hooks/session-lease.py#owner_pid` → `hooksession.claude_pid()` — NAME NOT IN TREE since phase 4 removed it.
 - `hooks/githooks.py#_P2` formatted from `hooksession.SESSION_VARIABLE`; the
   stub's bytes change, so the installer rewrites every opted-in clone's
   stubs at the next session, as §*The hooks are stubs* says it does.
