@@ -8,10 +8,8 @@
 # the end of its turn.
 #
 # Resolves the script relative to this file, not the caller's cwd, so it works
-# from any directory. Arguments pass straight through, and the default scale
-# is 0.90:
+# from any directory. Arguments pass straight through:
 #   seal-stamp                    seal-stamp --shape
-#   seal-stamp --scale 0.75       seal-stamp --shape --scale 0.75
 #   seal-stamp --from <file>      seal-stamp --shape --from <file>
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 exec python3 "$here/../skills/verify/scripts/seal_stamp.py" "$@"

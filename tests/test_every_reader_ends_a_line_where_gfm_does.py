@@ -632,12 +632,15 @@ OUT_OF_CLASS = {
     ("skills/code-review/scripts/chain_check.py", "added_on_branch"): (1, GIT),
     ("skills/code-review/scripts/chain_check.py", "restored_from"): (1, GIT),
     ("skills/code-review/scripts/round_record.py", "head_moved"): (1, GIT),
-    ("skills/code-review/scripts/round_record.py", "touched"): (1, GIT),
-    ("skills/code-review/scripts/round_record.py", "tracked_at"): (1, GIT),
+    # `touched` and `tracked_at` left this list with #860: both read a git
+    # listing with `-z` now, so neither splits on lines at all.
     ("skills/code-review/scripts/round_record.py", "worktrees_of"): (1, GIT),
     ("skills/implement/scripts/seal.py", "gitlinks_under_root"): (1, GIT),
     ("skills/implement/scripts/seal.py", "other_worktrees"): (1, GIT),
     ("skills/implement/scripts/seal.py", "porcelain"): (1, GIT),
+    # #867: the lines `with_row` splits, for the same walk, so the refusal
+    # of two `Mode` rows names the lines the writer would have read.
+    ("skills/implement/scripts/seal.py", "mode_refusal"): (1, F),
     ("skills/implement/scripts/seal.py", "with_row"): (1, F),
     ("skills/implement/scripts/seal.py", "write_row"): (1, F),
     ("skills/settle/scripts/settle.py", "released"): (1, GIT),
@@ -650,7 +653,6 @@ OUT_OF_CLASS = {
     # The recorder's JSON Lines (#825): `json.dumps` escapes every control
     # character and every non-ASCII one, so no separator but LF is in it.
     ("skills/verify/scripts/broad_gate.py", "read_record"): (1, TOOL),
-    ("skills/verify/scripts/broad_gate.py", "suite_counts"): (1, TOOL),
     ("skills/verify/scripts/deferral_check.py", "read_events"): (1, YAML),
     ("skills/verify/scripts/deferral_check.py", "runners_in"): (1, YAML),
     # The disc's mark chart (#832): every character but `.` and `M` is refused

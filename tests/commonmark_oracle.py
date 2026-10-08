@@ -270,3 +270,39 @@ def hidden(lines):
 def hidden_lines(lines):
     """The indices alone."""
     return set(hidden(lines))
+
+
+def _headings(text, markups):
+    """{CommonMark line index: level} for every top-level `heading_open`
+    token of TEXT whose markup is one of MARKUPS' characters repeated."""
+    lines = [line.rstrip("\r\n") for line in commonmark_lines(text)]
+    out = {}
+    for token in _PARSER.parse("\n".join(lines)):
+        if (
+            token.type == "heading_open"
+            and token.level == 0
+            and token.map
+            and token.markup
+            and len(set(token.markup)) == 1
+            and token.markup[0] in markups
+        ):
+            out[token.map[0]] = int(token.tag[1:])
+    return out
+
+
+def heading_lines(text):
+    """{CommonMark line index: level} for every ATX heading the parser reads
+    in TEXT at the top level of the document (#867): a `heading_open` token
+    whose markup is a run of `#` (CommonMark 4.2). A heading inside a block
+    quote or a list item is that container's, not the document's, and a
+    reader of a document's sections reads none of them, so they are left
+    out; what the parser hides in a fence or an HTML block it never reads as
+    a heading at all."""
+    return _headings(text, "#")
+
+
+def setext_lines(text):
+    """{CommonMark line index: level} for every top-level setext heading the
+    parser reads in TEXT (CommonMark 4.3), keyed on the heading's first line:
+    a `heading_open` token whose markup is a run of `=` or `-`."""
+    return _headings(text, "=-")

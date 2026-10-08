@@ -4,7 +4,7 @@ Issue #30. Part 1 pins the stamp module, `skills/verify/scripts/seal_stamp.py`:
 the disc is computed and the disc's mark placed on it from one hand-drawn
 chart, so it cannot be off centre; a letter twin exists for a console that cannot draw
 half-blocks, and it has the block form's footprint; colour is emitted at transitions, never per cell; the panel beside
-the disc is data; the scale has a floor; and the failure form carries no
+the disc is data; the disc has one size; and the failure form carries no
 drawing at all, because a picture that says *sealed* beside a word that says
 *not* is the two-things-disagreeing defect this repository keeps paying for.
 
@@ -23,6 +23,7 @@ builds them.
 
 import argparse
 import ast
+import hashlib
 import importlib.util
 import io
 import json
@@ -142,20 +143,20 @@ def visible(line):
     return len(SGR.sub("", line))
 
 
-@pytest.mark.parametrize("scale", [1.0, 0.9, 0.8, 0.75, None])
-def test_the_twin_and_the_block_form_have_equal_width_and_height(scale):
+@pytest.mark.parametrize("disc", [True, False], ids=["with-its-disc", "no-disc"])
+def test_the_twin_and_the_block_form_have_equal_width_and_height(disc):
     """S5. A twin that is a different size is a different drawing, and the
     reader on a cp949 console would be looking at something nobody measured.
-    Compared row by row on visible width, at full scale, at every rung the
-    hook can step down to, and with no disc (#717's A10). #832 took the
+    Compared row by row on visible width, with the disc and without it, the
+    two rungs the hook can step between (#717's A10, #853). #832 took the
     sheet away, so there is no top edge to compare; the twin maps the
     owner's `·`, `✓`, `─` and `→` one character for one, which is what keeps
     the widths equal on the rows that carry them."""
     mod = module()
-    blocks = mod.stamp(ROWS, scale=scale, shape=False)
-    letters = mod.stamp(ROWS, scale=scale, shape=True)
+    blocks = mod.stamp(ROWS, shape=False, disc=disc)
+    letters = mod.stamp(ROWS, shape=True, disc=disc)
     assert len(blocks) == len(letters), (
-        f"{len(blocks)} block rows against {len(letters)} letter rows at {scale}"
+        f"{len(blocks)} block rows against {len(letters)} letter rows ({disc})"
     )
     widths = [(visible(b), visible(t)) for b, t in zip(blocks, letters, strict=True)]
     assert all(b == t for b, t in widths), (
@@ -168,28 +169,6 @@ def test_the_twin_and_the_block_form_have_equal_width_and_height(scale):
     assert not any(c in line for line in letters for c in HALF_BLOCKS), (
         "the letter twin still carries a half-block character"
     )
-
-
-def test_a_scale_that_is_not_a_number_is_refused_before_anything_runs():
-    """A round 1 record correction. `check_scale` compared with `<` and `>`,
-    and NaN compares False with both — so `--scale nan` passed the band, every
-    check ran, the cell was written, and `stamp` then raised `ValueError:
-    cannot convert float NaN to integer`. `broad_gate.main` catches `Refused`
-    alone, so that arrived as a traceback after the write."""
-    mod = module()
-    refusal = mod.check_scale(float("nan"))
-    assert refusal is not None, (
-        "a scale that is not a number passes the band and fails after the "
-        "cell is written"
-    )
-    # A round 2 correction. The first repair sent NaN down the below-the-floor
-    # branch, so the sentence read *scale nan is under the floor of 0.75*.
-    # NaN is not under the floor; it is not on the line at all, and a reader
-    # told to raise it raises a number that fails the same way.
-    assert "is not a number" in refusal, refusal
-    assert "under the floor" not in refusal, refusal
-    assert mod.check_scale(1.0) is None and mod.check_scale(0.75) is None
-    assert mod.check_scale(0.5) is not None and mod.check_scale(1.5) is not None
 
 
 def test_the_failure_form_lines_up_the_widest_check_name():
@@ -207,18 +186,17 @@ def test_the_failure_form_lines_up_the_widest_check_name():
     assert len(columns) == 1, f"the first lines do not share a column:\n{out}"
 
 
-@pytest.mark.parametrize("scale", [0.75, 0.8, 0.9])
-def test_the_disc_draws_the_same_bytes_in_every_process(scale):
+def test_the_disc_draws_the_same_bytes_in_every_process():
     """Round 1's 🟡 6. `shrink` resolved a tie between two chart colours with
     `max(set(ink), key=ink.count)`, and a set of strings iterates in an order
     that moves with PYTHONHASHSEED — so the same scale drew differently from
     one process to the next. Measured over five seeds at 0.75: two distinct
-    renderings.
+    renderings. There is one disc since #853, and it is held the same way.
 
     This module's opening argument is that four hand-typed discs were
     lopsided and a circle that is calculated cannot be off centre. A
-    calculated circle that is not reproducible gives that argument back at
-    every scale but 1.0, and any case that ever pins bytes below 1.0 flakes.
+    calculated circle that is not reproducible gives that argument back, and
+    any case that pins its bytes flakes.
 
     Run in child processes, because the seed is fixed before the interpreter
     starts and cannot be changed from inside one."""
@@ -227,7 +205,7 @@ def test_the_disc_draws_the_same_bytes_in_every_process(scale):
         f"spec = importlib.util.spec_from_file_location('s', {SCRIPT!r})\n"
         "mod = importlib.util.module_from_spec(spec)\n"
         "spec.loader.exec_module(mod)\n"
-        f"sys.stdout.write(chr(10).join(mod.stamp({ROWS!r}, {scale!r}, True)))\n"
+        f"sys.stdout.write(chr(10).join(mod.stamp({ROWS!r}, True)))\n"
     )
     seen = set()
     for seed in ("0", "1", "2", "12345", "99999"):
@@ -242,24 +220,19 @@ def test_the_disc_draws_the_same_bytes_in_every_process(scale):
         )
         assert r.returncode == 0, r.stderr
         seen.add(r.stdout)
-    assert len(seen) == 1, (
-        f"scale {scale} drew {len(seen)} distinct discs across five hash seeds"
-    )
+    assert len(seen) == 1, f"{len(seen)} distinct discs across five hash seeds"
 
 
 def test_the_disc_is_symmetric_because_it_is_computed():
     """#30 §*How it is drawn*: four hand-typed discs were lopsided; a computed
     one cannot be. Every twin row has the same left and right margin."""
     mod = module()
-    for scale in (1.0, *mod.SCALE_LADDER):
-        w, h, px = mod.build(scale)
-        for y in range(0, h, 2):
-            line = mod.letter_row(mod.disc_cells(px, w, y))
-            left = len(line) - len(line.lstrip())
-            right = len(line) - len(line.rstrip())
-            assert left == right, (
-                f"{scale}, row {y}: {left} blank on the left, {right} on the right"
-            )
+    w, h, px = mod.build()
+    for y in range(0, h, 2):
+        line = mod.letter_row(mod.disc_cells(px, w, y))
+        left = len(line) - len(line.lstrip())
+        right = len(line) - len(line.rstrip())
+        assert left == right, f"row {y}: {left} blank on the left, {right} on the right"
 
 
 # --- the lean writer (#832 S11) --------------------------------------------
@@ -332,15 +305,15 @@ def test_a_line_writes_one_sgr_per_change_and_no_reset_inside_it():
     run's block with its label is held under 5,500 UTF-16 units: the owner's
     reference was 5,119 for rows of the same length."""
     mod, cases = module(), hook_cases()
-    letter = mod.compose(cases.FULL_ROWS, 0.9)
-    lines = mod.stamp(cases.FULL_ROWS, 0.9, shape=False)
-    w, h, px = mod.build(0.9)
+    letter = mod.compose(cases.FULL_ROWS)
+    lines = mod.stamp(cases.FULL_ROWS, shape=False)
+    w, h, px = mod.build()
     alone = [mod.disc_cells(px, w, y) for y in range(0, h, 2)]
-    bare = mod.compose(cases.FULL_ROWS, None).cells
+    bare = mod.compose(cases.FULL_ROWS, disc=False).cells
     assert [] in bare, "the block with no disc has no blank line to read"
     pairs = [
         *zip(letter.cells, lines, strict=True),
-        *zip(bare, mod.stamp(cases.FULL_ROWS, None), strict=True),
+        *zip(bare, mod.stamp(cases.FULL_ROWS, disc=False), strict=True),
         *((cells, mod.colour_row(cells)) for cells in alone),
     ]
     for cells, line in pairs:
@@ -394,9 +367,9 @@ def test_a_mark_leading_a_continuation_row_beside_the_disc_is_drawn_in_its_style
         ("suite", "x"),
         ("", f"{mark} 3 passed"),
     ]
-    letter = mod.compose(rows, 0.9)
+    letter = mod.compose(rows)
     marks = 0
-    for cells, line in zip(letter.cells, mod.stamp(rows, 0.9), strict=True):
+    for cells, line in zip(letter.cells, mod.stamp(rows), strict=True):
         shown = what_a_terminal_shows(line.removesuffix(RESET))
         for (char, fg, bg, style), seen in zip(cells, shown, strict=True):
             if char != mark:
@@ -527,7 +500,7 @@ def test_the_disc_stands_left_of_the_open_text_block_each_centred(which, monkeyp
         assert (height, top_text) == (14, 4), (height, top_text)
     if which == "OLD_ROWS":
         assert (height, top_disc) == (19, 2), (height, top_disc)
-    letter = mod.compose(rows, 0.9)
+    letter = mod.compose(rows)
     assert (letter.height, letter.disc) == (height, (0, 2 * top_disc, n, n))
     assert len(letter.cells) == height
     for ln, line in enumerate(letter.cells):
@@ -550,16 +523,16 @@ def test_the_disc_stands_left_of_the_open_text_block_each_centred(which, monkeyp
             if cell[0] not in HALF_BLOCKS:
                 assert cell[2] is None, ("a background outside the circle", ln, cell)
     assert letter.width == max(len(line) for line in letter.cells)
-    # With no disc, the last rung `fitted` steps down to, the block stands at
+    # With no disc, the rung `fitted` steps down to, the block stands at
     # column 0 and sets the height alone.
-    bare = mod.compose(rows, None)
+    bare = mod.compose(rows, disc=False)
     assert bare.disc is None and bare.height == len(text)
     assert bare.cells == [trimmed(line) for line in text]
     if text:
         assert letter.width == n + gap + max(len(line) for line in text)
         # `GAP` is the clear columns between the disc and the text, nothing else.
         monkeypatch.setattr(mod, "GAP", 0)
-        assert mod.compose(rows, 0.9).width == letter.width - gap
+        assert mod.compose(rows).width == letter.width - gap
 
 
 def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
@@ -572,7 +545,7 @@ def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
     14-cell disc. The name still says four codes and five colours, the
     sheet's and the 14-cell disc's, because a released ledger row cites it."""
     mod = module()
-    lines = mod.stamp(mod.SAMPLE_ROWS, 0.9, shape=False)
+    lines = mod.stamp(mod.SAMPLE_ROWS, shape=False)
     text = "\n".join(lines)
     triples, others = set(), set()
     for found in re.finditer(r"\x1b\[([0-9;]*)m", text):
@@ -655,9 +628,8 @@ def test_the_disc_is_lit_from_the_upper_left():
     the disc's mark is lit the same way — a highlight where the cell up-left
     is not the mark, an inner shadow where the cell down-right is not, a
     drop shadow on the field cell down-right of it. Read from `build` by
-    each cell's own geometry and the chart, at every scale of the band,
-    because the disc has one size. `lit` is -1 at the upper left and +1 at
-    the lower right."""
+    each cell's own geometry and the chart. `lit` is -1 at the upper left
+    and +1 at the lower right."""
     mod = module()
     n = mod.DISC_CELLS
     c, r = (n - 1) / 2, n / 2
@@ -665,37 +637,33 @@ def test_the_disc_is_lit_from_the_upper_left():
     def on(x, y):
         return 0 <= x < n and 0 <= y < n and mod.CHART[y][x] == "M"
 
-    for scale in (1.0, 0.9, 0.75):
-        w, h, px = mod.build(scale)
-        seen = set()
-        for y in range(h):
-            for x in range(w):
-                colour = px(x, y)
-                dx, dy = x - c, y - c
-                d, lit = math.hypot(dx, dy), (dx + dy) / (abs(dx) + abs(dy))
-                if colour is None or d > r - mod.WAX_INSET:
-                    continue
-                if d > r - mod.RIM_INSET:
-                    want = (
-                        RIM_LIT if lit < -0.35 else RIM_DARK if lit > 0.35 else RIM_MID
-                    )
-                elif d > r - mod.GROOVE_INSET:
-                    want = RIM_DARK if lit < 0 else RIM_LIT
-                elif on(x, y) and not on(x - 1, y - 1):
-                    want = LIGHT
-                elif on(x, y):
-                    want = INNER if not on(x + 1, y + 1) else FACE
-                else:
-                    want = DROP if on(x - 1, y - 1) else FIELD
-                assert colour == want, (scale, x, y, colour, want)
-                seen.add(colour)
-        assert {RIM_LIT, RIM_MID, RIM_DARK, LIGHT, INNER, DROP} <= seen, seen
+    w, h, px = mod.build()
+    seen = set()
+    for y in range(h):
+        for x in range(w):
+            colour = px(x, y)
+            dx, dy = x - c, y - c
+            d, lit = math.hypot(dx, dy), (dx + dy) / (abs(dx) + abs(dy))
+            if colour is None or d > r - mod.WAX_INSET:
+                continue
+            if d > r - mod.RIM_INSET:
+                want = RIM_LIT if lit < -0.35 else RIM_DARK if lit > 0.35 else RIM_MID
+            elif d > r - mod.GROOVE_INSET:
+                want = RIM_DARK if lit < 0 else RIM_LIT
+            elif on(x, y) and not on(x - 1, y - 1):
+                want = LIGHT
+            elif on(x, y):
+                want = INNER if not on(x + 1, y + 1) else FACE
+            else:
+                want = DROP if on(x - 1, y - 1) else FIELD
+            assert colour == want, (x, y, colour, want)
+            seen.add(colour)
+    assert {RIM_LIT, RIM_MID, RIM_DARK, LIGHT, INNER, DROP} <= seen, seen
 
 
-@pytest.mark.parametrize("scale", [1.0, 0.9, 0.75])
-def test_the_disc_is_twenty_eight_cells_in_the_frames_nine_colours(scale):
-    """#832 S2, the owner's frame of 2026-10-07. `build` returns 28 x 28 at
-    every scale in the band, and every cell is exactly one of nine colours
+def test_the_disc_is_twenty_eight_cells_in_the_frames_nine_colours():
+    """#832 S2, the owner's frame of 2026-10-07. `build` returns 28 x 28,
+    and every cell is exactly one of nine colours
     or nothing. The frame's counts, which no chart moves: 176 outside, 84
     of the wax edge, 98 lit, 30 mid and 96 dark over the rim and the groove,
     and 300 inside the groove — split over the field and the disc's mark by
@@ -706,7 +674,7 @@ def test_the_disc_is_twenty_eight_cells_in_the_frames_nine_colours(scale):
     assert (mod.DISC_CELLS, mod.DISC_LINES) == (28, 14)
     insets = (mod.EDGE_INSET, mod.WAX_INSET, mod.RIM_INSET, mod.GROOVE_INSET)
     assert (*insets, mod.LIT_AT) == (0.2, 1.2, 3.2, 4.2, 0.35)
-    w, h, px = mod.build(scale)
+    w, h, px = mod.build()
     assert (w, h) == (28, 28), (w, h)
     cells = [px(x, y) for y in range(h) for x in range(w)]
     frame = {c: cells.count(c) for c in (None, WAX_EDGE, RIM_LIT, RIM_MID, RIM_DARK)}
@@ -714,7 +682,7 @@ def test_the_disc_is_twenty_eight_cells_in_the_frames_nine_colours(scale):
     assert sum(c in (FIELD, FACE, LIGHT, INNER, DROP) for c in cells) == 300
     for y in range(h):
         for x in range(w):
-            assert px(x, y) == owners_disc(mod.CHART, x, y), (scale, x, y)
+            assert px(x, y) == owners_disc(mod.CHART, x, y), (x, y)
     assert set(cells) - {None} == set(mod.DISC_COLOURS)
     for x, y in ((-1, 0), (0, -1), (28, 14), (14, 28)):
         assert px(x, y) is None, (x, y)
@@ -779,7 +747,7 @@ def test_the_stamp_module_imports_with_pillow_blocked():
         f"spec = importlib.util.spec_from_file_location('s', {SCRIPT!r})\n"
         "mod = importlib.util.module_from_spec(spec)\n"
         "spec.loader.exec_module(mod)\n"
-        "mod.build(0.75)\n"
+        "mod.build()\n"
     )
     r = subprocess.run(
         [sys.executable, "-c", script],
@@ -815,8 +783,8 @@ def test_the_twin_writes_the_discs_nine_letters_and_the_text_in_ascii():
     assert len(set(mod.KEY.values())) == 9, mod.KEY
     ascii_ = {"·": ".", "✓": "+", "─": "-", "→": ">"}
     assert ascii_ == mod.TWIN_ASCII, mod.TWIN_ASCII
-    letter = mod.compose(mod.SAMPLE_ROWS, 0.9)
-    twin = mod.stamp(mod.SAMPLE_ROWS, 0.9, shape=True)
+    letter = mod.compose(mod.SAMPLE_ROWS)
+    twin = mod.stamp(mod.SAMPLE_ROWS, shape=True)
     seen = set()
     for line, said in zip(letter.cells, twin, strict=True):
         assert said.isascii(), said
@@ -842,7 +810,7 @@ def test_a_half_block_in_a_value_is_text_in_the_twin(value):
     alone, the twin looked up the text's foreground, None, and raised
     `KeyError` after the gate had written the cell (round 1's 🟡 5)."""
     mod = module()
-    twin = mod.stamp([("SEALED", ""), ("tree", value)], 0.9, shape=True)
+    twin = mod.stamp([("SEALED", ""), ("tree", value)], shape=True)
     assert any(line.endswith(f"tree    {value}") for line in twin), twin
 
 
@@ -893,45 +861,141 @@ def test_the_text_lines_are_a_red_title_a_rule_and_the_rows_under_it():
     assert branch.index("feat/12-a-branch") == tree.index("c46fd2d") == 8
 
 
-# --- the floor -------------------------------------------------------------
+# --- the scale, retired (#853) ---------------------------------------------
+
+# SHA-256, first sixteen hex digits, of what 5623d728's `seal_stamp.py` drew
+# over `SAMPLE_ROWS` at its default scale, 0.90 — the block form, the letter
+# twin, the text block with no disc — and of `fitted` over two blocks labelled
+# `first` and `second` at three budgets: the default, room for both with
+# their disc, and 50, under which the first is drawn alone with no disc.
+# Captured with the scale-era call spelling before the first edit
+# (`phases/phase-5.md` of 1791384158 holds the command).
+DRAWN_AT_5623D728 = {
+    "block": "4413e52ec47d938e",
+    "letters": "6273c12623355d89",
+    "no-disc": "15eb7013e91ac03c",
+    "fitted-default": "fc1c76e9e55a1444",
+    "fitted-two": "e0dcadd4a5a511c8",
+    "fitted-alone-no-disc": "76f216e7da17dfb8",
+}
 
 
-def test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence():
-    """#30 §*Size*: 75 % is the floor the issue measured on #717's lily — at
-    60 % the band closed, at 50 % the lily read as a cross. The floor is let through; a
-    scale under it is refused with a sentence naming both numbers, and the
-    command exits 2 with nothing drawn, because a seal nobody can read is the
-    counterfeit `verify` names."""
+def test_the_stamp_draws_byte_for_byte_what_it_drew_at_the_default_scale():
+    """S13 (#853). The disc had one size at every scale since #832, so taking
+    the scale away moves no byte: `stamp` with the disc and without it, in
+    both forms, and `fitted` stepping a block from its disc to the text block
+    alone, draw what the module drew at 0.90 before #853."""
     mod = module()
-    assert mod.stamp(ROWS, scale=0.75), "the floor itself was refused"
-    with pytest.raises(ValueError) as refused:
-        mod.stamp(ROWS, scale=0.5)
-    sentence = str(refused.value)
-    assert "0.75" in sentence and "0.5" in sentence, (
-        f"the refusal names neither the floor nor the scale asked for: {sentence!r}"
+
+    def h(text):
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+    rows = mod.SAMPLE_ROWS
+    one = "\n".join(["first", *mod.stamp(rows)])
+    size = len(one.encode("utf-16-le")) // 2
+    blocks = [("first", rows), ("second", rows)]
+    drawn = {
+        "block": h("\n".join(mod.stamp(rows))),
+        "letters": h("\n".join(mod.stamp(rows, shape=True))),
+        "no-disc": h("\n".join(mod.stamp(rows, disc=False))),
+        "fitted-default": h(mod.fitted(blocks)),
+        "fitted-two": h(mod.fitted(blocks, budget=2 * size + 10)),
+        "fitted-alone-no-disc": h(mod.fitted(blocks, budget=50)),
+    }
+    assert drawn == DRAWN_AT_5623D728, drawn
+
+
+@pytest.mark.parametrize("preflight", [False, True], ids=["seal", "preflight"])
+def test_a_malformed_mark_chart_is_a_refusal_before_anything_runs(
+    repo, tmp_path, preflight
+):
+    """S14 (#869). A copy of the plugin whose `seal-mark.txt` has 27 lines:
+    `seal_stamp.py` raises `CHART_MALFORMED`'s sentence at import, and the
+    gate's `load` turns it into a refusal — exit 2, the sentence with the
+    path on stderr, and nothing run: no output kept, no worktree added. It
+    ended in a traceback and exit 1."""
+    scripts = tmp_path / "plugin" / "skills" / "verify" / "scripts"
+    shutil.copytree(os.path.dirname(GATE), scripts)
+    chart = scripts / "seal-mark.txt"
+    lines = chart.read_text(encoding="utf-8").splitlines()
+    chart.write_text("\n".join(lines[:27]) + "\n", encoding="utf-8")
+    keep = tmp_path / "out"
+    preflight_flag = ["--preflight"] if preflight else []
+    out = subprocess.run(
+        [
+            sys.executable,
+            str(scripts / "broad_gate.py"),
+            "--base",
+            "base",
+            "--root",
+            str(repo),
+            "--keep-output",
+            str(keep),
+            *preflight_flag,
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
     )
-    with pytest.raises(ValueError, match=r"1\.0") as too_large:
-        mod.stamp(ROWS, scale=1.5)
-    assert "1.5" in str(too_large.value), (
-        "a scale above 1.0 is refused with a sentence naming the scale asked for"
-    )
-    # #832: the disc is one size at every scale of the band, so neither
-    # sentence may give a disc's size as its reason.
-    both = sentence + " " + str(too_large.value)
-    assert "scale 0.5 is under the floor of 0.75." in sentence, sentence
-    assert "scale 1.5 is above 1.0." in str(too_large.value), too_large.value
-    assert both.count("The disc is drawn at one size whatever the scale") == 2, both
-    assert "a values file and `--scale` may carry" in str(too_large.value)
-    for gone in ("too few cells", "a larger disc", "measured up to it", "stitch"):
-        assert gone not in both, (gone, both)
-    # The command's own help says the same: the band, and one disc size.
-    told = " ".join(run_wrapper("--help").stdout.split())
-    assert "a scale in the band 0.75-1.0" in told, told
-    assert "the disc is one size at every scale" in told, told
-    out = run_wrapper("--shape", "--scale", "0.5")
+    assert out.returncode == 2, (out.returncode, out.stdout, out.stderr)
+    assert "Traceback" not in out.stderr, out.stderr
+    said = module().CHART_MALFORMED.format(path=chart, n=28, fault="27 lines")
+    assert said in out.stderr, out.stderr
+    assert not keep.exists(), sorted(os.listdir(keep))
+    worktrees = git(repo, "worktree", "list").stdout.strip().splitlines()
+    assert len(worktrees) == 1, worktrees
+
+
+def test_a_sibling_that_raises_at_import_is_refused_with_its_own_sentence(tmp_path):
+    """S14's unit (#869). `load` turns an exception a sibling raises while
+    it is executed into `Refused`, naming the path and carrying the
+    exception's own sentence, or its type where the sentence is empty; a
+    sibling's `SystemExit` — an interpreter floor — keeps its own exit."""
+    gate = gate_module()
+    for body, said in (
+        (
+            "raise ValueError('the chart is not in shape')\n",
+            "the chart is not in shape",
+        ),
+        ("raise KeyError()\n", "KeyError"),
+    ):
+        sibling = tmp_path / "sibling.py"
+        sibling.write_text(body, encoding="utf-8")
+        with pytest.raises(gate.Refused) as refused:
+            gate.load(str(sibling), "specseal_sibling_under_test")
+        assert str(refused.value) == (
+            f"broad-gate: {sibling} will not load, so nothing ran: {said}"
+        ), refused.value
+    sibling.write_text("raise SystemExit(3)\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        gate.load(str(sibling), "specseal_sibling_under_test")
+
+
+def test_no_scale_is_left_to_ask_for():
+    """S13 (#853). The band, its three refusals, the ladder, the default and
+    `check_scale` are gone from the module; `seal-stamp --scale 0.9` is
+    refused by its parser, exit 2 with nothing drawn, and so is `broad-gate
+    --scale 0.9`, before anything runs; neither command's help names a
+    scale."""
+    mod = module()
+    left = [name for name in vars(mod) if "SCALE" in name or name == "check_scale"]
+    assert left == [], left
+    out = run_wrapper("--shape", "--scale", "0.9")
     assert out.returncode == 2, f"exit {out.returncode}; stderr {out.stderr!r}"
-    assert "0.75" in out.stderr, f"the command's refusal names no floor: {out.stderr!r}"
-    assert not out.stdout, f"something was drawn under a refused scale: {out.stdout!r}"
+    assert "unrecognized arguments: --scale" in out.stderr, out.stderr
+    assert not out.stdout, out.stdout
+    assert "scale" not in run_wrapper("--help").stdout
+    gate = subprocess.run(
+        [sys.executable, GATE, "--base", "x", "--scale", "0.9", "--root", ROOT],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=120,
+        env={**os.environ, "SPECSEAL_BROAD_GATE_INVOKED_AS": GATE},
+    )
+    assert gate.returncode == 2, (gate.returncode, gate.stderr)
+    assert "unrecognized arguments: --scale" in gate.stderr, gate.stderr
 
 
 # --- the failure form ------------------------------------------------------
@@ -1745,25 +1809,28 @@ def refusal_of(repo, value, keep):
 
 
 @pytest.mark.parametrize(
-    "row, said",
+    "row",
     [
         # Nothing ran, and the exit is the same 1 a failing test gives.
-        ("exit 1", True),
-        # A summary was printed, so the form shows the count instead.
-        ("echo 1 failed in 0.01s && exit 1", False),
+        "exit 1",
+        # A summary was printed and no pytest ran: S3 of #869. The printed
+        # line is no count, so the form says no record rather than `1 failed`.
+        "echo 1 failed in 0.01s && exit 1",
     ],
 )
-def test_a_failing_row_with_no_summary_says_so_on_the_form(repo, tmp_path, row, said):
-    """#448's A5, end to end. Both rows read the same under `/bin/sh` and
-    `cmd.exe`, so this runs on every leg. The exit code stays 1 either way;
-    what changes is one line on the failure form."""
+def test_a_failing_row_with_no_record_says_so_on_the_form(repo, tmp_path, row):
+    """#448's A5 and #869's S3, end to end. Both rows read the same under
+    `/bin/sh` and `cmd.exe`, so this runs on every leg. The exit code stays 1
+    either way, no pytest left a record, and the form's suite entry ends with
+    the line that says so; the summary line the second row printed is quoted
+    among its first lines and is nowhere counted."""
     out = run_gate(set_row(repo, row), keep=tmp_path / "out")
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     assert "NOT SEALED" in out.stdout, out.stdout
-    line = "no pytest summary in this output, so this exit code is not a count of"
-    assert (line in out.stdout) is said, out.stdout
-    if not said:
-        assert "1 failed" in out.stdout, out.stdout
+    gate = gate_module()
+    lines = [line.strip() for line in out.stdout.splitlines()]
+    assert gate.NO_RECORD_HERE in lines, out.stdout
+    assert "1 failed" not in lines, out.stdout
 
 
 def test_a_row_wrapped_in_backticks_is_refused_and_shown_rewritten(repo, tmp_path):
@@ -1921,7 +1988,8 @@ def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
     never reported it, because a vacuous pass is a pass. So the suite's own
     output is read too: the row's command has to have run the fixture's one
     test. It used to be read off the panel's `suite` row, which a piped run
-    no longer draws (#400); the row is `suite_counts` of this same kept text.
+    no longer draws (#400), and then off the kept text; since #869 the row
+    is the record the row's own pytest wrote, which the panel reads.
     """
     if needs_posix:
         posix_row_shell_or_skip()
@@ -1930,7 +1998,7 @@ def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
     assert out.returncode == 0, f"{why}\n{out.stdout}\n{out.stderr}"
     assert "SEALED" in out.stdout and "NOT SEALED" not in out.stdout
     suite = (keep / "suite.txt").read_text(encoding="utf-8")
-    assert gate_module().suite_counts(suite) == "1 passed", (
+    assert gate_module().suite_counts(head_run(keep, repo)) == "1 passed", (
         f"{why}\nthe gate sealed without the row's suite running:\n{suite}"
     )
 
@@ -2713,6 +2781,52 @@ def test_the_absent_row_refusal_still_reaches_a_file_with_no_such_line(tmp_path)
     assert FENCED not in said, said
 
 
+def test_a_broad_gate_row_written_twice_is_refused_and_nothing_runs(tmp_path):
+    """S1 of #867, `broad-gate`'s half. A `Broad gate` row written twice has
+    no value: the gate exits 2 naming the row and the count, and no command
+    runs. Seen red against the first-wins reader, which ran the first
+    command."""
+    repo = tmp_path / "repo"
+    (repo / "seal").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / "seal" / "config.md").write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n"
+        f"| {ROW} | touch first-ran |\n| {ROW} | touch second-ran |\n",
+        encoding="utf-8",
+    )
+    module = gate_module()
+    with pytest.raises(module.Refused) as refused:
+        module.broad_command(str(repo / "seal"))
+    assert f"`{ROW}` appears 2 times — one value" in str(refused.value)
+    done = run_gate(repo, keep=tmp_path / "out")
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert f"`{ROW}` appears 2 times — one value" in done.stdout + done.stderr
+    assert not (repo / "first-ran").exists() and not (repo / "second-ran").exists()
+
+
+@pytest.mark.parametrize("shape", ["directory", "undecodable"])
+def test_an_unreadable_config_is_refused_not_reported_as_a_missing_row(tmp_path, shape):
+    """S3 of #867, `broad-gate`'s half. A `config.md` that is there and will
+    not read was no row, so the gate told a person to add a `Broad gate` row
+    the file already held. It is refused at exit 2 naming the path. Seen red
+    against the lenient reader: the absent-row refusal."""
+    home = tmp_path / "seal"
+    home.mkdir()
+    path = home / "config.md"
+    if shape == "directory":
+        path.mkdir()
+    else:
+        path.write_bytes(
+            b"| Item | Value |\n|---|---|\n| Broad gate | bin/test -q \xff |\n"
+        )
+    module = gate_module()
+    with pytest.raises(module.Refused) as refused:
+        module.broad_command(str(home))
+    said = str(refused.value)
+    assert f"{path} is there and cannot be read" in said, said
+    assert f"has no `{ROW}` row" not in said, said
+
+
 COMMENTED = "written inside an HTML comment"
 
 
@@ -3147,9 +3261,10 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(a_sealed_run):
 
 def test_the_values_file_holds_this_runs_panel(a_sealed_run):
     """S2 and S13 of 1790562543. The file holds the rows `panel` returned for
-    this run — in `panel`'s order — and the scale the run was given, which
-    with no `--scale` is `seal_stamp.DEFAULT_SCALE`. Nothing downstream
-    re-derives a row: the drawing is these values.
+    this run — in `panel`'s order — and the constant `scale` 0.9, read by
+    nothing since #853 and written for 0.21's cycle so a hook older than
+    #853 still draws it (#869 round 1's 🟡 3). Nothing downstream re-derives
+    a row: the drawing is these values.
 
     #666's A5: the whole sequence, positively, so a row that went missing
     cannot pass by being absent. The branch continues under `tree` and the
@@ -3176,7 +3291,9 @@ def test_the_values_file_holds_this_runs_panel(a_sealed_run):
         ("chain", "✓ exit 0"),
         ("rounds", "2"),
     ], values["rows"]
-    assert values["scale"] == module().DEFAULT_SCALE == 0.90, values["scale"]
+    # #869 round 1's 🟡 3: a constant for the installed hook, for one
+    # release; this assertion goes with `SCALE_FOR_OLDER_HOOKS`.
+    assert values["scale"] == gate_module().SCALE_FOR_OLDER_HOOKS == 0.9, values
     assert values["session"] == "s-1" and values["item"] == str(repo / ITEM)
     assert (values["tree"], values["base"]) == (
         short(repo, "HEAD"),
@@ -3485,12 +3602,20 @@ def checks_with(gate, suite="", ledger="", code=0):
     }
 
 
+def a_run(gate, **counts):
+    """A `RunRecord` of one keyed session counting `counts`, in the order
+    given, the way `read_record` counts the lines the recorder wrote (#869)."""
+    run = gate.RunRecord()
+    run.sessions, run.counts = 1, dict(counts)
+    return run
+
+
 LONG_BRANCH = (
     "feat/666-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run"
 )
 # 1.2.3 is illustrative, not a release this repository has (`test_release_hygiene`).
 LONG_REF = "refs/remotes/other/release/v1.2.3-hotfix"
-LONG_SUITE = "12345 passed, 67890 skipped, 12 xfailed in 1234.56s"
+LONG_SUITE = {"passed": 12345, "skipped": 67890, "xfailed": 12}
 LONG_LEDGER = "total: 12345 ok · 0 drifted · 0 broken · 0 external"
 
 
@@ -3508,7 +3633,7 @@ def test_no_value_on_the_panel_is_wider_than_the_frame_gives(tmp_path):
     rows = gate.panel(
         "c46fd2db",
         gate.Base("release/v1.2.3-hotfix", "1e2bed90", LONG_REF, "1e2bed90"),
-        checks_with(gate, LONG_SUITE + "\n", LONG_LEDGER + "\n"),
+        checks_with(gate, "", LONG_LEDGER + "\n"),
         str(item),
         copy=gate.copy_origin(ROOT),
         branch=LONG_BRANCH,
@@ -3524,6 +3649,7 @@ def test_no_value_on_the_panel_is_wider_than_the_frame_gives(tmp_path):
                 )
             ),
         ),
+        run=a_run(gate, **LONG_SUITE),
     )
     values = [row[1] for row in rows if row]
     # Round 1's 🟡 1, the owner's Q1 answer: a list continues on the rows
@@ -3581,10 +3707,11 @@ def test_the_widest_panel_the_tree_can_produce_fits_at_the_first_rung(tmp_path):
     branch, a ref under a second remote, five-digit counts in three parts —
     plus the `gate` row, this repository's own hygiene workflow and a capped
     record deferring to eight distinct homes, the hook's message for that
-    one panel, label and block form at `DEFAULT_SCALE`, is within
-    `MESSAGE_BUDGET`, and `fitted` returns the 0.90 drawing itself: the
-    ladder is a margin, not something an ordinary seal steps down. The
-    drawing before #717 was over 10,000 characters for #666's rows alone."""
+    one panel, label and block form with its disc, is within
+    `MESSAGE_BUDGET`, and `fitted` returns that drawing itself: the rung
+    with no disc is a margin, not something an ordinary seal steps down to.
+    The drawing before #717 was over 10,000 characters for #666's rows
+    alone."""
     gate, mod = gate_module(), module()
     item = tmp_path / "1799000000-an-item-with-a-long-name"
     verdicts = "".join(
@@ -3598,13 +3725,14 @@ def test_the_widest_panel_the_tree_can_produce_fits_at_the_first_rung(tmp_path):
     rows = gate.panel(
         "c46fd2db",
         gate.Base("release/v1.2.3-hotfix", "1e2bed90", LONG_REF, "1e2bed90"),
-        checks_with(gate, LONG_SUITE + "\n", LONG_LEDGER + "\n"),
+        checks_with(gate, "", LONG_LEDGER + "\n"),
         str(item),
         workflow,
         copy=gate.copy_origin(ROOT),
         branch=LONG_BRANCH,
         pr="#12345",
         record=record_of(tmp_path, capped_record(verdicts=verdicts)),
+        run=a_run(gate, **LONG_SUITE),
     )
     # The blank before the result rows is `None` since #832's S5a.
     named = [row for row in rows if row]
@@ -3621,9 +3749,9 @@ def test_the_widest_panel_the_tree_can_produce_fits_at_the_first_rung(tmp_path):
         "item": str(item),
     }
     label = mod.label(values)
-    at_first = "\n".join([label, *mod.stamp(rows, mod.DEFAULT_SCALE, shape=False)])
+    at_first = "\n".join([label, *mod.stamp(rows, shape=False)])
     assert len(at_first) <= mod.MESSAGE_BUDGET, len(at_first)
-    assert mod.fitted([(label, rows, mod.DEFAULT_SCALE)]) == at_first
+    assert mod.fitted([(label, rows)]) == at_first
 
 
 def test_a_list_too_long_for_its_row_continues_beneath_it():
@@ -3672,36 +3800,64 @@ def test_a_list_too_long_for_its_row_continues_beneath_it():
 
 
 @pytest.mark.parametrize(
-    "suite, rows",
+    "counts, rows",
     [
         (
-            "768 passed, 1 skipped in 9.1s\n",
+            {"passed": 768, "skipped": 1},
             [("suite", "✓ 768 passed · 1 skipped")],
         ),
         (
-            "12345 passed, 67890 skipped, 12 xfailed in 9.1s\n",
+            {"passed": 12345, "skipped": 67890, "xfailed": 12},
             [("suite", "✓ 12345 passed · 67890 skipped ·"), ("", "12 xfailed")],
         ),
-        ("no summary here\n", [("suite", "exit 0")]),
+        (None, [("suite", "exit 0")]),
     ],
 )
-def test_the_suite_carries_its_counts_and_nothing_under_them(suite, rows):
-    """#717's A8, `suite`. The counts where pytest printed them, wrapped as
+def test_the_suite_carries_its_counts_and_nothing_under_them(counts, rows):
+    """#717's A8, `suite`. The counts the row's pytest recorded, wrapped as
     #666 wraps them, and the row after the last counts row is the ledger's
     label — not `exit 0`, which a `SEALED` stamp already says. Where there
-    are no counts the row reads `exit N`, which is then the only statement
+    is no record the row reads `exit N`, which is then the only statement
     of what the suite did. #832's S5a: the counts stand behind a `✓` and are
     joined by ` · `, the owner's design of 2026-10-07."""
     gate = gate_module()
     panel = gate.panel(
         "c46fd2db",
         gate.Base("base", "1e2bed90", "base", "1e2bed90"),
-        checks_with(gate, suite),
+        checks_with(gate),
         None,
+        run=None if counts is None else a_run(gate, **counts),
     )
     at = panel.index(rows[0])
     assert panel[at : at + len(rows)] == rows, panel
     assert panel[at + len(rows)][0] == gate.LEDGER, panel
+
+
+def test_the_suite_row_reads_the_record_and_nothing_the_row_printed():
+    """S1 (#869). The row's output carries a test's own print of a summary
+    line, `999 passed in 1s`, after pytest's — the decoy `COUNTS_RE` took,
+    walking the output backwards — and the record counts 768 passed and 1
+    skipped. The `suite` row is the record's. Where the record has no
+    session, or a line it could not read, the printed line is still not
+    read: the row reads `exit 0`."""
+    gate = gate_module()
+    printed = "........\n768 passed, 1 skipped in 12.34s\nsee: 999 passed in 1s\n"
+    base = gate.Base("base", "1e2bed90", "base", "1e2bed90")
+    rows = gate.panel(
+        "c46fd2db",
+        base,
+        checks_with(gate, printed),
+        None,
+        run=a_run(gate, passed=768, skipped=1),
+    )
+    assert ("suite", "✓ 768 passed · 1 skipped") in rows, rows
+    assert not any(row and "999" in row[1] for row in rows), rows
+    unread = a_run(gate, passed=768, skipped=1)
+    unread.unread = 1
+    for run in (None, gate.RunRecord(), unread):
+        rows = gate.panel("c46fd2db", base, checks_with(gate, printed), None, run=run)
+        assert ("suite", "exit 0") in rows, rows
+    assert not hasattr(gate, "COUNTS_RE") and not hasattr(gate, "summary_counts")
 
 
 def test_the_ledger_carries_its_three_counts_on_one_row():
@@ -3797,9 +3953,7 @@ def test_the_result_rows_carry_a_tick_and_a_blank_row_stands_before_them(tmp_pat
         "jobs:\n  release:\n    steps:\n"
         "      - name: a declared review chain has the round record it claimed\n"
     )
-    checks = checks_with(
-        gate, "1 passed in 1s\n", "total: 1 ok · 0 drifted · 0 broken\n", code=5
-    )
+    checks = checks_with(gate, "", "total: 1 ok · 0 drifted · 0 broken\n", code=5)
     checks[gate.CHAIN_NAME] = gate.Check(gate.CHAIN_NAME, 0, "", "chain.txt")
     rows = gate.panel(
         "c46fd2db",
@@ -3811,6 +3965,7 @@ def test_the_result_rows_carry_a_tick_and_a_blank_row_stands_before_them(tmp_pat
         branch="feature",
         pr="#12",
         record=record_of(tmp_path, capped_record()),
+        run=a_run(gate, passed=1),
     )
     assert rows == [
         ("SEALED", ""),
@@ -3919,13 +4074,14 @@ def test_the_sample_carries_every_row_the_panel_can(tmp_path):
     rows = gate.panel(
         "c46fd2db",
         gate.Base("release/x", "1e2bed90", "origin/release/x", "1e2bed90"),
-        checks_with(gate, "1 passed in 1s\n", "total: 1 ok · 0 drifted · 0 broken\n"),
+        checks_with(gate, "", "total: 1 ok · 0 drifted · 0 broken\n"),
         str(tmp_path / "1799000000-an-item"),
         workflow,
         copy="tree 1.2.3",
         branch="feature",
         pr="#12",
         record=record_of(tmp_path, capped_record()),
+        run=a_run(gate, passed=1),
     )
     labels = [None if row is None else row[0] for row in rows]
     sample = [None if row is None else row[0] for row in module().SAMPLE_ROWS]
@@ -4347,37 +4503,26 @@ def test_the_gate_names_the_row_it_sealed_over(repo, tmp_path):
     )
 
 
-def test_the_suite_row_reads_pytests_counts_and_not_a_linters(tmp_path):
-    """Round 1's 🟡 5. `suite_counts` walked the lines backwards and took the
-    first `COUNTS_RE` match, and a `Broad gate` row is a test runner joined to
-    a linter with `&&` — so the linter's output stands after pytest's summary
-    and `2 warnings emitted` matched first.
-
-    The panel's `suite` row is what a reader takes as how many tests ran, so
-    a warning count printed there is the seal reporting a number that did not
-    come from the run it claims."""
+def test_the_suite_row_reads_pytests_counts_and_not_a_linters():
+    """Round 1's 🟡 5 and round 2's 🟡 13 of #666, as #869 closes the class.
+    The text reader walked the row's output backwards and took a linter's
+    `2 warnings emitted`, then `Found 2 errors.`, as the suite's count, and
+    matched nothing on a skipped-only run. The record holds pytest's reports
+    and nothing a linter printed, so a linter after the runner cannot reach
+    the row whatever it prints; and a run where every test skipped still
+    shows its count, rather than an `exit 0` saying nothing about a run in
+    which nothing executed."""
     gate = gate_module()
-    assert (
-        gate.suite_counts("768 passed, 1 skipped in 30s\nwarning: 2 warnings emitted\n")
-        == "768 passed, 1 skipped"
+    base = gate.Base("base", "1e2bed90", "base", "1e2bed90")
+    linted = "768 passed in 30s\nwarning: 2 warnings emitted\nFound 2 errors.\n"
+    rows = gate.panel(
+        "c46fd2db", base, checks_with(gate, linted), None, run=a_run(gate, passed=768)
     )
-    assert (
-        gate.suite_counts("3 failed, 2 passed in 1s\n4 warnings\n")
-        == "3 failed, 2 passed"
+    assert ("suite", "✓ 768 passed") in rows, rows
+    rows = gate.panel(
+        "c46fd2db", base, checks_with(gate), None, run=a_run(gate, skipped=3)
     )
-    assert gate.suite_counts("2 warnings emitted\n") is None, (
-        "a run with no pytest summary in it reports a count anyway"
-    )
-    # Round 2's 🟡 13: the CLASS, not the instance. `warnings` was the word
-    # round 1 measured and `errors` is the same defect one linter over —
-    # `Found 2 errors.` is what `ruff` and `mypy` print, and a row whose
-    # linter runs with `--exit-zero` reaches the panel with it. A
-    # skipped-only run is the shape that matched no word at all and came
-    # back None, which the panel renders `suite exit 0`: the seal's most
-    # trusted row saying nothing about a run in which nothing executed.
-    assert gate.suite_counts("1 passed in 1s\nFound 2 errors.\n") == "1 passed"
-    assert gate.suite_counts("3 skipped in 0.10s\n") == "3 skipped"
-    assert gate.suite_counts("768 passed in 63.21s (0:01:03)\n") == "768 passed"
+    assert ("suite", "✓ 3 skipped") in rows, rows
 
 
 @pytest.mark.parametrize(
@@ -4498,9 +4643,19 @@ def failing_in_base_record(keep, path):
     for _, line in base_records(keep):
         named = line.get("path", "").replace("\\", "/")
         if line.get("kind") in ("test", "collect") and named.endswith(f"/{path}"):
-            if line["kind"] == "collect" or line.get("outcome") == "failed":
+            if line.get("outcome") == "failed":
                 return True
     return False
+
+
+def head_run(keep, root):
+    """The `RunRecord` of the row's run at `HEAD` under `keep`, read by the
+    gate's own reader with the key its `session` line carries (#869)."""
+    for record in sorted((keep / "records").glob("head-*.jsonl")):
+        first = record.read_text(encoding="utf-8").splitlines()[0]
+        key = json.loads(first)["key"]
+        return gate_module().read_record(str(keep / "records"), key, str(root))
+    return gate_module().RunRecord()
 
 
 # Two stand-ins that print what a linter and a formatter print and exit 0, so
@@ -4581,10 +4736,10 @@ def a_test(path, outcome, when="call", **extra):
     }
 
 
-# `(lines, failing, collected, skipped)`: the lines of one record file, with
+# `(lines, failing, collected, unread)`: the lines of one record file, with
 # each `path` relative to the worktree (made absolute by the case), and what
 # `read_record` reads off them. A line given as a string is written as it is.
-RECORD_LINES = [
+RECORDED_LINES = [
     pytest.param(
         [
             a_session(),
@@ -4669,19 +4824,22 @@ RECORD_LINES = [
 ]
 
 
-@pytest.mark.parametrize("lines, failing, collected, skipped", RECORD_LINES)
+@pytest.mark.parametrize("lines, failing, collected, unread", RECORDED_LINES)
 def test_a_record_is_read_for_the_files_it_names_failing(
-    tmp_path, lines, failing, collected, skipped
+    tmp_path, lines, failing, collected, unread
 ):
     """S6's reader (#825), `spec.md` Data & interfaces. A file of the
     record's lines is read for the files that failed in any phase or could
     not be collected, in the order first named, and for every file named;
     a skip and an xfail are not failures, a failed collection repeated per
     xdist worker is one file, a file whose first line is not a session of
-    this key is another run's whatever its name, and a line that does not
-    parse as an object is counted and passed over, a blank one uncounted.
-    Paths are named from the worktree with `/`, and one outside it keeps
-    its absolute spelling."""
+    this key is another run's whatever its name, and a line of a keyed file
+    that does not parse as an object is counted in `unread` and passed
+    over, a blank one uncounted. Another run's file is counted in nothing,
+    garbage and all (#869, S6 of 1791384158: it used to be counted in
+    `skipped` beside the keyed file's, and nothing read the sum). Paths are
+    named from the worktree with `/`, and one outside it keeps its absolute
+    spelling."""
     gate = gate_module()
     worktree = tmp_path / "wt"
     worktree.mkdir()
@@ -4700,9 +4858,10 @@ def test_a_record_is_read_for_the_files_it_names_failing(
     )
     (records / f"{RECORD_KEY}-7.jsonl").write_text(body, encoding="utf-8")
     # Another run's record in the same directory, passed over by its first
-    # line.
+    # line, with a line of its own that does not parse.
     (records / "base-ffffffffffffffff-8.jsonl").write_text(
-        json.dumps(a_session("base-ffffffffffffffff")) + "\n", encoding="utf-8"
+        json.dumps(a_session("base-ffffffffffffffff")) + "\n{garbage\n",
+        encoding="utf-8",
     )
     record = gate.read_record(str(records), RECORD_KEY, str(worktree))
     named = [f.replace("<outside>", outside.replace(os.sep, "/")) for f in failing]
@@ -4710,7 +4869,7 @@ def test_a_record_is_read_for_the_files_it_names_failing(
     assert {f.replace(os.sep, "/") for f in record.collected} == {
         f.replace("<outside>", outside.replace(os.sep, "/")) for f in collected
     }
-    assert record.skipped == skipped
+    assert record.unread == unread
     has_session = bool(lines) and lines[0] == a_session()
     assert record.sessions == (1 if has_session else 0)
 
@@ -4795,6 +4954,77 @@ def test_a_base_session_with_no_end_turns_only_new_into_new_question():
     assert gate.base_word(record, 1, "tests/test_a.py") == gate.NO_RECORD
 
 
+def test_a_base_record_with_an_unread_line_turns_only_new_into_new_question():
+    """S6 at `base_word` (#869). A line of the base's keyed record that did
+    not parse may have named this file's failing test, so both rows of the
+    table that give `new` give `new?` naming how many such lines there were.
+    What the record does hold is kept: `failing on base too`, `NOT_REACHED`
+    and `NO_RECORD` are untouched, and a session that stopped part-way is
+    the reason named before it."""
+    gate = gate_module()
+    record = gate.RunRecord()
+    record.sessions, record.unread = 1, 2
+    record.collected = {"tests/test_a.py", "tests/test_b.py"}
+    record.failing = {"tests/test_b.py": None}
+    unread = gate.UNREAD_AT_BASE.format(count=2)
+    assert gate.base_word(record, 1, "tests/test_a.py") == unread
+    assert gate.base_word(record, 0, "tests/test_c.py") == unread
+    assert gate.base_word(record, 1, "tests/test_b.py") == gate.ON_BASE
+    assert gate.base_word(record, 1, "tests/test_c.py") == gate.NOT_REACHED.format(
+        code=1
+    )
+    record.unended = 1
+    assert gate.base_word(record, 1, "tests/test_a.py") == gate.UNENDED_AT_BASE.format(
+        count=1
+    )
+    record.unended, record.unread = 0, 0
+    assert gate.base_word(record, 1, "tests/test_a.py") == gate.NEW
+    record.sessions, record.unread = 0, 2
+    assert gate.base_word(record, 1, "tests/test_a.py") == gate.NO_RECORD
+
+
+def test_the_failure_form_counts_the_lines_of_the_record_here_it_passed_over():
+    """S6 on the failure form (#869). Where a line of the record at `HEAD`
+    did not parse, the suite's entry says how many, under the failing files
+    and beside the other counts of what the list cannot show; where none,
+    nothing. A check that is not the suite is handed no record."""
+    gate = gate_module()
+    record = gate.RunRecord()
+    record.sessions, record.unread = 1, 2
+    check = gate.Check(gate.SUITE, 1, "", "suite.txt")
+    lines = gate.failure_lines(check, {"tests/test_a.py": gate.NEW}, record)
+    said = gate.UNREAD_HERE.format(count=2)
+    assert said in lines, lines
+    assert lines.index(said) > lines.index("  tests/test_a.py  new"), lines
+    # A record was left, so the form says why no count follows and never
+    # that no pytest left one.
+    assert gate.NO_RECORD_HERE not in lines, lines
+    record.unread = 0
+    assert said not in gate.failure_lines(check, None, record)
+    assert not any(
+        "did not parse" in line
+        for line in gate.failure_lines(gate.Check(gate.LEDGER, 2, "", "ledger.txt"))
+    )
+
+
+def test_the_failure_form_ends_the_suite_with_the_records_counts_in_pytests_order():
+    """S2 (#869). A failing suite's entry ends with the counts its record
+    holds, after the file list and before the kept file, in the order and the
+    plural pytest's own line uses — `1 failed, 767 passed, 1 error`, and `2
+    errors` where there are two — whatever the row printed."""
+    gate = gate_module()
+    run = gate.RunRecord()
+    run.sessions, run.counts = 1, {"passed": 767, "error": 1, "failed": 1}
+    printed = "FAILED tests/test_a.py::t\n999 failed in 1s\n"
+    check = gate.Check(gate.SUITE, 1, printed, "suite.txt")
+    lines = gate.failure_lines(check, {"tests/test_a.py": gate.NEW}, run)
+    assert lines[-2:] == ["1 failed, 767 passed, 1 error", "full output: suite.txt"], (
+        lines
+    )
+    run.counts["error"] = 2
+    assert "1 failed, 767 passed, 2 errors" in gate.failure_lines(check, None, run)
+
+
 def test_a_keyed_session_with_no_end_line_is_counted_unended(tmp_path):
     """#849 (#825 round 6's 🟡 1), at `read_record`. The recorder writes a
     session's `end` line in `pytest_sessionfinish`, which a process that died
@@ -4810,8 +5040,15 @@ def test_a_keyed_session_with_no_end_line_is_counted_unended(tmp_path):
     files = {
         "died": [a_session(), passing],
         "bare": [a_session()],
-        "ended": [a_session(), passing, {"kind": "end", "exitstatus": 1}],
-        "green": [a_session(), {"kind": "end", "exitstatus": 0, "unplaced": 0}],
+        "ended": [
+            a_session(),
+            passing,
+            {"kind": "end", "exitstatus": 1, "stopped": []},
+        ],
+        "green": [
+            a_session(),
+            {"kind": "end", "exitstatus": 0, "unplaced": 0, "stopped": []},
+        ],
         "other": [a_session("head-ffffffffffffffff"), passing],
     }
     for name, lines in files.items():
@@ -4828,36 +5065,55 @@ def test_a_keyed_session_with_no_end_line_is_counted_unended(tmp_path):
     assert gate.base_word(ended, 1, "tests/test_a.py") == gate.NEW
 
 
+NOTHING_STOPPED = []
+STOPPED_BY_EXIT = [{"by": "exit", "what": "Exit: stop here (returncode 1)"}]
+STOPPED_BY_X = [{"by": "failures", "what": "stopping after 1 failures"}]
+NO_STOPPED = object()
+
+
 @pytest.mark.parametrize(
-    "exitstatus, stopped",
+    "exitstatus, said, stopped",
     [
-        pytest.param(0, False, id="0-ok"),
-        pytest.param(1, False, id="1-tests-failed"),
-        pytest.param(5, False, id="5-no-tests-collected"),
-        pytest.param(2, True, id="2-interrupted"),
-        pytest.param(3, True, id="3-internal-error"),
-        pytest.param(4, True, id="4-usage-error"),
-        pytest.param(7, True, id="a-code-pytest-exit-chose"),
-        pytest.param(None, True, id="no-exit"),
+        pytest.param(0, NOTHING_STOPPED, False, id="0-ok"),
+        pytest.param(1, NOTHING_STOPPED, False, id="1-tests-failed"),
+        pytest.param(5, NOTHING_STOPPED, False, id="5-no-tests-collected"),
+        pytest.param(2, NOTHING_STOPPED, True, id="2-interrupted"),
+        pytest.param(3, NOTHING_STOPPED, True, id="3-internal-error"),
+        pytest.param(4, NOTHING_STOPPED, True, id="4-usage-error"),
+        pytest.param(7, NOTHING_STOPPED, True, id="a-code-pytest-exit-chose"),
+        pytest.param(None, NOTHING_STOPPED, True, id="no-exit"),
+        pytest.param(0, STOPPED_BY_EXIT, True, id="0-and-pytest-exit"),
+        pytest.param(1, STOPPED_BY_EXIT, True, id="1-and-pytest-exit"),
+        pytest.param(5, STOPPED_BY_EXIT, True, id="5-and-pytest-exit"),
+        pytest.param(1, STOPPED_BY_X, True, id="1-and-x"),
+        pytest.param(0, "nothing", True, id="stopped-not-a-list"),
+        pytest.param(0, NO_STOPPED, True, id="no-stopped"),
     ],
 )
 def test_a_keyed_session_whose_end_shows_a_stop_is_counted_unended(
-    tmp_path, exitstatus, stopped
+    tmp_path, exitstatus, said, stopped
 ):
-    """#849 round 1's 🟡 1, at `read_record`. pytest writes an `end` line for
-    a session it stopped itself: a `KeyboardInterrupt` or `pytest.exit()` in
-    a test, a failed collection without `-x` and xdist under `-x` give 2
-    (under `-x` a failed collection gives 1), a run loop that raised gives 3, an argument refused after the session started gives 4.
-    Only 0, 1 and 5 are the exits of a session that ran to its end; any
-    other, a code `pytest.exit` chose and an `end` line with no exit among
-    them, counts the session as stopped part-way and turns `new` into
-    `new?`."""
+    """#849 round 1's 🟡 1 and #852, at `read_record`. pytest writes an
+    `end` line for a session it stopped itself, and since #852 the recorder
+    writes on it what stopped the session: what `pytest_keyboard_interrupt`
+    was handed and the session's `shouldfail` and `shouldstop`. A session
+    stopped part-way where that list is not empty -- a `pytest.exit` that
+    chose 0, 1 or 5 and a plain `-x` among them, which exit with a value a
+    session that ran to its end gives too -- and where the exit is not 0, 1
+    or 5, the net for a stop no hook shows: an internal error gives 3, an
+    argument refused after the session started gives 4, and a code
+    `pytest.exit` chose, or an `end` line with no exit, is neither. A
+    `stopped` that is not a list, or absent, is no line the recorder writes
+    and reads as stopped. Each counts the session as stopped part-way and
+    turns `new` into `new?`."""
     gate = gate_module()
     worktree = tmp_path / "wt"
     worktree.mkdir()
     records = tmp_path / "records"
     records.mkdir()
     end = {"kind": "end", "unplaced": 0}
+    if said is not NO_STOPPED:
+        end["stopped"] = said
     if exitstatus is not None:
         end["exitstatus"] = exitstatus
     lines = [a_session(), a_test(str(worktree / "tests/test_a.py"), "passed"), end]
@@ -4884,7 +5140,7 @@ def test_the_unplaced_counts_of_this_runs_records_are_summed(tmp_path):
     worktree.mkdir()
     records = tmp_path / "records"
     records.mkdir()
-    end = {"kind": "end", "exitstatus": 1}
+    end = {"kind": "end", "exitstatus": 1, "stopped": []}
     files = {
         "a": [a_session(), {**end, "unplaced": 2}],
         "b": [
@@ -4911,6 +5167,161 @@ def test_the_unplaced_counts_of_this_runs_records_are_summed(tmp_path):
     assert (green.unplaced, green.unplaced_red) == (7, 0)
     assert gate.base_word(green, 0, "tests/test_a.py") == gate.NEW
     assert gate.base_word(green, 1, "tests/test_a.py") == gate.NEW
+
+
+def write_record(records, name, lines):
+    """One record file under `records`: each line as JSON, or a string as it
+    is."""
+    (records / f"{name}.jsonl").write_text(
+        "".join(
+            (line if isinstance(line, str) else json.dumps(line)) + "\n"
+            for line in lines
+        ),
+        encoding="utf-8",
+    )
+
+
+def a_collect(path, outcome):
+    return {"kind": "collect", "nodeid": path, "outcome": outcome, "path": path}
+
+
+def test_the_counts_are_the_categories_pytest_counted_each_report_under(tmp_path):
+    """S5's counter (#869). A `test` line counts under the category the
+    recorder wrote for it, which is pytest's own; a failed collection counts
+    as an `error` and a skipped one as a `skipped`, as pytest's terminal
+    reporter counts them, and one written once per xdist worker counts once.
+    A `""` category, one that is not a word and a line with none count
+    nowhere. `suite_counts` prints them in pytest's order, `error`
+    pluralised the way pytest pluralises it, a category outside pytest's
+    list after it in the order first written."""
+    gate = gate_module()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    records = tmp_path / "records"
+    records.mkdir()
+    a = str(worktree / "tests/test_a.py")
+    b = str(worktree / "tests/test_b.py")
+    c = str(worktree / "tests/test_c.py")
+    write_record(
+        records,
+        "one",
+        [
+            a_session(),
+            a_test(a, "passed", when="setup", category=""),
+            a_test(a, "passed", category="passed"),
+            a_test(a, "passed", when="teardown", category=""),
+            a_test(a, "passed", category="rerun"),
+            a_test(a, "failed", when="setup", category="error"),
+            a_test(a, "failed", when="teardown", category="error"),
+            a_test(a, "skipped", category="xfailed", wasxfail=""),
+            a_test(a, "passed", category="xpassed", wasxfail=""),
+            a_test(a, "failed", category="failed"),
+            a_test(a, "skipped", when="setup", category="skipped"),
+            a_test(a, "passed", category=7),
+            a_test(a, "passed"),
+            a_collect(b, "failed"),
+            a_collect(b, "failed"),
+            a_collect(c, "skipped"),
+            {"kind": "end", "exitstatus": 1, "unplaced": 0, "stopped": []},
+        ],
+    )
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert record.counts == {
+        "passed": 1,
+        "rerun": 1,
+        "error": 3,
+        "xfailed": 1,
+        "xpassed": 1,
+        "failed": 1,
+        "skipped": 2,
+    }
+    assert gate.suite_counts(record) == (
+        "1 failed, 1 passed, 2 skipped, 1 xfailed, 1 xpassed, 3 errors, 1 rerun"
+    )
+    assert record.collected == {"tests/test_a.py", "tests/test_b.py", "tests/test_c.py"}
+    assert list(record.failing) == ["tests/test_a.py", "tests/test_b.py"]
+
+
+def test_two_keyed_sessions_sum_their_counts(tmp_path):
+    """S4 (#869). A row that runs pytest twice shows both runs: the counts
+    are summed over every session carrying the key, where pytest's printed
+    line is one run's. One `error` is singular."""
+    gate = gate_module()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    records = tmp_path / "records"
+    records.mkdir()
+    ended = {"kind": "end", "exitstatus": 1, "unplaced": 0, "stopped": []}
+    first = str(worktree / "tests/test_first.py")
+    second = str(worktree / "tests/test_second.py")
+    write_record(
+        records,
+        "first",
+        [
+            a_session(),
+            a_test(first, "passed", category="passed"),
+            a_test(first, "passed", category="passed"),
+            a_test(first, "failed", category="failed"),
+            ended,
+        ],
+    )
+    write_record(
+        records,
+        "second",
+        [
+            a_session(),
+            a_test(second, "passed", category="passed"),
+            a_test(second, "failed", when="setup", category="error"),
+            ended,
+        ],
+    )
+    write_record(
+        records,
+        "another-run",
+        [
+            a_session("head-ffffffffffffffff"),
+            a_test(second, "passed", category="passed"),
+        ],
+    )
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert record.sessions == 2
+    assert gate.suite_counts(record) == "1 failed, 3 passed, 1 error"
+
+
+def test_counts_the_record_cannot_vouch_for_are_none(tmp_path):
+    """S6's counter (#869). Where no session carries the key there is no
+    count; where a keyed file holds a line that did not parse, a count that
+    passed it over is refused rather than printed short; where a session
+    counted a report it wrote as no line, for want of a file of its own, the
+    count would be short of pytest's own line by it, and is refused too
+    (#869 round 1's 🟡 2); and a session that counted no report has none to
+    print."""
+    gate = gate_module()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    records = tmp_path / "records"
+    records.mkdir()
+    passing = a_test(str(worktree / "tests/test_a.py"), "passed", category="passed")
+    ended = {"kind": "end", "exitstatus": 0, "unplaced": 0, "stopped": []}
+    assert (
+        gate.suite_counts(gate.read_record(str(records), RECORD_KEY, str(worktree)))
+        is None
+    )
+    write_record(records, "one", [a_session(), passing, ended])
+    write_record(records, "other", [a_session("head-ffffffffffffffff"), "{garbage"])
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert (record.unread, gate.suite_counts(record)) == (0, "1 passed")
+    write_record(records, "one", [a_session(), passing, "{cut off", ended])
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert record.unread == 1
+    assert gate.suite_counts(record) is None
+    left_out = {**ended, "unplaced": 1}
+    write_record(records, "one", [a_session(), passing, left_out])
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert (record.unplaced, gate.suite_counts(record)) == (1, None)
+    write_record(records, "one", [a_session(), ended])
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert (record.sessions, gate.suite_counts(record)) == (1, None)
 
 
 def test_a_records_directory_that_is_not_there_holds_no_record(tmp_path):
@@ -5025,21 +5436,39 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
     # #849 (#825 round 6's 🟡 1): `new` from a base one of whose sessions
     # stopped part-way is not measured either -- and #849 round 1's 🟡 1: a
     # session pytest stopped itself is one.
+    # #852: the stops the `end` line now names are among the causes.
     assert gate.UNENDED_AT_BASE.format(count=1) == (
         "new? not measured: the row ran once at the base, and 1 of its pytest "
         "sessions stopped part-way, because the process died or the recorder "
-        "stopped writing before the session's end line, or pytest ended the "
-        "session interrupted or on an error of its own, so this file's tests "
-        "there may not have finished and whether the base fails it was not "
-        "measured (kept as suite-at-base.txt, with records/ beside it)"
+        "stopped writing before the session's end line, or pytest stopped the "
+        "session (an interrupt, pytest.exit(), -x or --maxfail, a plugin's "
+        "stop) or ended it on an error of its own, so this file's tests there "
+        "may not have finished and whether the base fails it was not measured "
+        "(kept as suite-at-base.txt, with records/ beside it)"
     )
     # #849 round 1's 🟡 2: the same at `HEAD`, under the list.
     assert gate.UNENDED_HERE.format(count=1) == (
         "1 of the row's pytest sessions here stopped part-way, because the "
         "process died or the recorder stopped writing before the session's end "
-        "line, or pytest ended the session interrupted or on an error of its "
-        "own, so a test it stopped in may be in no list and the tests it never "
-        "reached are in none (each session's record is under records/)"
+        "line, or pytest stopped the session (an interrupt, pytest.exit(), -x "
+        "or --maxfail, a plugin's stop) or ended it on an error of its own, so "
+        "a test it stopped in may be in no list and the tests it never reached "
+        "are in none (each session's record is under records/)"
+    )
+    # #869: a line of a keyed record that did not parse, at the base and
+    # under the list at `HEAD`.
+    assert gate.UNREAD_AT_BASE.format(count=1) == (
+        "new? not measured: the row ran once at the base, and 1 of the lines "
+        "in the records its pytest wrote there did not parse as the recorder's "
+        "and each was passed over, so one may have held this file's failure "
+        "and whether the base fails it was not measured (kept as "
+        "suite-at-base.txt, with records/ beside it)"
+    )
+    assert gate.UNREAD_HERE.format(count=1) == (
+        "1 of the lines in the records the row's pytest wrote here did not "
+        "parse as the recorder's and each was passed over, so a failing test "
+        "may be in no list and the suite's counts are not given (each "
+        "session's record is under records/)"
     )
     with open(RECORDER_SOURCE, encoding="utf-8") as handle:
         assert "specseal_pytest_record: no record written" in handle.read()
@@ -5102,15 +5531,21 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         "them, so the record cannot say the file passed.",
         # #849 (#825 round 6's 🟡 1): a session of the base with no end, and
         # #849 round 1's 🟡 1: one whose end shows pytest stopped it.
+        # #852: one whose end line says pytest stopped it.
         "A session of the base that stopped part-way reads the same way: its "
         "record holds no `end` line, because the process died, which plain "
         "pytest does on a test that calls `os._exit`, or its recorder "
-        "stopped writing; or its `end` line shows an exit other than 0, 1 or "
-        "5, as a `KeyboardInterrupt` or `pytest.exit()` in a test and xdist "
-        "under `-x` give.",
-        # #849 round 1's 🟡 2: a session at `HEAD` that stopped part-way.
+        "stopped writing; or its `end` line names a stop pytest made, which an "
+        "interrupt, any `pytest.exit()`, `-x`, `--maxfail` and a plugin's stop "
+        "all leave, or an exit outside 0, 1 and 5.",
+        # #869: a line of the base's record that did not parse.
+        "So does a base whose record holds a line that did not parse as the "
+        "recorder's, which the gate counts and passes over.",
+        # #849 round 1's 🟡 2 and #869: a session at `HEAD` that stopped
+        # part-way, and a line of its record that did not parse.
         "Nor, where a session at `HEAD` stopped part-way, is the test it "
-        "stopped in; the failure form counts those sessions too.",
+        "stopped in, nor a test named on a line of the record that did not "
+        "parse; the failure form counts both too.",
         "how a row earns the measured word",
     ):
         assert phrase in bullet, f"the **New?** bullet does not carry: {phrase}"
@@ -5128,6 +5563,9 @@ def test_the_unmeasured_word_says_so_and_every_reader_is_told_it():
         # A missing `end` line named as the only stop (#849 round 1).
         "A session of the base that wrote no `end` line to its record reads "
         "the same way",
+        # The stops read off the exit alone (#852).
+        "as a `KeyboardInterrupt` or `pytest.exit()` in a test and xdist under "
+        "`-x` give",
     ):
         assert gone not in bullet, f"the **New?** bullet still carries: {gone}"
     with open(GATE, encoding="utf-8") as handle:
@@ -5784,19 +6222,26 @@ def test_crash():
 
 
 @pytest.mark.parametrize(
-    "stop",
+    "stop, code",
     [
-        pytest.param("raise KeyboardInterrupt", id="keyboard-interrupt"),
-        pytest.param('pytest.exit("stopped here")', id="pytest-exit"),
+        pytest.param("raise KeyboardInterrupt", 2, id="keyboard-interrupt"),
+        pytest.param('pytest.exit("stopped here")', 2, id="pytest-exit"),
+        # #852's first limit (S7 of 1791384158): a code the test chose that a
+        # session which ran to its end gives too.
+        pytest.param('pytest.exit("stopped here", returncode=0)', 0, id="exit-0"),
+        pytest.param('pytest.exit("stopped here", returncode=1)', 1, id="exit-1"),
+        pytest.param('pytest.exit("stopped here", returncode=5)', 5, id="exit-5"),
     ],
 )
-def test_a_base_session_pytest_stopped_part_way_gives_no_new(tmp_path, stop):
-    """#849 round 1's 🟡 1. Without a dead process, pytest can still stop a
-    session part-way: a `KeyboardInterrupt` or `pytest.exit()` in a test. Its
-    `end` line is written, with exit 2, so the base's record holds the file
+def test_a_base_session_pytest_stopped_part_way_gives_no_new(tmp_path, stop, code):
+    """#849 round 1's 🟡 1 and #852. Without a dead process, pytest can still
+    stop a session part-way: a `KeyboardInterrupt` or `pytest.exit()` in a
+    test. Its `end` line is written, so the base's record holds the file
     collected, `test_ok` passing and nothing failing: `new` for a file whose
-    `test_crash` the base never finished. The exit is not one of a session
-    that ran to its end, so the file reads `new?` naming that session."""
+    `test_crash` the base never finished. The `end` line says pytest stopped
+    the session, whatever exit `pytest.exit` chose -- 0, 1 and 5 included,
+    which #849 left named rather than closed -- so the file reads `new?`
+    naming that session."""
     at_base = STOPS_ITS_SESSION.format(stop=stop)
     repo = base_then_feature(
         tmp_path / "repo",
@@ -5812,7 +6257,53 @@ def test_a_base_session_pytest_stopped_part_way_gives_no_new(tmp_path, stop):
     assert word != gate.NEW, out.stdout
     assert word == gate.UNENDED_AT_BASE.format(count=1), out.stdout
     ends = [line for _, line in base_records(keep) if line.get("kind") == "end"]
-    assert [end["exitstatus"] for end in ends] == [2], ends
+    assert [end["exitstatus"] for end in ends] == [code], ends
+    assert all(end["stopped"] for end in ends), ends
+
+
+# A conftest that runs the tests by name, so a file's first test runs before
+# another file's failure and its last test after it (S8 of 1791384158).
+RUNS_BY_NAME = """\
+def pytest_collection_modifyitems(items):
+    items.sort(key=lambda item: item.name)
+"""
+FAILS_BETWEEN = "def test_b_bad():\n    assert False\n\n\ndef test_b_bad_again():\n    assert False\n"
+RUNS_AROUND = "def test_a_ok():\n    pass\n\n\ndef test_c_late():\n    pass\n"
+
+
+@pytest.mark.parametrize("flag", ["-x", "--maxfail=2"])
+def test_a_base_session_x_stopped_part_way_gives_no_new(tmp_path, flag):
+    """#852's second limit (S8 of 1791384158). A run without xdist that `-x`
+    or `--maxfail` stops exits 1, as a run that reached its end and failed
+    does. At the base `tests/test_two.py`'s first test passes, `tests/test_one.py`
+    fails and the stop comes before `test_c_late`: the base's record holds
+    `tests/test_two.py` collected and nothing of it failing, and the exit was
+    1, so it read `new` for a test the base never ran. The `end` line says
+    pytest stopped the session after failures, so it reads `new?`."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"{files_row(False)} {flag} tests",
+        {
+            "tests/conftest.py": RUNS_BY_NAME,
+            "tests/test_one.py": FAILS_BETWEEN,
+            "tests/test_two.py": RUNS_AROUND,
+        },
+        {
+            "tests/test_one.py": FAILS_BETWEEN.replace("assert False", "pass"),
+            "tests/test_two.py": RUNS_AROUND.replace(
+                "def test_c_late():\n    pass", "def test_c_late():\n    assert False"
+            ),
+        },
+    )
+    keep = tmp_path / "keep"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    word = verdict_of(out.stdout, "tests/test_two.py")
+    assert word == gate.UNENDED_AT_BASE.format(count=1), out.stdout
+    ends = [line for _, line in base_records(keep) if line.get("kind") == "end"]
+    assert [end["exitstatus"] for end in ends] == [1], ends
+    assert [entry["by"] for entry in ends[0]["stopped"]] == ["failures"], ends
 
 
 # Under `-n 2 -x --dist loadfile` each file goes to a worker of its own. At
@@ -5904,8 +6395,9 @@ def test_a_session_that_stopped_part_way_here_is_counted_under_the_list(tmp_path
     """#849 round 1's 🟡 2. At `HEAD` a test that kills plain pytest writes
     only its passing setup, so its file is in no list of failing files, and
     pytest prints no summary. The failure form says a session stopped
-    part-way under the list, and `NO_SUMMARY` names a pytest that died beside
-    one that never started."""
+    part-way under the list, and since #869 the suite entry ends with what
+    that session's record counted before it died, never with a line saying
+    no pytest left a record, which one did."""
     repo = base_then_feature(
         tmp_path / "repo",
         files_row(False) + " tests",
@@ -5926,7 +6418,10 @@ def test_a_session_that_stopped_part_way_here_is_counted_under_the_list(tmp_path
     assert verdict_of(out.stdout, "tests/test_a.py") == gate.NEW, out.stdout
     assert verdict_of(out.stdout, "tests/test_two.py") is None, out.stdout
     assert gate.UNENDED_HERE.format(count=1) in lines, out.stdout
-    assert gate.NO_SUMMARY in lines, out.stdout
+    # `F..`: the fixture repository's own test and `test_ok` passed before
+    # `test_crash` killed the process.
+    assert "1 failed, 2 passed" in lines, out.stdout
+    assert gate.NO_RECORD_HERE not in lines, out.stdout
 
 
 # A plugin whose directory hook fails while the session itself walks its
@@ -7674,24 +8169,17 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         "red session whose left-out reports all passed, such as a passing item "
         "a conftest parents to the session, still turns `new` into `new?`.",
         # #849 (#825 round 6's 🟡 1): a base session that stopped part-way,
-        # and #849 round 1's 🟡 1: one pytest stopped itself, with the two
-        # stops left open named.
+        # #849 round 1's 🟡 1: one pytest stopped itself, and #852: the stop
+        # read off the `end` line, which closes the two #849 left named.
         "Either `new` reads `new?` naming the count, too, where a session of "
         "the base stopped part-way, so the file's tests there may not have "
         "finished: it wrote no `end` line to its record, because its process "
         "died, as plain pytest does on a test that calls `os._exit` or "
         "segfaults, or its recorder stopped writing, a disk that filled among "
-        "the causes; or its `end` line shows an exit other than the three of a "
-        "session that ran to its end, 0, 1 and 5, as a `KeyboardInterrupt` or "
-        "`pytest.exit()` in a test, a failed collection without `-x` and "
-        "xdist under `-x` give. Where a red session also left reports out, "
-        "that count is the "
-        "one named.",
-        "Two stops are named rather than closed: a test that calls "
-        "`pytest.exit` with a return code of 0, 1 or 5 chooses one of the "
-        "three, and a run without xdist that `-x` or `--maxfail` stops exits 1, "
-        "which leaves no file partly run only while each file's tests run "
-        "together.",
+        "the causes; or its `end` line says pytest stopped it — an interrupt, "
+        "`pytest.exit()` whatever code it chose, `-x` or `--maxfail`, a "
+        "plugin's stop — or shows an exit other than 0, 1 and 5. Where a red "
+        "session also left reports out, that count is the one named.",
         # #849 round 1's 🟡 2: the same stop at `HEAD`, counted.
         "The gate also says there how many sessions at `HEAD` stopped "
         "part-way, because the test such a session stopped in may be in no "
@@ -7793,6 +8281,11 @@ def test_the_measurement_its_cost_and_its_limits_are_told_where_the_row_is_writt
         # #849 round 1's 🟡 1: a missing `end` line named as the only stop.
         "where a session of the base wrote no `end` line to its record, because "
         "it stopped part-way",
+        # #852: the stops read off the exit alone, and the two it left open,
+        # which the `end` line's `stopped` closes.
+        "a failed collection without `-x` and xdist under `-x` give",
+        "Two stops are named rather than closed",
+        "which leaves no file partly run only while each file's tests run together",
     ):
         assert gone not in text, f"rule 3 still carries: {gone}"
 
@@ -9446,7 +9939,6 @@ def test_a_runners_event_payload_judges_the_fixture_and_fails_its_gate(
             base="base",
             record=str(repo / ITEM),
             shape=True,
-            scale=1.0,
             keep_output=str(tmp_path / "out"),
             preflight=False,
         ),
@@ -9497,7 +9989,6 @@ def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
             base="base",
             record=str(repo / ITEM),
             shape=True,
-            scale=1.0,
             keep_output=str(tmp_path / "out"),
             preflight=False,
         ),

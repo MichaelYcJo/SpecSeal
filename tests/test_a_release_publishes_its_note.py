@@ -675,12 +675,29 @@ def test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit
         assert any(line.strip() == "continue-on-error: true" for line in step), step
     tokened = [step for step in held if any("GH_TOKEN" in line for line in step)]
     assert len(tokened) == 1 and any("release_seal.py" in line for line in tokened[0])
-    suite = [step for step in held if any("--junitxml" in line for line in step)]
-    assert len(suite) == 1 and any("id: suite" in line for line in suite[0]), suite
+    suite = [step for step in held if any("id: suite" in line for line in step)]
+    assert len(suite) == 1, suite
     assert any(line.strip() == "timeout-minutes: 30" for line in suite[0]), suite
     assert any(
         "SUITE_OUTCOME: ${{ steps.suite.outcome }}" in line for line in tokened[0]
     ), tokened
+    # #869 (S12 of 1791384158): the suite runs with the broad gate's recorder
+    # loaded as the gate loads it, writes no JUnit file, and the drawing
+    # step is handed the directory and the key the suite step wrote with.
+    said = {
+        line.strip().split(":", 1)[0]: line.strip().split(":", 1)[1].strip()
+        for line in suite[0] + tokened[0]
+        if line.strip().split(":", 1)[0].isupper()
+    }
+    assert said["PYTHONPATH"] == (
+        "${{ github.workspace }}/skills/verify/scripts/pytest_record"
+    ), said
+    assert said["PYTEST_ADDOPTS"] == "-p specseal_pytest_record", said
+    assert said["SUITE_RECORDS"] == said["SPECSEAL_RECORD_DIR"], said
+    assert said["SUITE_KEY"] == said["SPECSEAL_RECORD_KEY"], said
+    assert not any(
+        "junitxml" in line or "SUITE_XML" in line for line in text.splitlines()
+    )
 
 
 def test_the_seal_job_installs_rsvg_convert_before_the_suite_and_the_draw():
@@ -716,7 +733,7 @@ def test_the_seal_job_installs_rsvg_convert_before_the_suite_and_the_draw():
     assert "sudo apt-get update || true;" in run, run
     assert "apt-get update &&" not in run, run
     suite = next(
-        n for n, step in enumerate(held) if any("--junitxml" in s for s in step)
+        n for n, step in enumerate(held) if any("id: suite" in s for s in step)
     )
     draw = next(
         n for n, step in enumerate(held) if any("release_seal.py" in s for s in step)

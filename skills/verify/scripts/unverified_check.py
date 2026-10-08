@@ -150,12 +150,27 @@ SKIP_DIRS = {
     "node_modules",
     "venv",
 }
-# The heading matcher for a base revision. There is one reader; only how it
-# finds the section is an argument, because a base commit may spell the
-# heading the way this corpus did before it was normalized. Everything else —
-# how a cell is read, where a fence ends, how a path resolves — is shared, and
-# that sharing is what stopped one fix from opening the next gap.
-LOOSE_HEADING = re.compile(r"^#{2,3}\s.*not verified", re.I)
+
+
+class _LooseHeading:
+    """The heading matcher for a base revision. There is one reader; only how
+    it finds the section is an argument, because a base commit may spell the
+    heading the way this corpus did before it was normalized. Everything
+    else — how a cell is read, where a fence ends, how a path resolves — is
+    shared, and that sharing is what stopped one fix from opening the next
+    gap.
+
+    **Whether the line is a heading is the one rule's**, `heading_level`, at
+    level 2 or 3; this decides the wording alone, a heading that mentions
+    `not verified` in any case. It was a pattern of its own, a sixth
+    spelling of the heading rule beside the one in this file (#867 round 1,
+    🟡 6). `.match` is the name `sections` and `check_text` call."""
+
+    def match(self, text):
+        return heading_level(text) in (2, 3) and "not verified" in text.lower()
+
+
+LOOSE_HEADING = _LooseHeading()
 # Where GFM ends a line: LF, CR or CRLF, and nowhere else. `str.splitlines`
 # also ends one at U+2028, U+2029, NEL, a form feed, VT and `\x1c`-`\x1e`, so
 # below one of those a reader read lines no renderer shows (#664).
@@ -513,6 +528,45 @@ def _liveness(lines, spans_cross_lines):
     return out
 
 
+def heading_level(line):
+    """The level of the ATX heading LINE is, 1 to 6, or None where it is
+    not one — **the one spelling of a markdown heading in this plugin**
+    (#867).
+
+    CommonMark 4.2: at most three spaces of indentation, then one to six
+    `#`, then a space, a tab or the end of the line. So `#hello`, `#######
+    seven`, an issue reference that begins a wrapped line (`#120) was …`) and
+    a `#` run four spaces in are not headings, and `   ## B` is. A tab
+    before the run is four columns, an indented code block, and not a
+    heading either.
+
+    **It reads one line, so the lines it is asked of are the caller's
+    business.** A renderer shows a heading only where the line is shown, so
+    every reader asks it of lines with fenced blocks blanked — `readable`'s
+    here, `evidence_check.py#unquoted`'s in the checker — and a `## B`
+    quoted in a closed fence is never asked. Setext headings are not read:
+    every one markdown-it finds in this repository is a front-matter line
+    under its `---` closer, which GitHub renders as a table.
+    `tests/test_one_heading_rule_holds_to_commonmark.py` holds this to
+    markdown-it's ATX headings, through `tests/commonmark_oracle.py`, and
+    says so the day a setext heading appears in a body.
+
+    It used to be spelled in five places: here inline in
+    `_paragraph_ends_at`, as `startswith("#")` in `headings` and in
+    `chain_check.py`, as `^#{1,6}\\s` in the checker and the payload meter,
+    and as a pattern in `fold_check.py`; the first two read a `#NNN`-led
+    line as a heading and ended a `## Not verified` or `## Verdicts` section
+    there."""
+    indent = len(line) - len(line.lstrip(" "))
+    if indent > 3:
+        return None
+    s = line[indent:]
+    n = len(s) - len(s.lstrip("#"))
+    if 1 <= n <= 6 and (len(s) == n or s[n] in " \t\r\n"):
+        return n
+    return None
+
+
 def _paragraph_ends_at(line):
     """Whether this line ends the paragraph above it.
 
@@ -541,24 +595,20 @@ def _paragraph_ends_at(line):
     s = line.strip()
     if not s:
         return True
-    indent = len(line) - len(line.lstrip(" "))
     # `|` is a deliberate over-stop — GFM parses a table row's cells
     # independently and it is what keeps three work items' coordinates.
     # `>` is the format's own rule (CommonMark 5.1).
     if s.startswith(("|", ">")):
         return True
-    # CommonMark 4.2: at most three spaces of indentation, then one to six
-    # hashes, then a space, a tab or end of line. `s.startswith("#")` alone
-    # stopped on `#hello` and on `####### seven`, which are paragraph text —
-    # and on the issue references this repository writes constantly, 944
-    # lines of them (round 6, finding 4). Four spaces is paragraph text too,
-    # a lazy continuation line, and the oracle
+    # CommonMark 4.2, asked of the one spelling, `heading_level` (#867).
+    # `s.startswith("#")` alone stopped on `#hello` and on `####### seven`,
+    # which are paragraph text — and on the issue references this repository
+    # writes constantly, 944 lines of them (round 6, finding 4). Four spaces
+    # is paragraph text too, a lazy continuation line, and the oracle
     # `tests/test_unverified_rows_close.py#block_ends_at` has bounded it all
     # along (#491's round-7 comment).
-    if indent <= 3 and s.startswith("#"):
-        n = len(s) - len(s.lstrip("#"))
-        if 1 <= n <= 6 and (len(s) == n or s[n] in " \t"):
-            return True
+    if heading_level(line) is not None:
+        return True
     # Only an OPENER interrupts a paragraph, and `fence_opener` is the rule.
     if fence_opener(line) is not None:
         return True
@@ -691,8 +741,15 @@ def readable(text):
 
 
 def headings(lines):
-    """(index, text) for every heading in already-`readable` lines."""
-    return [(i, line.rstrip()) for i, line in enumerate(lines) if line.startswith("#")]
+    """(index, text) for every heading in already-`readable` lines, by the
+    one rule, `heading_level` (#867). `startswith("#")` read a wrapped line
+    beginning `#120)` as a heading, so a `## Not verified` section ended
+    there and the rows below it went uncounted — the permissive direction."""
+    return [
+        (i, line.rstrip())
+        for i, line in enumerate(lines)
+        if heading_level(line) is not None
+    ]
 
 
 def parse_section(body, offset, strict_header=True):

@@ -288,6 +288,17 @@ def test_sections_split_each_file_at_its_headings_and_sum_to_the_file(meter, tmp
     assert "sections" not in without["agents"]["probe"]["files"][1]
 
 
+def test_a_section_heading_is_read_by_the_one_heading_rule(meter):
+    """#867. `heading_starts` cuts at the levels 2 and 3 of the one rule,
+    `unverified_check.py#heading_level`: a heading indented up to three
+    spaces or followed by a tab is one, and `#120)` and `##B` are not. The
+    pattern it kept, `^#{2,3} `, missed the first two. Seen red against it."""
+    text = "intro\n   ## Indented\nx\n##\tTabbed\ny\n#120) prose\n##B\n### Three\n"
+    starts = meter.heading_starts(text)
+    lines = [text[at:].split("\n", 1)[0] for at in starts]
+    assert lines == ["   ## Indented", "##\tTabbed", "### Three"], lines
+
+
 def test_json_carries_the_same_numbers_as_the_text_and_no_machine_path(tmp_path):
     """Each agent row's bytes and chars sit on its own table line, and the
     `CLAUDE.md` pair's on the pair line as a sum -- the text never prints a

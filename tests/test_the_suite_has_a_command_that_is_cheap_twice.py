@@ -27,16 +27,16 @@ is the only reason they exist.
 import importlib.util
 import os
 import pathlib
-import re
 import subprocess
 import sys
 
 import pytest
+from test_ci_gives_the_checks_what_they_need import jobs, matrix_include_entries
+from test_ci_gives_the_checks_what_they_need import read as read_workflow
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BIN = os.path.join(ROOT, "bin")
 SCRIPT = os.path.join(ROOT, ".github", "scripts", "run_tests.py")
-WORKFLOW = os.path.join(ROOT, ".github", "workflows", "test.yml")
 
 # Held before any test can replace `subprocess.run` on the module the runner
 # imports: `rt.subprocess` IS this module, so a case that fakes the builder's
@@ -977,8 +977,7 @@ def test_ci_installs_the_parser_the_runner_pins():
     """#667, phase 1. The pin is chosen once, in `MARKDOWN_IT`, and CI's
     pytest job installs its own list. A version bumped in one place and not
     the other runs the oracle's cases against two parsers."""
-    workflow = read(WORKFLOW)
-    job = workflow[workflow.index("  pytest:") : workflow.index("  ledger:")]
+    job = jobs(read_workflow("test.yml"))["pytest"]
     installs = [
         line.split("run:", 1)[1].split()
         for line in job.splitlines()
@@ -1198,9 +1197,9 @@ def test_ci_runs_the_suite_at_the_floor_the_runner_holds():
     at. Nothing read the workflow, so that half was a claim about another file
     which could go stale in silence -- and a floor CI does not run at is a
     floor nothing measures."""
-    workflow = read(WORKFLOW)
-    matrix = workflow[workflow.index("  pytest:") : workflow.index("  ledger:")]
-    versions = re.findall(r'python:\s*"([^"]+)"', matrix)
+    versions = [
+        e.get("python") for e in matrix_include_entries(read_workflow("test.yml"))
+    ]
     assert versions, "the pytest job names no python version to compare"
     assert set(versions) == {rt.FLOOR_TEXT}, (
         f"CI runs the suite at {sorted(set(versions))} and the runner's FLOOR "

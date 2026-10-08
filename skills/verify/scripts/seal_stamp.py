@@ -36,11 +36,8 @@ neither: since #400 the gate draws nothing on a pipe.
 **The `Stop` hook's message is held under a budget** (#717): the harness
 persists a `systemMessage` longer than `MESSAGE_LIMIT` and shows a preview
 instead, so `admitted` carries as many of the oldest stamps as fit with
-their disc, each at the highest rung of `SCALE_LADDER` the others leave room
-for — one rung since #832, 0.90, because the disc has one size — and leaves
-the rest for the next `Stop`.
-Only one stamp that does not fit with its disc alone is drawn as the text
-block with no disc.
+their disc and leaves the rest for the next `Stop`. Only one stamp that does
+not fit with its disc alone is drawn as the text block with no disc.
 
 The stamp prints on success only. The failure form, `not_sealed`, is the words
 `NOT SEALED`, the branch and the tree, the base's ref and its commit
@@ -61,11 +58,9 @@ session's turn. This module owns the file: `write_values`, `read_values`,
 Usage:
   seal-stamp                      the stamp over sample rows, for a person
   seal-stamp --shape              the letter twin
-  seal-stamp --scale 0.75         a scale in the band, 0.75 its floor; the
-                                  disc is one size at every scale
   seal-stamp --from <file>        a sealed run's values file, drawn once
 
-The gate imports `stamp(rows, scale, shape)`, `not_sealed(tree, base,
+The gate imports `stamp(rows, shape)`, `not_sealed(tree, base,
 failures, branch, ref)`, `sealed_names`, `pick_shape(stream)`,
 `is_terminal(stream)` and `write_values`;
 the hook imports `pending`, `read_values`, `claim` and `stamp`.
@@ -76,9 +71,8 @@ repository's own and the plugin ships nothing that runs it. The command
 exists so a person can see the drawing without running a gate, and so a
 values file no hook drew can still be drawn by hand.
 
-Exit codes: 0 printed · 2 refused — a scale under the floor, an interpreter
-under the floor, or a values file that is unreadable or drawn already;
-nothing was written on 2.
+Exit codes: 0 printed · 2 refused — an interpreter under the floor, or a
+values file that is unreadable or drawn already; nothing was written on 2.
 """
 
 import argparse
@@ -175,35 +169,12 @@ KEY = {
 }
 
 
-# #30 §*Size* measured the floor on the lily's chart: at 75 % the lily was
-# still legible, at 60 % its band closed up and its foot became a blob, and at
-# 50 % it read as a cross. The band stays where #30 put it, 0.75 to 1.0, as
-# what a values file and `--scale` may carry: since #832's disc of one size
-# the scale no longer sizes the disc, and a scale outside the band is refused
-# (`check_scale`) because no gate writes one, not because of what it would
-# draw.
-SCALE_FLOOR = 0.75
-SCALE_CEILING = 1.0
-# The scale both commands draw at unless told otherwise (#400 §*The size, and
-# why it is 0.90*). Six scales were rendered in colour and looked at by the
-# owner before the choice: at 0.90 the disc was then 20 lines against the
-# panel's 16, the darkest gold that crowded the lily's foot at 0.95 had
-# cleared, the rope settled to two rows, and the highlight still ran the
-# centre leaf.
-# The trade was the lily's legibility against the two blocks lining up, and
-# legibility won. #717 drew the letter at 0.90 again, the owner choosing it
-# from renderings at 0.85 and 0.90 with the disc pressed on the sheet; the
-# rope this paragraph names is gone. Those readings were of the lily, which
-# #832 withdrew. #832 kept 0.90 as the scale a values file carries, and since
-# the owner's disc of 2026-10-07 the disc is `DISC_CELLS` across
-# at every scale in the band, so the scale sizes nothing: the disc's mark is
-# a chart, and a chart has one size.
-#
-# 0.75 was the other candidate, passed over rather than missed: under #400's
-# disc it was the only legal scale where the disc (then 17 lines) and the
-# panel ended within one line of each other, and it was the least detail of
-# the band.
-DEFAULT_SCALE = 0.90
+# There is no scale (#853). #30 measured a band of them, 0.75 to 1.0, on the
+# lily's chart, #400 chose 0.90 and #717 drew the letter at it; since #832's
+# disc of 2026-10-07 the disc is `DISC_CELLS` across whatever a scale said,
+# because the disc's mark is a chart and a chart has one size. The band, its
+# refusals, `--scale` on both commands and the values file's `scale` field
+# were a dial that turned nothing, and they went together.
 
 # --- what one hook message may hold (#717) ---------------------------------
 #
@@ -241,58 +212,12 @@ MESSAGE_LIMIT = 10000
 # figures: cut by code points, a text gave two gates 1,309 in #717's round 3.
 MESSAGE_RESERVE = 1000
 MESSAGE_BUDGET = MESSAGE_LIMIT - MESSAGE_RESERVE
-# The rungs a block steps down, after the file's own scale; past the last, a
-# block that does not fit alone is drawn with no disc (`admitted`). One rung
-# since #832: the owner's disc is drawn `DISC_CELLS` across at every scale,
-# so there is no smaller disc to step to, and a block that does not fit with
-# its disc at 0.90 is the text block alone. Each rung is inside
-# `check_scale`'s band, so a step down cannot be refused.
-SCALE_LADDER = (0.90,)
-
-SCALE_REFUSED = (
-    "seal-stamp: scale {scale} is under the floor of {floor}. The disc is "
-    "drawn at one size whatever the scale, and the band {floor}-{ceiling} is "
-    "what a values file and `--scale` may carry (#30 measured the floor). "
-    "Nothing was drawn."
-)
-# NaN is not under the floor and not above the ceiling; it is not on the line
-# at all, and telling a reader it is "under the floor of 0.75" sends them to
-# raise a number that will fail the same way.
-SCALE_NOT_A_NUMBER = (
-    "seal-stamp: scale {scale} is not a number, so it is neither inside the "
-    "band {floor}-{ceiling} nor outside it. Nothing was drawn."
-)
-SCALE_TOO_LARGE = (
-    "seal-stamp: scale {scale} is above {ceiling}. The disc is drawn at one "
-    "size whatever the scale, and the band {floor}-{ceiling} is what a values "
-    "file and `--scale` may carry. Nothing was drawn."
-)
-
-
-def check_scale(scale):
-    """The refusal for a scale outside the band, or None inside it."""
-    # `not (floor <= scale <= ceiling)` rather than two `<`/`>` tests: NaN
-    # compares False with everything, so the pair let it through and it
-    # failed later inside `stamp` with `cannot convert float NaN to integer`
-    # — after every check had run and the cell had been written, and
-    # `broad_gate.main` catches `Refused` alone.
-    if not (SCALE_FLOOR <= scale <= SCALE_CEILING):
-        if scale != scale:  # NaN, and no comparison against it is true
-            return SCALE_NOT_A_NUMBER.format(
-                scale=scale, floor=SCALE_FLOOR, ceiling=SCALE_CEILING
-            )
-        band = {"scale": scale, "floor": SCALE_FLOOR, "ceiling": SCALE_CEILING}
-        return (SCALE_REFUSED if scale < SCALE_FLOOR else SCALE_TOO_LARGE).format(
-            **band
-        )
-    return None
 
 
 # The disc's numbers (#832), in cells of the terminal's grid, where a cell is
 # one column by one half-row and so square. The owner's frame of 2026-10-07:
-# the disc is 28 cells across and so `DISC_LINES` lines tall at every scale,
-# because the disc's mark is a chart drawn for that grid and a chart has one
-# size. Measured inward from the radius, a cell more than `EDGE_INSET` inside
+# the disc is 28 cells across and so `DISC_LINES` lines tall, because the
+# disc's mark is a chart drawn for that grid and a chart has one size. Measured inward from the radius, a cell more than `EDGE_INSET` inside
 # it is on the disc; one no more than `WAX_INSET` inside it is the wax edge,
 # no more than `RIM_INSET` the rim, no more than `GROOVE_INSET` the groove,
 # and the rest the field. `LIT_AT` is where the rim turns from mid to lit on
@@ -357,9 +282,9 @@ def read_chart(path):
 CHART = read_chart(CHART_PATH)
 
 
-def build(scale=1.0):
-    """`(w, h, px)` — the disc's width and height in cells, `DISC_CELLS` at
-    every scale in the band, and `px(x, y)`, a cell's colour or None.
+def build():
+    """`(w, h, px)` — the disc's width and height in cells, `DISC_CELLS`
+    each, and `px(x, y)`, a cell's colour or None.
 
     The centre is `c = (DISC_CELLS - 1) / 2` on both axes and the radius
     `r = DISC_CELLS / 2`. A cell `dx, dy` from the centre at distance `d` is,
@@ -374,11 +299,7 @@ def build(scale=1.0):
     not, else `FACE`; a cell not under one whose up-left is, is `DROP`; the
     rest are `FIELD`. Every cell is exactly one of the nine colours (#832,
     the owner's frame of 2026-10-07). `lit` is read only past the groove's
-    inner edge, where `d` is never 0, so it needs no guard. `scale` is
-    checked against the band and sizes nothing."""
-    refusal = check_scale(scale)
-    if refusal:
-        raise ValueError(refusal)
+    inner edge, where `d` is never 0, so it needs no guard."""
     n = DISC_CELLS
     c, r = (n - 1) / 2, n / 2
 
@@ -587,13 +508,13 @@ def text_lines(rows):
     return lines
 
 
-def compose(rows, scale):
+def compose(rows, disc=True):
     """The stamp of `rows` as lines of cells (see the writers above), with
     its width and height and where the disc stands: `Letter(cells, width,
     height, disc)` (#832, `spec.md` S3, the owner's layout of 2026-10-07).
 
-    The disc at `scale` — None leaves it off, which is the last rung
-    `fitted` steps down to — stands at column 0, `DISC_CELLS` wide and
+    The disc — `disc` False leaves it off, which is the rung `fitted` steps
+    down to — stands at column 0, `DISC_CELLS` wide and
     `DISC_LINES` tall, and the text block (`text_lines`) begins `GAP`
     columns right of it, or at column 0 with no disc. The height is the
     taller one's, and each is centred on it. A cell inside the circle is its
@@ -601,11 +522,11 @@ def compose(rows, scale):
     and nothing outside the disc has a background. No line runs past its
     own last visible cell, so the width is the longest line's."""
     text = text_lines(rows)
-    if scale is None:
-        n, tall, px = 0, 0, None
-    else:
-        n, _, px = build(scale)
+    if disc:
+        n, _, px = build()
         tall = DISC_LINES
+    else:
+        n, tall, px = 0, 0, None
     height = max(len(text), tall)
     top_disc, top_text = (height - tall) // 2, (height - len(text)) // 2
     cells = []
@@ -626,31 +547,26 @@ def compose(rows, scale):
 # --- what the gate calls -------------------------------------------------
 
 
-def stamp(rows, scale=1.0, shape=False):
+def stamp(rows, shape=False, disc=True):
     """The lines of the stamp: the disc beside the text block of `rows`
-    (#717, #832). `shape` picks the letter twin. Raises `ValueError` with
-    the refusal sentence for a scale outside the band. `scale` None is the
-    text block with no disc, the last rung `fitted` steps down to."""
+    (#717, #832). `shape` picks the letter twin. `disc` False is the text
+    block with no disc, the rung `fitted` steps down to."""
     writer = letter_row if shape else colour_row
-    return [writer(line) for line in compose(rows, scale).cells]
+    return [writer(line) for line in compose(rows, disc).cells]
 
 
 def admitted(blocks, budget=MESSAGE_BUDGET):
     """The drawn blocks one `Stop` message carries under `budget`, oldest
-    first (#717). `blocks` is `(label, rows, scale)` per values file, oldest
-    first; a drawn block is its label and then its block form.
+    first (#717). `blocks` is `(label, rows)` per values file, oldest first;
+    a drawn block is its label and then its block form.
 
     The owner's rule of 2026-10-02 (`questions.md` Q6), which replaced one
     rung for the whole message: a seal keeps its disc rather than share a
     message without it. So the message carries as many of the oldest blocks
-    as fit together WITH the disc, each at the last rung of `SCALE_LADDER`
-    or at its own scale where that is lower, and then each, oldest first, at
-    the highest rung the others leave room for: its own scale first, then
-    each of `SCALE_LADDER`, never above its own scale. Since #832 the ladder
-    is one rung, 0.90: the owner's disc is one size at every scale, so a
-    block steps from its disc straight to the text block alone. The blocks
-    past those are not drawn here; the hook leaves their files pending, and
-    the next `Stop` draws them whole.
+    as fit together WITH the disc. A block has two rungs since #853: with its
+    disc, and the text block alone, because the disc has one size. The
+    blocks past those are not drawn here; the hook leaves their files
+    pending, and the next `Stop` draws them whole.
 
     The rung with no disc is for one block alone, the oldest, when it does
     not fit with its disc by itself; it is returned whatever its size, because
@@ -662,41 +578,24 @@ def admitted(blocks, budget=MESSAGE_BUDGET):
 
     A size is counted in UTF-16 units, which is what the harness counts
     (`MESSAGE_LIMIT`): a character outside the BMP is two. `budget` is a
-    parameter so a case can drive every rung."""
+    parameter so a case can drive both rungs."""
 
-    def drawn(block, rung):
-        label, rows, scale = block
-        text = "\n".join(
-            [label, *stamp(rows, None if rung is None else min(scale, rung))]
-        )
+    def drawn(block, disc):
+        label, rows = block
+        text = "\n".join([label, *stamp(rows, disc=disc)])
         # `surrogatepass`: a values file is JSON, which can carry a lone
         # surrogate, and a size that raised would leave every file pending.
         return text, len(text.encode("utf-16-le", "surrogatepass")) // 2
 
-    def rungs(scale):
-        return list(
-            dict.fromkeys(min(scale, rung) for rung in (SCALE_CEILING, *SCALE_LADDER))
-        )
-
-    floor, used = [], -2
+    out, used = [], -2
     for block in blocks:
-        text, size = drawn(block, SCALE_LADDER[-1])
+        text, size = drawn(block, True)
         if used + 2 + size > budget:
             break
-        floor.append((text, size))
-        used += 2 + size
-    if not floor:
-        return [drawn(blocks[0], None)[0]] if blocks else []
-    out = []
-    for block, (text, size) in zip(blocks[: len(floor)], floor, strict=True):
-        rest = used - size
-        for rung in rungs(block[2])[:-1]:
-            higher, more = drawn(block, rung)
-            if rest + more <= budget:
-                text, size = higher, more
-                break
         out.append(text)
-        used = rest + size
+        used += 2 + size
+    if not out and blocks:
+        return [drawn(blocks[0], False)[0]]
     return out
 
 
@@ -873,8 +772,9 @@ def write_values(common, session, values, now=None):
 def read_values(path):
     """A values file as the gate wrote it, with each row a `(label, value)`
     pair or None. Raises `ValueError` with the refusal sentence for a file
-    that cannot be read or is not in that shape — which covers a scale the
-    band refuses too, because `stamp` checks it again when it draws."""
+    that cannot be read or is not in that shape. A `scale` key, which every
+    gate through 0.21's cycle writes (`broad_gate.SCALE_FOR_OLDER_HOOKS`), is
+    read as nothing: such a file draws as one written without it."""
     try:
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
@@ -903,11 +803,6 @@ def read_values(path):
             VALUES_MALFORMED.format(
                 path=path, why="`rows` is not a list of label and value pairs"
             )
-        )
-    scale = data.get("scale")
-    if isinstance(scale, bool) or not isinstance(scale, (int, float)):
-        raise ValueError(
-            VALUES_MALFORMED.format(path=path, why="`scale` is not a number")
         )
     return {**data, "rows": [None if row is None else tuple(row) for row in rows]}
 
@@ -1011,14 +906,6 @@ def main(argv=None, console_wants_letters=None):
         "--shape", action="store_true", help="the letter twin, whatever the console"
     )
     parser.add_argument(
-        "--scale",
-        type=float,
-        default=None,
-        help=f"a scale in the band {SCALE_FLOOR}-{SCALE_CEILING}, {DEFAULT_SCALE} "
-        "the default, and a values file's own scale with --from; the disc is "
-        "one size at every scale",
-    )
-    parser.add_argument(
         "--from",
         dest="values",
         default=None,
@@ -1031,10 +918,9 @@ def main(argv=None, console_wants_letters=None):
     shape = args.shape or console_wants_letters
     try:
         if args.values is None:
-            scale = DEFAULT_SCALE if args.scale is None else args.scale
-            lines = stamp(SAMPLE_ROWS, scale=scale, shape=shape)
+            lines = stamp(SAMPLE_ROWS, shape=shape)
         else:
-            lines = drawn_from(args.values, args.scale, shape)
+            lines = drawn_from(args.values, shape)
     except ValueError as refused:
         sys.stderr.write(str(refused) + "\n")
         return 2
@@ -1042,9 +928,9 @@ def main(argv=None, console_wants_letters=None):
     return 0
 
 
-def drawn_from(path, scale, shape):
+def drawn_from(path, shape):
     """The lines for the values file at `path`, which is claimed before they
-    are returned. `scale` None takes the file's own. Raises `ValueError`
+    are returned. Raises `ValueError`
     with a refusal for a file drawn already, unreadable, or out of shape —
     and every refusal comes before the claim, so a file refused for its
     content is still there to be drawn once it is repaired."""
@@ -1058,7 +944,7 @@ def drawn_from(path, scale, shape):
         drawn = path if path.endswith(DRAWN) else drawn_path(path)
         raise ValueError(VALUES_DRAWN.format(path=path, drawn=drawn))
     values = read_values(path)
-    lines = stamp(values["rows"], values["scale"] if scale is None else scale, shape)
+    lines = stamp(values["rows"], shape)
     if claim(path) is None:
         raise ValueError(VALUES_DRAWN.format(path=path, drawn=drawn_path(path)))
     return lines

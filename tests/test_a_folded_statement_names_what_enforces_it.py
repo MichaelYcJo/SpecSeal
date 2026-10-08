@@ -233,6 +233,15 @@ def test_a_heading_with_a_tab_or_no_text_ends_a_statement(tmp_path):
         assert len(found) == 1 and "carries 0" in found[0], (heading, found)
 
 
+def test_a_line_opening_with_an_issue_number_does_not_end_a_statement(tmp_path):
+    """S9 of #867, the fold check's half. `#120)` at column 0 is paragraph
+    text, so the statement runs on to its `Enforced by:` line. This module's
+    own pattern already read it so; the case pins the one rule it reads now,
+    `unverified_check.py#heading_level`, and was a pin rather than a red."""
+    body = "**Rule.**\n#120) wrapped onto its own line\nEnforced by: nothing — r\n"
+    assert planted(tmp_path, body) == []
+
+
 def test_a_symlink_inside_the_root_that_leaves_it_is_named(tmp_path):
     """Round 2, correction: the path is inside, and the file it opens is not."""
     from conftest import symlink_or_skip

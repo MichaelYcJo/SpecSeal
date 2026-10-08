@@ -429,6 +429,43 @@ def test_a_row_that_will_not_parse_is_named_and_nothing_is_checked(
     assert err == f"fold-check: in {config}, {says} — nothing was checked\n", err
 
 
+@pytest.mark.parametrize("row", ["Fold shape from", "Document line ceiling"])
+def test_a_row_written_twice_is_refused_and_nothing_is_checked(tmp_path, row):
+    """S1 of #867, `fold-check`'s half. A row written twice has no value, by
+    `hooks/config.py#value_of`'s rule: the run exits 2 naming the row and the
+    count, and nothing is checked. Seen red against the first-wins reader
+    this module kept: the first value was read and the check ran."""
+    root = config_root(tmp_path, [(row, "10"), (row, "20")])
+    code, out, err = command("--root", root)
+    config = os.path.join(root, "seal", "config.md")
+    assert code == 2 and not out, (out, err)
+    assert err == (
+        f"fold-check: in {config}, `{row}` appears 2 times — one value — nothing "
+        "was checked\n"
+    ), err
+
+
+@pytest.mark.parametrize("shape", ["directory", "undecodable"])
+def test_an_unreadable_config_is_refused_not_read_as_no_row(tmp_path, shape):
+    """S3 of #867, `fold-check`'s half. A `config.md` that is there and will
+    not read was no row at all, so both checks were skipped and the run said
+    nothing was declared at exit 0. It is refused at exit 2 naming the path.
+    Seen red against the lenient reader: exit 0."""
+    root = config_root(tmp_path, [("Document line ceiling", "10")])
+    config = tmp_path / "seal" / "config.md"
+    config.unlink()
+    if shape == "directory":
+        config.mkdir()
+    else:
+        config.write_bytes(
+            b"| Item | Value |\n|---|---|\n| Document line ceiling | 10 \xff |\n"
+        )
+    code, out, err = command("--root", root)
+    assert code == 2 and not out, (out, err)
+    assert f"{config} is there and cannot be read" in err, err
+    assert err.endswith("— nothing was checked\n"), err
+
+
 def test_an_over_the_ceiling_entry_is_read_with_its_digest(tmp_path):
     """The entry shape `spec.md` fixes, read into the listing the check uses."""
     over, digests = fold_check.parse_over(

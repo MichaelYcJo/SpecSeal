@@ -137,7 +137,7 @@ def test_the_recorder_records_its_own_process(tmp_path):
     assert session["key"] == KEY
     assert os.path.realpath(session["rootdir"]) == os.path.realpath(str(root))
     assert os.path.realpath(session["invocation_dir"]) == os.path.realpath(str(root))
-    assert lines[-1] == {"kind": "end", "exitstatus": 1, "unplaced": 0}
+    assert lines[-1] == {"kind": "end", "exitstatus": 1, "unplaced": 0, "stopped": []}
 
     tests = [line for line in lines if line["kind"] == "test"]
     assert sorted((t["nodeid"], t["when"]) for t in tests) == sorted(
@@ -338,13 +338,12 @@ def pytest_in(root, env, *args):
 
 
 def failing_paths(lines):
-    """The `realpath` of every file a `test` line records failing or a
-    `collect` line records."""
+    """The `realpath` of every file a `test` line or a `collect` line records
+    failing."""
     return {
         os.path.realpath(line["path"])
         for line in lines
-        if (line["kind"] == "test" and line["outcome"] == "failed")
-        or line["kind"] == "collect"
+        if line["kind"] in ("test", "collect") and line["outcome"] == "failed"
     }
 
 
@@ -382,7 +381,12 @@ def test_the_path_each_line_carries_is_the_nodes_own(tmp_path, flags):
             by_kind.setdefault(line["kind"], set()).add(real(line["path"]))
     assert by_kind == {"test": {mixed}, "collect": {broken}}, lines
     assert failing_paths(lines) == {mixed, broken}, lines
-    assert lines[-1] == {"kind": "end", "exitstatus": 1, "unplaced": 0}, lines
+    assert lines[-1] == {
+        "kind": "end",
+        "exitstatus": 1,
+        "unplaced": 0,
+        "stopped": [],
+    }, lines
 
 
 def test_a_pyargs_module_inside_the_rootdir_is_recorded_under_its_own_path(
@@ -651,7 +655,12 @@ def test_a_test_with_no_file_of_its_own_is_left_out_and_counted(tmp_path):
     _, lines = the_one_record(records)
     assert failing_paths(lines) == {real(root / "tests" / "test_a.py")}, lines
     assert all(line.get("nodeid") != "::status" for line in lines), lines
-    assert lines[-1] == {"kind": "end", "exitstatus": 1, "unplaced": 1}, lines
+    assert lines[-1] == {
+        "kind": "end",
+        "exitstatus": 1,
+        "unplaced": 1,
+        "stopped": [],
+    }, lines
 
 
 LOGS_REPORTS_OF_ITS_OWN = """\
@@ -995,3 +1004,312 @@ def test_a_worker_made_after_another_is_freed_inherits_none_of_its_reports():
     assert recorder.path_of(Report("t::e", "???", second), "test") is None
     assert recorder.path_of(Report("t::e", "???", first), "test") == "/r/e.py"
     assert recorder.unplaced == {("test", "t::x"), ("test", "t::e")}
+
+
+# --- what pytest counts, and what stopped the session (#869, #852) ----------
+
+GATE = os.path.join(ROOT, "skills", "verify", "scripts", "broad_gate.py")
+
+SETUP_FAILS = "import pytest\n\n\n@pytest.fixture\ndef broken():\n    raise RuntimeError('setup')\n"
+EVERY_CATEGORY = """\
+import pytest
+
+
+def test_pass():
+    pass
+
+
+def test_fail():
+    assert False
+
+
+def test_setup_error(broken):
+    pass
+
+
+@pytest.mark.xfail
+def test_xfail():
+    assert False
+
+
+@pytest.mark.xfail
+def test_xpass():
+    pass
+
+
+@pytest.mark.xfail(strict=True)
+def test_xpass_strict():
+    pass
+
+
+def test_skip():
+    pytest.skip("no")
+"""
+SKIPS_ITS_MODULE = "import pytest\n\npytest.skip('whole', allow_module_level=True)\n"
+CANNOT_IMPORT = "import a_module_nobody_has\n"
+
+
+def the_gate():
+    spec = importlib.util.spec_from_file_location("broad_gate_for_recorder", GATE)
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    return gate
+
+
+def printed_counts(stdout):
+    """pytest's own summary line, the counts alone: its clock and its
+    warnings, which no report carries, left off."""
+    for line in reversed(stdout.splitlines()):
+        line = line.strip("= ")
+        if " in " in line and line[:1].isdigit():
+            said = line.rsplit(" in ", 1)[0]
+            return ", ".join(
+                part
+                for part in said.split(", ")
+                if not part.split(" ")[1].startswith("warning")
+            )
+    return None
+
+
+@pytest.mark.parametrize("flags", [(), ("-n", "2")], ids=["plain", "xdist"])
+def test_each_test_line_carries_the_category_pytests_own_line_counts(tmp_path, flags):
+    """S5 (#869). Each `test` line carries the word pytest's teststatus hook
+    gives its report, asked the way the terminal reporter asks it: `error`
+    for a failed setup, `xfailed`, `xpassed`, `skipped`, `passed`, `failed`
+    for a strict xfail that passed, `""` for a report pytest counts nowhere.
+    A module that skips itself is a `collect` line with outcome `skipped`, a
+    module that cannot import one with `failed`. Counted the gate's way, the
+    record gives exactly the counts pytest's own summary line printed, plain
+    and under xdist's controller."""
+    root, records = project(
+        tmp_path,
+        {
+            "conftest.py": SETUP_FAILS,
+            "test_cats.py": EVERY_CATEGORY,
+            "test_modskip.py": SKIPS_ITS_MODULE,
+            "test_zbroken.py": CANNOT_IMPORT,
+        },
+    )
+    result = run_pytest(
+        root, recording_env(records), "--continue-on-collection-errors", *flags
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    calls = {
+        line["nodeid"].rsplit("::", 1)[1]: line["category"]
+        for line in lines
+        if line["kind"] == "test" and line["when"] == "call"
+    }
+    assert calls == {
+        "test_pass": "passed",
+        "test_fail": "failed",
+        "test_xfail": "xfailed",
+        "test_xpass": "xpassed",
+        "test_xpass_strict": "failed",
+        "test_skip": "skipped",
+    }, lines
+    setups = {
+        line["nodeid"].rsplit("::", 1)[1]: line["category"]
+        for line in lines
+        if line["kind"] == "test" and line["when"] == "setup"
+    }
+    assert setups["test_setup_error"] == "error", lines
+    assert setups["test_skip"] == "", lines
+    assert {
+        (real(line["path"]), line["outcome"])
+        for line in lines
+        if line["kind"] == "collect"
+    } == {
+        (real(root / "tests" / "test_modskip.py"), "skipped"),
+        (real(root / "tests" / "test_zbroken.py"), "failed"),
+    }, lines
+    gate = the_gate()
+    record = gate.read_record(str(records), KEY, str(root))
+    assert record.counts["skipped"] == 2, record.counts
+    assert gate.suite_counts(record) == printed_counts(result.stdout), result.stdout
+
+
+def end_line(records):
+    _, lines = the_one_record(records)
+    assert lines[-1]["kind"] == "end", lines
+    return lines[-1]
+
+
+EXITS_FROM_ITS_TEST = """\
+import pytest
+
+
+def test_one():
+    pass
+
+
+def test_two():
+    pytest.exit("stop here"{code})
+"""
+
+
+@pytest.mark.parametrize("code", [0, 1, 5, None], ids=["0", "1", "5", "none"])
+def test_a_pytest_exit_in_a_test_is_written_as_a_stop_whatever_code_it_chose(
+    tmp_path, code
+):
+    """S7 (#852's first limit). `pytest.exit()` in a test, with a return code
+    of 0, 1 or 5 -- each an exit a session that ran to its end gives too --
+    or none, is written on the `end` line as an `exit` stop carrying pytest's
+    message and the code: pytest hands it to `pytest_keyboard_interrupt`
+    before the `end` line is written."""
+    chosen = "" if code is None else f", returncode={code}"
+    root, records = project(
+        tmp_path,
+        {
+            "test_a.py": EXITS_FROM_ITS_TEST.format(code=chosen),
+            "test_b.py": "def test_ok():\n    pass\n",
+        },
+    )
+    result = run_pytest(root, recording_env(records))
+    expected_exit = 2 if code is None else code
+    assert result.returncode == expected_exit, result.stdout + result.stderr
+    end = end_line(records)
+    assert end["exitstatus"] == expected_exit
+    assert end["stopped"] == [
+        {"by": "exit", "what": f"Exit: stop here (returncode {code})"}
+    ], end
+
+
+def test_a_keyboard_interrupt_in_a_test_is_written_as_a_stop(tmp_path):
+    """S7's neighbour (#852). A `KeyboardInterrupt` in a test is an
+    `interrupt` stop on the `end` line, named by its type."""
+    root, records = project(
+        tmp_path, {"test_a.py": "def test_one():\n    raise KeyboardInterrupt\n"}
+    )
+    result = run_pytest(root, recording_env(records))
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert end_line(records)["stopped"] == [
+        {"by": "interrupt", "what": "KeyboardInterrupt"}
+    ]
+
+
+FAILS_TWICE = "def test_bad():\n    assert 0\n\n\ndef test_bad_again():\n    assert 0\n"
+
+
+@pytest.mark.parametrize(
+    "flag, count", [("-x", 1), ("--maxfail=2", 2)], ids=["x", "maxfail-2"]
+)
+def test_a_stop_after_failures_is_written_as_a_stop(tmp_path, flag, count):
+    """S8 (#852's second limit). A run without xdist that `-x` or
+    `--maxfail` stopped exits 1, as one that ran every test and failed some
+    does; pytest leaves `session.shouldfail` set, and the `end` line carries
+    it as a `failures` stop. The file after the stop has no line."""
+    root, records = project(
+        tmp_path,
+        {"test_one.py": FAILS_TWICE, "test_two.py": "def test_ok():\n    pass\n"},
+    )
+    result = run_pytest(root, recording_env(records), flag)
+    assert result.returncode == 1, result.stdout + result.stderr
+    _, lines = the_one_record(records)
+    assert lines[-1]["stopped"] == [
+        {"by": "failures", "what": f"stopping after {count} failures"}
+    ], lines
+    assert not any("test_two" in line.get("nodeid", "") for line in lines), lines
+
+
+@pytest.mark.parametrize(
+    "broken, other, exit_code",
+    [
+        ("test_a_broken.py", "test_b.py", 1),
+        ("test_z_broken.py", "test_a.py", 2),
+    ],
+    ids=["collected-first-exits-1", "collected-last-exits-2"],
+)
+def test_a_failed_collection_under_x_is_written_as_a_stop_in_either_order(
+    tmp_path, broken, other, exit_code
+):
+    """S8, #852's comment. A failed collection under `-x` exits 1 where
+    another collector starts after it and 2 where it was the last; either
+    way pytest leaves `session.shouldfail` set, and the `end` line carries a
+    `failures` stop."""
+    root, records = project(
+        tmp_path, {broken: CANNOT_IMPORT, other: "def test_ok():\n    pass\n"}
+    )
+    result = run_pytest(root, recording_env(records), "-x")
+    assert result.returncode == exit_code, result.stdout + result.stderr
+    stopped = end_line(records)["stopped"]
+    assert {"by": "failures", "what": "stopping after 1 failures"} in stopped, stopped
+    # Where it was the last, the run loop raised pytest's `Interrupted`,
+    # which reaches the keyboard-interrupt hook with pytest's own sentence.
+    interrupted = {"by": "interrupt", "what": "Interrupted: 1 error during collection"}
+    assert (interrupted in stopped) is (exit_code == 2), stopped
+
+
+def test_a_plugins_stop_is_written_as_a_stop(tmp_path):
+    """S9 (#852). `--stepwise` stops a run by setting `session.shouldstop`,
+    as any plugin can; the `end` line carries it as a `stop`, whatever the
+    exit."""
+    root, records = project(
+        tmp_path,
+        {"test_one.py": FAILS_TWICE, "test_two.py": "def test_ok():\n    pass\n"},
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "--stepwise", "tests"],
+        cwd=str(root),
+        env=recording_env(records),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=240,
+    )
+    assert result.returncode != 0, result.stdout + result.stderr
+    stopped = end_line(records)["stopped"]
+    assert [entry["by"] for entry in stopped if entry["by"] == "stop"] == ["stop"], (
+        stopped
+    )
+
+
+def test_a_teststatus_answer_that_holds_no_word_writes_no_category():
+    """#869, at `Recorder.category_of`, for answers no pytest build gives on
+    demand. The hook is asked with the report and the config; a word is its
+    answer's first element. An answer with no first element, a first element
+    that is not a word, and a hook that raises each write `None`, which the
+    gate counts under no category -- and nothing is raised out of the
+    hook."""
+    spec = importlib.util.spec_from_file_location(
+        "specseal_pytest_record_for_categories",
+        os.path.join(RECORDER_DIR, "specseal_pytest_record.py"),
+    )
+    recorder_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recorder_module)
+    asked = []
+
+    class Hook:
+        answer = ("passed", ".", "PASSED")
+
+        def pytest_report_teststatus(self, report, config):
+            asked.append((report, config))
+            if isinstance(self.answer, Exception):
+                raise self.answer
+            return self.answer
+
+    class Config:
+        rootpath = "/r"
+        hook = Hook()
+
+    config = Config()
+    recorder = recorder_module.Recorder("k", "/d", config)
+    report = object()
+    assert recorder.category_of(report) == "passed"
+    assert asked == [(report, config)]
+    for answer in (None, (), [], (7, "x", "y"), RuntimeError("a plugin's hook")):
+        Config.hook.answer = answer
+        assert recorder.category_of(report) is None, answer
+    Config.hook.answer = ["", "", ""]
+    assert recorder.category_of(report) == ""
+
+    # #869 round 1's ⬜ 5: a report pytest's terminal reporter leaves off its
+    # summary line counts nowhere, whatever the hook would answer, and the
+    # hook is not asked.
+    class Uncounted:
+        count_towards_summary = False
+
+    Config.hook.answer = ("passed", ".", "PASSED")
+    asked.clear()
+    assert recorder.category_of(Uncounted()) == ""
+    assert asked == []

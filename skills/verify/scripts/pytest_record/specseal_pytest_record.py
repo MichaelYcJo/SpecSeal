@@ -24,10 +24,47 @@ What it writes. One JSON Lines file, `<dir>/<key>-<pid>.jsonl`, UTF-8, one
 object per line with a `kind`:
 
   session   key, pid, rootdir, invocation_dir (absolute), pytest's version
-  test      nodeid, when, outcome, wasxfail where set, path (absolute)
-  collect   a failed collection: nodeid, outcome "failed", path (absolute)
-  end       exitstatus, and unplaced: how many tests and collections were
-            written as no line because they had no file of their own
+  test      nodeid, when, outcome, wasxfail where set, path (absolute), and
+            category: the word pytest's own summary counts the report under
+  collect   a failed or a skipped collection: nodeid, outcome "failed" or
+            "skipped", path (absolute)
+  end       exitstatus; unplaced: how many tests and collections were
+            written as no line because they had no file of their own; and
+            stopped: what stopped the session before its end, a list
+            empty where nothing did
+
+A `test` line's `category` is the first element of what pytest's
+`pytest_report_teststatus` hook returns for that report, asked with the
+report and the config exactly as pytest's terminal reporter asks it before
+counting the report on its summary line (#869): `passed`, `failed`,
+`skipped`, `xfailed`, `xpassed`, `error` for a failed setup or teardown,
+`""` for a report pytest counts nowhere, and whatever word a plugin's own
+implementation of the hook gives. The recorder copies no rule of pytest's;
+it asks the one judgment pytest's own line is made from. A failed
+collection is what that line counts as an `error`, and a skipped one -- a
+module that calls `pytest.skip(allow_module_level=True)` -- as a `skipped`.
+Neither `deselected` nor `warnings` is a report's category, and neither is
+written.
+
+The `end` line's `stopped` holds one entry per thing pytest says stopped the
+session, each `{"by": <by>, "what": <text pytest gave>}` (#852):
+
+  interrupt   pytest called `pytest_keyboard_interrupt`: a `KeyboardInterrupt`
+              in a test, or the run loop's `Interrupted` -- a failed
+              collection without `-x`, a stop a plugin asked for
+  exit        the same hook for `pytest.exit()`, whatever return code it
+              chose; `what` carries its message and its return code
+  failures    `session.shouldfail` was set: `-x` or `--maxfail` stopped it
+  stop        `session.shouldstop` was set: a plugin stopped it, as
+              `--stepwise` does
+
+The last two are read off the session at `pytest_sessionfinish`, where
+pytest's own setters have left them: neither can be unset once set. A stop
+no hook shows -- an internal error, a usage error, a `pytest.exit()` in an
+xdist worker, which reaches the controller as an internal error -- still
+shows in `exitstatus`, and the gate reads both. One stop shows in neither:
+a `pytest.exit()` raised by a `pytest_sessionfinish` hook that runs after
+this one is raised after the `end` line was written.
 
 A line's path is the node's own: `item.path` for a test, the module that
 COLLECTED it, and `collector.path` for a failed collection, `fspath` below
@@ -68,13 +105,18 @@ filter so that a run with warnings as errors does not raise it (#825 round
 It runs in the ROW's interpreter, whose version the gate does not know, so it
 is written for Python 3.8 syntax and reads only names pytest has had since
 6.1 (`config.rootpath`; `config.invocation_params` since 5.1; `item.path`
-since 7.0, `fspath` before; `pytest_collectreport` and the old-style
+since 7.0, `fspath` before; `pytest_collectreport`,
+`pytest_report_teststatus`, `pytest_keyboard_interrupt`,
+`session.shouldfail`, `session.shouldstop` and the old-style
 `hookwrapper=True` older). Measured on pytest 7.4, 8.0, 8.1 and 9.1, plain
 and with pytest-xdist 3.8 under `-n 2` on each: the `-p` in `PYTEST_ADDOPTS`
 loads it, an xdist controller receives every worker's test and
 failed-collection reports, and the path a worker sets on a report reaches
 the controller (`phases/phase-1.md` and `phases/phase-5.md` of work item
-1791270161 hold the builds and the commands).
+1791270161 hold the builds and the commands). The category, the skipped
+collection and every stop above were measured on pytest 6.1, 7.0 and 9.1,
+and on 9.1 with pytest-xdist 3.8 under `-n 2` (`phases/phase-1.md` of work
+item 1791384158).
 """
 
 import json
@@ -165,6 +207,7 @@ class Recorder:
         self.file = None
         self.unplaced = set()
         self.last_sent = {}
+        self.stops = []
 
     def path_of(self, report, kind):
         """The path the report carries, or None where it carries none, or
@@ -263,10 +306,37 @@ class Recorder:
         }
         if hasattr(report, "wasxfail"):
             line["wasxfail"] = str(report.wasxfail)
+        line["category"] = self.category_of(report)
         self.write(line)
 
+    def category_of(self, report):
+        """The word pytest's summary line counts `report` under: the first
+        element of the teststatus hook's answer, asked the way the terminal
+        reporter asks it. None where the hook answered nothing a word can be
+        read from, or raised -- the terminal reporter would then have raised
+        first, and this hook raises nothing out. `""` for a report pytest
+        sets `count_towards_summary` false on, which its terminal reporter
+        leaves off the summary line whatever its category (#869 round 1's
+        ⬜ 5)."""
+        if not getattr(report, "count_towards_summary", True):
+            return ""
+        try:
+            status = self.config.hook.pytest_report_teststatus(
+                report=report, config=self.config
+            )
+        except Exception:
+            return None
+        if not isinstance(status, (tuple, list)) or not status:
+            return None
+        category = status[0]
+        return category if isinstance(category, str) else None
+
     def pytest_collectreport(self, report):
-        if not report.failed:
+        if report.failed:
+            outcome = "failed"
+        elif report.skipped:
+            outcome = "skipped"
+        else:
             return
         path = self.path_of(report, "collect")
         if path is None:
@@ -275,10 +345,38 @@ class Recorder:
             {
                 "kind": "collect",
                 "nodeid": report.nodeid,
-                "outcome": "failed",
+                "outcome": outcome,
                 "path": path,
             }
         )
+
+    def pytest_keyboard_interrupt(self, excinfo):
+        """pytest calls this for a `KeyboardInterrupt`, for the run loop's
+        `Interrupted` and for `pytest.exit()`, before `pytest_sessionfinish`
+        (`wrap_session`). Remembered here and written on the `end` line."""
+        value = excinfo.value
+        name = type(value).__name__
+        # `pytest.exit.Exception` is pytest's `Exit`, whose `msg` and
+        # `returncode` every build since 3.x sets in its constructor.
+        if isinstance(value, pytest.exit.Exception):
+            what = f"{name}: {value.msg} (returncode {value.returncode})"
+            self.stops.append({"by": "exit", "what": what})
+            return
+        said = str(value)
+        self.stops.append(
+            {"by": "interrupt", "what": f"{name}: {said}" if said else name}
+        )
+
+    def stopped(self, session):
+        """Every stop pytest showed this session, in the order it showed
+        them: what the keyboard-interrupt hook was handed, then the two
+        flags pytest's own stops set and never unset."""
+        stops = list(self.stops)
+        for by, flag in (("failures", "shouldfail"), ("stop", "shouldstop")):
+            value = getattr(session, flag, False)
+            if value:
+                stops.append({"by": by, "what": str(value)})
+        return stops
 
     def pytest_sessionfinish(self, session, exitstatus):
         self.write(
@@ -286,6 +384,7 @@ class Recorder:
                 "kind": "end",
                 "exitstatus": int(exitstatus),
                 "unplaced": len(self.unplaced),
+                "stopped": self.stopped(session),
             }
         )
         stream, self.stream = self.stream, None

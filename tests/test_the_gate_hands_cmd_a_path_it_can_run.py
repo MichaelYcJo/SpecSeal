@@ -596,41 +596,57 @@ def test_a_switch_against_a_program_runs_on_the_real_platform(tmp_path):
 # --- A5: a failing row with no test result says so ----------------------------
 
 # Pinned verbatim, because a person reads it on the failure form and decides
-# from it whether to open the kept file (`agent-contract` §14). It names both
-# ways a row prints no summary, never one as the only one (#849 round 1).
-NO_SUMMARY = (
-    "no pytest summary in this output, so this exit code is not a count of "
-    "failing tests: the row may have stopped before any test ran, or a pytest "
-    "it ran may have died part-way"
+# from it whether to open the kept file (`agent-contract` §14). It names every
+# cause of a missing record, never one as the only one (#825, #869).
+NO_RECORD_HERE = (
+    "no pytest the row ran here left a record of the gate's recorder (the row "
+    "started no pytest, because a part before its runner failed or it has none; "
+    "none it started loaded the recorder; or the one that did could not write "
+    "its record and warned 'specseal_pytest_record: no record written' in "
+    "suite.txt), so this exit code is not a count of failing tests"
 )
 
 
+def a_record(sessions=1, **counts):
+    gate = gate_module()
+    record = gate.RunRecord()
+    record.sessions, record.counts = sessions, dict(counts)
+    return record
+
+
 @pytest.mark.parametrize(
-    "name, text, said",
+    "name, text, record, said",
     [
         # #448's case: the shell never reached the suite. The wording is
         # the machine's own language, which is why the line does not read it.
         (
             "suite",
             "'bin' is not recognized as an internal or external command,\n",
+            None,
             True,
         ),
-        ("suite", "", True),
-        # A summary is a count, and the count is what the form shows instead.
-        ("suite", "F\n1 failed in 0.01s\n", False),
-        ("suite", "E\n1 error in 0.02s\n", False),
+        ("suite", "", a_record(sessions=0), True),
+        # A printed summary is no record (#869): the form says no record.
+        ("suite", "F\n1 failed in 0.01s\n", None, True),
+        # A record's counts are what the form shows instead.
+        ("suite", "", a_record(failed=1), False),
+        ("suite", "", a_record(error=1), False),
         # Any other check's output was never a pytest run.
-        ("ledger", "BROKEN a#b@c\n", False),
+        ("ledger", "BROKEN a#b@c\n", None, False),
     ],
 )
-def test_a_failing_suite_with_no_summary_says_it_is_not_a_count(name, text, said):
-    """A5. The line is keyed on what is missing, pytest's summary with its
-    wall clock, and not on an exit code: `cmd.exe` exits 1 for a command it
-    cannot find, which is pytest's own 1."""
+def test_a_failing_suite_with_no_record_says_it_is_not_a_count(
+    name, text, record, said
+):
+    """A5. The line is keyed on what is missing, a record of the row's own
+    pytest, and not on an exit code: `cmd.exe` exits 1 for a command it
+    cannot find, which is pytest's own 1; nor on a summary the row printed,
+    which anything the row runs can print (#869)."""
     gate = gate_module()
-    lines = gate.failure_lines(gate.Check(name, 1, text, "/x/out.txt"))
-    assert (NO_SUMMARY in lines) is said, lines
+    lines = gate.failure_lines(gate.Check(name, 1, text, "/x/out.txt"), None, record)
+    assert (NO_RECORD_HERE in lines) is said, lines
     assert lines[0] == "exit 1", lines
     assert lines[-1] == "full output: /x/out.txt", lines
     if name == "suite" and not said:
-        assert gate.suite_counts(text) in lines, lines
+        assert gate.suite_counts(record) in lines, lines
+    assert not hasattr(gate, "NO_SUMMARY")

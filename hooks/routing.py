@@ -160,10 +160,11 @@ def table_rows(text):
     change this function needed was none.
 
     **A row a renderer does not show is not a row** (#658, #667). `parse`
-    keeps the LAST row of a label, so an example quoted in a fenced block
+    kept the LAST row of a label then, so an example quoted in a fenced block
     below the table answered for it, and so did an answer somebody parked in
-    an HTML comment. `shown` below is what this walks, and it hides exactly
-    the lines `hooks/blocks.py` is sure a renderer hides: inside a fenced
+    an HTML comment; since #867 a label shown twice has no value at all.
+    `shown` below is what this walks, and it hides exactly the lines
+    `hooks/blocks.py` is sure a renderer hides: inside a fenced
     block or a comment block that begins its line, where either closes.
     Every other line is read as it always was, so a fence or a `<!--` nobody
     closed hides nothing, and a declaration that read before still reads.
@@ -228,8 +229,22 @@ def parse(text):
     block that closes, is no declaration, and the gate asks as it does for
     any `routing.md` that does not parse. A fence or a `<!--` nobody closed
     above the table is not a block at all, so that declaration still reads.
+
+    **A label written twice has no value** (#867), the rule
+    `hooks/config.py#value_of` gives every `seal/config.md` row. This used to
+    keep the LAST row of a label, so a second `Review` row below the first
+    answered for it, and nothing said there were two. Now a strict label
+    doubled -- `Review`, `Destination`, `Branch` -- makes the file no
+    declaration, and the gate asks as it does for any file that will not
+    parse; an optional label doubled is unanswered, on the terms above.
+    Measured when the rule landed: none of the 86 committed declarations
+    writes a label twice.
     """
-    found = dict(table_rows(text))
+    rows = table_rows(text)
+    counts = {}
+    for label, _value in rows:
+        counts[label] = counts.get(label, 0) + 1
+    found = {label: value for label, value in rows if counts[label] == 1}
     review = found.get(REVIEW)
     destination = found.get(DESTINATION)
     branch = found.get(BRANCH)

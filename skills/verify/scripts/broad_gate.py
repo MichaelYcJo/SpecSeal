@@ -145,11 +145,12 @@ so; the exit is the arms' own.
 
 Usage:
   broad-gate --base <ref> [--root DIR] [--record <item>] [--shape]
-             [--scale 0.9] [--keep-output DIR]
+             [--keep-output DIR]
   broad-gate --preflight --base <ref> [--root DIR] [--keep-output DIR]
 
 Exit codes: 0 sealed · 1 not sealed · 2 refused — no row, no repository, a
-base that does not resolve, a scale outside the band, a `seal` the record
+base that does not resolve, a copy of the plugin whose sibling will not
+load (a malformed `seal-mark.txt` among them), a `seal` the record
 refused; nothing ran on 2 except where the refusal names what ran. Under
 `--preflight`: 0 every record arm passed and `seal --check` refused nothing
 or was not asked · 1 an arm failed or `seal --check` refused · 2 refused,
@@ -338,13 +339,6 @@ def wrapped(label, pieces):
 # record (`failing_files`), to name the files that read `NO_RECORD_AT_HEAD`;
 # the path may hold a space (#813).
 FAILED_RE = re.compile(r"^FAILED\s+(.+?)::", re.M)
-# The counts on pytest's last line — `768 passed, 1 skipped in 12.3s` — with
-# the `=` decoration and the timing left off. Searched from the last line
-# backwards, because the row's command may print a linter's output after it.
-COUNTS_RE = re.compile(
-    r"(\d+ (?:passed|failed|skipped|errors?|xfailed|xpassed|deselected|warnings?)"
-    r"(?:, \d+ [a-z]+)*)"
-)
 # `evidence-check`'s total line: `total: N ok · D drifted · B broken · …`.
 LEDGER_RE = re.compile(r"total: (\d+) ok · (\d+) drifted · (\d+) broken")
 
@@ -354,12 +348,25 @@ class Refused(Exception):
 
 
 def load(path, name):
-    """Import a sibling script by path."""
+    """Import a sibling script by path, or raise `Refused`: where the file is
+    not there, and where executing it raises (#869) — `seal_stamp.py` reads
+    its disc's mark chart at import and raises `CHART_MALFORMED`'s sentence
+    for one that is not in shape, which then ends the gate at exit 2 with
+    that sentence and nothing run, rather than in a traceback. The
+    exception's own sentence is what the person reads; one with none is
+    named by its type. A `SystemExit` — a sibling's interpreter floor — is
+    no `Exception` and keeps its own exit."""
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None or not os.path.isfile(path):
         raise Refused(f"cannot load {path} — this copy of the plugin is missing it")
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception as exc:
+        said = str(exc) or type(exc).__name__
+        raise Refused(
+            f"broad-gate: {path} will not load, so nothing ran: {said}"
+        ) from exc
     return mod
 
 
@@ -787,25 +794,37 @@ def seal_home(root):
 
 
 def config_text(home):
-    """The root's `config.md` as text, or None where it will not read."""
-    try:
-        with open(os.path.join(home, CONFIG), encoding="utf-8") as handle:
-            return handle.read()
-    except (OSError, ValueError):
-        return None
+    """The root's `config.md` as text, or None where there is none or it
+    will not read: the text half of `hooks/config.py#config_text`, the one
+    place the file is opened (#867). Every caller of this one runs after
+    `broad_command`, which has already refused a file that will not read,
+    so None here is a file that is not there."""
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    return config.config_text(home)[0]
 
 
 def broad_command(home):
     """The `Broad gate` row's value, or None for every way of not having one:
-    no file, no row, an empty value, a file that will not read."""
+    no file, no row, an empty value.
+
+    **Two states are refused, not read as no row** (#867): a `config.md`
+    that is there and will not read, and a `Broad gate` row written twice.
+    Either raises `Refused` naming the path, so the sealer's gate exits 2
+    with nothing run. Read as no row, an unreadable file was reported as a
+    missing row, which sent a person to add a row the file already held,
+    and a doubled row ran its first command."""
     config = load(CONFIG_READER, "specseal_config_for_broad_gate")
-    text = config_text(home)
+    text, refused = config.config_text(home)
+    if refused is not None:
+        raise Refused(f"broad-gate: {refused}. Nothing ran")
     if text is None:
         return None
-    for item, value in config.config_rows(text):
-        if item == ROW:
-            return value or None
-    return None
+    value, refused = config.value_of(config.config_rows(text), ROW)
+    if refused is not None:
+        raise Refused(
+            f"broad-gate: {os.path.join(home, CONFIG)}: {refused}. Nothing ran"
+        )
+    return value or None
 
 
 # A refused line's first cell, read the way a cell was read before the escape
@@ -1889,33 +1908,42 @@ class RunRecord:
     the order the records first name it; `collected` every file any line
     names. A file is its path made relative to the run's worktree and
     spelled with `/`, or its absolute path where it lies outside the
-    worktree. `skipped` counts lines that did not parse. `unplaced` sums the
+    worktree. `unread` counts the lines of the keyed files that did not
+    parse as an object, which the recorder never writes (#869); another
+    run's file is not counted. `counts` is how many reports pytest's own
+    summary line counts under each category, over the keyed sessions, in
+    the order each category was first written: a `test` line under its
+    `category`, a failed collection under `error` and a skipped one under
+    `skipped`, as pytest's terminal reporter counts them. `unplaced` sums the
     `end` lines' counts of the tests and collections the recorder wrote as
     no line, for want of a file of their own (#825's reframe after round 3);
     `unplaced_red` sums only those of sessions whose `end` line shows a
     non-zero exit, because a session that exited 0 failed nothing, counted
     or not (#825 round 5). `unended` counts the sessions that stopped
     part-way: those whose record holds no `end` line, because the process
-    died or the recorder stopped writing (#849), and those whose `end` line
-    shows an exit `RAN_TO_ITS_END` does not hold, because pytest ended the
-    session itself (#849 round 1).
+    died or the recorder stopped writing (#849); those whose `end` line says
+    pytest stopped the session -- an interrupt, `pytest.exit()`, `-x` or
+    `--maxfail`, a plugin's stop (#852); and those whose `end` line shows an
+    exit `RAN_TO_ITS_END` does not hold, the net for a stop no hook showed
+    (#849 round 1).
 
     Named apart from `Record`, which is a round record's home (#666)."""
 
     __slots__ = (
         "collected",
+        "counts",
         "failing",
         "sessions",
-        "skipped",
         "unended",
         "unplaced",
         "unplaced_red",
+        "unread",
     )
 
     def __init__(self):
-        self.sessions, self.skipped, self.unplaced = 0, 0, 0
+        self.sessions, self.unread, self.unplaced = 0, 0, 0
         self.unplaced_red, self.unended = 0, 0
-        self.failing, self.collected = {}, set()
+        self.failing, self.collected, self.counts = {}, set(), {}
 
 
 def record_path(path, worktree):
@@ -1938,29 +1966,49 @@ def record_path(path, worktree):
     return rel.replace(os.sep, "/")
 
 
-# The `end` exits of a pytest session that ran to its end (#849 round 1).
-# pytest defines six, and its `wrap_session` gives each one this way:
+# The `end` exits of a pytest session that ran to its end (#849 round 1). A
+# stop is read off the `end` line's `stopped` first (#852): what pytest
+# handed `pytest_keyboard_interrupt` and the session's `shouldfail` and
+# `shouldstop`, which the recorder writes. The exit is the net for a stop no
+# hook shows. pytest defines six, and its `wrap_session` gives each one this
+# way:
 #
 #   0 OK, 1 TESTS_FAILED, 5 NO_TESTS_COLLECTED -- the run loop ran every test
-#     it collected, or there were none. Held here.
-#   2 INTERRUPTED -- a `KeyboardInterrupt` or `pytest.exit()` in a test, a
-#     failed collection without `-x` or `--continue-on-collection-errors` (no
-#     test runs), xdist under `-x` or `--maxfail`, and a plugin that sets
-#     `shouldstop`. Stopped part-way, and still writes its `end` line.
-#   3 INTERNAL_ERROR -- the run loop raised, a hook among the causes.
+#     it collected, or there were none. Held here. A stopped session gives
+#     them too, and `stopped` is what tells it apart: `pytest.exit` with a
+#     `returncode` of 0, 1 or 5 chooses one (an `exit` entry), and a run
+#     without xdist that `-x` or `--maxfail` stops exits 1 (a `failures`
+#     entry). A failed collection under `-x` exits 1 where another collector
+#     starts after it, and 2 where it was the last one collected.
+#   2 INTERRUPTED -- a `KeyboardInterrupt`, `pytest.exit()` with no code, the
+#     run loop's `Interrupted`: a failed collection without `-x` or
+#     `--continue-on-collection-errors` (no test runs), xdist under `-x` or
+#     `--maxfail`, and `--stepwise` or another plugin that sets `shouldstop`.
+#     Each also puts an entry in `stopped`.
+#   3 INTERNAL_ERROR -- the run loop raised, a hook among the causes; and a
+#     `pytest.exit()` in an xdist worker, which reaches the controller as an
+#     internal error with no hook called.
 #   4 USAGE_ERROR -- pytest refused an argument after the session started,
 #     a `-k` expression it cannot parse among them; no test runs.
 #
 # Any other value is a return code `pytest.exit` or a plugin chose, and is no
-# exit of a session that ran to its end. Each exit above was measured with
-# the recorder loaded on pytest 6.1, 7.0 and 9.1 (#849 round 2). Two stops
-# still exit with a value held here, and are named rather than closed:
-# `pytest.exit` with a `returncode` of 0, 1 or 5 chooses it, and a run
-# without xdist that `-x` or `--maxfail` stops exits 1, a failed collection
-# under `-x` among them. That one leaves no file partly run while each file's
-# tests run together: it stops in the file whose failure stopped it, which
-# reads `failing on base too`, and the files after it hold no line.
+# exit of a session that ran to its end. Every exit above was measured with
+# the recorder loaded on pytest 6.1, 7.0 and 9.1 (#849 round 2), and again
+# with every stop `stopped` carries on the same three builds and on 9.1 with
+# pytest-xdist 3.8 under `-n 2` (`phases/phase-1.md` of 1791384158). One stop
+# shows in neither: a `pytest.exit()` raised by a `pytest_sessionfinish`
+# hook that runs after the recorder's is raised after the `end` line was
+# written, and that session reads as one that ran to its end. One
+# over-strictness is named rather than closed: pytest sets `shouldfail` after
+# the test that reaches `-x` or `--maxfail`, last test or not, so a session
+# whose limit fell on its last test ran every test and still reads unended
+# (#869 round 1's ⬜ 4).
 RAN_TO_ITS_END = (0, 1, 5)
+
+# The category pytest's terminal reporter counts a collect report under
+# (`TerminalReporter.pytest_collectreport`): a failed collection is an
+# `error` on its summary line and a skipped one a `skipped` (#869).
+COLLECT_CATEGORY = {"failed": "error", "skipped": "skipped"}
 
 
 def read_record(directory, key, worktree):
@@ -1970,20 +2018,25 @@ def read_record(directory, key, worktree):
 
     Pure, apart from reading the files. A file whose first line does not
     carry this key is another run's and is passed over whole, whatever its
-    name says; a line that does not parse as an object is counted in
-    `skipped` and passed over, and a blank line is passed over uncounted.
-    Every line naming a path is a test or a failed collection, and its
-    `outcome` says whether it failed. A file's lines are read as a set —
-    xdist's controller is handed one failed collection once per worker
-    (`phases/phase-1.md` of 1791270161) — and no test or collection is
-    counted. Files are
+    name says, and none of its lines is counted; a line of a keyed file that
+    does not parse as an object is counted in `unread` and passed over, and
+    a blank line is passed over uncounted. Every line naming a path is a
+    test or a failed or skipped collection, and its `outcome` says whether
+    it failed. A file's lines are read as a set for the lists — xdist's
+    controller is handed one failed collection once per worker
+    (`phases/phase-1.md` of 1791270161) — so a collection is counted once
+    per session however often its line was written, and a `test` line once
+    per line, as pytest counts each report. A `test` line whose `category`
+    is not a word, or is `""`, counts under none. Files are
     read in the order they were last written, so where a row runs pytest
     twice the first runner's files come first. A directory that cannot be
     listed, or a file that cannot be read, holds no record. An `end` line's
     `unplaced`, where it is an integer, is added to the record's, and to its
     `unplaced_red` too where that line's `exitstatus` is not 0. A keyed file
-    with no `end` line, or with an `end` line whose `exitstatus` is not in
-    `RAN_TO_ITS_END`, adds one to `unended`."""
+    with no `end` line, with an `end` line whose `stopped` is not an empty
+    list — a stop pytest showed, or a value the recorder never writes — or
+    with an `end` line whose `exitstatus` is not in `RAN_TO_ITS_END`, adds
+    one to `unended`."""
     record = RunRecord()
     try:
         names = os.listdir(directory)
@@ -2000,29 +2053,35 @@ def read_record(directory, key, worktree):
         except OSError:
             continue
     for _, _, text in sorted(found):
-        parsed = []
+        parsed, unread = [], 0
         for line in text.splitlines():
             if not line.strip():
                 continue
             try:
                 value = json.loads(line)
             except ValueError:
-                record.skipped += 1
+                unread += 1
                 continue
             if isinstance(value, dict):
                 parsed.append(value)
             else:
-                record.skipped += 1
+                unread += 1
         if not parsed or parsed[0].get("key") != key:
             continue
         record.sessions += 1
+        record.unread += unread
         # A session stopped part-way where it wrote no `end` line -- its
         # process died, or its recorder stopped writing (#849, #825 round 6)
-        # -- or where its `end` line shows an exit pytest gives a session it
-        # stopped itself (#849 round 1).
+        # -- where its `end` line says pytest stopped it (#852), or where
+        # that line shows an exit no session that ran to its end gives (#849
+        # round 1).
         ends = [value for value in parsed[1:] if value.get("kind") == "end"]
-        if not ends or any(end.get("exitstatus") not in RAN_TO_ITS_END for end in ends):
+        if not ends or any(
+            end.get("stopped") != [] or end.get("exitstatus") not in RAN_TO_ITS_END
+            for end in ends
+        ):
             record.unended += 1
+        collections = set()
         for value in parsed[1:]:
             unplaced = value.get("unplaced")
             if value.get("kind") == "end" and type(unplaced) is int:
@@ -2037,6 +2096,16 @@ def read_record(directory, key, worktree):
             record.collected.add(named)
             if value.get("outcome") == "failed":
                 record.failing.setdefault(named, None)
+            category = None
+            if value.get("kind") == "test":
+                category = value.get("category")
+            elif value.get("kind") == "collect":
+                seen = (value.get("nodeid"), value.get("outcome"))
+                if seen not in collections:
+                    collections.add(seen)
+                    category = COLLECT_CATEGORY.get(value.get("outcome"))
+            if isinstance(category, str) and category:
+                record.counts[category] = record.counts.get(category, 0) + 1
     return record
 
 
@@ -2149,16 +2218,34 @@ UNPLACED_AT_BASE = (
 # finished. It wrote no `end` line: its process died, as plain pytest does on
 # a test that calls `os._exit` or segfaults, or its recorder stopped writing
 # (#849, #825 round 6's 🟡 1: round 4's 🟡 2 without xdist). Or its `end` line
-# shows an exit `RAN_TO_ITS_END` does not hold: pytest ended the session
-# itself (#849 round 1). Checked after `UNPLACED_AT_BASE`, whose count is the
-# one a red session can give.
+# says pytest stopped the session (#852), or shows an exit `RAN_TO_ITS_END`
+# does not hold: pytest ended the session itself (#849 round 1). Checked
+# after `UNPLACED_AT_BASE`, whose count is the one a red session can give.
 UNENDED_AT_BASE = (
     f"{NOT_MEASURED}: the row ran once at the base, and {{count}} of its pytest "
     "sessions stopped part-way, because the process died or the recorder "
-    "stopped writing before the session's end line, or pytest ended the "
-    "session interrupted or on an error of its own, so this file's tests there "
-    "may not have finished and whether the base fails it was not measured "
-    "(kept as suite-at-base.txt, with records/ beside it)"
+    "stopped writing before the session's end line, or pytest stopped the "
+    "session (an interrupt, pytest.exit(), -x or --maxfail, a plugin's stop) "
+    "or ended it on an error of its own, so this file's tests there may not "
+    "have finished and whether the base fails it was not measured (kept as "
+    "suite-at-base.txt, with records/ beside it)"
+)
+
+
+# Formatted with how many lines of the base's keyed records did not parse as
+# the recorder's, where a file would read `new` (#869). The recorder writes
+# one JSON object per line, so such a line was written by something else or
+# cut short, and it may have held this file's failing test. Checked after
+# `UNENDED_AT_BASE`: a session that died part-way can leave a cut last line,
+# and its reason is the one that names the cause. A file the record holds
+# failing still reads `failing on base too`: what the record does hold is
+# kept.
+UNREAD_AT_BASE = (
+    f"{NOT_MEASURED}: the row ran once at the base, and {{count}} of the lines "
+    "in the records its pytest wrote there did not parse as the recorder's and "
+    "each was passed over, so one may have held this file's failure and "
+    "whether the base fails it was not measured (kept as suite-at-base.txt, "
+    "with records/ beside it)"
 )
 
 
@@ -2179,6 +2266,8 @@ def base_word(record, code, path):
             return UNPLACED_AT_BASE.format(count=record.unplaced_red)
         if record.unended:
             return UNENDED_AT_BASE.format(count=record.unended)
+        if record.unread:
+            return UNREAD_AT_BASE.format(count=record.unread)
         return NEW
     return NOT_REACHED.format(code=code)
 
@@ -2700,34 +2789,38 @@ def coverage_line(text, given):
 # --- what the panel reads --------------------------------------------------
 
 
-def suite_counts(text):
-    """pytest's own counts off the row's output, or None.
+# The order pytest's summary line prints the categories in, from its
+# `KNOWN_TYPES` with the two no report carries left out (`deselected`,
+# `warnings`); a category outside it follows, in the order it was first
+# written, as pytest prints one (#869).
+SUMMARY_ORDER = ("failed", "passed", "skipped", "xfailed", "xpassed", "error")
+# The one category pytest's line pluralises among those a report carries.
+PLURALS = {"error": "errors"}
 
-    pytest's summary line is the counts followed by the WALL CLOCK — `768
-    passed, 1 skipped in 12.34s`, decorated or not. A linter's line has counts
-    and no clock, and it stands AFTER pytest's summary in a row joined with
-    `&&`, so a backwards walk that takes the first `COUNTS_RE` match takes the
-    linter's number and prints it as the suite's.
 
-    Matching on WORDS closed round 1's 🟡 5 on its instance and not on its
-    class: `warnings` left the list and `errors` stayed in it, so `Found 2
-    errors.` from a linter run with `--exit-zero` still landed on the suite
-    row; and a run where every test was SKIPPED matched no word at all and
-    came back None, which the panel prints as `exit 0` — the sealer's seal
-    showing its most trusted row and saying nothing about a run in which
-    nothing executed (round 2's 🟡 13).
+def suite_counts(record):
+    """The suite's counts as pytest's summary line prints them, without its
+    clock — `1 failed, 767 passed, 1 error` — read off the `RunRecord` of
+    the row's run, or None.
 
-    The clock pattern is written here rather than hoisted to a module
-    constant, and the reason is a rule rather than taste: this function
-    answers a finding inside a unit `round-1.md`'s `New units` names, so a
-    top-level name added beside it is at depth 2 and a fix pass may not add
-    one. `re` caches compiled patterns, so the inline form costs nothing.
-    """
-    for line in reversed(text.splitlines()):
-        m = COUNTS_RE.search(line)
-        if m and re.search(r"\bin \d+(?:\.\d+)?s\b", line[m.end() :]):
-            return m.group(1)
-    return None
+    Every number is a count of lines the row's own pytest wrote, under the
+    category pytest's own line counts each report under (`read_record`), so
+    nothing the row PRINTS can reach it (#869). None where no session
+    carries the key, where a keyed file holds a line that did not parse —
+    a count that passed a line over is not one anybody can vouch for —
+    where a report was counted under no category because it had no file of
+    its own (`unplaced`, which pytest's own line counted; #869 round 1's
+    🟡 2), or where no report was counted at all."""
+    if not record.sessions or record.unread or record.unplaced or not record.counts:
+        return None
+    known = [name for name in SUMMARY_ORDER if name in record.counts]
+    other = [name for name in record.counts if name not in SUMMARY_ORDER]
+    said = []
+    for name in known + other:
+        count = record.counts[name]
+        word = PLURALS.get(name, name) if count != 1 else name
+        said.append(f"{count} {word}")
+    return ", ".join(said)
 
 
 def ledger_counts(text):
@@ -2957,6 +3050,7 @@ def panel(
     branch=None,
     pr=None,
     record=None,
+    run=None,
 ):
     """The stamp's rows, as `(label, value)`, with `""` as the label of a row
     that continues the one above it (#666) and `None` for the blank line
@@ -2965,7 +3059,9 @@ def panel(
     `base` is a `Base`. `copy` is `gate_copy`'s value and None leaves the
     `gate` row out; `branch` is `branch_name`'s, None on a detached HEAD;
     `pr` is `pull_request`'s, None where the record names none; `record` is
-    `sealed_record`'s, which `rounds_rows` reads.
+    `sealed_record`'s, which `rounds_rows` reads; `run` is the `RunRecord`
+    of the row's run here, whose `suite_counts` the `suite` row prints
+    (#869) — never the row's printed output, which a test can print into.
 
       SEALED
       tree      <tree>
@@ -2974,7 +3070,7 @@ def panel(
       item      #<pr> · <id>               absent without --record
       gate      tree <version>             only where `gate_copy` says so
       (blank)                              `None`
-      suite     ✓ <pytest counts>          joined by ` · `, wrapped onto `""`
+      suite     ✓ <recorded counts>        joined by ` · `, wrapped onto `""`
                                            rows; `exit N` where there are none
       ledger    ✓ <ok> ok · <d> drifted · <b> broken   `exit N` with no total
       chain     ✓ exit <code>              read off the chain's own check
@@ -3051,7 +3147,7 @@ def panel(
     if copy:
         rows.append(("gate", copy))
     rows.append(None)
-    counts = suite_counts(checks[SUITE].text)
+    counts = suite_counts(run) if run is not None else None
     if counts:
         first, *more = counts.split(", ")
         rows += wrapped(SUITE, [TICK + first, *(SEP + part for part in more)])
@@ -3094,33 +3190,41 @@ def panel(
     return [None if row is None else (row[0], fit(row[1])) for row in rows]
 
 
-def failure_lines(check, verdicts=None, unplaced=0, unended=0):
+def failure_lines(check, verdicts=None, record=None):
     """What the failure form quotes for one check: its first lines, the
     FAILED lines with their base verdict where there are any, the exit code,
-    and the file holding the rest.
+    and the file holding the rest. `record` is the `RunRecord` of the row's
+    run at `HEAD`, for the suite; None for every other check.
 
     **Where the record at `HEAD` left tests or collections out, it says how
-    many** (#825's reframe after round 3). `unplaced` is the head record's
-    count of them — a test with no file of its own, a report a plugin built
-    without its path — and each is in no list above, so a person reading the
-    list alone would not know they ran.
+    many** (#825's reframe after round 3). `record.unplaced` is the count of
+    them — a test with no file of its own, a report a plugin built without
+    its path — and each is in no list above, so a person reading the list
+    alone would not know they ran.
 
     **Where a session at `HEAD` stopped part-way, it says how many did**
-    (#849 round 1). `unended` is the head record's count of them. The test a
+    (#849 round 1). `record.unended` is the count of them. The test a
     session stopped in may have written no failing line — one that kills
     plain pytest writes only its passing setup, and a `KeyboardInterrupt`
     writes no call — and the tests it never reached wrote none, so its file
     can be in no list above.
 
-    **A failing `suite` whose output holds no pytest summary says so** (#448).
-    Its exit code alone reads as tests failing, and it is equally what a
-    shell prints when the row never reached the suite — `cmd.exe` exits 1
-    with a "not recognized" line in the machine's own language. The exit
-    code cannot tell those apart on either shell, so the line reads what is
-    actually missing: `suite_counts` found no summary with a wall clock.
+    **Where a line of the record at `HEAD` did not parse, it says how many**
+    (#869). `record.unread` is the count of them; the gate passed each over,
+    so a failing test it named is in no list above.
+
+    **A failing `suite` ends with the counts its pytest recorded** (#869),
+    `suite_counts` of `record`, in pytest's own words and never read off
+    what the row printed. **Where no pytest the row ran left a record, it
+    says so** (#448): the exit code alone reads as tests failing, and it is
+    equally what a shell prints when the row never reached the suite —
+    `cmd.exe` exits 1 with a "not recognized" line in the machine's own
+    language — so the line names every cause of a missing record and says
+    the exit is not a count. Where a record holds lines that did not parse,
+    `UNREAD_HERE` has already said why no count follows.
 
     **A failing `ledger` ends with `evidence-check`'s `total:` line** (#666),
-    the way a failing `suite` ends with pytest's counts. The check prints that
+    the way a failing `suite` ends with its counts. The check prints that
     line LAST and this quotes its first lines, so a refusal for one drifted
     row reached the reader with no count of how many; it is added only where
     the quoted lines do not already hold it.
@@ -3138,13 +3242,18 @@ def failure_lines(check, verdicts=None, unplaced=0, unended=0):
         else:
             lines.append(COMPARED_AT_BASE)
         lines.extend(f"  {f}  {word}" for f, word in verdicts.items())
-    if unplaced:
-        lines.append(UNPLACED.format(count=unplaced))
-    if unended:
-        lines.append(UNENDED_HERE.format(count=unended))
+    if record is not None and record.unplaced:
+        lines.append(UNPLACED.format(count=record.unplaced))
+    if record is not None and record.unended:
+        lines.append(UNENDED_HERE.format(count=record.unended))
+    if record is not None and record.unread:
+        lines.append(UNREAD_HERE.format(count=record.unread))
     if check.name == SUITE:
-        counts = suite_counts(check.text)
-        lines.append(counts or NO_SUMMARY)
+        counts = suite_counts(record) if record is not None else None
+        if counts:
+            lines.append(counts)
+        elif record is None or not record.sessions:
+            lines.append(NO_RECORD_HERE)
     if check.name == LEDGER:
         total = ledger_total(check.text)
         if total and total not in lines:
@@ -3181,19 +3290,32 @@ UNPLACED = (
 UNENDED_HERE = (
     "{count} of the row's pytest sessions here stopped part-way, because the "
     "process died or the recorder stopped writing before the session's end "
-    "line, or pytest ended the session interrupted or on an error of its own, "
-    "so a test it stopped in may be in no list and the tests it never reached "
-    "are in none (each session's record is under records/)"
+    "line, or pytest stopped the session (an interrupt, pytest.exit(), -x or "
+    "--maxfail, a plugin's stop) or ended it on an error of its own, so a test "
+    "it stopped in may be in no list and the tests it never reached are in "
+    "none (each session's record is under records/)"
 )
 
-# The line a failing `suite` gets where its output carries no pytest summary:
-# the row stopped before pytest printed one, either before any test ran or
-# with a pytest that died part-way, as plain pytest does on a test that calls
-# `os._exit` (#448, #849 round 1). Never one of the two as the only one.
-NO_SUMMARY = (
-    "no pytest summary in this output, so this exit code is not a count of "
-    "failing tests: the row may have stopped before any test ran, or a pytest "
-    "it ran may have died part-way"
+# The line under the listing where a line of the records the row's pytest
+# wrote at `HEAD` did not parse as the recorder's, formatted with how many
+# (#869): the gate passed each over, so a failing test it named may be in no
+# list, and no count of the suite is printed.
+UNREAD_HERE = (
+    "{count} of the lines in the records the row's pytest wrote here did not "
+    "parse as the recorder's and each was passed over, so a failing test may "
+    "be in no list and the suite's counts are not given (each session's "
+    "record is under records/)"
+)
+
+# The line a failing `suite` gets where no pytest the row ran left a record,
+# in place of the counts (#448, #869). Every cause of a missing record, never
+# one of them as the only one (`NO_RECORD_CAUSES`); a pytest that died
+# part-way is not among them, because it left a record and `UNENDED_HERE`
+# counts it.
+NO_RECORD_HERE = (
+    "no pytest the row ran here left a record of the gate's recorder "
+    f"({NO_RECORD_CAUSES.format(kept='suite.txt')}), so this exit code is not "
+    "a count of failing tests"
 )
 
 
@@ -3376,11 +3498,6 @@ def gate(args, console_wants_letters, terminal=False):
     asked = ""
     if args.preflight:
         asked = load(ROUTING, "specseal_routing_for_broad_gate").item_dir(root, branch)
-    # `stamp` refuses a scale outside the band with a sentence; asked before
-    # anything runs, so a refused scale is exit 2 with nothing spent.
-    refused = stamp.check_scale(args.scale)
-    if refused:
-        raise Refused(f"broad-gate: {refused}")
 
     keep = args.keep_output or tempfile.mkdtemp(prefix="broad-gate-")
     os.makedirs(keep, exist_ok=True)
@@ -3423,12 +3540,16 @@ def gate(args, console_wants_letters, terminal=False):
     # function, so a second list of arms for the preflight would be the drift
     # that table was declared to end (#468). Every arm below runs either way.
     # The row's run records what each pytest it starts ran (#825), under a key
-    # made for this run alone; the failure loop below reads that record.
+    # made for this run alone. The record is read once, here, for every
+    # outcome (#869): the failure loop below takes its failing files and its
+    # counts from it, and the panel its counts.
     head_key = record_key("head")
+    head = None
     if not args.preflight:
         checks[SUITE] = run(
             SUITE, command, root, keep, shell=True, env=recording_env(keep, head_key)
         )
+        head = read_record(records_dir(keep), head_key, root)
     checks[LEDGER] = run(LEDGER, [py, EVIDENCE, "--strict", root], root, keep)
     checks[UNVERIFIED_NAME] = run(
         UNVERIFIED_NAME,
@@ -3474,22 +3595,22 @@ def gate(args, console_wants_letters, terminal=False):
     for name, check in checks.items():
         if not check.failed:
             continue
-        verdicts, unplaced, unended = None, 0, 0
+        verdicts, record = None, None
         if name == SUITE:
             # The failing files come from the record the row's pytest wrote
             # here. Where no pytest left a record there is nothing to
             # compare, so the `FAILED` lines only name the files, and the base
             # is not run (#825). A session that stopped part-way here is
-            # counted under the list (#849 round 1).
-            head = read_record(records_dir(keep), head_key, root)
-            unplaced, unended = head.unplaced, head.unended
+            # counted under the list (#849 round 1), and so is a line of the
+            # record that did not parse (#869).
+            record = head
             if head.sessions:
                 files = list(head.failing)
                 if files:
                     verdicts = compare_at_base(root, base.commit, command, files, keep)
             else:
                 verdicts = {f: NO_RECORD_AT_HEAD for f in failing_files(check.text)}
-        failures.append((name, failure_lines(check, verdicts, unplaced, unended)))
+        failures.append((name, failure_lines(check, verdicts, record)))
     # The preflight's ask (#702), after the arms and whatever they found, so
     # a chain refusal and a `seal` refusal are both named in one run. It is
     # NOT an arm: it mirrors no CI step, so it is no `checks[...] = run(...)`
@@ -3577,6 +3698,7 @@ def gate(args, console_wants_letters, terminal=False):
         branch=branch,
         pr=pull_request(record),
         record=record,
+        run=head,
     )
     # The cell is in the working tree and CI reads HEAD (#666): said after
     # the stamp or the `SEALED` line, on the same stream, and only where a
@@ -3589,9 +3711,7 @@ def gate(args, console_wants_letters, terminal=False):
         # Done-when says no other path draws a stamp, so a run without
         # `--record` signals on a terminal too.
         shape = args.shape or console_wants_letters
-        sys.stdout.write(
-            "\n" + "\n".join(stamp.stamp(rows, args.scale, shape)) + "\n\n"
-        )
+        sys.stdout.write("\n" + "\n".join(stamp.stamp(rows, shape)) + "\n\n")
         if uncommitted:
             sys.stdout.write(uncommitted + "\n")
         return 0
@@ -3603,7 +3723,6 @@ def gate(args, console_wants_letters, terminal=False):
             base,
             item,
             rows,
-            args.scale,
             branch=branch,
             pr=pull_request(record),
         )
@@ -3649,6 +3768,17 @@ DRAWN_AT_TURN_END = (
     "{path}; where none appears, `seal-stamp --from {command}` draws it"
 )
 
+# The `scale` every values file still carries, and what it was before #853
+# retired the scale. Read by nothing in this tree. Written for one release
+# cycle, 0.21's, because the gate a session runs is the tree's copy (`main`
+# hands over to it) while the `Stop` hook that draws the file, and the
+# `seal-stamp` a person types, are the installed plugin's: one older than
+# #853 refuses a values file without a numeric `scale` and leaves the
+# sealer's stamp undrawn (#869 round 1's 🟡 3). Remove it, and its pin in
+# `tests/test_the_seal_is_taken_once_by_the_sealer.py`, in the first release
+# after 0.21, once no installed plugin older than #853 is left to draw.
+SCALE_FOR_OLDER_HOOKS = 0.9
+
 # The line after the `SEALED` line on a recorded seal (#666). `seal` writes
 # the cell into the working tree and commits nothing, CI reads the record at
 # HEAD, and a pull request marked ready over an uncommitted cell fails on a
@@ -3690,7 +3820,7 @@ def common_dir(root):
     return os.path.normpath(os.path.join(root, common.strip()))
 
 
-def signal(stamp, root, tree, base, item, rows, scale, branch=None, pr=None):
+def signal(stamp, root, tree, base, item, rows, branch=None, pr=None):
     """The one line a sealed run prints where nobody can see a drawing.
 
     It starts with `SEALED` and carries `<branch> @ <tree> against <ref> @
@@ -3705,7 +3835,10 @@ def signal(stamp, root, tree, base, item, rows, scale, branch=None, pr=None):
     The values file carries `branch` and `pr` beside the keys it always had,
     which `seal_stamp.label` reads for the line above the drawing; a hook
     older than this gate ignores both and draws the rows under its own
-    label."""
+    label. Its `scale` is read by nothing since #853 — the disc has one size
+    — and is still written, as the constant `SCALE_FOR_OLDER_HOOKS`, for
+    the one release cycle a hook older than #853 can meet the file
+    (`docs/the-broad-gate.md` §*Where the stamp is drawn*)."""
     head = f"SEALED   {stamp.sealed_names(tree, base.commit, branch, base.ref)}"
     if item is None:
         return head + NOTHING_RECORDED
@@ -3718,7 +3851,7 @@ def signal(stamp, root, tree, base, item, rows, scale, branch=None, pr=None):
         "pr": pr,
         "item": item,
         "session": session or None,
-        "scale": scale,
+        "scale": SCALE_FOR_OLDER_HOOKS,
         "rows": rows,
     }
     common = common_dir(root)
@@ -3765,12 +3898,6 @@ def main(argv=None, console_wants_letters=None, console_is_terminal=None):
     )
     parser.add_argument(
         "--shape", action="store_true", help="the letter twin, whatever the console"
-    )
-    parser.add_argument(
-        "--scale",
-        type=float,
-        default=stamp.DEFAULT_SCALE,
-        help=f"the chart's scale (default {stamp.DEFAULT_SCALE})",
     )
     parser.add_argument(
         "--keep-output",
