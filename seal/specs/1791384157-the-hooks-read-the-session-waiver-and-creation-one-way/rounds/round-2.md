@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 881 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `ce3b065235a75d8c12759775cd985acf08581ca7..c130e284e121d0b1e729031a351ba741a6628d62`, 4 commits |
 | Contract changes | run_main_in_process → round-1-report.md, round-1.md, pytest |
 | New units | _brace_command_at (depth 1); test_a_pid_beside_no_session_id_on_either_side_is_not_recorded (depth 1); test_a_brace_command_word_is_judged_in_the_tree_its_c_names (depth 1) |
