@@ -856,7 +856,9 @@ def test_a_freeze_row_written_twice_is_refused_and_nothing_is_written(repo, args
     out = run([*args, "--checked", "2026-02-01", "."], repo)
     assert out.returncode == 2, out.stdout + out.stderr
     assert "`Ledger frozen from` appears 2 times — one value" in out.stderr
-    assert "seal/config.md" in out.stderr, out.stderr
+    # The refusal names the path in the platform's own spelling
+    # (`display_name`), `seal\config.md` on Windows (#867 round 1, 🔴 1).
+    assert "seal/config.md" in out.stderr.replace(os.sep, "/"), out.stderr
     assert digests(repo) == before
     assert not (repo / "seal" / "ledger").exists()
 
