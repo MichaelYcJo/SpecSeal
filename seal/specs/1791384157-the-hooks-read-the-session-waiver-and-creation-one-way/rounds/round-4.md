@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 881 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-5 |
 | Fix range | `fba9fff061158a98e6f0678ceccfefb371295ecb..08f34e459874f3c03832238af22f24911dda7348`, 3 commits |
 | Contract changes | none |
 | New units | _BRACE_IN_WORD (depth 1); test_a_brace_segment_composes_its_c_values_as_git_does (depth 1); test_what_the_shell_does_not_expand_stays_silent (depth 1); test_a_brace_in_a_command_that_will_not_split_stops (depth 1) |
