@@ -50,26 +50,42 @@ jobs:
         # run:
         #   ubuntu  9 m 03 s, run 37469595104 (7 m 58 s in 37458654434,
         #           6 m 40 s in 37457228586, 5 m 40 s in 37465328899) -> 15
-        #   macOS  20 m 52 s, run 37469595104 (19 m 52 s in 37457228586,
-        #          16 m 27 s in 37458654434, 17 m 38 s in 37465328899) -> 35
+        #   macOS, per shard: 6 m 56 s, group 3 of run 37700567455, the
+        #          first run of the three shards (the other two 5 m 22 s and
+        #          6 m 24 s; the unsharded leg they replaced took 15 m 25 s
+        #          to 20 m 52 s and ran under 35)                     -> 15
         #   Windows, per shard: 10 m 34 s, group 3 of run 37469595104 (the
         #          other shards there 9 m 27 s to 10 m 15 s; 5 m 38 s to
         #          10 m 03 s in the sharded run 37465328899)          -> 20
         include:
           - { os: ubuntu-latest, python: "3.12", timeout: 15 }
-          - { os: macos-latest, python: "3.12", timeout: 35 }
-          # Windows in four shards (#841). `pytest-split` divides the suite
-          # by each case's duration on the Windows leg, read from the
-          # committed `.test_durations`, so every shard collects the whole
-          # suite and runs its own disjoint part, and the four parts are the
-          # whole suite. A case missing from the file is given the average and
-          # still runs in exactly one shard: a stale file unbalances the
-          # shards and never drops a case. Four is the smallest count whose
+          # macOS in three shards (#864) and Windows in four (#841).
+          # `pytest-split` divides the suite by each case's duration, read
+          # from the committed `.test_durations`, so every shard collects the
+          # whole suite and runs its own disjoint part, and a leg's parts are
+          # the whole suite. A case missing from the file is given the average
+          # and still runs in exactly one shard: a stale file unbalances the
+          # shards and never drops a case. The file is measured on the Windows
+          # leg and divides the macOS leg too, because every leg collects the
+          # same cases -- 12,819 on each at 5623d728, in run 37580460950 -- so
+          # group k of a count holds the same cases on both. Only each case's
+          # price differs by system, and that is read off each leg's own jobs,
+          # never off the file. Four is the smallest Windows count whose
           # slowest shard stays under 12 minutes on the figures of run
           # 37458654434 (7,530 s of cases, 1,974 s unsharded), with the
           # arithmetic in
           # `seal/specs/1791270165-the-windows-test-leg-is-measured-and-cut/phases/phase-3.md`.
-          # ubuntu and macOS stay one job each.
+          # Three is the smallest macOS count the same arithmetic puts under
+          # 12 minutes on run 37577753583's 1,185 s of cases, with a factor
+          # of 1.45 for the slowest group (the file gives three groups of
+          # 2,513 s, 2,517 s and 2,505 s), in
+          # `seal/specs/1791384162-the-macos-test-leg-runs-in-shards/plan.md`.
+          # Measured in run 37700567455: the slowest macOS shard took 6 m 56 s,
+          # and the three ran 12,827 cases between them, ubuntu's count at
+          # the same SHA. ubuntu stays one job.
+          - { os: macos-latest, python: "3.12", split: "--splits 3 --group 1", timeout: 15 }
+          - { os: macos-latest, python: "3.12", split: "--splits 3 --group 2", timeout: 15 }
+          - { os: macos-latest, python: "3.12", split: "--splits 3 --group 3", timeout: 15 }
           - { os: windows-latest, python: "3.12", split: "--splits 4 --group 1", timeout: 20 }
           - { os: windows-latest, python: "3.12", split: "--splits 4 --group 2", timeout: 20 }
           - { os: windows-latest, python: "3.12", split: "--splits 4 --group 3", timeout: 20 }
@@ -115,16 +131,17 @@ jobs:
       # the pin runs on all three operating systems.
       # cmarkgfm is GitHub's renderer, which the table walker's oracle reads
       # (#647), pinned in `run_tests.py#CMARKGFM` and held to this line too.
-      # pytest-split divides the Windows leg into its shards (#841), pinned
-      # in `run_tests.py#PYTEST_SPLIT` and held to this line the same way.
+      # pytest-split divides the Windows and macOS legs into their shards
+      # (#841, #864), pinned in `run_tests.py#PYTEST_SPLIT` and held to this
+      # line the same way.
       - run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22 pytest-split==0.11.0
       - run: |
           git config --global user.email ci@ci
           git config --global user.name ci
       # `--durations=50`: each leg prints its own slowest cases, so a figure
       # for one operating system is read off that operating system (#841).
-      # `split` is empty on ubuntu and macOS, so those legs run the whole
-      # suite as before.
+      # `split` is empty on ubuntu, so that leg runs the whole suite as
+      # before.
       - run: pytest tests/ -q -n auto --durations=50 ${{ matrix.split }}
 
   # The plugin's headline check, run against the plugin. A coordinate that
