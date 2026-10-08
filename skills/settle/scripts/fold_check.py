@@ -14,7 +14,9 @@ is that reader, shipped.
 **The shape.** Every statement whose marker group holds a work-item id at or
 above the cutoff opens with a bold rule sentence and carries exactly one live
 `Enforced by:` line, whose targets each resolve: a file inside the repository
-and, with `::name`, a `def` or `class` in it. Or the line says
+and, with `::name`, a `def` or `class` in it, spelled as pytest spells a node
+id — `::Class::method` for a method — and resolved by the ledger's own reader,
+`skills/evidence-check/scripts/evidence_check.py#named_unit`. Or the line says
 `nothing — <why>`, with a reason. Ids are epoch-prefixed, so the cutoff is a
 comparison and needs no list of exemptions, and `--shape-from 0` binds every
 statement there is.
@@ -113,6 +115,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
 CONFIG_READER = os.path.join(HERE, "..", "..", "..", "hooks", "config.py")
 OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
+# The ledger's checker, whose `named_unit` is the one resolver of a
+# `path::name` target (#836): an `Enforced by:` line and a ledger row held by
+# a test name a unit in one grammar, so one function reads both.
+EVIDENCE = os.path.join(
+    HERE, "..", "..", "evidence-check", "scripts", "evidence_check.py"
+)
 
 DOCS = "docs"
 CONFIG = "config.md"
@@ -178,6 +186,17 @@ def reader():
             "it is where the fold's markers are read from",
         )
     return _loaded["reader"]
+
+
+def evidence():
+    """`evidence_check.py`, loaded once on first use, for `named_unit`."""
+    if "evidence" not in _loaded:
+        _loaded["evidence"] = load(
+            EVIDENCE,
+            "specseal_evidence_check_for_folds",
+            "it is where a `path::name` target is resolved",
+        )
+    return _loaded["evidence"]
 
 
 class Unusable(Exception):
@@ -282,19 +301,24 @@ def target_problem(root, target):
         return f"{target}: `::name` needs a Python file"
     try:
         with open(full, encoding="utf-8") as f:
-            tree = ast.parse(f.read())
+            text = f.read()
+        # The ledger's resolver (#836): `::A::b` is `b` inside `A`, as pytest
+        # spells a method, and a name is looked up where it is defined rather
+        # than anywhere in the file.
+        kinds = evidence().named_unit(text, name.split("::"))
+        if kinds is None:
+            ast.parse(text)
     except (OSError, ValueError, SyntaxError) as unreadable:
         # Not a problem with the statement and not a result: a target written
         # for a newer Python than this one does not parse here, and a file
         # that is not UTF-8 does not decode. Exit 1 means problems found, so
         # this goes to exit 2 by `Unusable`, never as a traceback (round 1,
-        # finding 2).
+        # finding 2). `ast.parse` runs only to name the line that will not.
         raise Unusable(
             f"names `{target}`, and {path} could not be read as Python "
             f"({why(unreadable)})"
         ) from unreadable
-    kinds = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-    if any(isinstance(n, kinds) and n.name == name for n in ast.walk(tree)):
+    if kinds is not None and ("def" in kinds or "class" in kinds):
         return None
     return f"{target}: no def or class named {name} in {path}"
 

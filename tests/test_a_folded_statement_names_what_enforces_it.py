@@ -112,7 +112,9 @@ OLD = "<!-- specs/1790154760-an-earlier-fold -->"
 def planted(tmp_path, body, marker=BOUND):
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_x.py").write_text(
-        "def test_here():\n    pass\n\n\nclass Holder:\n    pass\n", encoding="utf-8"
+        "def test_here():\n    pass\n\n\nclass Holder:\n    pass\n\n\n"
+        "class TestA:\n    def test_b(self):\n        pass\n\n\nLIMIT = 1\n",
+        encoding="utf-8",
     )
     text = f"# D\n\n## S\n\n{marker}\n{body}"
     return shape_problems(str(tmp_path), "d.md", text)
@@ -159,6 +161,39 @@ def test_a_missing_name_is_named(tmp_path):
     """A5."""
     found = planted(tmp_path, "**Rule.**\nEnforced by: tests/test_x.py::test_gone\n")
     assert len(found) == 1 and "no def or class named test_gone" in found[0]
+
+
+def test_a_method_resolves_in_pytests_spelling(tmp_path):
+    """S10 of #836. A target is read by the ledger's resolver,
+    `evidence_check.py#named_unit`, so a method is `::Class::method`, as
+    pytest and a ledger row held by a test spell it."""
+    body = "**Rule.**\nEnforced by: `tests/test_x.py::TestA::test_b`\n"
+    assert planted(tmp_path, body) == []
+
+
+def test_a_method_named_bare_is_named(tmp_path):
+    """S10's other half: a name is looked up where it is defined, not
+    anywhere in the file, so a bare method does not resolve."""
+    found = planted(tmp_path, "**Rule.**\nEnforced by: tests/test_x.py::test_b\n")
+    assert found == [
+        "d.md: the statement under ['1790154762-a-later-fold']: "
+        "tests/test_x.py::test_b: no def or class named test_b in tests/test_x.py"
+    ], found
+
+
+def test_a_constant_is_no_def_or_class(tmp_path):
+    """The ledger's resolver knows constants too; `fold-check` still accepts
+    a `def` or a `class` and nothing else."""
+    found = planted(tmp_path, "**Rule.**\nEnforced by: tests/test_x.py::LIMIT\n")
+    assert len(found) == 1 and "no def or class named LIMIT" in found[0], found
+
+
+def test_the_target_is_resolved_by_the_ledgers_reader():
+    """D6 of #836: one resolver of `path::name`. `fold_check.py` walks no
+    tree of its own for a target; it asks `named_unit`."""
+    source = read(SCRIPT)
+    assert "ast.walk" not in source
+    assert "evidence().named_unit(" in source
 
 
 def test_nothing_with_a_reason_passes_and_without_one_fails(tmp_path):
