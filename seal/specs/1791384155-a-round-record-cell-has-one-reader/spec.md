@@ -191,7 +191,7 @@ costs, and reading prose to find the place is the enumeration
 `pull_request_state` reads the event payload and judges `unknown` as ready,
 and the policy table says why. `run_check` then writes
 `{"pull_request": {"draft": true}}` into a temporary file and points
-`GITHUB_EVENT_PATH` at it whenever `pull_request_is_ready` returns False —
+`GITHUB_EVENT_PATH` at it whenever pull_request_is_ready returns False —
 which it does when `gh` is absent, fails, or says draft — and `draft_env` does
 the same for the broad gate's chain arm. The inventory calls the first *writer
 of a payload the next reader trusts* (part 5 row 19): on a machine without
@@ -201,7 +201,7 @@ empty `rounds/`, the `nobody`-beside-`Pass` pair and the `Broad gate` cell.
 **The one reader gains the generator's question as its second source and
 keeps its direction.** `pull_request_state` reads, in order: the payload
 (observed, unchanged); where there is none, `gh pr view --json isDraft` in the
-repository (observed — the exact call `pull_request_is_ready` makes today,
+repository (observed — the exact call pull_request_is_ready makes today,
 with its timeout); where that is absent, fails, or does not answer the
 question, `unknown`, judged **ready** and printed with which source was tried,
 as the policy table requires. The generator's `run_check` and the gate's chain
