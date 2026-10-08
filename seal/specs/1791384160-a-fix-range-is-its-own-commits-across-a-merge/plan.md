@@ -5,6 +5,7 @@ artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
 Approved 2026-10-08 by the repository owner, when `smith` was spawned.
+Approved 2026-10-08 by the orchestrating session under the owner's `automation` answer, for the redesign after round 3, when `smith` was spawned.
 
 ## Summary
 
