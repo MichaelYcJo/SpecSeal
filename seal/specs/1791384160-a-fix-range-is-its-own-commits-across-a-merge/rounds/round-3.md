@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 878 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `9524a1ce342d681ab8bebfb4c632691e2e4be455..9524a1ce342d681ab8bebfb4c632691e2e4be455`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | second — 🟡 3 at skills/code-review/scripts/chain_check.py#own_commits, a unit round-2's fixes changed; the fix passes stop here and the work item goes back to its framer |
 | Needs a fix | yes — 🟡 1 (the fragment section says CI reads the same commits as the branch, false after a back-merge), 🟡 2 (two of the home's examples are false in shapes C and B3) and 🟡 3 (the own_commits docstring carries the B3 example, a fix of a fix) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,10 +25,10 @@ Verifying round 3 of round 2's fixes: 24cfb66f..fadd8270 (fb5ba994 fix, fadd8270
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The fragment section says CI's merge ref reads the same commits as the branch; after a back-merge of the target into the base, CI also owns the base's commits made on top of it, and the fix removed the hedge that said so | `docs/the-record-layout.md:99` | open | executed: probe D, the branch gives `['f2']` and CI's merge ref `['S(sibling)', 'f2']` |
-| 🟡 2 | The home's examples are phrased by time and topic state; a sibling's commit made after the base merged `a` on a branch forked before that merge is not owned, and a topic fix made before the topic merged `a` is not owned once it has | `docs/the-record-layout.md:126` | open | executed: probe C gives `['f2']`, probe B3 gives `[]` |
-| 🟡 3 | The `own_commits` docstring says an own fix on a topic forked before `a` is owned once that topic has merged `a`; probe B3 is the counterexample | `skills/code-review/scripts/chain_check.py#own_commits` | open | executed: probe B3 gives `[]`; read: fb5ba994 wrote the sentence, inside a unit round 2's range changed |
-| ⬜ 4 | The ledger row `Corrected · S1, S5, S8, S10` still says the branch and CI read the same commits and a sibling's squash is named on neither side; `phases/phase-1.md` carries the B3 example | `seal/ledger/1791384160-a-fix-range-is-its-own-commits-across-a-merge.md:4` | open | executed: probes A and D; read: fadd8270 moved the row's anchors and left its claim; a correction, since the files are under `seal/` |
+| 🟡 1 | The fragment section says CI's merge ref reads the same commits as the branch; after a back-merge of the target into the base, CI also owns the base's commits made on top of it, and the fix removed the hedge that said so | `docs/the-record-layout.md:99` | deferred the frame | the frame — the run stopped on a second fix of a fix; the framer redesigns how the range rule is stated; executed: probe D, the branch gives `['f2']` and CI's merge ref `['S(sibling)', 'f2']` |
+| 🟡 2 | The home's examples are phrased by time and topic state; a sibling's commit made after the base merged `a` on a branch forked before that merge is not owned, and a topic fix made before the topic merged `a` is not owned once it has | `docs/the-record-layout.md:126` | deferred the frame | the frame — the run stopped on a second fix of a fix; the framer redesigns how the range rule is stated; executed: probe C gives `['f2']`, probe B3 gives `[]` |
+| 🟡 3 | The `own_commits` docstring says an own fix on a topic forked before `a` is owned once that topic has merged `a`; probe B3 is the counterexample | `skills/code-review/scripts/chain_check.py#own_commits` | deferred the frame | the frame — the second fix of a fix itself, in `own_commits`; the framer redesigns how the range rule is stated; executed: probe B3 gives `[]`; read: fb5ba994 wrote the sentence, inside a unit round 2's range changed |
+| ⬜ 4 | The ledger row `Corrected · S1, S5, S8, S10` still says the branch and CI read the same commits and a sibling's squash is named on neither side; `phases/phase-1.md` carries the B3 example | `seal/ledger/1791384160-a-fix-range-is-its-own-commits-across-a-merge.md:4` | deferred the frame | the frame — a ledger row stating the same claim; it follows the frame's restatement; executed: probes A and D; read: fadd8270 moved the row's anchors and left its claim; a correction, since the files are under `seal/` |
 | 🟢 | round 2's finding 1 is closed — the limit sentences round 2 measured as wider than the code are gone, and the home states the ancestry test | `docs/the-record-layout.md:150` | confirmed | executed: probes A2 and B2 re-run at 4cf41ee4 give `['f2']` and `['topic-fix']`, matching the new examples; the class continues as this round's findings 2 and 3 |
 | 🟢 | round 2's finding 2 is closed — the four carriers state the ancestry test, and the refusal's new words are pinned | `skills/code-review/orchestration.md:370` | confirmed | read: the four sentences and the S6 assertion; executed: probes A, A2, B2, B3 and C agree with each sentence |
 | 🟢 | round 2's note 3 is closed — the changelog fragment states the ancestry rule | `seal/specs/1791384160-a-fix-range-is-its-own-commits-across-a-merge/changelog.md:7` | confirmed | read against probes A and B3 |
