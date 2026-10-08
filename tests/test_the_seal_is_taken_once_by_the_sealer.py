@@ -5242,8 +5242,11 @@ def test_two_keyed_sessions_sum_their_counts(tmp_path):
 def test_counts_the_record_cannot_vouch_for_are_none(tmp_path):
     """S6's counter (#869). Where no session carries the key there is no
     count; where a keyed file holds a line that did not parse, a count that
-    passed it over is refused rather than printed short; and a session that
-    counted no report has none to print."""
+    passed it over is refused rather than printed short; where a session
+    counted a report it wrote as no line, for want of a file of its own, the
+    count would be short of pytest's own line by it, and is refused too
+    (#869 round 1's 🟡 2); and a session that counted no report has none to
+    print."""
     gate = gate_module()
     worktree = tmp_path / "wt"
     worktree.mkdir()
@@ -5263,6 +5266,10 @@ def test_counts_the_record_cannot_vouch_for_are_none(tmp_path):
     record = gate.read_record(str(records), RECORD_KEY, str(worktree))
     assert record.unread == 1
     assert gate.suite_counts(record) is None
+    left_out = {**ended, "unplaced": 1}
+    write_record(records, "one", [a_session(), passing, left_out])
+    record = gate.read_record(str(records), RECORD_KEY, str(worktree))
+    assert (record.unplaced, gate.suite_counts(record)) == (1, None)
     write_record(records, "one", [a_session(), ended])
     record = gate.read_record(str(records), RECORD_KEY, str(worktree))
     assert (record.sessions, gate.suite_counts(record)) == (1, None)

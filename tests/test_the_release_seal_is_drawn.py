@@ -333,6 +333,7 @@ def test_the_suite_counts_are_read_from_the_record_through_the_gates_reader(
         "no session carries the key",
         "a line that did not parse",
         "a session that stopped part-way",
+        "a report with no file of its own",
     ],
 )
 def test_a_record_that_cannot_vouch_for_the_counts_is_a_failure_never_a_zero(
@@ -359,6 +360,16 @@ def test_a_record_that_cannot_vouch_for_the_counts_is_a_failure_never_a_zero(
             ),
             encoding="utf-8",
         )
+    elif case == "a report with no file of its own":
+        # #869 round 1's 🟡 2: a report written as no line counts under no
+        # category, so `passed` would be short of pytest's own line.
+        left_out = tmp_path / "records" / f"{SUITE_KEY}-0.jsonl"
+        left_out.write_text(
+            left_out.read_text(encoding="utf-8").replace(
+                '"unplaced": 0', '"unplaced": 1'
+            ),
+            encoding="utf-8",
+        )
     said = {
         "no directory named": "SUITE_RECORDS names no directory",
         "no key named": "SUITE_KEY names no key",
@@ -366,6 +377,7 @@ def test_a_record_that_cannot_vouch_for_the_counts_is_a_failure_never_a_zero(
         "no session carries the key": "carries the key",
         "a line that did not parse": "did not parse",
         "a session that stopped part-way": "stopped part-way",
+        "a report with no file of its own": "counted under no category",
     }[case]
     with pytest.raises(ValueError, match=said):
         seal().suite_counts(directory, key)

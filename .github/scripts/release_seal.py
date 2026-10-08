@@ -249,9 +249,11 @@ def suite_counts(directory, key):
     counts each report under the category pytest's own summary line counts
     it under. Raises `ValueError` where no directory or no key is named,
     where no session carries the key, where a line of a keyed record did not
-    parse, where a session stopped part-way, or where the counts hold a
-    failure or an error -- a `SEALED` above a red or a short suite would be
-    false, and a record nobody can read is never a zero."""
+    parse, where a session stopped part-way, where a test or a collection
+    had no file of its own and so counts under no category (`unplaced`),
+    or where the counts hold a failure or an error -- a `SEALED` above a red
+    or a short suite would be false, and a record nobody can read is never a
+    zero."""
     if not directory:
         raise ValueError("SUITE_RECORDS names no directory")
     if not key:
@@ -267,6 +269,11 @@ def suite_counts(directory, key):
     if record.unended:
         raise ValueError(
             f"{record.unended} of the suite's pytest sessions stopped part-way"
+        )
+    if record.unplaced:
+        raise ValueError(
+            f"{record.unplaced} of the suite's tests and collections had no "
+            "file of their own and were counted under no category"
         )
     failed = record.counts.get("failed", 0)
     errors = record.counts.get("error", 0)

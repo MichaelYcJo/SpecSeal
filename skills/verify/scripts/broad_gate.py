@@ -2791,9 +2791,11 @@ def suite_counts(record):
     category pytest's own line counts each report under (`read_record`), so
     nothing the row PRINTS can reach it (#869). None where no session
     carries the key, where a keyed file holds a line that did not parse —
-    a count that passed a line over is not one anybody can vouch for — or
-    where no report was counted at all."""
-    if not record.sessions or record.unread or not record.counts:
+    a count that passed a line over is not one anybody can vouch for —
+    where a report was counted under no category because it had no file of
+    its own (`unplaced`, which pytest's own line counted; #869 round 1's
+    🟡 2), or where no report was counted at all."""
+    if not record.sessions or record.unread or record.unplaced or not record.counts:
         return None
     known = [name for name in SUMMARY_ORDER if name in record.counts]
     other = [name for name in record.counts if name not in SUMMARY_ORDER]
