@@ -150,12 +150,27 @@ SKIP_DIRS = {
     "node_modules",
     "venv",
 }
-# The heading matcher for a base revision. There is one reader; only how it
-# finds the section is an argument, because a base commit may spell the
-# heading the way this corpus did before it was normalized. Everything else —
-# how a cell is read, where a fence ends, how a path resolves — is shared, and
-# that sharing is what stopped one fix from opening the next gap.
-LOOSE_HEADING = re.compile(r"^#{2,3}\s.*not verified", re.I)
+
+
+class _LooseHeading:
+    """The heading matcher for a base revision. There is one reader; only how
+    it finds the section is an argument, because a base commit may spell the
+    heading the way this corpus did before it was normalized. Everything
+    else — how a cell is read, where a fence ends, how a path resolves — is
+    shared, and that sharing is what stopped one fix from opening the next
+    gap.
+
+    **Whether the line is a heading is the one rule's**, `heading_level`, at
+    level 2 or 3; this decides the wording alone, a heading that mentions
+    `not verified` in any case. It was a pattern of its own, a sixth
+    spelling of the heading rule beside the one in this file (#867 round 1,
+    🟡 6). `.match` is the name `sections` and `check_text` call."""
+
+    def match(self, text):
+        return heading_level(text) in (2, 3) and "not verified" in text.lower()
+
+
+LOOSE_HEADING = _LooseHeading()
 # Where GFM ends a line: LF, CR or CRLF, and nowhere else. `str.splitlines`
 # also ends one at U+2028, U+2029, NEL, a form feed, VT and `\x1c`-`\x1e`, so
 # below one of those a reader read lines no renderer shows (#664).

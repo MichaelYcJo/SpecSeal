@@ -69,10 +69,12 @@ def test_every_coordinate_exemption_still_holds_the_fragment_it_excuses():
             assert HASH_AFTER_AT.search(f.read()), rel
 
 
-# A code line that reads a markdown heading by a rule of its own: a `#{1,6}`
-# run in a pattern, or `startswith("#` asked of a line. A docstring and a
-# whole-line comment are prose about the rule and are not read.
-HEADING_SPELLING = re.compile(r'#\{1,6\}|startswith\(\(?"#')
+# A code line that reads a markdown heading by a rule of its own: a counted
+# `#` run in a pattern, `#{1,6}`, `#{2,3}` or any `#{<digit>`, or
+# `startswith("#` asked of a line. A docstring and a whole-line comment are
+# prose about the rule and are not read. It read `#{1,6}` alone until round
+# 1 of #867 (🟡 6), and `unverified_check.py`'s `^#{2,3}\s` passed it.
+HEADING_SPELLING = re.compile(r'#\{\d|startswith\(\(?"#')
 
 # Where such a line is not a second spelling of the heading rule, each by
 # (file, a piece of the line) and why.
