@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 876 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `ce72430e9ab18ab882c12c6f75a0f258ef9ea3b3..ef383561ecbede09f3241f8218f7766ad9fc6489`, 4 commits |
 | Contract changes | none |
 | New units | matrix_include_entries (depth 1); test_a_matrix_key_beside_include_is_refused_by_its_line (depth 1); test_an_include_that_is_not_the_matrixs_own_is_refused (depth 1) |
