@@ -855,11 +855,16 @@ NOTE = "\N{WHITE LARGE SQUARE}"
 # framed in one sitting, 1791384152 through 1791384162, and each item of it
 # runs its rounds under the installed 0.20.0 `close`, which demands a
 # fix-table row for a ⬜ and admits `fixed` -- #858's round 1 closed three
-# that way before this rule landed. One
-# past the batch, so the first records held to it are written under it (round
-# 1's 🟡 2 of #837). The reasoning is otherwise `STRICT_FROM`'s. Measured
-# 2026-10-07: 35 ⬜ rows of 14 committed records closed `fixed` before it, and
-# they print.
+# that way and #864's two. One past the batch (round 1's 🟡 2 of #837).
+#
+# WHAT IT ASSUMES: that no item of that release is framed after the batch.
+# The owner fixed the release's scope at the batch on 2026-10-08, and the
+# rule holds while that does. An item framed later for the same release
+# would pass this id and still run under the previous `close`, so whoever
+# frames one moves this cutoff past its id in the same change (round 2's
+# 🟡 1 of #837). The reasoning is otherwise `STRICT_FROM`'s. Measured
+# 2026-10-07: 35 ⬜ rows of 14 committed records closed `fixed` before it,
+# and they print.
 NOTES_FROM = 1791384163
 NOTES_OWNER = (
     "`skills/code-review/orchestration.md` §*A note closes once, at the "

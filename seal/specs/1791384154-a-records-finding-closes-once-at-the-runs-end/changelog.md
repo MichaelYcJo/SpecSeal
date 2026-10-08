@@ -18,5 +18,8 @@
   run is open, `new` refuses a redesign's first record while the stopped
   run still carries one, and `chain-check` fails a ready pull request over
   an open note and, for a work item begun at or after `1791384163`, over a
-  note closed `fixed` — every 0.21.0 work item is before that and prints. A record whose only open rows are notes now reads
+  note closed `fixed`. The eleven work items framed with this one
+  (1791384152–1791384162), which run under the previous `close`, are before
+  the cutoff and print; one framed later for this release moves the cutoff
+  past its own id. A record whose only open rows are notes now reads
   `no fixes to check` rather than waiting on a reader nothing commissioned.

@@ -233,11 +233,12 @@ does not read stands or is filed.
 
 `round-record seal` refuses while a note of the run is open, and
 `chain_check.py` holds the rule at the pull request: a ⬜ closed on a fix
-word is an error for a work item begun at or after `1791384163` — one past
-the batch #837 was framed in, whose rounds ran under the previous `close` —
-and a notice before
-it, and a ⬜ still open on a record of the run is an error at a ready
-pull request and a notice on a draft.
+word is an error for a work item begun at or after `1791384163` and a notice
+before it, and a ⬜ still open on a record of the run is an error at a ready
+pull request and a notice on a draft. The cutoff is one past the batch #837
+was framed in, whose rounds ran under the previous `close`, and it assumes no
+item of that release is framed after the batch; one that is moves the cutoff
+past its own id in the same change (`chain_check.NOTES_FROM` says why).
 
 ### The cap is a ceiling, and this is the floor it never had
 

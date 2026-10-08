@@ -44,8 +44,10 @@ NOTE = "\N{WHITE LARGE SQUARE}"
 VERDICT_HEADER = (
     "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
 )
-# One past 0.21.0's batch, 1791384152 through 1791384162, whose rounds run
-# under 0.20.0's `close` (round 1's 🟡 2 of #837).
+# One past the batch #837 was framed in, 1791384152 through 1791384162, whose
+# rounds run under 0.20.0's `close` (round 1's 🟡 2 of #837). It holds while
+# no item of that release is framed later; `chain_check.NOTES_FROM` says what
+# moves it (round 2's 🟡 1).
 AT_THE_CUTOFF = "seal/specs/1791384163-an-item-under-the-rule"
 BEFORE_THE_CUTOFF = "seal/specs/1791384162-an-item-before-the-rule"
 
