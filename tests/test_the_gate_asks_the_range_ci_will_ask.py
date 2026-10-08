@@ -1058,7 +1058,7 @@ def test_the_panel_value_width_is_what_the_stamp_actually_gives():
     stamp, width = stamp_module(), gate_module().PANEL_VALUE_WIDTH
     rows = [("SEALED", ""), ("CI also", "x" * width)]
     for shape in (False, True):
-        lines = [stamp.strip_ansi(line) for line in stamp.stamp(rows, 0.9, shape)]
+        lines = [stamp.strip_ansi(line) for line in stamp.stamp(rows, shape)]
         widest = max(len(line) for line in lines)
         assert widest == 80, (
             f"a value of {width} columns makes the stamp {widest} wide, not 80"
@@ -1083,9 +1083,7 @@ def test_a_ref_too_long_for_the_panel_says_it_was_cut(tmp_path):
     # #832's S5a: the ref shares the `base` row with the commit, so it is
     # elided to the room the commit and the two spaces leave.
     assert len("bbbbbbb  " + shown) == mod.PANEL_VALUE_WIDTH, shown
-    rendered = "\n".join(
-        stamp_module().stamp([("base", "bbbbbbb  " + shown)], 0.9, True)
-    )
+    rendered = "\n".join(stamp_module().stamp([("base", "bbbbbbb  " + shown)], True))
     assert shown in rendered, f"the marker cost the tail its place: {rendered!r}"
 
 

@@ -7,7 +7,7 @@ values file under the git common dir, and a `Stop` hook in the session that
 spawned the sealer draws each undrawn file once, after that turn's text.
 
 This module holds the stamp's half — the values file, `seal-stamp --from`,
-the default scale. The gate's half is in
+the scale #853 retired. The gate's half is in
 `tests/test_the_seal_is_taken_once_by_the_sealer.py`, beside the fixtures
 that drive a real gate over a settled work item.
 """
@@ -18,6 +18,8 @@ import json
 import os
 import subprocess
 import sys
+
+import pytest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 STAMP = os.path.join(ROOT, "skills", "verify", "scripts", "seal_stamp.py")
@@ -49,8 +51,14 @@ def stamp_module():
     return _load("specseal_seal_stamp_for_its_values", STAMP)
 
 
-def values(scale=0.9, item="/x/seal/specs/1799000000-an-item", rows=ROWS):
-    return {
+NO_SCALE = object()
+
+
+def values(scale=NO_SCALE, item="/x/seal/specs/1799000000-an-item", rows=ROWS):
+    """A values file in the shape the gate writes: since #853 with no
+    `scale`, or with the one a gate before #853 wrote where `scale` is
+    given."""
+    written = {
         "tree": "aaa1111",
         "base": "bbb2222",
         "from": "origin/base",
@@ -58,9 +66,11 @@ def values(scale=0.9, item="/x/seal/specs/1799000000-an-item", rows=ROWS):
         "pr": "#12",
         "item": item,
         "session": "s-1",
-        "scale": scale,
         "rows": rows,
     }
+    if scale is not NO_SCALE:
+        written["scale"] = scale
+    return written
 
 
 # The label a values file in `values()`'s shape draws under (#666): the
@@ -100,14 +110,14 @@ def seal_stamp(*args):
 
 def test_a_values_file_is_drawn_by_hand_once_and_then_refused(tmp_path):
     """S11. `seal-stamp --from <file>` draws that run's rows — not the
-    sample — at the file's own scale, and marks the file drawn. The same
-    command again refuses with one sentence and exit 2, because a sealed
-    run's values are drawn once whoever draws them."""
+    sample — and marks the file drawn. The same command again refuses with
+    one sentence and exit 2, because a sealed run's values are drawn once
+    whoever draws them."""
     mod = stamp_module()
     path = mod.write_values(str(tmp_path), "s-1", values())
     out = seal_stamp("--from", path)
     assert out.returncode == 0, out.stderr
-    assert out.stdout == "\n" + "\n".join(mod.stamp(ROWS, 0.9, shape=True)) + "\n\n"
+    assert out.stdout == "\n" + "\n".join(mod.stamp(ROWS, shape=True)) + "\n\n"
     assert "aaa1111" in out.stdout and "c46fd2d" not in out.stdout, (
         "the drawing is the sample's, not the run's"
     )
@@ -142,13 +152,10 @@ def test_the_drawn_refusal_names_the_file_the_values_are_in(tmp_path):
 
 def test_a_file_that_is_not_a_run_is_refused_and_left_for_a_repair(tmp_path):
     """A values file that is not in the gate's shape is refused before it is
-    claimed, so it is still there to be drawn once somebody repairs it — and
-    one refused for a scale under the floor is refused by the function that
-    draws, which checks the band itself."""
+    claimed, so it is still there to be drawn once somebody repairs it."""
     for broken, said in (
         ("not json", "it is not JSON"),
         (json.dumps({**values(), "rows": "SEALED"}), "`rows` is not a list"),
-        (json.dumps(values(scale=0.5)), "under the floor"),
     ):
         path = tmp_path / "1-aaa1111.json"
         path.write_text(broken, encoding="utf-8")
@@ -157,6 +164,26 @@ def test_a_file_that_is_not_a_run_is_refused_and_left_for_a_repair(tmp_path):
         assert said in out.stderr, out.stderr
         assert out.stdout == "", out.stdout
         assert path.exists(), f"a refused file was claimed: {broken!r}"
+
+
+@pytest.mark.parametrize(
+    "scale",
+    [NO_SCALE, 0.9, 0.5, "large", None],
+    ids=["none", "an-older-gates-0.90", "under-the-old-floor", "a-word", "null"],
+)
+def test_a_values_file_draws_whatever_scale_it_carries(tmp_path, scale):
+    """S13 (#853). The gate writes no `scale` since #853, and a file a gate
+    before it wrote carries one; both draw the same stamp, and a `scale`
+    the old band would have refused, or that is no number, is read as
+    nothing too — the stamp has one size, so the key decides nothing."""
+    mod = stamp_module()
+    path = mod.write_values(str(tmp_path), "s-1", values(scale=scale))
+    assert mod.read_values(path)["rows"] == [
+        None if row is None else tuple(row) for row in ROWS
+    ]
+    out = seal_stamp("--from", path)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout == "\n" + "\n".join(mod.stamp(ROWS, shape=True)) + "\n\n"
 
 
 def test_pending_lists_the_undrawn_oldest_first_and_claim_takes_one_once(tmp_path):
@@ -254,30 +281,30 @@ def message(stdout):
     return json.loads(stdout)["systemMessage"].split("\n")
 
 
-def drawn(mod, label, rows, scale):
-    """One block of the hook's message as `fitted` draws it at `scale`: the
-    label, then the block form. `scale` None is the rung with no disc."""
-    return "\n".join([label, *mod.stamp(rows, scale, shape=False)])
+def drawn(mod, label, rows, disc=True):
+    """One block of the hook's message as `fitted` draws it: the label, then
+    the block form. `disc` False is the rung with no disc (#853)."""
+    return "\n".join([label, *mod.stamp(rows, shape=False, disc=disc)])
 
 
 def test_the_main_sessions_stop_draws_each_undrawn_file_once(tmp_path):
     """S3 and S4. The main session's `Stop` — `session_id` X, no `agent_id` —
     prints one JSON object whose `systemMessage` opens with a label naming
-    what was sealed and then draws the block form of the file's rows at the
-    file's scale, colour sequences and all. The file is marked drawn, so the
+    what was sealed and then draws the block form of the file's rows with
+    its disc, colour sequences and all. The file is marked drawn, so the
     next `Stop` of the same session prints nothing.
 
     #717's A15: the bytes are compared with the message `fitted` holds under
-    the budget, not with the file's scale drawn whatever its size — and at
-    `ROWS`' size that message IS the file's 0.90 drawing, so the step-down
+    the budget, not with the file drawn whatever its size — and at `ROWS`'
+    size that message IS the file's drawing with its disc, so the step-down
     is asserted not to have fired here rather than assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     path = pending_for(repo, "s-1")
     lines = message(stop(repo))
     assert lines[0] == LABEL, lines[0]
-    assert "\n".join(lines) == mod.fitted([(LABEL, ROWS, 0.9)]), "not the fitted form"
-    assert lines[1:] == mod.stamp(ROWS, 0.9, shape=False), "not the file's block form"
+    assert "\n".join(lines) == mod.fitted([(LABEL, ROWS)]), "not the fitted form"
+    assert lines[1:] == mod.stamp(ROWS, shape=False), "not the file's block form"
     assert any("\x1b[38;2;" in line for line in lines[1:]), "the drawing lost colour"
     assert not os.path.exists(path) and os.path.exists(mod.drawn_path(path))
     assert stop(repo) == "", "a drawn file was drawn a second time"
@@ -334,9 +361,8 @@ def test_several_files_come_out_one_stop_each_oldest_first(tmp_path):
     mod = stamp_module()
     repo = opted_in(tmp_path)
     other = LABEL.replace("aaa1111", "ccc3333")
-    rung = mod.SCALE_LADDER[-1]
     rows = list(SMALL_ROWS)
-    while sum(len(drawn(mod, who, rows, rung)) for who in (LABEL, other)) + 2 <= (
+    while sum(len(drawn(mod, who, rows)) for who in (LABEL, other)) + 2 <= (
         mod.MESSAGE_BUDGET
     ):
         rows.append(("", f"home-{len(rows)}"))
@@ -348,7 +374,7 @@ def test_several_files_come_out_one_stop_each_oldest_first(tmp_path):
     broken = os.path.join(os.path.dirname(first), "3-ddd4444.json")
     with open(broken, "w", encoding="utf-8") as handle:
         handle.write("not json")
-    older, newer = (drawn(mod, who, rows, rung) for who in (LABEL, other))
+    older, newer = (drawn(mod, who, rows) for who in (LABEL, other))
     assert len(older) + 2 + len(newer) > mod.MESSAGE_BUDGET, (
         "the grown pair shares one message; this case's premise moved"
     )
@@ -375,27 +401,25 @@ def test_a_malformed_later_file_does_not_take_the_earlier_ones(tmp_path):
     bad = mod.write_values(str(repo / ".git"), "s-1", {**values(), "item": 5}, now=2)
     lines = message(stop(repo))
     assert lines[0] == LABEL, lines
-    assert "\n".join(lines) == mod.fitted([(LABEL, ROWS, 0.9)])
+    assert "\n".join(lines) == mod.fitted([(LABEL, ROWS)])
     assert os.path.exists(mod.drawn_path(good)) and not os.path.exists(good)
     assert os.path.exists(bad), "the malformed file was claimed"
     assert not os.path.exists(mod.drawn_path(bad))
 
 
-def test_a_file_at_a_scale_the_band_refuses_is_left_pending(tmp_path):
-    """#717. `drawings` hands `fitted` the rows and the scale rather than a
-    finished drawing, so it still draws each file once at its own scale
-    before the claim: that is what proves the file draws at all. A file at
-    0.5 passes `read_values` — the scale is a number — and is refused by the
-    band, so it stays pending under its own name and the good file beside it
-    is drawn, rather than both being claimed and nothing printed."""
+def test_a_file_an_older_gate_wrote_with_its_scale_is_drawn_by_the_hook(tmp_path):
+    """S13 (#853). A values file a gate before #853 wrote carries `"scale":
+    0.9`, and one written since carries none; the hook draws both, oldest
+    first, the same stamp under each label — the key decides nothing, so a
+    file left pending across the update is not left behind by it."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
-    good = mod.write_values(str(repo / ".git"), "s-1", values(), now=1)
-    small = mod.write_values(str(repo / ".git"), "s-1", values(scale=0.5), now=2)
-    lines = message(stop(repo))
-    assert "\n".join(lines) == mod.fitted([(LABEL, ROWS, 0.9)])
-    assert os.path.exists(mod.drawn_path(good)) and not os.path.exists(good)
-    assert os.path.exists(small), "a file the band refuses was claimed"
+    old = mod.write_values(str(repo / ".git"), "s-1", values(scale=0.9), now=1)
+    new = mod.write_values(str(repo / ".git"), "s-1", values(), now=2)
+    assert "\n".join(message(stop(repo))) == mod.fitted([(LABEL, ROWS)])
+    assert os.path.exists(mod.drawn_path(old)) and os.path.exists(new)
+    assert "\n".join(message(stop(repo))) == mod.fitted([(LABEL, ROWS)])
+    assert os.path.exists(mod.drawn_path(new))
 
 
 def test_the_sealers_worktree_and_the_main_checkout_share_the_file(tmp_path):
@@ -498,7 +522,7 @@ FULL_ROWS = [
 ]
 
 # A panel in the shape the gate wrote from #666 to #717, with values as long as
-# a real run's. Its 0.90 drawing under its label was over the harness's limit,
+# a real run's. Its drawing with its disc under its label was over the harness's limit,
 # which put every stamp drawn from #666 on behind a 2 KB preview of a file.
 # Neutral values; a file in this shape may still be pending when a newer hook
 # draws it, which is why a case keeps it rather than following `panel`.
@@ -540,21 +564,18 @@ def full_values(tree="aaa1111a"):
 def test_the_budget_is_named_and_derived_from_the_measured_limit():
     """A2. The limit is the harness's, measured in characters, and the
     budget leaves room for the report `dispatch.py` prepends to the same
-    message; every rung of the ladder is a scale the band accepts, so no
-    rung can be refused when the hook steps down to it."""
+    message."""
     mod = stamp_module()
     assert mod.MESSAGE_LIMIT <= 10090, "above a size the harness has persisted"
     assert mod.MESSAGE_LIMIT == 10000, "not the number the probe measured"
     assert mod.MESSAGE_BUDGET <= mod.MESSAGE_LIMIT - 1000, mod.MESSAGE_BUDGET
-    assert mod.SCALE_LADDER == (0.90,), "#832: one rung, then the text block alone"
-    assert all(mod.check_scale(rung) is None for rung in mod.SCALE_LADDER)
 
 
 def test_the_hooks_message_is_under_the_budget_for_one_file(tmp_path):
     """A3, one file. A run's values at a real run's size, drawn by the hook
     through `dispatch.py stop`: the printed `systemMessage` is no longer than
     `MESSAGE_BUDGET`, it still opens with the file's label, and it is the
-    stamp WITH its disc at 0.90. Under the budget by itself is what
+    stamp WITH its disc. Under the budget by itself is what
     `admitted` guarantees whatever the stamp's size, by dropping the disc
     from a block that does not fit with it, so without the last assertion a
     stamp grown past the budget passed here as the text block alone (round
@@ -565,7 +586,7 @@ def test_the_hooks_message_is_under_the_budget_for_one_file(tmp_path):
     text = json.loads(stop(repo))["systemMessage"]
     assert len(text) <= mod.MESSAGE_BUDGET, len(text)
     assert text.split("\n", 1)[0] == mod.label(full_values())
-    assert text == drawn(mod, mod.label(full_values()), FULL_ROWS, 0.9), (
+    assert text == drawn(mod, mod.label(full_values()), FULL_ROWS), (
         "a real run's stamp no longer fits the budget with its disc"
     )
 
@@ -672,9 +693,9 @@ def test_a_real_runs_stamp_is_the_owners_reference_cell_for_cell():
 
     A real run's message is its label and its block and nothing else."""
     mod = stamp_module()
-    letter = mod.compose(REFERENCE_ROWS, 0.9)
+    letter = mod.compose(REFERENCE_ROWS)
     assert (letter.height, letter.width, letter.disc) == (14, 77, (0, 0, 28, 28))
-    assert mod.stamp(REFERENCE_ROWS, 0.9, shape=True) == list(REFERENCE_TWIN)
+    assert mod.stamp(REFERENCE_ROWS, shape=True) == list(REFERENCE_TWIN)
     for y, said in enumerate(REFERENCE_DISC):
         line = letter.cells[y // 2]
         for x, key in enumerate(said):
@@ -683,7 +704,7 @@ def test_a_real_runs_stamp_is_the_owners_reference_cell_for_cell():
             top, bottom = (fg, bg) if char == "▀" else (bg, fg)
             half = top if y % 2 == 0 else bottom
             assert half == REFERENCE_COLOURS[key], (x, y, key, char, fg, bg)
-    blocks = [mod.strip_ansi(line) for line in mod.stamp(REFERENCE_ROWS, 0.9)]
+    blocks = [mod.strip_ansi(line) for line in mod.stamp(REFERENCE_ROWS)]
     ascii_ = str.maketrans({"·": ".", "✓": "+", "─": "-", "→": ">"})
     for line, twin in zip(blocks, REFERENCE_TWIN, strict=True):
         assert len(line) == len(twin), (line, twin)
@@ -691,8 +712,8 @@ def test_a_real_runs_stamp_is_the_owners_reference_cell_for_cell():
         same = zip(text, twin, strict=True)
         assert all(a == b for a, b in same if a not in "▀▄"), (line, twin)
     label = mod.label(full_values())
-    assert mod.fitted([(label, FULL_ROWS, 0.9)]) == "\n".join(
-        [label, *mod.stamp(FULL_ROWS, 0.9, shape=False)]
+    assert mod.fitted([(label, FULL_ROWS)]) == "\n".join(
+        [label, *mod.stamp(FULL_ROWS, shape=False)]
     )
 
 
@@ -700,7 +721,7 @@ def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
     """A3, two files, under the owner's rule of 2026-10-02 (`questions.md`
     Q6). Two stamps of a real run's size do not fit one message together
     even at the last rung, so the old rule drew both with no disc. The disc is kept
-    now: the first is drawn whole at its own 0.90, the second stays pending
+    now: the first is drawn whole with its disc, the second stays pending
     under its own name, and the next `Stop` draws it whole — two turns,
     each message under the budget. The name is the case's from phase 1,
     kept because round 1's record cites it.
@@ -709,34 +730,34 @@ def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
     the emblem sets it (#832): under #717's lily two did not fit at 0.75, and
     under the interim ring of work item 1791270164 they did
     (`phases/phase-1.md` there has the sizes). The second run therefore
-    carries deferral homes, one at a time, until the pair does not fit at
-    the ladder's last rung — none under the lily or under phase 2's § at
-    0.90, where this is the case as it stood, and some under the owner's
-    14-cell disc, where two real runs share a message — and the premise is
-    asserted rather than assumed."""
+    carries deferral homes, one at a time, until the pair does not fit with
+    their discs — none under the lily or under phase 2's §, where this is
+    the case as it stood, and some under the owner's 14-cell disc, where two
+    real runs share a message — and the premise is asserted rather than
+    assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     label = mod.label(full_values())
-    budget, floor = mod.MESSAGE_BUDGET, mod.SCALE_LADDER[-1]
-    alone = len(drawn(mod, label, FULL_ROWS, floor))
+    budget = mod.MESSAGE_BUDGET
+    alone = len(drawn(mod, label, FULL_ROWS))
     homes = []
-    while alone + 2 + len(drawn(mod, label, FULL_ROWS + homes, floor)) <= budget:
+    while alone + 2 + len(drawn(mod, label, FULL_ROWS + homes)) <= budget:
         homes.append(("", f"home-{len(homes)}"))
     rows = FULL_ROWS + homes
     late = {**full_values("ccc3333c"), "rows": rows}
-    assert len(drawn(mod, mod.label(late), rows, 0.9)) <= budget, (
-        "the second no longer fits at 0.90 alone",
+    assert len(drawn(mod, mod.label(late), rows)) <= budget, (
+        "the second no longer fits with its disc alone",
         len(homes),
     )
     first = mod.write_values(str(repo / ".git"), "s-1", full_values(), now=1)
     second = mod.write_values(str(repo / ".git"), "s-1", late, now=2)
     text = json.loads(stop(repo))["systemMessage"]
     assert len(text) <= mod.MESSAGE_BUDGET, len(text)
-    assert text == drawn(mod, label, FULL_ROWS, 0.9), "not the first, whole"
+    assert text == drawn(mod, label, FULL_ROWS), "not the first, whole"
     assert os.path.exists(mod.drawn_path(first)) and not os.path.exists(first)
     assert os.path.exists(second), "the second was claimed with the first"
     later = json.loads(stop(repo))["systemMessage"]
-    assert later == drawn(mod, mod.label(late), rows, 0.9)
+    assert later == drawn(mod, mod.label(late), rows)
     assert os.path.exists(mod.drawn_path(second)) and not os.path.exists(second)
     assert stop(repo) == "", "a drawn file was drawn a second time"
 
@@ -782,7 +803,7 @@ def test_seals_past_what_one_message_carries_wait_for_the_next_turn(tmp_path):
 
 def test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it(tmp_path):
     """A4's last rung, under the owner's rule. A record whose stamp does not
-    fit the budget with its disc at the ladder's last rung by itself — a
+    fit the budget with its disc by itself — a
     long list of deferral homes — is the one case the text block is drawn
     with no disc, and it is drawn alone: the first pending file is always drawn, so
     the queue cannot stall, and the seal after it waits for the next `Stop`
@@ -795,21 +816,20 @@ def test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it(tmp_path):
     mod = stamp_module()
     repo = opted_in(tmp_path)
     label = mod.label(full_values())
-    rung = mod.SCALE_LADDER[-1]
     homes = []
-    while len(drawn(mod, label, FULL_ROWS + homes, rung)) <= mod.MESSAGE_BUDGET:
+    while len(drawn(mod, label, FULL_ROWS + homes)) <= mod.MESSAGE_BUDGET:
         homes.append(("", f"home-{len(homes)}"))
     big = {**full_values(), "rows": FULL_ROWS + homes}
     oversized = mod.write_values(str(repo / ".git"), "s-1", big, now=1)
     after = mod.write_values(str(repo / ".git"), "s-1", full_values("ccc3333c"), now=2)
     assert mod.label(big) == label
-    assert len(drawn(mod, label, big["rows"], rung)) > mod.MESSAGE_BUDGET
+    assert len(drawn(mod, label, big["rows"])) > mod.MESSAGE_BUDGET
     text = json.loads(stop(repo))["systemMessage"]
-    assert text == drawn(mod, label, big["rows"], None), "not the text block alone"
+    assert text == drawn(mod, label, big["rows"], False), "not the text block alone"
     assert "\x1b[38;2;" not in text, "the oversized seal drew a disc"
     assert os.path.exists(mod.drawn_path(oversized)) and os.path.exists(after)
     later = json.loads(stop(repo))["systemMessage"]
-    assert later == drawn(mod, mod.label(full_values("ccc3333c")), FULL_ROWS, 0.9)
+    assert later == drawn(mod, mod.label(full_values("ccc3333c")), FULL_ROWS)
 
 
 def test_a_character_outside_the_bmp_is_counted_as_two():
@@ -818,17 +838,17 @@ def test_a_character_outside_the_bmp_is_counted_as_two():
     persisted where 4,999 were shown. Python's `len` counts each as one, so
     a label of them fitted a rung the harness would not. A budget between
     the two counts steps the block down — since #832 to the text block alone,
-    the one step after 0.90."""
+    the one step after the disc."""
     mod = stamp_module()
     label = LABEL + " " + "\U0001d54f" * 50
-    at = {s: drawn(mod, label, ROWS, s) for s in (0.9, None)}
-    assert len(at[0.9].encode("utf-16-le")) // 2 == len(at[0.9]) + 50
-    assert mod.fitted([(label, ROWS, 0.9)], len(at[0.9]) + 10) == at[None]
-    assert mod.fitted([(label, ROWS, 0.9)], len(at[0.9]) + 50) == at[0.9]
+    at = {disc: drawn(mod, label, ROWS, disc) for disc in (True, False)}
+    assert len(at[True].encode("utf-16-le")) // 2 == len(at[True]) + 50
+    assert mod.fitted([(label, ROWS)], len(at[True]) + 10) == at[False]
+    assert mod.fitted([(label, ROWS)], len(at[True]) + 50) == at[True]
     # A values file is JSON, which can carry a lone surrogate; counting it
     # must not raise, or every pending file would wait forever.
     lone = LABEL + "\ud800"
-    assert mod.fitted([(lone, ROWS, 0.9)]) == drawn(mod, lone, ROWS, 0.9)
+    assert mod.fitted([(lone, ROWS)]) == drawn(mod, lone, ROWS)
 
 
 def test_a_values_file_from_an_older_gate_draws_every_row_in_the_new_layout(
@@ -840,7 +860,7 @@ def test_a_values_file_from_an_older_gate_draws_every_row_in_the_new_layout(
     and may still be pending when this hook draws it. Since #832 nothing
     converts it (`spec.md` §*Out* of work item 1791270164): every row it
     carries is drawn as text in the open layout, one line each and in order,
-    its blanks as blank lines, under `label(values)`, at 0.90 with its disc.
+    its blanks as blank lines, under `label(values)`, with its disc.
     #717's name for this case said the blanks drew no line, which the sheet
     did; the open layout draws them, as `panel`'s own `None` is drawn."""
     mod = stamp_module()
@@ -850,7 +870,7 @@ def test_a_values_file_from_an_older_gate_draws_every_row_in_the_new_layout(
     text = json.loads(stop(repo))["systemMessage"]
     label, *lines = text.split("\n")
     assert label == mod.label(old)
-    assert lines == mod.stamp(OLD_ROWS, 0.9, shape=False), "not the 0.90 drawing"
+    assert lines == mod.stamp(OLD_ROWS, shape=False), "not the drawing with its disc"
     said = [mod.strip_ansi(line)[31:] for line in lines]
     rows = OLD_ROWS[1:]
     assert len(said) == max(14, 2 + len(rows)), len(said)
@@ -862,62 +882,40 @@ def test_a_values_file_from_an_older_gate_draws_every_row_in_the_new_layout(
 
 
 def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
-    """A4. Driven at small budgets: the file's own scale where it fits, then
-    the ladder's one rung, 0.90 since #832, then the panel with no disc —
-    which is returned whatever the budget, because nothing comes after it.
-    Each block takes the highest rung the others leave room for, oldest
-    first (`questions.md` Q6 of #717), and never a rung above the file's
-    own scale; a newer block that does not fit beside the older waits rather
-    than shrinking, because no smaller disc is drawn.
-
-    Since the owner's 14-cell disc, every scale in the band draws the same
-    bytes, so the drawing has two sizes — the disc and the text block alone —
-    and a file at 1.0 that does not fit steps to the text block alone, as a file at
-    0.90 does."""
+    """A4, over the two rungs #853 left. Driven at small budgets: the block
+    with its disc where it fits, then the panel with no disc — which is
+    returned whatever the budget, because nothing comes after it. Oldest
+    first (`questions.md` Q6 of #717): a newer block that does not fit
+    beside the older waits rather than losing its disc, because no smaller
+    disc is drawn."""
     mod = stamp_module()
-    at = {s: drawn(mod, LABEL, ROWS, s) for s in (1.0, *mod.SCALE_LADDER, None)}
-    assert at[1.0] == at[0.9] == drawn(mod, LABEL, ROWS, 0.75), "the disc moved size"
-    assert len(at[0.9]) > len(at[None]), (len(at[0.9]), len(at[None]))
-    one = [(LABEL, ROWS, 0.9)]
-    assert mod.fitted(one, len(at[0.9])) == at[0.9]
-    assert mod.fitted(one, len(at[0.9]) - 1) == at[None]
-    assert mod.fitted(one, 0) == at[None], "the last rung is the last"
-    bare = mod.strip_ansi(at[None])
+    at = {disc: drawn(mod, LABEL, ROWS, disc) for disc in (True, False)}
+    assert len(at[True]) > len(at[False]), (len(at[True]), len(at[False]))
+    one = [(LABEL, ROWS)]
+    assert mod.fitted(one, len(at[True])) == at[True]
+    assert mod.fitted(one, len(at[True]) - 1) == at[False]
+    assert mod.fitted(one, 0) == at[False], "the last rung is the last"
+    assert mod.fitted([]) == "" and mod.admitted([], 0) == []
+    bare = mod.strip_ansi(at[False])
     assert "▀" not in bare and "▄" not in bare, "the last rung drew a disc"
     for row in ROWS[1:]:
         if row is not None:
             assert f"{row[0]:<7} {row[1]}".strip() in bare, row
-    # A file at 1.0 keeps its disc where it fits, and is the text block alone
-    # where it does not: there is no smaller disc between.
-    big = [(LABEL, ROWS, 1.0)]
-    assert mod.fitted(big, len(at[1.0])) == at[1.0]
-    assert mod.fitted(big, len(at[1.0]) - 1) == at[None]
-    # Two blocks that fit together at 0.90 are one message; where the newer
-    # does not fit beside the older, it is left out rather than both losing
-    # the disc or the newer shrinking.
-    two = [(LABEL, ROWS, 0.9), (LABEL, ROWS, 0.9)]
-    room = len(at[0.9]) * 2 + 2
-    assert mod.fitted(two, room) == at[0.9] + "\n\n" + at[0.9]
-    assert mod.admitted(two, room - 1) == [at[0.9]], "both drawn, or not at 0.90"
-    # The older at 1.0 takes the rung the newer leaves room for.
-    pair = [(LABEL, ROWS, 1.0), (LABEL, ROWS, 0.9)]
-    assert mod.admitted(pair, room) == [at[0.9], at[0.9]]
-    assert mod.admitted(pair, len(at[1.0]) + 2 + len(at[0.9])) == [at[1.0], at[0.9]]
+    # Two blocks that fit together are one message; where the newer does not
+    # fit beside the older, it is left out rather than both losing the disc.
+    two = [(LABEL, ROWS), (LABEL, ROWS)]
+    room = len(at[True]) * 2 + 2
+    assert mod.fitted(two, room) == at[True] + "\n\n" + at[True]
+    assert mod.admitted(two, room - 1) == [at[True]], "both drawn, or not whole"
     # Oldest first: a newer seal that would fit is not drawn ahead of an
     # older one that does not, which the hook would claim and not print.
-    huge = (LABEL, ROWS + [("", f"home-{k}") for k in range(60)], 0.9)
-    plain = (LABEL, ROWS, 0.9)
-    assert mod.admitted([plain, huge, plain], room) == [at[0.9]], (
+    huge = (LABEL, ROWS + [("", f"home-{k}") for k in range(60)])
+    plain = (LABEL, ROWS)
+    assert mod.admitted([plain, huge, plain], room) == [at[True]], (
         "drawn past a seal that waits"
     )
     # A single seal exactly at the budget keeps its disc.
-    assert mod.admitted([(LABEL, ROWS, 0.9)], len(at[0.9])) == [at[0.9]]
-    # A file that asked for less is never drawn larger, and one that asked
-    # for more than the first rung gets it where it fits.
-    low = drawn(mod, LABEL, ROWS, 0.75)
-    assert mod.fitted([(LABEL, ROWS, 0.75)], 10**6) == low
-    assert mod.fitted([(LABEL, ROWS, 0.75)], len(low) - 1) == at[None]
-    assert mod.fitted([(LABEL, ROWS, 1.0)], 10**6) == at[1.0]
+    assert mod.admitted([(LABEL, ROWS)], len(at[True])) == [at[True]]
 
 
 def test_admitteds_docstring_fits_the_line_length():
@@ -936,8 +934,8 @@ def test_the_policy_states_the_budget_and_names_its_case():
     """A18. `docs/the-broad-gate.md` §*Where the stamp is drawn* carries the
     budget rule under #717's marker, and its `Enforced by:` line names A3's
     case; the marker stands a second time over the paragraph nothing
-    enforces. #832: the rule names the one rung with a disc and the text
-    block alone after it, the owner's disc 28 cells across, and one real
+    enforces. #832 and #853: the rule names the two rungs, with the disc and
+    the text block alone, the owner's disc 28 cells across, and one real
     run to a message; the unchecked paragraph says nothing outside the disc
     is painted, so the stamp is read in the terminal's own theme, where it
     gave the parchment's contrast figures before decision 6 of work item
@@ -960,13 +958,14 @@ def test_the_policy_states_the_budget_and_names_its_case():
     assert "A seal past what one message can carry stays pending" in rule
     assert "::test_seals_past_what_one_message_carries_wait_for_the_next_turn" in rule
     assert "a character outside the BMP is two" in rule
-    # #832: one rung with a disc, then the text block alone — and the reason
+    # #832 and #853: two rungs, with the disc and without it — and the reason
     # is the owner's 28-cell disc having one size, not a smaller disc refused.
-    assert "then 0.90, the one rung with a disc since #832" in rule
+    assert "A stamp has two rungs, with its disc and then without it" in rule
     assert (
-        "the owner's disc is drawn 28 cells across at every scale, so there is "
-        "no smaller disc to step to"
+        "the owner's disc is drawn 28 cells across and has one size, so there "
+        "is no smaller disc to step to, and since #853 no scale either"
     ) in rule
+    assert "0.90" not in rule and "at every scale" not in rule
     assert "one real run's stamp goes out per message" in rule
     assert "does not fit with its disc by itself is the only one drawn" in rule
     assert "as the text block with no disc" in rule
@@ -1115,46 +1114,28 @@ def test_the_sealer_is_told_the_gate_draws_nothing_and_neither_does_it():
     assert "which gate drew the stamp" not in text
 
 
-# --- S13: the scale --------------------------------------------------------
+# --- S13: the scale, retired (#853) -----------------------------------------
 
 
-def test_the_default_scale_is_ninety_percent_with_its_reason_beside_it():
-    """S13. `DEFAULT_SCALE` is 0.90, and the comment above it says why and
-    names 0.75 as the candidate passed over, so the next reader does not
-    re-run #400's six-scale comparison to find out. Since #832's hand-drawn
-    disc it also says the scale no longer sizes the disc, and nothing above
-    it names the 24-cell disc or a floor the owner saw it fragment at."""
+def test_the_stamp_says_why_it_has_no_scale_and_neither_command_offers_one():
+    """S13 (#853). The comment where the scale stood says there is none and
+    why — the disc has one size since #832 — so the next reader does not
+    look for the dial; `seal-stamp` with no argument draws the sample, and
+    neither command's help names a scale."""
     mod = stamp_module()
-    assert mod.DEFAULT_SCALE == 0.90
     with open(STAMP, encoding="utf-8") as handle:
-        source = handle.read()
-    above = source.split("DEFAULT_SCALE = 0.90", 1)[0].rsplit("\n\n", 1)[-1]
-    assert "0.75 was the other candidate" in above, above
-    assert "passed over" in above, above
-    flat_above = " ".join(above.replace("#", " ").split())
-    assert (
-        "the disc is `DISC_CELLS` across at every scale in the band, so the "
-        "scale sizes nothing"
-    ) in flat_above, flat_above
-    for gone in ("24 cells", "13 lines", "accepted nothing below 24", "fragment"):
-        assert gone not in flat_above, gone
-
-
-def test_both_commands_draw_at_the_default_scale_when_given_none():
-    """S13's other half: `seal-stamp` with no `--scale` draws the sample at
-    `DEFAULT_SCALE`, and `broad-gate`'s own default is the same constant —
-    the gate's values file carries it, which the gate module's cases read."""
-    mod = stamp_module()
+        source = " ".join(handle.read().replace("#", " ").split())
+    assert "There is no scale ( 853)." in source, "the retirement is not said"
+    assert "the disc is `DISC_CELLS` across whatever a scale said" in source
     out = seal_stamp("--shape")
     assert out.returncode == 0, out.stderr
-    assert out.stdout == (
-        "\n" + "\n".join(mod.stamp(mod.SAMPLE_ROWS, mod.DEFAULT_SCALE, True)) + "\n\n"
-    )
-    help_text = subprocess.run(
-        [sys.executable, GATE, "--help"],
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=60,
-    ).stdout
-    assert f"default {mod.DEFAULT_SCALE}" in help_text, help_text
+    assert out.stdout == "\n" + "\n".join(mod.stamp(mod.SAMPLE_ROWS, True)) + "\n\n"
+    for command in ([sys.executable, STAMP], [sys.executable, GATE]):
+        help_text = subprocess.run(
+            [*command, "--help"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        ).stdout
+        assert "scale" not in help_text, help_text

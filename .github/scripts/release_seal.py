@@ -27,7 +27,8 @@ the checks*). The suite reads the PNG it draws with Pillow, pinned in
 binary is absent.
 
 **The rows are a fixed set, read from what the tag carries.** The suite's
-counts come from the JUnit file the run at the tag wrote (`suite_counts`),
+counts come from the record the broad gate's recorder wrote for the run at
+the tag, read by the broad gate's own reader and counter (`suite_counts`),
 the pull requests and their `chain: capped` labels from the one `gh pr list`
 call the note already makes, and the work items, rounds and deferred issues
 from the round records at the tag, through the readers the review chain's
@@ -52,7 +53,8 @@ be drawn by hand from a checkout at the tag, on a machine with
 `rsvg-convert`, attached with `gh release upload` and shown with
 `gh release edit --notes-file`.
 
-Environment: `TAG`, `REPO`, `GH_TOKEN`, `SUITE_XML` (the JUnit file),
+Environment: `TAG`, `REPO`, `GH_TOKEN`, `SUITE_RECORDS` (the directory the
+recorder wrote in) and `SUITE_KEY` (the key the run at the tag was handed),
 `SUITE_OUTCOME` (the suite step's outcome), `DRY_RUN`, `SEAL_PNG`.
 
 Exit code: 0, always.
@@ -66,7 +68,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ElementTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # Where this file's own repository is, which the modules below are loaded
@@ -226,39 +227,61 @@ def alt_text(rows):
 # --- the sources ---------------------------------------------------------
 
 
-def suite_counts(path):
-    """`(passed, skipped)` from the JUnit XML pytest wrote at `path`.
+def gate():
+    """`skills/verify/scripts/broad_gate.py`, whose reader and counter the
+    broad gate's panel reads the same record with (#869): one counter for the
+    panel and the release, and no second reader of what pytest printed."""
+    return module(
+        "specseal_broad_gate_for_release_seal",
+        "skills",
+        "verify",
+        "scripts",
+        "broad_gate.py",
+    )
 
-    JUnit is pytest's documented output format, where a log is not: each
-    `testsuite` element carries `tests`, `failures`, `errors` and `skipped`,
-    and passed is the first less the other three, summed over every suite.
-    Raises `OSError` for a file that is not there and `ValueError` for one
-    that does not parse, holds no suite, carries a count that is not a
-    number, or counts a failure or an error -- a `SEALED` above a red suite
-    would be false, and a file nobody can read is never a zero."""
-    try:
-        root = ElementTree.parse(path).getroot()
-    except ElementTree.ParseError as problem:
-        raise ValueError(f"{path} is not JUnit XML: {problem}") from problem
-    suites = [root] if root.tag == "testsuite" else root.findall("testsuite")
-    if not suites:
-        raise ValueError(f"{path} holds no testsuite")
-    total = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
-    for suite in suites:
-        for key in total:
-            try:
-                total[key] += int(suite.get(key, ""))
-            except ValueError as problem:
-                raise ValueError(
-                    f"{path}: a testsuite's {key} is {suite.get(key)!r}"
-                ) from problem
-    if total["failures"] or total["errors"]:
+
+def suite_counts(directory, key):
+    """`(passed, skipped)` from the record the broad gate's recorder wrote
+    under `directory` for the sessions carrying `key` (#869).
+
+    The run at the tag loads the recorder as the broad gate loads it
+    (`.github/workflows/publish-release.yml`), and `broad_gate.read_record`
+    counts each report under the category pytest's own summary line counts
+    it under. Raises `ValueError` where no directory or no key is named,
+    where no session carries the key, where a line of a keyed record did not
+    parse, where a session stopped part-way, where a test or a collection
+    had no file of its own and so counts under no category (`unplaced`),
+    or where the counts hold a failure or an error -- a `SEALED` above a red
+    or a short suite would be false, and a record nobody can read is never a
+    zero."""
+    if not directory:
+        raise ValueError("SUITE_RECORDS names no directory")
+    if not key:
+        raise ValueError("SUITE_KEY names no key")
+    record = gate().read_record(directory, key, CODE)
+    if not record.sessions:
+        raise ValueError(f"no record under {directory} carries the key {key}")
+    if record.unread:
         raise ValueError(
-            f"the suite at the tag did not pass: {total['failures']} failed and "
-            f"{total['errors']} errors"
+            f"{record.unread} of the lines under {directory} did not parse as "
+            "the recorder's"
         )
-    passed = total["tests"] - total["failures"] - total["errors"] - total["skipped"]
-    return passed, total["skipped"]
+    if record.unended:
+        raise ValueError(
+            f"{record.unended} of the suite's pytest sessions stopped part-way"
+        )
+    if record.unplaced:
+        raise ValueError(
+            f"{record.unplaced} of the suite's tests and collections had no "
+            "file of their own and were counted under no category"
+        )
+    failed = record.counts.get("failed", 0)
+    errors = record.counts.get("error", 0)
+    if failed or errors:
+        raise ValueError(
+            f"the suite at the tag did not pass: {failed} failed and {errors} errors"
+        )
+    return record.counts.get("passed", 0), record.counts.get("skipped", 0)
 
 
 def readers():
@@ -438,7 +461,10 @@ def seal_release(tag, repo, dry):
     if outcome and outcome != "success":
         raise Refused(f"the suite at {tag} ended {outcome}, and a seal says it passed")
     try:
-        suite = suite_counts(os.environ.get("SUITE_XML", ""))
+        suite = suite_counts(
+            os.environ.get("SUITE_RECORDS", "").strip(),
+            os.environ.get("SUITE_KEY", "").strip(),
+        )
     except (OSError, ValueError) as problem:
         raise Refused(f"the suite's counts cannot be read: {problem}") from problem
     pulls = note.merged_pulls(repo, version)
