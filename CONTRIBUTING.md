@@ -220,7 +220,11 @@ removes `GITHUB_TOKEN` and `GITHUB_ENTERPRISE_TOKEN`, and sets `GH_TOKEN` and
 variable, `gh` reads the login it keeps in your OS keyring. A case that falls
 through its stubs onto a live `gh` then fails where you run it, instead of
 passing because you happen to be logged in and failing only on CI after the
-branch was sealed (#510). A case that needs `gh` stubs it.
+branch was sealed (#510). A case that needs `gh` stubs it. One question is
+stubbed for every case: `chain_check.py` asks `gh pr view --json isDraft`
+where no event payload exists (#866), so the conftest puts a `gh` first on
+PATH that answers *draft* — the state a review round runs in — and passes
+every other call to the `gh` behind it; `gh_answers` picks another answer.
 
 Two steps of the hygiene workflow ship to user repositories as well, as
 `templates/hygiene.yml`: the unverified-rows tally and the chain check, run

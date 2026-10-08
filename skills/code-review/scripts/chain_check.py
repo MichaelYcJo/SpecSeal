@@ -357,6 +357,7 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -1251,17 +1252,32 @@ def stray_records(routing, root, item):
     return [rel for _, rel in sorted(found)]
 
 
-def pull_request_state():
+def pull_request_state(root=None, which=shutil.which, run=subprocess.run):
     """(`draft` | `ready` | `unknown`, where that was read from).
 
-    Read out of the event payload GitHub writes to disk, not out of
-    `gh pr view --json isDraft`. The payload is already this workflow's
-    authority for `github.base_ref` two steps above this one, and it needs no
-    network, no token, and no `gh` on PATH -- three things a check that must
-    not fail open should not depend on.
+    Two observed sources, in order, and never an assumed one (#866):
 
-    `unknown` is every run outside a pull-request event, and it is judged as
-    a READY pull request. That direction is the whole decision:
+      the event payload   GitHub writes it to disk, and it is already this
+                          workflow's authority for `github.base_ref` two steps
+                          above this one. It needs no network, no token and no
+                          `gh` on PATH, so where it exists it is the answer,
+                          whatever it says
+      `gh pr view`        asked in ROOT only where there is no payload at all
+                          -- a run outside a workflow, which is every local
+                          run of this check and every run `round_record.py`
+                          and the broad gate make (`pull_request_from_gh`)
+
+    The generator and the broad gate used to answer the second question
+    themselves and hand this check a DRAFT payload whenever `gh` was absent,
+    failed or said draft, so on a machine without `gh` every local run was a
+    draft and a draft excuses the unchecked `Pass`, the empty `rounds/`, the
+    `nobody` beside `Pass` and the `Broad gate` cell. That was the override
+    rejected below, written as a file instead of a flag. The question moved
+    in here, and the payload writers left.
+
+    `unknown` is a payload that cannot answer, or no payload and no `gh` that
+    can, and it is judged as a READY pull request. That direction is the
+    whole decision:
 
       judged as draft   `no pull-request context` becomes the quietest way
                         past this check that exists, quieter than
@@ -1272,11 +1288,16 @@ def pull_request_state():
     A `--draft` flag was considered for the local case and rejected for the
     first reason: an override anyone can type is the same hole with a name.
     What the unknown state must not do is pass in SILENCE, so the verdict
-    below prints which state was assumed and why.
+    below prints which state was assumed and why, naming every source tried.
+
+    `which` and `run` are parameters so a case can stand in for `gh`; ROOT
+    None asks nothing, for a caller with no repository to ask about.
     """
     path = os.environ.get("GITHUB_EVENT_PATH")
     if not path or not os.path.exists(path):
-        return "unknown", "no pull-request event payload"
+        if root is None:
+            return "unknown", "no pull-request event payload"
+        return pull_request_from_gh(root, which, run)
     try:
         with open(path, encoding="utf-8") as f:
             event = json.load(f)
@@ -1296,6 +1317,62 @@ def pull_request_state():
             "not a boolean"
         )
     return ("draft" if pr["draft"] else "ready"), path
+
+
+# The question `pull_request_from_gh` asks, and how long it waits. The call is
+# the one `round_record.py` made before #866 moved it here: the branch checked
+# out in the repository, its pull request, the one field.
+GH_DRAFT = ["gh", "pr", "view", "--json", "isDraft"]
+GH_TIMEOUT = 30
+NO_PAYLOAD = "no pull-request event payload"
+
+
+def pull_request_from_gh(root, which=shutil.which, run=subprocess.run):
+    """(`draft` | `ready` | `unknown`, where) from `gh pr view --json isDraft`.
+
+    The second source of `pull_request_state`, asked only where no payload
+    exists. Measured 2026-10-08 (`questions.md` M1): a draft prints
+    `{"isDraft":true}` and a ready one `{"isDraft":false}`, both at exit 0;
+    no remote, no pull request for the branch, and a token GitHub refuses
+    each exit 1 with one line on stderr. Every exit but 0, an answer that is
+    not a JSON object with a boolean `isDraft`, a `gh` that will not run and
+    no `gh` on PATH are `unknown`, and the `where` says which, so the line
+    the check prints names what was tried.
+    """
+    found = which(GH_DRAFT[0])
+    if found is None:
+        return "unknown", f"{NO_PAYLOAD}, and no `gh` on PATH to ask"
+    try:
+        # The path `which` found, not the bare name: on Windows a `gh` that
+        # is a `.cmd` is found by `which` through PATHEXT and not by the
+        # process call, which looks for an `.exe`.
+        r = run(
+            [found, *GH_DRAFT[1:]],
+            cwd=root,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=GH_TIMEOUT,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return "unknown", f"{NO_PAYLOAD}, and `gh pr view` did not run ({exc})"
+    if r.returncode != 0:
+        said = (r.stderr or r.stdout or "").strip().partition("\n")[0].strip()
+        return "unknown", (
+            f"{NO_PAYLOAD}, and `gh pr view` exited {r.returncode}"
+            + (f": {said}" if said else "")
+        )
+    try:
+        answer = json.loads(r.stdout)
+    except ValueError:
+        answer = None
+    draft = answer.get("isDraft") if isinstance(answer, dict) else None
+    if not isinstance(draft, bool):
+        return "unknown", (
+            f"{NO_PAYLOAD}, and `gh pr view` did not say whether the pull "
+            "request is a draft"
+        )
+    return ("draft" if draft else "ready"), "`gh pr view --json isDraft`"
 
 
 def field(rows, label):
@@ -4213,6 +4290,34 @@ DIRECT_GATE_EXCUSED = (
     f"instead — the cell had no home to be written to, so failing them would "
     "be red on history nobody can fix"
 )
+# The one parameter of this check a caller passes to say WHO it is (#866).
+# The broad gate's chain arm runs before `round_record.py seal` writes the
+# `Broad gate` cell it would judge, so that cell honestly reads `not yet` at
+# that moment. The arm used to hand this check a draft payload for it, which
+# excused every other arm with it; this excuses the one cell, and says so.
+SEALING = "--sealing"
+SEALING_SAYS = (
+    f"{SEALING}: the last record's `{BROAD_GATE}` cell is the one this run "
+    "writes, so its arm prints and does not fail"
+)
+
+
+def sealing_excuses(found, sealing):
+    """(errors, notices) of the `Broad gate` arm, its errors printed instead
+    under `--sealing` (#866).
+
+    FOUND is that arm's own answer. Under the flag every error it holds
+    becomes a notice carrying `SEALING_SAYS` in front, so the state the cell
+    is in still prints and the exit does not move on it; without the flag
+    FOUND passes through untouched. Nothing else is excused: the flag names
+    the caller that writes this one cell, and an unchecked `Pass` or a
+    `nobody` beside it is not a cell that caller writes."""
+    errors, notices = found
+    if not sealing:
+        return errors, notices
+    return [], notices + [
+        (rel, line, f"{SEALING_SAYS}: {message}") for rel, line, message in errors
+    ]
 
 
 def broad_gate(
@@ -5334,6 +5439,15 @@ def main(argv=None):
         "carries them — for a check before the record's commit; CI never "
         "passes this",
     )
+    ap.add_argument(
+        SEALING,
+        action="store_true",
+        help="the caller is the run that writes the last record's `Broad "
+        "gate` cell — the broad gate's chain arm, which runs before `seal` "
+        "writes it — so that one arm prints its state and does not fail; "
+        "every other arm is judged by the pull request's state. CI never "
+        "passes this",
+    )
     args = ap.parse_args(argv)
     global WORKTREE
     WORKTREE = args.worktree
@@ -5388,11 +5502,11 @@ def main(argv=None):
         set(changed_routing(touched, renamed, routing.WORK_ITEMS)) | set(own)
     )
 
-    state, where = pull_request_state()
+    state, where = pull_request_state(root)
     strict = state != "draft"
     print(
         f"chain-check: judged as a {'draft' if state == 'draft' else 'ready'} "
-        f"pull request ({where})"
+        f"pull request ({where})" + (f"; {SEALING_SAYS}" if args.sealing else "")
     )
 
     # Before the early return, so a pull request that declares nothing still
@@ -5513,8 +5627,9 @@ def main(argv=None):
                 f"required; the broad gate's cell is read from "
                 f"{BROAD_GATE_FILE}"
             )
-            seal_errors, seal_notices = direct_seal(
-                reader, routing, root, item, where_gate, strict
+            seal_errors, seal_notices = sealing_excuses(
+                direct_seal(reader, routing, root, item, where_gate, strict),
+                args.sealing,
             )
             errors.extend(seal_errors)
             notices.extend(seal_notices)
@@ -5656,7 +5771,9 @@ def main(argv=None):
         # whether the one full-suite run happened is a claim about the whole
         # review, not about one round. Every round but the last honestly
         # reads `not yet`, because the run comes after the rounds settle.
-        gate_errors, gate_notices = broad_gate(reader, root, last, strict)
+        gate_errors, gate_notices = sealing_excuses(
+            broad_gate(reader, root, last, strict), args.sealing
+        )
         errors.extend(gate_errors)
         notices.extend(gate_notices)
 

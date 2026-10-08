@@ -21,19 +21,19 @@ finished, and neither is a state to ask for a merge in.
 |---|---|
 | ready | fails. The review did not finish, and the pull request says it did |
 | draft | passes. A draft is not a request to merge, and a review still running has to have somewhere to be |
-| not visible to the check at all | judged as **ready** |
+| not visible to the check at all, and `gh` cannot say | judged as **ready** |
 
 That last row is the decision, and it is deliberately the strict one. The
-draft state is read from the event payload the code host writes to disk, so a
-run outside a pull-request event — a session running the check by hand — has
-no pull request to read. Judged as a draft, "no pull-request context" would
-become the quietest way past this check that exists, quieter than
-`[no-review]`, which at least stays in the command where history keeps it. An
-override flag was considered for the same case and rejected for the same
-reason: an escape anyone can type is the same hole with a name.
+state comes from the event payload the code host writes, and where there is
+none (a run by hand, the generator, the broad gate) from
+`gh pr view --json isDraft`. Read as a draft, "no pull-request context" would
+be the quietest way past this check, quieter than `[no-review]`; an override
+flag was rejected for the same reason, and the generator hands the check no
+draft payload either. The one excuse a caller carries is the broad gate's
+`--sealing`: the `Broad gate` cell that run writes prints and does not fail.
 
 What it must not do is pass in silence, so the check prints which state it
-assumed and where it read that from, on every run.
+assumed and every source it tried, on every run.
 
 **What it still cannot see** is whether the review was any good. A checked
 `Pass` is a claim made by whoever wrote the round record. What is refused is

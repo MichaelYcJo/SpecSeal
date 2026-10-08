@@ -474,6 +474,91 @@ for _name in GH_CREDENTIALS:
 os.environ["GH_TOKEN"] = NOT_A_GH_TOKEN
 os.environ["GH_ENTERPRISE_TOKEN"] = NOT_A_GH_TOKEN
 
+# `chain_check.py` asks `gh pr view --json isDraft` where no event payload
+# exists (#866), and every run of it the generator and the broad gate make in
+# this suite is such a run. Logged out, a live `gh` cannot answer, so each
+# would be judged as READY -- where `round_record.py` used to hand the check a
+# DRAFT payload for every run `gh` could not answer. The suite's pull request
+# is a draft instead, the state a review round runs in: a stub named `gh`,
+# first on PATH from import, answers that one question and passes every other
+# call to the `gh` that was on PATH, so `gh auth token` and the `PR` cell's
+# question reach it as they did. A case about another answer puts its own
+# stub first (`gh_answers`).
+# A child that imports this file again -- an xdist worker, a probe that runs
+# it -- inherits a PATH that already holds a parent's stubs, so the real `gh`
+# is looked for past every one of them.
+GH_STUB_PREFIX = "specseal-gh-stubs-"
+REAL_GH = shutil.which(
+    "gh",
+    path=os.pathsep.join(
+        p
+        for p in os.environ.get("PATH", "").split(os.pathsep)
+        if GH_STUB_PREFIX not in p
+    ),
+)
+GH_DRAFT_ARGS = ["pr", "view", "--json", "isDraft"]
+GH_STATES = {
+    "draft": '{"isDraft":true}',
+    "ready": '{"isDraft":false}',
+    # What `gh` printed with no pull request for the branch, measured
+    # 2026-10-08 (`questions.md` M1 of 1791384155).
+    "unknown": None,
+}
+_GH_STUBS = tempfile.mkdtemp(prefix=GH_STUB_PREFIX)
+atexit.register(shutil.rmtree, _GH_STUBS, True)
+GH_STUB_SCRIPT = """import subprocess, sys
+ANSWER, REAL, ASKED = {answer!r}, {real!r}, {asked!r}
+if sys.argv[1:] == ASKED:
+    if ANSWER is None:
+        sys.stderr.write('no pull requests found for branch "x"\\n')
+        sys.exit(1)
+    sys.stdout.write(ANSWER + "\\n")
+    sys.exit(0)
+if REAL is None:
+    sys.stderr.write("gh: not on PATH under this suite\\n")
+    sys.exit(1)
+sys.exit(subprocess.call([REAL, *sys.argv[1:]]))
+"""
+
+
+def _write_gh_stub(state):
+    """The directory holding a `gh` that answers STATE, written once."""
+    home = os.path.join(_GH_STUBS, state)
+    os.makedirs(home, exist_ok=True)
+    script = os.path.join(home, "gh_stub.py")
+    with open(script, "w", encoding="utf-8") as handle:
+        handle.write(
+            GH_STUB_SCRIPT.format(
+                answer=GH_STATES[state], real=REAL_GH, asked=GH_DRAFT_ARGS
+            )
+        )
+    if os.name == "nt":
+        with open(os.path.join(home, "gh.cmd"), "w", encoding="utf-8") as handle:
+            handle.write(f'@"{sys.executable}" "{script}" %*\r\n')
+    else:
+        stub = os.path.join(home, "gh")
+        with open(stub, "w", encoding="utf-8") as handle:
+            handle.write(f'#!/bin/sh\nexec "{sys.executable}" "{script}" "$@"\n')
+        os.chmod(stub, 0o755)
+    return home
+
+
+GH_STUB_DIRS = {state: _write_gh_stub(state) for state in GH_STATES}
+
+
+def gh_answers(env, state):
+    """ENV with the `gh` that answers STATE first on its PATH, and no other
+    of the suite's stubs anywhere on it."""
+    parts = [
+        p
+        for p in env.get("PATH", "").split(os.pathsep)
+        if p and GH_STUB_PREFIX not in p
+    ]
+    return {**env, "PATH": os.pathsep.join([GH_STUB_DIRS[state], *parts])}
+
+
+os.environ["PATH"] = gh_answers(dict(os.environ), "draft")["PATH"]
+
 
 # The worktree guard reads the routing answer out of the session's transcript
 # under `worktree_consent.PROJECTS_ROOT`, which is `~/.claude/projects` -- the

@@ -160,7 +160,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 
 # The interpreter, before this file does anything a reader could mistake for
 # progress.
@@ -1019,31 +1018,6 @@ def pull_request_cell(root, given, which=shutil.which, run=subprocess.run):
     except (ValueError, KeyError, TypeError):
         return PR_NOT_YET
     return f"#{number} {DASH} {url}"
-
-
-def pull_request_is_ready(root, which=shutil.which, run=subprocess.run):
-    """True only when `gh` says the branch's pull request is not a draft.
-
-    `chain_check` judges an unchecked `Pass` as a failure on a READY pull
-    request and as the honest state of a running review on a draft. A record
-    being generated is a review still running, so the check is told `draft`
-    unless the platform says otherwise — and the platform is asked, not the
-    session.
-    """
-    if which("gh") is None:
-        return False
-    try:
-        r = run(
-            ["gh", "pr", "view", "--json", "isDraft"],
-            cwd=root,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=30,
-        )
-        return r.returncode == 0 and json.loads(r.stdout).get("isDraft") is False
-    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
-        return False
 
 
 def default_baseline(root):
@@ -2779,33 +2753,18 @@ def build(reader, routing, args, root, item, rounds):
 def run_check(root, baseline):
     """`chain_check --worktree` on the repository, printed, its code returned.
 
-    The check reads the pull request's state from the event payload GitHub
-    writes, and outside a workflow it has none and judges as READY — where an
-    unchecked `Pass` fails. A record being generated is a review still
-    running, so the check is told `draft` unless `gh` says the pull request
-    is already ready, in which case it is judged as CI will judge it. On a
-    machine without `gh` the check is told `draft` for every local run, and
-    CI re-judges from the real payload at the pull request.
+    The check reads the pull request's state itself (#866): the event payload
+    where GitHub wrote one, else `gh pr view --json isDraft` in ROOT, else
+    `unknown`, judged as READY and printed with what was tried
+    (`chain_check.pull_request_state`). This writes nothing into the
+    environment. It used to hand the check a DRAFT payload whenever `gh` was
+    absent, failed or said draft, so on a machine without `gh` every local
+    run was a draft — the override `docs/round-record-spec.md` §*`Pass` has
+    to be checked* rejects, without the name. There, now, `new`, `close` and
+    `seal` exit 1 on the record they just wrote, and the line above the
+    verdict says which state was assumed and why.
     """
-    env_was = os.environ.get("GITHUB_EVENT_PATH")
-    payload = None
-    if not pull_request_is_ready(root):
-        fd, payload = tempfile.mkstemp(suffix=".json", prefix="round-record-")
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump({"pull_request": {"draft": True}}, f)
-        os.environ["GITHUB_EVENT_PATH"] = payload
-    try:
-        return chain.main(["--worktree", "--baseline", baseline, "--root", root])
-    finally:
-        if payload is not None:
-            if env_was is None:
-                os.environ.pop("GITHUB_EVENT_PATH", None)
-            else:
-                os.environ["GITHUB_EVENT_PATH"] = env_was
-            try:
-                os.unlink(payload)
-            except OSError:
-                pass
+    return chain.main(["--worktree", "--baseline", baseline, "--root", root])
 
 
 def worktrees_of(item):

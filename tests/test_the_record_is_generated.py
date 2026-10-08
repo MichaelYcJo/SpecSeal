@@ -28,6 +28,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import gh_answers
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPTS = os.path.join(ROOT, "skills", "code-review", "scripts")
@@ -1591,11 +1592,12 @@ def test_every_record_this_writes_is_read_back_before_it_is_written():
     the difference between this and the grid: the grid could go one row short
     and stay green.
 
-    `run_check` is the second name and it is not a record — it writes the
-    GitHub event payload `chain_check` reads a pull request's state from,
-    into a temp file it then unlinks. A THIRD name means a new writer, and
-    it either goes through `write_record` or says here why what it writes is
-    not a record."""
+    `write_record` is the only name (#866 S8). `run_check` used to be a
+    second, writing a draft event payload for `chain_check` to read a pull
+    request's state from; the check asks `gh` itself now, and nothing here
+    writes a file the check then trusts. A SECOND name means a new writer,
+    and it either goes through `write_record` or says here why what it
+    writes is not a record."""
     import ast
 
     module = ast.parse(read(GENERATOR))
@@ -1618,7 +1620,7 @@ def test_every_record_this_writes_is_read_back_before_it_is_written():
             ]
             if any(set("wax") & set(m) for m in modes):
                 writers.setdefault(node.name, []).append(inner.lineno)
-    assert set(writers) == {"write_record", "run_check"}, (
+    assert set(writers) == {"write_record"}, (
         f"a writer this case does not know about: {writers}. Every record is "
         "written by `write_record`, which asks the hider question first"
     )
@@ -1684,6 +1686,9 @@ def record(sha, passed=True, verdict="answered", finding="🟢 1"):
 
 
 def run_check(repo, worktree=False):
+    """The check as a local run with nothing to say what the pull request is:
+    no payload, and a `gh` that finds no pull request for the branch, so it
+    is judged as READY (#866) — the state these cases are about."""
     r = subprocess.run(
         [
             sys.executable,
@@ -1698,7 +1703,7 @@ def run_check(repo, worktree=False):
         encoding="utf-8",
         errors="replace",
         timeout=60,
-        env=env_without_a_pull_request(),
+        env=gh_answers(env_without_a_pull_request(), "unknown"),
     )
     return r.returncode, r.stdout + r.stderr
 

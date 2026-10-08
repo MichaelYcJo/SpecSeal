@@ -8466,12 +8466,15 @@ def test_a_green_tree_preflights_green_and_seals_nothing(repo, tmp_path):
     assert not any(c in out.stdout for c in HALF_BLOCKS), "a preflight drew blocks"
     arms = record_arms()
     assert len(arms) >= 6, f"the gate's record arms were not read: {arms}"
-    # `.txt` alone: the chain arm's draft payload (`draft_env`) is kept here
-    # too, and it is an input rather than an arm's output.
-    kept = sorted(n for n in os.listdir(keep) if n.endswith(".txt"))
+    # Every file kept is an arm's output (#866): the chain arm no longer
+    # writes a draft payload beside them, and passes `--sealing` instead.
+    kept = sorted(os.listdir(keep))
     assert kept == sorted(f"{name}.txt" for name in arms), (
         f"the preflight kept {kept}; the gate's record arms are {arms}"
     )
+    chain_line = (keep / "chain.txt").read_text(encoding="utf-8").split("\n", 1)[0]
+    assert chain_line.endswith(f" {gate_module().CHAIN_SEALING}"), chain_line
+    assert gate_module().CHAIN_SEALING == check_module().SEALING
     for name in arms:
         text = (keep / f"{name}.txt").read_text(encoding="utf-8")
         assert text.startswith("$ "), f"{name}.txt does not open with its command"
@@ -9918,7 +9921,7 @@ def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(a_sealed_run
     )
 
 
-def test_a_runners_event_payload_judges_the_fixture_and_fails_its_gate(
+def test_a_runners_event_payload_is_what_judges_the_fixture(
     repo, tmp_path, monkeypatch, capsys
 ):
     """What the leak did, reproduced deliberately so it is not only CI's to
@@ -9926,36 +9929,43 @@ def test_a_runners_event_payload_judges_the_fixture_and_fails_its_gate(
     green on every laptop.
 
     With `GITHUB_EVENT_PATH` pointing at a REAL pull request's payload, the
-    gate's own chain check judges this fixture repository a ready pull
-    request and fails it on the fixture record's `Broad gate: not yet` —
-    which is #332's state, read into a repository that has nothing to do with
-    it. The gate then never reaches `seal` at all.
+    gate's own chain check judges this fixture repository by THAT pull
+    request's state — #332's, read into a repository that has nothing to do
+    with it. Until #866 the consequence was a failure: the fixture's `Broad
+    gate: not yet` failed the arm and the gate never reached `seal`. Under
+    `--sealing` that one cell is excused, so what is left to observe is the
+    judgment itself (`questions.md` W2 of 1791384155): the chain arm's kept
+    output names the runner's payload as its source, where the same gate
+    with the variable cleared names the `gh` it asked.
 
     This is the case that gives the clearing fixture above its teeth on a
     machine that sets nothing: it puts the variable back on purpose and
     asserts the consequence, so a reader who removes the guard can see what
     the guard was for without waiting for a pull request to go red."""
     settled_item(repo)
-    monkeypatch.setenv("GITHUB_EVENT_PATH", ready_payload(tmp_path))
+    payload = ready_payload(tmp_path)
     mod = gate_module()
-    code = mod.gate(
-        argparse.Namespace(
-            root=str(repo),
-            base="base",
-            record=str(repo / ITEM),
-            shape=True,
-            keep_output=str(tmp_path / "out"),
-            preflight=False,
-        ),
-        False,
-    )
-    out = capsys.readouterr()
-    assert code == 1, f"exit {code}\n{out.out}{out.err}"
-    assert "NOT SEALED" in out.out, out.out
-    assert re.search(r"^\s+chain\s+exit 1", out.out, re.M), (
-        f"the chain check is not what failed:\n{out.out}"
-    )
-    assert "ready pull request" in out.out, out.out
+
+    def chain_text(keep):
+        mod.gate(
+            argparse.Namespace(
+                root=str(repo),
+                base="base",
+                record=None,
+                shape=True,
+                keep_output=str(keep),
+                preflight=True,
+            ),
+            False,
+        )
+        capsys.readouterr()
+        return (keep / "chain.txt").read_text(encoding="utf-8")
+
+    cleared = chain_text(tmp_path / "cleared")
+    assert "judged as a draft pull request (`gh pr view" in cleared, cleared
+    monkeypatch.setenv("GITHUB_EVENT_PATH", payload)
+    leaked = chain_text(tmp_path / "leaked")
+    assert f"judged as a ready pull request ({payload})" in leaked, leaked
 
 
 def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(

@@ -25,8 +25,9 @@ What it does, in order, from the repository root:
      a person's, and the message says where they answer it
   2. `evidence-check --strict .`       the ledger's rows still anchor
   3. `unverified-check --baseline <base> seal/specs/`
-  4. `chain_check.py --baseline <base>`   judged as a DRAFT pull request,
-     because the cell this run is about to write still reads `not yet`
+  4. `chain_check.py --baseline <base> --sealing`   judged by the pull
+     request's state as the check reads it, with the `Broad gate` cell this
+     run is about to write excused, because it still reads `not yet`
   5. `survivor-check --range <base>...HEAD`, with every
      `seal/specs/*/survivors.md` as `--exempt`
   6. `correction_check.py --range <base>...HEAD`   no merge on this branch
@@ -227,6 +228,9 @@ CORRECTION = os.path.join(
 )
 SEAL_SCRIPT = os.path.join(PLUGIN, "skills", "implement", "scripts", "seal.py")
 CHAIN = os.path.join(PLUGIN, "skills", "code-review", "scripts", "chain_check.py")
+# `chain_check.SEALING`, the flag the chain arm passes (#866). Spelled here
+# because the arm runs the check as a process; a case holds the two equal.
+CHAIN_SEALING = "--sealing"
 SURVIVOR = os.path.join(PLUGIN, "skills", "code-review", "scripts", "survivor_check.py")
 RECORD = os.path.join(PLUGIN, "skills", "code-review", "scripts", "round_record.py")
 # The branch → work item key the preflight's ask reads (#702).
@@ -1807,27 +1811,6 @@ def command_names_backslashed(command, is_directory):
         out.append(c)
         i += 1
     return "".join(out)
-
-
-def draft_env(keep):
-    """The environment `chain_check.py` runs under: a draft pull-request
-    payload, unless the caller's environment already carries one.
-
-    The gate runs BEFORE `seal` writes the cell, so at this moment the last
-    record honestly reads `not yet` — and `chain_check.py` judged as READY
-    fails that cell as the run that never happened. Judged as a draft it
-    excuses exactly that and nothing else, the way `round_record.run_check`
-    already does for a record being generated. Inside a workflow the payload
-    GitHub wrote is the authority and is left alone.
-    """
-    env = dict(os.environ)
-    if env.get("GITHUB_EVENT_PATH"):
-        return env
-    payload = os.path.join(keep, "draft-event.json")
-    with open(payload, "w", encoding="utf-8") as handle:
-        json.dump({"pull_request": {"draft": True}}, handle)
-    env["GITHUB_EVENT_PATH"] = payload
-    return env
 
 
 def exemptions(home):
@@ -3522,12 +3505,16 @@ def gate(args, console_wants_letters, terminal=False):
         root,
         keep,
     )
+    # `--sealing` (#866): this run writes the last record's `Broad gate` cell
+    # after it seals, so that cell still reads `not yet` here, and the flag
+    # excuses that one arm in the check's own words. The pull request's state
+    # is the check's to read -- the payload, else `gh` -- and nothing is
+    # written into the environment for it.
     checks[CHAIN_NAME] = run(
         CHAIN_NAME,
-        [py, CHAIN, "--baseline", base.commit, "--root", root],
+        [py, CHAIN, "--baseline", base.commit, "--root", root, CHAIN_SEALING],
         root,
         keep,
-        env=draft_env(keep),
     )
     if SURVIVORS_NAME not in skipped:
         survivor_args = [

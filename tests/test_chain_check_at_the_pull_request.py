@@ -22,6 +22,7 @@ import sys
 import pytest
 from conftest import (
     committed_round_records_on_disk,
+    gh_answers,
     load_hook_module,
     on_disk,
     symlink_or_skip,
@@ -158,12 +159,16 @@ def record(
     )
 
 
-def run(repo, draft=None, payload=None, branch=None, worktree=False):
+def run(
+    repo, draft=None, payload=None, branch=None, worktree=False, gh="unknown", extra=()
+):
     """`draft=True/False` writes the event payload GitHub hands a workflow.
 
-    `None` is the local run: no payload, so the check cannot see a pull
-    request at all. That state is judged strictly on purpose — see
-    `pull_request_state`.
+    `None` is the local run: no payload, so the check asks `gh` (#866), and
+    `gh` names the answer the suite's stub gives — `unknown` by default, a
+    `gh` that finds no pull request for the branch, so the check cannot see
+    one at all. That state is judged strictly on purpose — see
+    `pull_request_state`. `extra` is passed after the arguments, for a flag.
 
     `payload` writes the file verbatim, for the shapes `draft=` cannot say: a
     payload that will not parse, one with no pull request in it, and one whose
@@ -172,7 +177,7 @@ def run(repo, draft=None, payload=None, branch=None, worktree=False):
     is a detached merge commit. `worktree` passes `--worktree`, the local run
     `round_record.py` makes before a record's commit.
     """
-    env = dict(os.environ)
+    env = gh_answers(dict(os.environ), gh)
     env.pop("GITHUB_EVENT_PATH", None)
     env.pop("GITHUB_HEAD_REF", None)
     if branch is not None:
@@ -194,6 +199,7 @@ def run(repo, draft=None, payload=None, branch=None, worktree=False):
             "--root",
             str(repo),
             *(["--worktree"] if worktree else []),
+            *extra,
         ],
         capture_output=True,
         encoding="utf-8",
@@ -2166,6 +2172,139 @@ def test_an_unknown_state_is_held_to_the_broad_gate_too(repo, kwargs):
     code, out = run(repo, **kwargs)
     assert code == 1, out
     assert "Broad gate" in out
+
+
+# --- #866: the check asks `gh` where it has no payload ----------------------
+
+
+@pytest.mark.parametrize(
+    "gh, state, code",
+    [("draft", "draft", 0), ("ready", "ready", 1), ("unknown", "ready", 1)],
+)
+def test_with_no_payload_the_check_asks_gh_and_says_so(repo, gh, state, code):
+    """#866 S7, through the real script and a `gh` on PATH. No payload, and
+    `gh pr view --json isDraft` answers: a draft is judged as one and names
+    `gh` as its source; a ready one is ready; a `gh` that exits non-zero —
+    what a branch with no pull request gets — is `unknown`, judged as ready
+    and naming what was tried. The record's `Broad gate` reads `not yet`, so
+    the exit says which state the arm was judged in. Red against the reader
+    before #866, which never asked."""
+    gated(repo, GATE_FROM, gate="not yet")
+    got, out = run(repo, gh=gh)
+    assert got == code, out
+    head = out.split("\n", 1)[0]
+    assert head.startswith(f"chain-check: judged as a {state} pull request ("), head
+    if gh == "unknown":
+        assert "no pull-request event payload, and `gh pr view` exited 1" in head
+        assert "no pull requests found" in head, head
+    else:
+        assert head.endswith("(`gh pr view --json isDraft`)"), head
+
+
+def test_a_payload_is_the_answer_whatever_gh_would_say(repo):
+    """The order of the two sources: where GitHub wrote a payload it is the
+    answer, and `gh` is not asked. A ready payload beside a `gh` that says
+    draft is ready."""
+    gated(repo, GATE_FROM, gate="not yet")
+    code, out = run(repo, draft=False, gh="draft")
+    assert code == 1, out
+    assert "judged as a ready pull request" in out, out
+    assert "gh pr view" not in out.split("\n", 1)[0], out
+
+
+@pytest.mark.parametrize(
+    "which, run, said",
+    [
+        (lambda _name: None, None, "no `gh` on PATH to ask"),
+        (
+            lambda name: f"/opt/{name}",
+            lambda *a, **k: (_ for _ in ()).throw(OSError("not executable")),
+            "`gh pr view` did not run (not executable)",
+        ),
+        (
+            lambda name: f"/opt/{name}",
+            lambda *a, **k: subprocess.CompletedProcess(a, 0, "not json", ""),
+            "did not say whether the pull request is a draft",
+        ),
+        (
+            lambda name: f"/opt/{name}",
+            lambda *a, **k: subprocess.CompletedProcess(
+                a, 0, '{"isDraft": "true"}', ""
+            ),
+            "did not say whether the pull request is a draft",
+        ),
+        (
+            lambda name: f"/opt/{name}",
+            lambda *a, **k: subprocess.CompletedProcess(
+                a, 1, "", "HTTP 401: Bad credentials (https://example.com)\nmore"
+            ),
+            "`gh pr view` exited 1: HTTP 401: Bad credentials",
+        ),
+    ],
+    ids=["no gh", "will not run", "not json", "a string", "not logged in"],
+)
+def test_every_gh_that_cannot_answer_is_unknown_and_named(which, run, said):
+    """#866 S7's other shapes, in process: no `gh` on PATH, one that will not
+    run, one whose answer is not an object with a boolean `isDraft` — the
+    string `"true"` among them, which a truthy read would take as a draft —
+    and one GitHub refuses (`questions.md` M1 measured the 401). Each is
+    `unknown`, and the source line says which."""
+    check = load_by_path(CHECK, "specseal_chain_check_for_gh")
+    state, where = check.pull_request_from_gh("/Users/x/repo", which, run)
+    assert state == "unknown", (state, where)
+    assert where.startswith(check.NO_PAYLOAD), where
+    assert said in where, where
+
+
+def test_gh_is_run_at_the_path_which_found(monkeypatch):
+    """The call names the path `which` returned, not the bare word, so a
+    `gh` that is a `.cmd` on Windows — found through PATHEXT — is the one
+    that runs."""
+    check = load_by_path(CHECK, "specseal_chain_check_for_gh_path")
+    seen = []
+
+    def run(args, **kwargs):
+        seen.append((args, kwargs.get("cwd")))
+        return subprocess.CompletedProcess(args, 0, '{"isDraft":false}', "")
+
+    state, where = check.pull_request_from_gh(
+        "/Users/x/repo", lambda _n: "/Users/x/bin/gh.cmd", run
+    )
+    assert (state, where) == ("ready", "`gh pr view --json isDraft`")
+    assert seen == [
+        (["/Users/x/bin/gh.cmd", "pr", "view", "--json", "isDraft"], "/Users/x/repo")
+    ]
+
+
+# --- #866: `--sealing` excuses the one cell its caller writes ---------------
+
+
+def test_sealing_excuses_the_broad_gate_cell_and_says_so(repo):
+    """#866 S9. On a ready pull request a last record whose `Broad gate`
+    reads `not yet` fails, as before; under `--sealing` — the broad gate's
+    chain arm, which writes that cell after it seals — the arm prints its
+    state and the exit is 0, and the state line names the flag."""
+    gated(repo, GATE_FROM, gate="not yet")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    code, out = run(repo, draft=False, extra=("--sealing",))
+    assert code == 0, out
+    head = out.split("\n", 1)[0]
+    assert head.endswith(
+        "; --sealing: the last record's `Broad gate` cell is the one this run "
+        "writes, so its arm prints and does not fail"
+    ), head
+    assert "not yet" in out and "::error" not in out, out
+
+
+def test_sealing_excuses_nothing_but_that_cell(repo):
+    """#866 S9's other half: the flag names the caller that writes one cell,
+    and an unchecked `Pass` is not a cell it writes, so the same record with
+    `Pass` unticked still fails under `--sealing`."""
+    gated(repo, GATE_FROM, gate="not yet", passed=False)
+    code, out = run(repo, draft=False, extra=("--sealing",))
+    assert code == 1, out
+    assert "`Pass` is not checked" in out, out
 
 
 def test_a_work_item_one_second_below_the_cutoff_is_not_failed_for_it(repo):

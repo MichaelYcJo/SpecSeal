@@ -21,6 +21,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import gh_answers
 from test_the_record_is_generated import (
     CHECK,
     GENERATOR,
@@ -237,7 +238,9 @@ def declared_at(repo, item):
 
 
 def run_main(repo, draft):
-    env = dict(os.environ)
+    # No payload is a ready pull request here: the `gh` the check then asks
+    # (#866) finds none for the branch.
+    env = gh_answers(dict(os.environ), "unknown")
     env.pop("GITHUB_HEAD_REF", None)
     env.pop("GITHUB_EVENT_PATH", None)
     # The annotation form, so a line says whether it is an error or a notice;

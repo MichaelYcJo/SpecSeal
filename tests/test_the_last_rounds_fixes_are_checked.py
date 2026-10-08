@@ -37,7 +37,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import REVIEW_CHAIN_DOCS, review_chain_text
+from conftest import REVIEW_CHAIN_DOCS, gh_answers, review_chain_text
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -166,7 +166,9 @@ def record(sha, checked_by, verdict="fixed", finding="🟢 1", passed=True):
 
 
 def run(repo, draft=None):
-    env = dict(os.environ)
+    # No payload is a ready pull request here: the `gh` the check then asks
+    # (#866) finds none for the branch.
+    env = gh_answers(dict(os.environ), "unknown")
     env.pop("GITHUB_EVENT_PATH", None)
     env.pop("GITHUB_HEAD_REF", None)
     if draft is not None:
