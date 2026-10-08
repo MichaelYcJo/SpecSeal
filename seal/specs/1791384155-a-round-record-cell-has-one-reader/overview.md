@@ -17,6 +17,8 @@ release seal cannot give one cell two meanings.
 | S4's Grounds cell | S4: "the Grounds cell `#854 — the run is capped; <reviewer's grounds>`" with a third cell `why` / `#854 — the run is capped — why; executed` | the third cell kept | the fix table's third cell is the fix pass's reasoning, which #391 part 1 made the generator keep; the spec's expected value dropped it silently |
 | A bare `deferred` beside a home in the third cell | spec silent / the third cell is read as if the word stood before it | through `deferred_parts` | it used to write the whole third cell into the Verdict cell, the shape S4 removes for the other arm |
 | The release seal's S10 fixture | spec silent / `**deferred** #13, #14` became two cells | changed | `#13, #14` is not a home `issue_of` reads as an issue, and keeping the case's three issues needs one per cell |
+| `landings`' flag | J3 names only `depth_two` as the wide reader's caller / `landings` reached `path_forms` through it with `paths_only=True` | `landings` calls `path_forms` directly | the flag chose between two readers, and one of them left |
+| A comment in `evidence_check.py` | spec silent / it named one of the five patterns as a second reader of the same shape | reworded | §12: the sentence was false once the pattern left |
 | The panel's ASCII | spec silent / the home is ASCII-encoded in `rounds_rows`, not in the reader | in the panel | the letter twin maps only the owner's characters; the gate and the release seal want the home as written |
 
 ## Not verified
