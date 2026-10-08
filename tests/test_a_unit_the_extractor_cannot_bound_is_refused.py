@@ -603,6 +603,12 @@ def test_a_compact_sequence_belongs_to_its_key():
     nested = "jobs:\n  a:\n    steps:\n    - run: x\n    - run: y\n  b: 2\n"
     assert ec.resolve_unit("w.yml", "steps", nested) == ([(3, 5)], False)
     assert ec.resolve_unit("w.yml", "a", nested) == ([(2, 5)], False)
+    # Only at the key's OWN indent: an item further out is a sibling of the
+    # mapping the key sits in, and a `-` alone opens an item too.
+    sibling = "jobs:\n  - name: a\n    steps:\n      x: 1\n  - name: b\n"
+    assert ec.resolve_unit("w.yml", "steps", sibling) == ([(3, 4)], False)
+    bare = "on:\n-\n  - x\n-other: 1\njobs:\n"
+    assert ec.resolve_unit("w.yml", "on", bare) == ([(1, 3)], False)
 
 
 @pytest.mark.parametrize(

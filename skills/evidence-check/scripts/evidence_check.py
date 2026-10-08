@@ -1197,9 +1197,9 @@ def block_span(lines, i):
     while j < len(lines):
         nxt = lines[j]
         if nxt.strip() and (len(nxt) - len(nxt.lstrip())) <= indent:
-            item = nxt[indent:]
-            at_own_indent = len(nxt) - len(nxt.lstrip()) == indent
-            if not (at_own_indent and (item == "-" or item.startswith("- "))):
+            item = nxt.lstrip()
+            at_own_indent = len(nxt) - len(item) == indent
+            if not (at_own_indent and (item.rstrip() == "-" or item.startswith("- "))):
                 break
         j += 1
     while j > i + 1 and not lines[j - 1].strip():
