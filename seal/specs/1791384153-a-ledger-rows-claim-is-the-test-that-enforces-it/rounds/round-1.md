@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 887 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `144aaf1a5aef0b7708542fc111ade47cfdc7c8d7..ecf51398379e1399cdd2867157e82b5e0c85f946`, 4 commits |
 | Contract changes | named_unit → phase-1.md, node_finding, target_problem, pytest; collected → spec.md, phase-1.md, round-1-report.md, round-1.md, collected, conftest_is_loaded, runner_reached, node_finding; held_by_tests → round-1-report.md, round-1.md, check_ledger, reverify |
 | New units | TEST_FILE_RE (depth 1); NEVER_FAILS (depth 1); NEVER_RUNS (depth 1); unconditional (depth 1); never_fails (depth 1); test_a_method_spelled_with_a_dot_is_named (depth 1); released_test_row (depth 1); test_a_released_test_row_re_pointed_by_a_correction_reads_clean (depth 1); test_reverify_leaves_a_superseded_test_row_unnamed (depth 1); test_a_corrections_own_gone_test_is_still_broken (depth 1); test_a_test_the_suite_does_not_collect_holds_nothing (depth 1); NEVER (depth 1); test_a_test_that_cannot_fail_holds_nothing (depth 1); test_a_conditional_mark_is_left_to_the_reader (depth 1); test_a_coordinate_quoting_a_scope_is_no_test (depth 1); test_a_pact_anchor_quoting_a_scope_is_no_test (depth 1) |
