@@ -397,6 +397,22 @@ def test_the_lease_records_the_pid_the_harness_exports(repo, monkeypatch):
     assert rec["pid"] == 4242, rec
 
 
+@pytest.mark.parametrize("environment", [None, ""])
+def test_a_pid_beside_no_session_id_on_either_side_is_not_recorded(
+    repo, monkeypatch, environment
+):
+    """Round 2 of work item 1791384157, white 4. Where neither the
+    environment nor the payload names a session, the two absences matched
+    and the lease `pid-<ppid>` recorded the inherited 4242. A missing id
+    names no session, so the walk answers. Red at `e0c5a191`."""
+    monkeypatch.setenv("CLAUDE_PID", "4242")
+    if environment is not None:
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", environment)
+    stub_process_tree(monkeypatch, 100, {100: (50, "/bin/zsh"), 50: (1, "claude")})
+    rec = run_main_in_process(repo, monkeypatch, "", filed="pid-100")
+    assert rec["pid"] == 50, rec
+
+
 @pytest.mark.parametrize("outer", ["the-outer-session", None])
 def test_a_pid_exported_for_another_session_is_not_recorded(repo, monkeypatch, outer):
     """Round 1 of work item 1791384157, yellow 4. A `claude` started from
@@ -426,10 +442,11 @@ def test_an_exported_pid_that_names_no_process_falls_back_to_the_walk(
     assert hooksession.claude_pid({"CLAUDE_PID": value}) == 50, value
 
 
-def run_main_in_process(repo, monkeypatch, session):
+def run_main_in_process(repo, monkeypatch, session, filed=None):
     """main() with stdin stubbed, so the wiring — not just owner_pid() — is
     under test. A version that recorded getppid() passes every test that only
-    calls owner_pid() directly."""
+    calls owner_pid() directly. FILED is the lease's file name where it is not
+    SESSION (`pid-<ppid>` for a payload with no session id)."""
     import io
 
     monkeypatch.setattr(
@@ -447,7 +464,7 @@ def run_main_in_process(repo, monkeypatch, session):
         ),
     )
     sl.main()
-    with open(os.path.join(lease_dir(repo), session), encoding="utf-8") as f:
+    with open(os.path.join(lease_dir(repo), filed or session), encoding="utf-8") as f:
         return json.load(f)
 
 
