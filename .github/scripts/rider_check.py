@@ -496,7 +496,13 @@ def region_lines(checker, rel, locator, text):
     removed by LINE NUMBER rather than by content, so two riders carrying the
     same sentence do not remove each other's lines.
     """
-    places, resurrected = checker.resolve_unit(rel, locator, text)
+    unit = checker.resolve_unit(rel, locator, text)
+    if unit.refused:
+        # The checker's own refusal, read from its one reading of the anchor
+        # and never re-derived here (#870): a unit no rule can bound is not
+        # a unit that is missing, and the reason names the anchor to use.
+        return None, unit.refused
+    places, resurrected = unit
     if not places:
         return None, "the anchor resolves to nothing in this file"
     if len(places) > 1:

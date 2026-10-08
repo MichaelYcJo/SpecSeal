@@ -2252,12 +2252,15 @@ def test_a_gone_symbol_in_a_parsing_python_file_is_broken_with_the_hint(repo):
     assert run(["."], str(repo)).returncode == 0
 
 
-def test_a_syntax_error_still_falls_back_to_the_text_rule(repo):
-    """The fallback survives for the one thing it was for: a file ast cannot
-    read at all."""
+def test_a_syntax_error_is_refused_rather_than_read_by_the_text_rule(repo):
+    """The fallback survived for a file ast cannot read at all, and there it
+    hashed a multi-line `def` without its body (#870). It is a refusal now,
+    and the reason travels with the empty answer."""
     text = "def handler(x):\n    return x + 1\n\ndef broken(:\n"
     assert ec.py_spans(text) is None
-    assert ec.resolve("bad.py", "handler", text) == [(1, 2)]
+    assert ec.resolve("bad.py", "handler", text) == []
+    refused = ec.resolve_unit("bad.py", "handler", text).refused
+    assert "cannot parse this file" in refused, refused
 
 
 def test_a_module_constant_resolves_through_ast_in_a_parsing_file(repo):

@@ -463,10 +463,13 @@ def py_spans(text):
     local, not a unit, and is not collected.
 
     None rather than `{}` for a SyntaxError, because the two callers diverge
-    on exactly that: a file that cannot be parsed falls back to the generic
-    text rule, while a file that parses and simply lacks the symbol is
-    BROKEN. Conflating the two anchored rows to leftover call sites, and
-    `--reverify` then made the wrong anchor permanent (round 4, 🔴 2).
+    on exactly that: a file that cannot be parsed is refused with the
+    interpreter's version and the error's line on it (#870), while a file
+    that parses and simply lacks the symbol is BROKEN with the repo-wide
+    scan. The refusal used to be a fall-back to the generic text rule, which
+    hashed a multi-line `def` without its body; conflating the two before
+    that anchored rows to leftover call sites, and `--reverify` then made the
+    wrong anchor permanent (round 4, 🔴 2).
 
     **One parse per distinct text, for the life of the process** (#519). The
     ledger cites one file from many rows, and parsing it once per row was
@@ -669,6 +672,115 @@ def heading_path(lines, parts):
     return regions
 
 
+# The suffixes each bounding rule reads (#870). `bounding_rule` is the one
+# place a path's suffix decides how a unit in it is bounded; `resolve_unit`,
+# `minor_region`, `file_units` and `content_matches` each used to test the
+# suffix on their own.
+AST_SUFFIXES = frozenset([".py", ".pyi"])
+HEADING_SUFFIXES = frozenset([".md"])
+BLOCK_SUFFIXES = frozenset([".yml", ".yaml"])
+BRACE_SUFFIXES = frozenset(
+    [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+        ".c",
+        ".h",
+        ".cc",
+        ".cpp",
+        ".hpp",
+        ".cs",
+        ".java",
+        ".kt",
+        ".kts",
+        ".swift",
+        ".go",
+        ".rs",
+    ]
+)
+
+
+def bounding_rule(path):
+    """The rule that bounds a unit in PATH: "ast", "heading", "brace",
+    "block", or None where no rule does (#870).
+
+    The input class of each, in #835's words: "ast" is OBSERVED, the
+    running interpreter's own parse; "heading" is an OWNED locator over a
+    person's document; "block" is OBSERVED, YAML's block structure being its
+    indentation; "brace" is a GUESS over an allow-listed language family,
+    and it refuses what it cannot balance or lex. None is the refusal: a
+    bare symbol in a file no rule bounds is BROKEN with the quoted-line
+    remedy on its line, never read through a rule written for another
+    language. A quoted locator needs no rule outside markdown — the run of
+    non-blank lines it sits in is a structure the file itself shows.
+    """
+    suffix = os.path.splitext(path)[1]
+    if suffix in AST_SUFFIXES:
+        return "ast"
+    if suffix in HEADING_SUFFIXES:
+        return "heading"
+    if suffix in BRACE_SUFFIXES:
+        return "brace"
+    if suffix in BLOCK_SUFFIXES:
+        return "block"
+    return None
+
+
+def unbounded(path, rule, text):
+    """The sentence a refused bare-symbol locator in PATH reads, naming why
+    no unit can be bounded and the anchor to write instead (#870)."""
+    remedy = "anchor a quoted line instead"
+    if rule == "ast":
+        try:
+            ast.parse(text)
+        except SyntaxError as err:
+            why = err.msg + (f" at line {err.lineno}" if err.lineno else "")
+        else:  # asked only of a text `py_spans` already refused
+            why = "it did not parse"
+        version = ".".join(str(n) for n in sys.version_info[:3])
+        return (
+            f"Python {version} cannot parse this file ({why}), so no unit in it "
+            "is bounded and none is guessed at — run the checker on the Python "
+            f"the file is written for, or {remedy}"
+        )
+    if rule == "heading":
+        return (
+            "a markdown unit is a heading, and a bare symbol names none — "
+            'anchor its heading path instead, `"## <heading>"`'
+        )
+    suffix = os.path.splitext(path)[1]
+    named = f"`{suffix}`" if suffix else "a file with no suffix"
+    return f"no bounding rule for {named}; {remedy}"
+
+
+class Resolution(tuple):
+    """`resolve_unit`'s one reading of a coordinate (#870).
+
+    It unpacks as the `(places, resurrected)` pair every caller has always
+    read, and carries `refused` beside them: None, or the sentence saying why
+    no unit in the file can be bounded. A refused reading has no places, so a
+    caller that never asks for the reason still reads nothing there rather
+    than a span nobody bounded; one that prints a verdict asks for it, and
+    that is one reading of the coordinate rather than a second call (#809).
+    """
+
+    def __new__(cls, places, resurrected=False, refused=None):
+        self = super().__new__(cls, (places, resurrected))
+        self.refused = refused
+        return self
+
+    @property
+    def places(self):
+        return self[0]
+
+    @property
+    def resurrected(self):
+        return self[1]
+
+
 def resolve(path, locator, text):
     """[(start, end)] for the LOCATOR — empty for none, several for ambiguous.
 
@@ -686,8 +798,18 @@ def resolve(path, locator, text):
 
 
 def resolve_unit(path, locator, text):
-    """([(start, end)], resurrected) — the places, and whether they survived
-    only because the declaration rule put keyword-blocked candidates back.
+    """`Resolution([(start, end)], resurrected, refused)` — the places,
+    whether they survived only because the declaration rule put
+    keyword-blocked candidates back, and why no unit could be bounded.
+
+    **A unit no rule can bound is refused, never guessed at** (#870). Which
+    rule bounds PATH is `bounding_rule`'s answer and nobody else's. A `.py`
+    file the running interpreter cannot parse used to fall through to the
+    text rule, which hashed lines 1-3 of a five-line `def f(` whose
+    parameters ran over three lines and left the body out; a suffix no rule
+    names was read by the rule for brace languages. Both now come back with
+    no places and the reason, which `judge` prints as BROKEN with the
+    quoted-line remedy on the line.
 
     Round 4's 🔴 1, round 5's 🔴 C and round 6's 🔴 J are three attempts at one
     rule, and the two failure modes are the same ambiguity: without the
@@ -718,28 +840,30 @@ def resolve_unit(path, locator, text):
     still says re-read this; it just stops saying go fix the ledger.
     """
     lines = gfm_lines(text)
-    markdown = path.endswith(".md")
+    rule = bounding_rule(path)
     if locator.startswith('"'):
         body = unescape(locator[1:-1])
-        if markdown:
+        if rule == "heading":
             # A heading is read where a renderer shows one (#867).
             shown = markdown_lines(text)
             parts = [p for p in body.split(HEADING_SEP) if p.strip()]
             if parts and heading_level(parts[0].strip()) is not None:
-                return heading_path(shown, parts), False
-            return text_regions(lines, body, markdown, shown), False
-        return text_regions(lines, body, markdown), False
-    if path.endswith(".py"):
+                return Resolution(heading_path(shown, parts))
+            return Resolution(text_regions(lines, body, True, shown))
+        return Resolution(text_regions(lines, body))
+    if rule == "ast":
         spans = py_spans(text)
-        if spans is not None:
-            # The parse succeeded, so ast's answer is the whole answer: a
-            # symbol it cannot find is GONE. Falling back to the text rule
-            # here read a leftover call site as the unit — a moved function
-            # reported DRIFTED instead of BROKEN-with-hint, and --reverify
-            # anchored the row to the call permanently (round 4, 🔴 2). The
-            # fallback survives only for the file ast cannot read at all.
-            return spans.get(locator, []), False
-    return generic_units(lines, locator)
+        if spans is None:
+            return Resolution([], False, unbounded(path, rule, text))
+        # The parse succeeded, so ast's answer is the whole answer: a symbol
+        # it cannot find is GONE. Falling back to the text rule here read a
+        # leftover call site as the unit — a moved function reported DRIFTED
+        # instead of BROKEN-with-hint, and --reverify anchored the row to the
+        # call permanently (round 4, 🔴 2).
+        return Resolution(spans.get(locator, []))
+    if rule in ("brace", "block"):
+        return generic_units(lines, locator)
+    return Resolution([], False, unbounded(path, rule, text))
 
 
 # Words that BEGIN a statement and can be followed directly by a call —
@@ -864,7 +988,7 @@ def generic_units(lines, name):
     # statements, not only the C#/Swift declarations the resurrection was
     # written for, so a consumer that cannot tell them apart must be able to
     # ask.
-    return (out, False) if out else (blocked, bool(blocked))
+    return Resolution(out) if out else Resolution(blocked, bool(blocked))
 
 
 def name_statements(text, region, name):
@@ -958,7 +1082,7 @@ def minor_region(path, text, region, minor):
     lines = gfm_lines(text)
     if minor.startswith('"'):
         found = literal_statements(lines, region, unescape(minor[1:-1]))
-    elif path.endswith(".py"):
+    elif bounding_rule(path) == "ast":
         found = name_statements(text, region, minor)
     else:
         found = literal_statements(lines, region, minor)
@@ -997,11 +1121,12 @@ def file_units(rel, body):
     """
     lines = gfm_lines(body)
     units = []
-    if rel.endswith(".py"):
+    rule = bounding_rule(rel)
+    if rule == "ast":
         for name, places in (py_spans(body) or {}).items():
             if len(places) == 1:
                 units.append((name, places[0], False))
-    elif rel.endswith(".md"):
+    elif rule == "heading":
         # Headings read where a renderer shows one (#867); a quoted heading
         # in a closed fence is a blank line here and no unit.
         seen = {}
@@ -1019,7 +1144,7 @@ def file_units(rel, body):
             name = '"' + line.strip().replace("|", "\\|").replace('"', '\\"') + '"'
             seen.setdefault(name, []).append((i + 1, j))
         units = [(n, p[0], False) for n, p in seen.items() if len(p) == 1]
-    else:
+    elif rule is not None:
         opener = re.compile(r"^([\w\s*&]*?)\b(\w+)\s*([({=]|:)")
         names = set()
         for line in lines:
@@ -1092,7 +1217,7 @@ def content_matches(repo, rel, locator, want, cache):
     separately: `main`, `resolve` and `check` collide across files as a
     matter of course, so a name alone must never fix anything.
     """
-    markdown = rel.endswith(".md")
+    markdown = bounding_rule(rel) == "heading"
     old_name = unescape(locator[1:-1]) if locator.startswith('"') else locator
     old_last = old_name.rsplit(".", 1)[-1]
     if markdown:
@@ -1816,7 +1941,14 @@ def judge(m, root, maps, default_repo, scan_cache):
             detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
         return found("BROKEN", detail, dest=destination(repo, rel, hashes))
 
-    places, resurrected = resolve_unit(rel, locator, body)
+    unit = resolve_unit(rel, locator, body)
+    if unit.refused:
+        # Before the repo-wide scan, because a refused unit was never found
+        # and so cannot have moved: no unit in a file of this kind is
+        # bounded, and a hint pointing elsewhere would send the reader past
+        # the one fix that works — the anchor the line names (#870).
+        return found("BROKEN", unit.refused)
+    places, resurrected = unit
     unsure, hit = [], []
     if places and (resurrected or len(places) > 1):
         # The row's OWN recorded content decides, in both directions. With
@@ -2394,7 +2526,10 @@ def read_citation(cite, verb, root, maps, default_repo, load):
     if entry is None:
         return found("BROKEN", "the released file it names is not there")
     _, body, lines, rows = entry
-    places, _ = resolve_unit(rel, cite.group("locator"), body)
+    section = resolve_unit(rel, cite.group("locator"), body)
+    if section.refused:
+        return found("BROKEN", section.refused)
+    places = section.places
     if len(places) != 1:
         return found(
             "BROKEN",
