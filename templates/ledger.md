@@ -54,6 +54,24 @@ it moves; without it the dates stay and those rows are named. The flag says
 every such row was re-read, so read each row citing a drifted coordinate
 first, or narrow the write with `--ledger` to the files you read.
 
+## A row held by a test
+
+A row has one of two forms, never both in one Code grounds cell:
+
+```
+| <claim> | `path#anchor@hash`, … | what reading the code showed | <date read> | |
+| <claim> | `tests/test_x.py::test_y`, … | how the test was seen red | <date seen red, then green> | |
+```
+
+The second names the tests that hold the claim, as pytest spells a node id —
+`tests/test_x.py::TestA::test_b` for a method. It has no hash, so no edit
+drifts it: `evidence-check` reads that each test is there, and the suite reads
+that it passes. Write it wherever a test holds the claim, and the first form
+where none does. A test is what reads as one without running pytest: a
+function named `test…` or a class named `Test…` in a `test_*.py` or
+`*_test.py` file, under no unconditional `skip` or `xfail` mark. Whether
+pytest collects it and whether it passes are the suite's to say.
+
 ## Scope decisions
 
 Judgments that don't follow from code or documents alone.

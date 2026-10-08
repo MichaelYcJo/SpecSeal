@@ -227,6 +227,86 @@ is a coordinate naming text that every re-stamp of it moves again, its own
 row's line or a row that names it back: the run leaves it at the hash its row
 recorded, says on a `LEFT` line that it does not settle, and exits 1.
 
+## A claim held by a test
+
+<!-- specs/1791384153-a-ledger-rows-claim-is-the-test-that-enforces-it -->
+**A row may name the test that holds its claim instead of a hash over the
+code.** Its Code grounds cell holds one or more tests as pytest spells a node
+id, each in backticks and comma separated: `tests/test_x.py::test_y` for a
+function, `tests/test_x.py::TestA::test_b` for a method. The Clause is then a
+description nothing holds to the code, as an `Enforced by:` sentence is; the
+Verified behavior cell says how the test was seen red, and Checked dates the
+day it was seen red and then green. The row's claim is the test passing. A
+hashed row records what a unit held when somebody read it, so every edit to
+the unit owes a re-read, and most rows written since 0.18.0 were that
+re-reading; a test row owes none. A claim no test holds is still a hashed
+row. A test here is what reads as one without running pytest: a file named
+`test_*.py` or `*_test.py`, a function named `test…` or a class named
+`Test…`, at the top level or inside such a class, and no class with an
+`__init__` — because reading a runner's configuration to decide what is a
+test is a guess from text the checker does not own; a repository that names
+its tests otherwise writes hashed rows. A test under an unconditional `skip`
+or `xfail` mark, on itself, a class around it or its module, holds nothing,
+because the suite stays green whatever the code does; a `skipif`, and an
+`xfail` given a condition, are left to the reader.
+Enforced by: tests/test_a_ledger_row_is_held_by_its_test.py::test_a_test_row_resolves_and_counts_among_ok, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_method_resolves_in_pytests_spelling, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_unit_pytest_does_not_collect_is_no_test, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_test_the_suite_does_not_collect_holds_nothing, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_test_that_cannot_fail_holds_nothing, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_conditional_mark_is_left_to_the_reader
+
+<!-- specs/1791384153-a-ledger-rows-claim-is-the-test-that-enforces-it -->
+**The checker reads that the test is there, and the suite reads that it
+passes.** A test row is `OK` where each test is one unit that reads as a test
+and can fail, `BROKEN` where its file or its unit is gone — a method written
+bare, `path::test_b`, is told its spelling — and `MALFORMED` where a token is
+no node id, names a unit that is not a test, or names one that cannot fail.
+It is never `DRIFTED`: there is no hash. `--reverify` writes nothing on it
+and dates nothing, and names one whose test is gone on a `LEFT` line. `OK`
+says what reading the file can tell and no more: whether pytest collects the
+test under the repository's own configuration, and whether it passes, are
+the suite's answers, not the ledger's. The checker does not run the test,
+because a check every commit pays for in about two seconds is not a test
+run; the suite answers in the same broad gate. A node id is read in the Code
+grounds cell and nowhere else: `a::b` is a spelling prose uses, in a C++
+scope, a Rust path or a quoted `Enforced by:` line, where a coordinate's
+`#…@hash` shape is not — and a code span that is a coordinate or a pact
+anchor stays one, whatever its quoted locator holds.
+Enforced by: tests/test_a_ledger_row_is_held_by_its_test.py::test_a_renamed_test_breaks_the_row, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_method_spelled_bare_is_named_with_its_spelling, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_node_id_outside_the_grounds_cell_is_prose, tests/test_a_ledger_row_is_held_by_its_test.py::test_reverify_writes_nothing_on_a_test_row, tests/test_a_ledger_row_is_held_by_its_test.py::test_reverify_names_a_test_that_is_gone, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_coordinate_quoting_a_scope_is_no_test, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_pact_anchor_quoting_a_scope_is_no_test
+
+<!-- specs/1791384153-a-ledger-rows-claim-is-the-test-that-enforces-it -->
+**A row is one form or the other.** A Code grounds cell naming a test and a
+code coordinate is `MALFORMED`: it would say *held by a test* while still
+owing a re-read on every edit, which keeps the bookkeeping and looks
+migrated. A citing row's citation is a ledger line, not code, and is not the
+other form.
+Enforced by: tests/test_a_ledger_row_is_held_by_its_test.py::test_a_row_mixing_the_two_forms_is_malformed, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_citing_rows_citation_is_not_the_other_form
+
+<!-- specs/1791384153-a-ledger-rows-claim-is-the-test-that-enforces-it -->
+**A released row moves onto its test by one `Corrected ·` row, written when
+an edit reaches it, and never in bulk by a feature branch.** Its Code
+grounds cell holds the citation and the tests and no code coordinate, and its
+Notes carry `Corrected <date> by work item <id>: held by its test from here
+on`. Nothing new reads it: the correction supersedes the released row's
+family, as §*A released row is read again in the branch's fragment* says,
+and its own family has no hash to drift, so no later edit owes it a re-read.
+A released test row is repaired the same way: once its test is renamed or
+removed, a `Corrected ·` row naming the test that holds the claim now
+supersedes it, and the superseded row's tests are not read again, as its
+hashes are not. The branch whose edit drifted the row writes it, in place of
+the `Re-read ·` row `--into` would write, where reading the claim shows a
+test holds it; otherwise it writes the `Re-read ·` row. `--into` cannot tell which of a
+row's grounds holds its claim, so it writes no test row and names the option
+once in its summary. The repository owner answered on 2026-10-08 that no bulk
+pass is spent over the released rows that already cite a test: two branches
+correcting one released row in one release are each `DRIFTED` at the fold.
+Enforced by: tests/test_a_released_row_is_read_again_in_a_fragment.py::test_a_released_row_moved_onto_its_test_never_drifts_again, tests/test_a_ledger_row_is_held_by_its_test.py::test_into_names_the_test_row_once_where_it_wrote_a_re_read, tests/test_a_ledger_row_is_held_by_its_test.py::test_a_released_test_row_re_pointed_by_a_correction_reads_clean, tests/test_a_ledger_row_is_held_by_its_test.py::test_reverify_leaves_a_superseded_test_row_unnamed
+
+<!-- specs/1791384153-a-ledger-rows-claim-is-the-test-that-enforces-it -->
+**`path::name` has one resolver.** An `Enforced by:` target and a test row
+name a unit in one grammar, and `fold-check` reads a target through
+`evidence_check.py#named_unit`, the function the ledger's test rows are read
+through. A name is looked up where it is defined, so a method is
+`::Class::method` in both. What each accepts stays its own: `fold-check` any
+`def` or `class` or a file alone, the ledger a test.
+Enforced by: tests/test_a_folded_statement_names_what_enforces_it.py::test_a_method_resolves_in_pytests_spelling, tests/test_a_folded_statement_names_what_enforces_it.py::test_the_target_is_resolved_by_the_ledgers_reader
+
 ## What the checker refuses, and what it says while refusing
 
 <!-- specs/1789296100-the-seal-and-ci-read-one-ledger-differently -->

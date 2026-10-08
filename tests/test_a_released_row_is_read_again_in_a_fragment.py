@@ -749,6 +749,43 @@ def test_into_writes_nothing_for_a_row_its_family_already_re_read(repo):
     assert (repo / INTO).read_text(encoding="utf-8") == first
 
 
+def test_a_released_row_moved_onto_its_test_never_drifts_again(repo):
+    """S7 of #836. R cites `handler`; a `Corrected ·` row cites R and names
+    the test that holds the claim, and no code coordinate. Every later edit
+    to `handler` drifts nothing: R's family is superseded, the correcting
+    row's own family carries no hash, and `--into` owes it no `Re-read ·`
+    row. The correcting row is OK, because its test is there."""
+    frozen(repo)
+    (repo / "tests").mkdir()
+    (repo / "tests" / "test_service.py").write_text(
+        "def test_handler_adds_one():\n    assert True\n", encoding="utf-8"
+    )
+    old = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{old}` | read | 2026-01-01 | |"
+        ],
+    )
+    row = (
+        f"| Corrected · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+        "`tests/test_service.py::test_handler_adds_one` | seen red, then green | "
+        "2026-02-01 | Corrected 2026-02-01 by work item 2000000001: held by its "
+        "test from here on |"
+    )
+    fragment(repo, [row])
+    edit_handler(repo)
+    out = run(["--strict", "."], repo)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert not findings(out.stdout), out.stdout
+    # The citation and the test: two `ok`, and nothing else is read.
+    assert "total: 2 ok · 0 drifted" in out.stdout, out.stdout
+    out = run(["--reverify", "--into", INTO, "--checked", "2026-03-01", "."], repo)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert (repo / INTO).read_text(encoding="utf-8") == row + "\n"
+    assert "0 citing rows written · 0 released rows left" in out.stdout, out.stdout
+
+
 def test_a_frozen_reverify_without_into_writes_no_released_file(repo):
     """S5. Under `Ledger frozen from` a plain `--reverify` still re-stamps the
     fragments in place, leaves every released file byte-identical, and exits
