@@ -10,6 +10,24 @@ decided in `spec.md` §*In* or in `plan.md`'s *Alternatives considered*,
 where a reviewer can overturn it by opening what was opened. None of them is
 reopened here.
 
+**Judgments the reframe after round 3 made from the round records**, with
+the grounds in `spec.md` §*Reframed after round 3* and `plan.md`
+alternatives M–R. None needs a person.
+
+- **How the rule is stated so another shape cannot falsify it** — one owner
+  sentence that is the test the code runs, no example phrased by merge shape
+  or by time anywhere in prose, the shapes as test cases against
+  `own_commits`, and a vocabulary guard over the home and the carriers.
+  Alternatives M, N, O, R.
+- **The branch-versus-CI claim (probe D)** — the equality is dropped and the
+  notice's input is stated: on CI's checkout the range also holds the base
+  commits with round 1's target as an ancestor. The notice is not changed to
+  read the pull request's head in CI. Alternatives P, Q.
+- **The `fixed` refusal's string** — unchanged and outside the guard; S6
+  pins it and its clause is true of every commit it refuses by construction.
+- **The three test names that state the old claim** — left; each is true of
+  its own fixture, and a test name is not a carrier.
+
 - **First-parent or ancestry-path** (#805: *decide that first*) —
   ancestry-path. The parent order of a merge is set by whoever ran `git
   merge` and no party here controls it; descent from the range's start is a
@@ -42,6 +60,8 @@ reopened here.
 | Q3 | Does `git grep -n -z` on the Windows leg emit the `<rev>:<path>\0<line>\0<text>` shape measured here on git 2.54 for macOS? The frame measured one platform | a measurement — the S10 fixture on CI's Windows shards | (a) yes; (b) a different separator on Windows, and the parse keys on what both emit | (a) | ⬜ |
 | Q4 | `test_a_merge_on_the_branch_keeps_the_branch_as_the_tip` and `test_of_several_merged_heads_the_one_descending_from_round_one_is_the_tip` pin `walk_tip` by name and by premise · NAME NOT IN TREE. With `walk_tip` gone the first's side-topic commit is now named too. Which assertions and names do the two cases keep? Unknowable until the walk exists | the work — phase 1, when the cases run against the new walk; the phase record says what was renamed | (a) keep the shapes, rewrite the docstrings and add the new assertion (S9 is the first case's new half); (b) replace them with S8's three shapes under new names | (a) | ✅ (a), in phase 1, with the names changed as well: a name stating `walk_tip`'s premise would pin a mechanism that is gone. `test_a_topic_merged_into_the_branch_names_the_branchs_fix_and_the_topics_commit` (S9's first half, the topic's commit now asserted) and `test_of_several_merged_heads_only_the_commits_descending_from_round_one_are_named` (S8); shapes unchanged |
 | Q5 | What does the new entry in `tests/test_the_rules_have_one_owner.py` look like — the home's exact section title, and which of the two scripts' docstrings and `orchestration.md`'s sentence count as carriers the test holds to a link? The tree answers the shape (rule 15 is the model) and not the words, which do not exist until phase 1 writes the home | the work — phase 2, after phase 1 has written the home | (a) one entry naming the home and three carriers; (b) the two docstrings left as prose that names no section, and one carrier | (a) | ✅ (a), in phase 2, with a fourth carrier: rule 17, owner §*A range owns the commits that descend from its start*, carriers `chain_check.py`, `round_record.py`, `skills/code-review/orchestration.md` and `docs/round-record-spec.md` (`phases/phase-2.md`) |
+| Q6 | *(reframe)* Which words make up the guard's list? The frame proposes `sibling`, `topic`, `fork`, `back-merge`, `squash`, `made after`, `made before`, `once the`, `and not before` — the words rounds 1–3's false examples used. The tree cannot answer it: the texts the guard reads are the ones phase 6 writes, and a word on the list may be needed by a sentence that states no example (the home's account of #860 and #805, for one) | the work — phase 6, when the rewritten texts are run under the guard | (a) the proposed list, with the home's #860/#805 account reworded around it; (b) a shorter list, each removal named in the phase record with the sentence that needed the word. Either way the guard is red with round 3's 🟡 2 sentence pasted in | (a) | ⬜ |
+| Q7 | *(reframe)* Where do the shape cases live — a module of their own, or `tests/test_the_fixes_close_the_record.py`, whose `_build` already makes `base` and `feature`? The tree cannot answer it: the close module's helper runs the generator with `--range`, and the shape cases assert `own_commits` directly, so whether its fixture serves is known when the first shape is built | the work — phase 5 | (a) a module of its own, which the home names by path; (b) the close module, which the home names by path and section. Same cases either way | (a) | ⬜ |
 
 No row above is a person's. Every judgment a person could have been asked
 was answered from the tree, with its grounds in `plan.md`'s table, and the

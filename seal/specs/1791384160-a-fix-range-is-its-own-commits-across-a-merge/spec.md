@@ -67,13 +67,17 @@ same fact read at the record.
 One reading of *the commits a range owns*, in `chain_check.py`, that every
 reader of a range in the two scripts imports:
 
-**A range `a..b` owns the non-merge commits that descend from `a` and that
-`b` reaches** — `git log --ancestry-path --no-merges <a>..<b>`. A sibling's
-commit reaches `b` only through a merge and descends from `a` never, so it is
-not owned whatever side the merge was made from. The merge commit itself is
-not owned, and a change made only inside its conflict resolution is invisible
-to both readers, which is the limit the fragment notice already declares and
-this work keeps.
+**A range `a..b` owns exactly the commits `git log --ancestry-path
+--no-merges a..b` lists: a non-merge commit that has `a` as an ancestor and
+that `b` reaches.** That sentence is the owner, and it is the whole test the
+code runs. It reads neither which parent of a merge a commit sits behind,
+nor which branch the commit was made on, nor when it was made. The merge
+commit itself is not owned, and a change made only inside its conflict
+resolution is invisible to both readers, which is the limit the fragment
+notice already declares and this work keeps. *(Reframed after round 3: the
+sentence this paragraph carried before — a merged-in commit "descends from
+`a` never" — was a derived claim, and §*Reframed after round 3* below says
+why no derived claim is written again.)*
 
 What imports it, and what each stops doing:
 
@@ -85,7 +89,7 @@ What imports it, and what each stops doing:
 | `round_record.py#fix_pass_units` (`Fix of a fix`) | `touched` over the previous record's range, `ast.dump` at both ends | the same two-ends comparison, kept only for units an owned commit added or changed |
 | `round_record.py#close`, the `fixed` guard | `is_ancestor(full, b) and not is_ancestor(full, a)` | the commit is one of the range's owned commits. A `fixed` row naming the merge, or a commit the merge brought in, is refused with the reason, nothing written |
 | `round_record.py#parse_range` | refuses a moving end | also refuses a start that is not an ancestor of its end, nothing written. Under `--ancestry-path` such a range owns nothing, and a silent empty surface is the shape the inventory calls *unknown passed* |
-| `chain_check.py#commits_after` and `#walk_tip` | `--first-parent --no-merges` from a tip `walk_tip` picks by HEAD's parent order | the owned commits of `<round 1's target>..HEAD`; `walk_tip` is removed. CI's merge ref needs no special case, because the sibling's commits on its first-parent side descend from no target |
+| `chain_check.py#commits_after` and `#walk_tip` | `--first-parent --no-merges` from a tip `walk_tip` picks by HEAD's parent order | the owned commits of `<round 1's target>..HEAD`; `walk_tip` is removed. CI's merge ref needs no special case: the walk is the same `own_commits` call, and what it owns there is whatever that merge ref reaches with the target as an ancestor — more than a branch checkout where the base has merged the target (round 3's probe D), which §*Reframed after round 3* states as an input and never as an equality |
 | `chain_check.py#fragment_left_behind`, the three `rev-list` calls | `a..b` for each record's range, `end..tip` for *after the last round* | the owned commits of each, from the same reading |
 | `chain_check.py#fragment_left_behind`, *after the fragment last changed* | the position of the fragment's last change in a linear list | a commit is named when no owned commit that changed the fragment descends from it. On a linear history that is every commit after the fragment's last change, which is what the notice named before; where history branches inside the item the answer no longer depends on how git orders two commits neither of which descends from the other |
 
@@ -106,6 +110,79 @@ already lives there, because `docs/round-record-spec.md` stands at 994 lines
 under the repository's 1000-line ceiling (`seal/config.md`, `Document line
 ceiling`) and `docs/review-chain-spec.md` at 999. `docs/round-record-spec.md`
 §*The fix range* links the home in one sentence.
+
+### Reframed after round 3 — the rule is stated once, by what the code runs
+
+The code's rule held from round 1 on. Every finding after round 1 was a
+sentence beside it: the home, four docstrings, the orchestration, the
+round-record spec, ledger rows and the changelog each restated the rule with
+an example phrased by merge shape or by time, and each round built a shape
+(A2, B2, B3, C, D) in which an example was false. Three passes of restating
+produced three rounds of findings, which is the signal
+`skills/code-review/orchestration.md` §*A fix of a fix twice sends the work
+item back to its framer* stops on. The reframe changes what a sentence about
+ownership may say, not what the code does.
+
+**One owner sentence, and it is the test itself.** The home's section opens
+with the sentence §*In* now carries in bold, and `tests/test_the_rules_have_one_owner.py`
+rule 17 pins that text. What the home may add is what the test does NOT
+read — parent order, the branch a commit was made on, the time it was made
+— and the two limits, a change inside a merge's conflict resolution and a
+start that does not reach its end, plus the sentence that the `Fix range`
+count and the surface read one range two ways. **No example phrased by
+merge shape or by time is written in prose anywhere**, because every such
+example is a claim derived from the owner sentence, and a derived claim is
+exactly what each round falsified with a shape its author had not built.
+
+**The carriers name the owner and define nothing.** `own_commits`,
+`fragment_left_behind`, `fix_pass_units` and `touched`'s docstrings,
+`skills/code-review/orchestration.md` §*And name the fix surface, in the same
+record*, and `docs/round-record-spec.md` §*A fix of a fix* and §*The fix
+range* say *the range's own commits* and name the section. The one
+permitted gloss is the git command, because the command is the test and not
+a paraphrase of it.
+
+**The shapes are cases against `own_commits`, never sentences.** One test
+module (its name is the work's; `plan.md` phase 5) holds one case per shape
+the three rounds built — A, A2, B, B2, B3, C, and D on the branch and on
+CI's merge ref — each building the history and asserting the list
+`own_commits` returns, and each shown red by a mutation of `own_commits`
+(`--ancestry-path` dropped, or `--first-parent` added). The home names the
+module as where a shape is answered. A shape the module lacks is answered by
+running `own_commits` on it, and the answer may become a case; it never
+becomes a sentence in the home.
+
+**A guard refuses the vocabulary of a shape or a time** in the home's
+section and in the carriers' linking sentences: a test reads those texts and
+fails on any of `sibling`, `topic`, `fork`, `back-merge`, `squash`, `made
+after`, `made before`, `once the`, `and not before`. The list is the one each
+false example used, so it fails on the exact sentences rounds 1–3 found; it
+is the work's to settle against the rewritten texts (`questions.md` Q6),
+and it is seen red with round 3's 🟡 2 sentence pasted back into the home.
+The `fixed` refusal's string is not under the guard: S6 pins it, and its
+clause *a commit a merge brought in that was not made on top of the start* is
+true of every commit it refuses by construction (a commit `b` reaches
+without `a` as an ancestor is reachable only through a merge).
+
+**The fragment section states the notice's input, not an equality (probe
+D).** The sentence *CI's checkout … reads the same commits as the branch
+does* is dropped. In its place: the notice reads `<round 1's target>..HEAD`
+wherever it runs; on CI's checkout HEAD is the pull request merged into its
+base, so there the range also holds every base commit with round 1's target
+as an ancestor, which a branch checkout that has not merged the base does
+not hold. The notice prints and never refuses, so in that shape CI names a
+base commit a local run does not, and the line costs a reader one glance.
+Shape D is a case of `tests/test_a_fragment_left_behind_is_named.py`, on the
+branch and on `ci_merge_ref`, with `judged`'s exit-status pin. The notice is
+NOT changed to read the pull request's head in CI (`plan.md` alternative P):
+that is a new reader of the CI environment, added to correct an advisory
+line in a shape this repository's squash merges never make.
+
+**The records say the same.** The ledger rows round 3's ⬜ 4 named, the
+`S7, S8, S9` row's *all read the same commits*, both `S12` rows, the
+changelog fragment, `overview.md`, `phases/phase-1.md`'s round 2
+correction and `survivors.md`'s two rows for `spec.md:71` (a sentence this
+reframe removed) are restated in the owner's terms or made to link the home.
 
 Every refusal and every notice text this changes is pinned by a case seen
 red first (§15), and every case that reproduces #860 or #805 is planted as
@@ -175,6 +252,8 @@ No cutoff is added, and `item_began_at` is read by nothing this work adds.
 | three readers of `git ls-tree` (`tracked_at`, `chain_check.tracked_files`, `survivor_check.tracked`) becoming one | two take a revision and one a directory at HEAD; #866 and #867 own the one-reader class. This work changes one token in one of them |
 | `round_record.py`'s records-level findings and the run's end | #837 |
 | the round-record cells with several readers | #866; the seams are in `plan.md` |
+| the notice reading the pull request's head in CI, so that CI and a branch checkout name the same commits after a back-merge | a new reader of the CI environment for an advisory line in a shape this repository's squash merges never produce; `plan.md` alternative P. The input is stated and pinned instead (S17). The repository owner reopens it if a real merge of a work item into its base ever becomes a shape this repository makes |
+| the three test names that state the old claim in their own fixtures (`…_is_not_new`, `…_is_no_fix_of_a_fix`, `…_and_not_the_siblings`) | round 3 read each as true of its fixture, whose merged-in commit lacks the start as an ancestor; a test name is not a carrier of the rule |
 
 ## User scenarios & acceptance *(mandatory)*
 
@@ -193,6 +272,11 @@ No cutoff is added, and `item_began_at` is read by nothing this work adds.
 | S11 the record format is unchanged | Given every existing case of the two scripts' suites / When they run / Then they pass, and a record written before this change reads the same at `chain_check` | the six modules that read `round_record.py` and `chain_check.py`, run at a phase boundary |
 | S12 one home | Given the rule's home and its carriers / When the one-owner test runs / Then each carrier links the home by section and none restates it | `tests/test_the_rules_have_one_owner.py`, a new rule entry |
 | S13 the released claims that went with their code | Given the 0.18.3 rows anchoring on `walk_tip` and stating the first-parent walk / When `evidence-check` runs on the branch / Then it is green, with `Corrected ·` rows in this item's fragment citing them and no released file changed | `bin/evidence-check` |
+| S14 one owner sentence *(reframed)* | Given the home / When rule 17 runs / Then the home states the owner sentence of §*In* verbatim, and each carrier names the section and none defines *own* | `tests/test_the_rules_have_one_owner.py`, rule 17's sentence replaced |
+| S15 the shapes are cases *(reframed)* | Given shapes A, A2, B, B2, B3, C, D-branch and D-CI, built as round 1–3's probes built them / When the shape module runs / Then `own_commits` returns the list each case asserts; and with `--ancestry-path` dropped from `own_commits`, or `--first-parent` added, at least one case is red for each mutation | the shape module whole; `bin/mutation-check` over `own_commits` |
+| S16 the guard *(reframed)* | Given the home's section and the carriers' linking sentences / When the guard runs / Then none holds a word of the list; and with round 3's 🟡 2 sentence pasted into the home, it is red | the guard's case, seen red by that paste |
+| S17 the notice's CI input *(reframed)* | Given shape D — the base merged round 1's target, a behaviour commit `S` landed on the base, the branch added `f2` and did not merge the base / When `chain_check` runs on the branch and on `ci_merge_ref` / Then the branch names `f2` alone, the merge ref names `S` and `f2`, the exit status is the tree's without the arm (`judged`), and the fragment section states that input | a case in `tests/test_a_fragment_left_behind_is_named.py`, red with `--first-parent` added to `own_commits` |
+| S18 the records *(reframed)* | Given the ledger rows round 3's ⬜ 4 named, `S7, S8, S9`, both `S12` rows, `changelog.md`, `overview.md`, `phases/phase-1.md` and `survivors.md` / When read against the owner sentence / Then none states an example by shape or by time, and `evidence-check --strict` is green on the branch | `bin/evidence-check --strict`; `survivor-check` over the reframe's range |
 
 ## Data & interfaces
 
@@ -225,6 +309,14 @@ No cutoff is added, and `item_began_at` is read by nothing this work adds.
   range's own commits added or changed*.
 - No new dependency. Bare `--ancestry-path` has been in git since 1.6, and
   every CI leg runs a 2.x.
+- *(Reframed after round 3)* No code unit changes. New: one test module of
+  shape cases against `own_commits`, one case of shape D in the fragment
+  module, and one guard case over the home and the carriers. Changed text:
+  the home's section and the fragment section in `docs/the-record-layout.md`,
+  four docstrings, `skills/code-review/orchestration.md` §*And name the fix
+  surface, in the same record*, `docs/round-record-spec.md` §*A fix of a fix*
+  and §*The fix range*, rule 17's sentence, and the records §*Reframed after
+  round 3* lists. The `fixed` refusal's string is unchanged.
 
 ## Open questions → questions.md
 
@@ -232,3 +324,4 @@ Anything a planner must answer lives in questions.md, not inline. No row
 there is a person's.
 
 Framed 2026-10-07 by framer, before the build.
+Reframed 2026-10-08 by framer, after round 3.

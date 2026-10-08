@@ -88,6 +88,34 @@ silent on it as it already is for a target HEAD does not descend from.
 | J. the `fixed` guard keeps its two `is_ancestor` tests | a `fixed` row naming the merge, or a sibling's commit, passes the guard while the surface below is measured on none of it, so the guard's own sentence becomes false | rejected |
 | K. the rule's home in `docs/round-record-spec.md` beside the fix-range row | the file is six lines under the ceiling; the section would cost lines elsewhere in the same file | rejected for the ceiling; the fix-range section links the home instead |
 | L. leave the three `-z` readers to #866/#867 | `touched` is rewritten here anyway and gets `-z` for free; the other two are one token each in the same class and share one red fixture; splitting them leaves two guesses standing beside a corrected third | rejected |
+| **M. *(reframe)* one owner sentence that is the test itself, no example in prose, the shapes as cases against `own_commits`, a vocabulary guard** | a reader wanting a shape's answer opens a test or runs `own_commits` instead of reading a sentence; the guard's word list can block a legitimate word and has to be edited then | chosen |
+| N. *(reframe)* examples kept in prose, each pinned to a named test case | an example is a derived claim: five were written across three fix passes and each was false in a shape nobody had built; a pin keeps a row true of ITS shape and says nothing about the next one, which is where each round found the next falsehood | rejected |
+| O. *(reframe)* a table in the home generated from the shape module | a table in a document reads as the rule's extent — round 2's fix table said *examples only* and round 3 still read the examples as the rule; and a generator is mechanism, which a fix pass may not add and a reframe should not need | rejected |
+| P. *(reframe)* the notice reads the pull request's head in CI, so the branch and CI name the same commits after a back-merge | a new reader of the CI environment (`GITHUB_*`), a class the inventory (#834) would have to place, to correct an advisory line in a shape this repository's squash merges never make | rejected; the input is stated and pinned by shape D |
+| Q. *(reframe)* drop the fragment section's CI sentence with nothing in its place | a reader who runs `chain-check` locally and sees a different notice in CI has no sentence to open | rejected; one sentence states the input and is true by construction |
+| R. *(reframe)* rule 17 alone, no vocabulary guard | rule 17 held green through rounds 2 and 3 while four carriers restated the rule by shape; linking the owner is what it checks and restating beside the link is what it does not | rejected; the guard is a word list that fails on the exact sentences rounds 1–3 found |
+
+## Reframe after round 3
+
+The code's rule held from round 1 on. Round 1's 🟡 2, round 2's 🟡 1–2 and
+round 3's 🟡 1–3 were each a sentence beside the rule — in the home, the
+docstrings, the orchestration, the round-record spec, the ledger rows and
+the changelog — that restated it with an example phrased by merge shape or
+by time, and each round built a shape (A2, B2, B3, C, D) in which an example
+was false. Round 3's 🟡 3 landed in `own_commits`' docstring, a unit round
+2's fixes changed, and that second fix of a fix stopped the run.
+
+What the reframe changes is what a sentence about ownership may say, and
+nothing about what the code does. `spec.md` §*Reframed after round 3* holds
+the five decisions; alternatives M–R above hold what each was chosen over.
+Phases 1–4 keep their commits. Phases 5–7 are the redesign, and every
+round-3 finding has a phase: 🟡 1 is phases 5 (the shape-D case) and 6 (the
+fragment section's sentence); 🟡 2 is phases 5 (the shapes as cases) and 6
+(the home); 🟡 3 is phase 6 (`own_commits`' docstring); ⬜ 4 is phase 7.
+
+The redesign is approved by a second `Approved` line under the first when
+`smith` is spawned for it (`skills/code-review/orchestration.md` §*A fix of a
+fix twice sends the work item back to its framer*).
 
 ## Phases
 
@@ -99,6 +127,9 @@ Vertical slices — each phase ends with something runnable and verified.
 | 2 | `round_record.py`: `touched` reads `own_commits`; `own_units` per owned commit; `close` filters `measure`'s `added` and `changed` to owned units before `depth_two` and `call_sites`; `fix_pass_units` the same filter; `unit_adders` reads `own_units` for the `fixed` commits; `parse_range` refuses a start that does not reach its end; the `fixed` guard asks `own_commits` and its message is rewritten. S1–S6 seen red first. `skills/code-review/orchestration.md` §*And name the fix surface* links the home; `tests/test_the_rules_have_one_owner.py` gains the rule's entry (Q5) | `tests/test_the_fixes_close_the_record.py`, `tests/test_the_fixes_name_their_surface.py`, `tests/test_a_fix_of_a_fix_is_counted.py` whole; `tests/test_the_rules_have_one_owner.py` | 925216d7 |
 | 3 | `-z` in `tracked_at` and in `call_sites`' parse (two partitions on NUL, one on the first `:`), with `touched` already verbatim through phase 1. S10's fixture seen red against each of the three | the close module's new case; `tests/test_a_runner_reached_unit_reads_pytest_only.py` at the boundary (it reads `call_sites`) | bffcb3a2 |
 | 4 | the records: `changelog.md`, the ledger fragment with the new claims, the `Corrected ·` rows for 0.18.3's two anchoring rows and the re-read of 0.19.0's `A1`, `overview.md`'s divergences and *Not verified*; the five text-hygiene modules the brief names | `bin/evidence-check` green on the branch (S13); the hygiene modules | 88d5fe61 |
+| 5 | *(reframe)* the shapes as cases: one new test module (name the work's, Q7) with one case per shape A, A2, B, B2, B3, C, D-branch and D-CI, each built as the round reports' probes built it and asserting `own_commits`' list (and `touched`'s where the probe did); shape D as a case of `tests/test_a_fragment_left_behind_is_named.py` on the branch and on `ci_merge_ref` with `judged`'s exit pin. Each case seen red by a mutation of `own_commits` — `--ancestry-path` dropped, `--first-parent` added — and the handover says which mutation turned which case (S15, S17) | the shape module whole; `tests/test_a_fragment_left_behind_is_named.py` whole; `bin/mutation-check` over `own_commits` | |
+| 6 | *(reframe)* the texts: `docs/the-record-layout.md` §*A range owns the commits that descend from its start* rewritten to the owner sentence of `spec.md` §*In*, what the test does not read, the two limits, the count-vs-surface sentence and the shape module named as where a shape is answered, with no example by shape or by time; the fragment section's CI sentence replaced by the input statement; the docstrings of `own_commits`, `fragment_left_behind`, `fix_pass_units` and `touched`, `skills/code-review/orchestration.md` §*And name the fix surface, in the same record*, and `docs/round-record-spec.md` §*A fix of a fix* and §*The fix range* saying *the range's own commits* and naming the section, defining nothing; rule 17's sentence replaced; the guard case with its word list settled against the rewritten texts (Q6) and seen red with round 3's 🟡 2 sentence pasted into the home (S14, S16) | `tests/test_the_rules_have_one_owner.py` whole; the guard's module; `test_docs_line_wrap`, `test_no_passage_is_pasted_into_a_second_file`, `test_one_word_one_meaning`, `test_a_folded_statement_names_what_enforces_it` over the changed files; `tests/test_the_fixes_close_the_record.py#test_the_section_the_range_refusals_name_exists` | |
+| 7 | *(reframe)* the records: the ledger rows `Corrected · S1, S5, S8, S10` and `Corrected · S2, S3, S4, S6` (round 3's ⬜ 4), `S7, S8, S9` and both `S12` rows restated in the owner's terms; `changelog.md` re-read against the owner sentence and edited only where it states an example by shape or time; `overview.md`'s divergence row for the reframe and its *Not verified*; `phases/phase-1.md`'s round 2 correction; `survivors.md`'s two rows for the removed `spec.md` sentence dropped and any new survivor of the reframe's range excused; `evidence-check --reverify --into` for the anchors phase 6 moved (S18) | `bin/evidence-check --strict`; `survivor-check` over the reframe's range with the item's `survivors.md`; the hygiene modules | |
 
 This table is also where the work records how far it got. There is no separate
 task list: a list of tasks is mutable progress, and a stale one asserts a state
