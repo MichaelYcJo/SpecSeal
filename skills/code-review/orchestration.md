@@ -193,11 +193,10 @@ answers with grounds has opened nothing needing a fix, and the run ends there.
 whose `Location` is under `seal/specs/`, `seal/ledger/`, `seal/releases/` or
 `seal/ledger.md` owes no fix pass and no reader: what `chain_check` or
 `evidence_check` refuses is corrected in the closing commit, and what neither
-reads is prose, corrected in passing or not at all. `Needs a fix` does not
-count it. `docs/review-chain-spec.md` §*The last round verifies* owns the rule
-and the count behind it — 33 of the last branch's 65 findings were located in
-records. Such a finding is a ⬜, and the section below says when a ⬜ closes:
-once, at the run's end.
+reads is prose, a ⬜ like any other. `Needs a fix` does not count it.
+`docs/review-chain-spec.md` §*The last round verifies* owns the rule and the
+count behind it — 33 of the last branch's 65 findings were located in records.
+The section below says when a ⬜ closes: once, at the run's end.
 
 ### A note closes once, at the run's end
 
@@ -234,8 +233,9 @@ does not read stands or is filed.
 
 `round-record seal` refuses while a note of the run is open, and
 `chain_check.py` holds the rule at the pull request: a ⬜ closed on a fix
-word is an error for a work item begun at or after `1791384154` and a notice
-before it, and a ⬜ still open on a record of the run is an error at a ready
+word is an error for a work item begun at or after `1791384163` — one past
+0.21.0's batch, whose rounds ran under 0.20.0's `close` — and a notice before
+it, and a ⬜ still open on a record of the run is an error at a ready
 pull request and a notice on a draft.
 
 ### The cap is a ceiling, and this is the floor it never had

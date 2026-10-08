@@ -44,8 +44,10 @@ NOTE = "\N{WHITE LARGE SQUARE}"
 VERDICT_HEADER = (
     "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
 )
-AT_THE_CUTOFF = "seal/specs/1791384154-an-item-under-the-rule"
-BEFORE_THE_CUTOFF = "seal/specs/1791384153-an-item-before-the-rule"
+# One past 0.21.0's batch, 1791384152 through 1791384162, whose rounds run
+# under 0.20.0's `close` (round 1's 🟡 2 of #837).
+AT_THE_CUTOFF = "seal/specs/1791384163-an-item-under-the-rule"
+BEFORE_THE_CUTOFF = "seal/specs/1791384162-an-item-before-the-rule"
 
 
 @pytest.fixture
@@ -447,7 +449,9 @@ def test_fixed_on_a_note_is_refused_with_the_rule(repo):
 
 def test_a_row_for_a_finding_that_is_not_a_note_is_refused(repo):
     """A 🔴 or 🟡 closes in its round's fix table through `close`; a notes
-    table naming one is refused, and so is a row for a note already closed."""
+    table naming one is refused. A row for a note already closed is refused
+    too, and `test_notes_names_each_row_it_cannot_apply_and_writes_nothing`
+    is the case that asserts it."""
     at = two_rounds_with_a_note_each(repo)
     code, out = run_notes(
         repo,
@@ -559,13 +563,9 @@ def test_the_seal_waits_for_the_notes(repo):
         assert record(repo, 2) == before
 
 
-def test_a_stopped_run_closes_its_notes_at_the_second(repo):
-    """S9. The last record reads `Fix of a fix | second` and `no fixes to
-    check`: `notes` runs there, before the framer is spawned, closes the
-    stopped run's note, and says nothing about a `Reframed` line. The run is
-    the one the LAST record joined, which `current_run` alone answers empty
-    for. Seen red with `run_of_last` returning `current_run(found)`: no
-    record to close."""
+def a_run_stopped_with_a_note(repo):
+    """Round 1 holds ⬜ 1 open and round 3 is a `second` reading `no fixes to
+    check`: a run stopped with a note still open."""
     declared(repo)
     # The floor is `yes` until the stop, so the floor's walk does not refuse
     # a run that carried on: a stopped run is one that kept finding things.
@@ -584,6 +584,16 @@ def test_a_stopped_run_closes_its_notes_at_the_second(repo):
             encoding="utf-8",
         )
     commit(repo, "the run stopped at round 3")
+
+
+def test_a_stopped_run_closes_its_notes_at_the_second(repo):
+    """S9. The last record reads `Fix of a fix | second` and `no fixes to
+    check`: `notes` runs there, before the framer is spawned, closes the
+    stopped run's note, and says nothing about a `Reframed` line. The run is
+    the one the LAST record joined, which `current_run` alone answers empty
+    for. Seen red with `run_of_last` returning `current_run(found)`: no
+    record to close."""
+    a_run_stopped_with_a_note(repo)
     generator, reader = generator_module(), reader_module()
     routing = generator.load(generator.chain.ROUTING, "specseal_routing_for_notes")
     found = generator.earlier_records(routing, str(repo / ROUNDS), sys.maxsize)
@@ -598,6 +608,77 @@ def test_a_stopped_run_closes_its_notes_at_the_second(repo):
     # inherited table, so both owe the new word, not round 2's alone.
     for later in (2, 3):
         assert f"round 1's {NOTE} 1 \N{EM DASH} answered" in record(repo, later)
+
+
+def test_the_redesign_waits_for_the_stopped_runs_notes(repo):
+    """Round 1's 🟡 3 of #837. The redesign's first record is where a stopped
+    run's notes stop being read — `seal`, `notes` and the gate read the run
+    the last record belongs to — so `new` refuses it while one is open,
+    naming the note and `notes`, and writes it once they are closed. Seen
+    red with the refusal removed: round 4 written over ⬜ 1 still open."""
+    a_run_stopped_with_a_note(repo)
+    write(
+        repo,
+        f"{ITEM}/spec.md",
+        "# a spec\n\nFramed 2026-10-06 by framer, before the build.\n"
+        "Reframed 2026-10-07 by framer, after round 3.\n",
+    )
+    commit(repo, "the frame redrawn")
+    code, out, text = generate(
+        repo, 4, report_text=report(verdicts=YELLOW_ANSWERED, needs="no", floor="no")
+    )
+    assert code == 2, out
+    assert text is None, "the redesign's first record was written over an open note"
+    assert f"round-3.md ended its run at a `second` with round-1.md's {NOTE} 1" in out
+    assert "round-record notes --item <dir> --fixes <table> --at <sha>" in out, out
+    code, out = run_notes(repo, notes_table("| round-1 | 1 | answered | it stands |\n"))
+    assert code == 0, out
+    commit(repo, "the stopped run's note closed")
+    code, out, text = generate(
+        repo, 4, report_text=report(verdicts=YELLOW_ANSWERED, needs="no", floor="no")
+    )
+    assert "ended its run at a `second`" not in out, out
+    assert text is not None, out
+
+
+def test_notes_names_each_row_it_cannot_apply_and_writes_nothing(repo):
+    """Round 1's 🟡 5 of #837: the refusals `notes` raises before the write,
+    each pinned (§14) — a round outside the run, an id no record holds, a
+    `Round` cell that names no round, an `--at` that does not resolve, and a
+    row for a note the record already closed. Seen red by changing each
+    sentence in turn."""
+    at = two_rounds_with_a_note_each(repo)
+    before = record(repo, 1), record(repo, 2)
+    for row, said in (
+        (
+            "| round-3 | 1 | answered | it stands |\n",
+            "names round 3, outside the run that ends at round-2.md",
+        ),
+        (
+            "| round-1 | 9 | answered | it stands |\n",
+            "names round-1's 9, which no verdict table of the run holds",
+        ),
+        (
+            "| round-x | 1 | answered | it stands |\n",
+            "Write `round-K`, the record the note stands in",
+        ),
+    ):
+        code, out = run_notes(repo, notes_table(*BOTH_ROWS, row), at=at)
+        assert code == 2 and said in out, out
+        assert (record(repo, 1), record(repo, 2)) == before
+    code, out = run_notes(repo, notes_table(*BOTH_ROWS), at="deadbeefdeadbeef")
+    assert code == 2 and "--at deadbeefdeadbeef does not resolve" in out, out
+    assert (record(repo, 1), record(repo, 2)) == before
+    code, out = run_notes(repo, notes_table(*BOTH_ROWS), at=at)
+    assert code == 0, out
+    commit(repo, "the notes closed")
+    closed = record(repo, 1)
+    code, out = run_notes(
+        repo, notes_table("| round-1 | 1 | answered | again |\n"), at=at
+    )
+    assert code == 2, out
+    assert f"round-1's {NOTE} 1, already closed in its verdict table" in out, out
+    assert record(repo, 1) == closed
 
 
 # --- `close` carries a note, and `new` says so ---------------------------------

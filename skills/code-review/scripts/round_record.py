@@ -2618,6 +2618,23 @@ def build(reader, routing, args, root, item, rounds):
             "the framer writes it when it rewrites the plan. Nothing was written"
         )
     previous_pair = next(((k, p) for k, p in earlier if k == args.round - 1), None)
+    # #837, round 1's 🟡 3. The redesign's first record is where the stopped
+    # run's notes stop being read: `seal`, `notes` and
+    # `chain_check.carried_notes` read the run the LAST record belongs to.
+    # Refused here, while `notes` can still close them, rather than left open
+    # on a run nothing reads again.
+    if stopped is not None and previous_pair == stopped:
+        left = open_notes(reader, run_of_last(reader, earlier))
+        if left:
+            raise Refused(
+                f"round-{stopped[0]}.md ended its run at a "
+                f"`{chain.FOF_SECOND}` with {named_notes(left)} still open. A "
+                "note closes once, at the run's end, and the "
+                f"`{chain.FOF_SECOND}` is that end: run `{NOTES_COMMAND}` "
+                "before the redesign's first record, which would leave them on "
+                "a run nothing reads again. "
+                f"{chain.NOTES_OWNER}; nothing was written"
+            )
     # A `second` closed on deferrals and wrote no fixes, so nothing of this
     # record can land in a unit it wrote: the redesign's first record starts
     # the count at `no`.

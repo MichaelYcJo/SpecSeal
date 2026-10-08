@@ -31,9 +31,11 @@ A ⬜ note stops costing a fix pass, a reader and sometimes the run's one reopen
 
 ## Not done
 
-A run stopped at a `second` whose notes were not closed there stops being read once the redesign's first record exists: `seal` and `chain_check.carried_notes` read the run the last record belongs to, as `spec.md` Scope 7 and S9 frame it. `notes` is run at the `second`, before the framer is spawned; nothing refuses the redesign's first record over an earlier run's open note. Closing that would be a refusal in `new` or a wider read in both readers, which the frame did not ask for (phase 2).
+Phase 2 left a stopped run's notes unread once the redesign's first record exists. Round 1's 🟡 3 found it a defect rather than a leaving, and the fix pass closed it: `new` refuses the redesign's first record while the stopped run carries an open note, naming it and `notes`.
 
-`docs/review-chain-spec.md` §*The last round verifies* still says a record-located finding that no check reads is prose, "corrected in passing or not at all". It does not contradict the new rule — a note is corrected in the notes commit or closed `answered`/`deferred` — but it does not name the run's end either, and the document is at 999 of 1,000 lines, so `spec.md` Out keeps it untouched. The owner file's rule-1 paragraph now points at the new section. The fold at `settle` is where the two meet (`plan.md` §*Operational impact*).
+Phase 4 left `docs/review-chain-spec.md` §*The last round verifies* saying a record-located correction closes in the fix table and is "corrected in passing or not at all". Round 1's 🟡 4 found that it does contradict the rule, since `close` refuses a ⬜ row. The fix pass reworded both sentences in place, adding no line to the document at 999 of 1,000: a ⬜ closes at the run's end through `notes`, a 🟡 in its fix table.
+
+`NOTES_FROM` is `1791384163`, one past 0.21.0's batch, not this item's own id as the other cutoffs are: every sibling of the batch runs its rounds under the installed 0.20.0 `close`, which demands a row for a ⬜ and admits `fixed` (round 1's 🟡 2).
 
 `CAPPED_EXIT` and `REFRAME_EXIT` still say every finding still open closes `deferred`; with notes carried, a ⬜ closes through `notes` at that same moment. Rewording the pair is the repository owner's decision (`spec.md` Out), so they stand, and the owner file's reframe table says what happens to a ⬜ there.
 

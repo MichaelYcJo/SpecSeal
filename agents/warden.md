@@ -346,7 +346,9 @@ axes, probe rules, record formats. This file adds only your role boundaries.
 
   Its verdicts are still worth having — as the list of what to report on.
   Every finding from an earlier round needs an answer this round: fixed, still
-  open, or no longer applicable, each with your own grounds.
+  open, or no longer applicable, each with your own grounds — except a ⬜ the
+  run still carries open, which waits for the run's end and is not reported
+  again.
 - **Carry the broad-gate state into your report** the way you carry probe
   results, under `## Executed probes`, where it has a row to sit in — and
   spell it so the row cannot be read as a run. That table's columns are

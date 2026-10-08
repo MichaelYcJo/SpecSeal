@@ -15,7 +15,8 @@
   `corrected`, `answered` and `deferred <home>`. A corrected note is written
   `answered` with `corrected at <sha>` as its grounds; `fixed` is refused.
   `notes` refuses before the run's end, `seal` refuses while a note of the
-  run is open, and `chain-check` fails a ready pull request over an open
-  note and, for a work item begun at or after `1791384154`, over a note
-  closed `fixed`. A record whose only open rows are notes now reads
+  run is open, `new` refuses a redesign's first record while the stopped
+  run still carries one, and `chain-check` fails a ready pull request over
+  an open note and, for a work item begun at or after `1791384163`, over a
+  note closed `fixed` — every 0.21.0 work item is before that and prints. A record whose only open rows are notes now reads
   `no fixes to check` rather than waiting on a reader nothing commissioned.
