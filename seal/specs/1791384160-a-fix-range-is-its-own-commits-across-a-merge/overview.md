@@ -7,7 +7,7 @@
 
 ## Why this work exists
 
-Two readers of a range walked it by its shape and read a sibling's work, brought in by a merge, as the work item's own. Both now read the commits that descend from the range's start, so `New units`, `Contract changes`, `Fix of a fix` and the fragment notice name what the item wrote.
+Two readers of a range walked it by the shape of its merges and read another work item's commits, brought in by a merge, as this one's. Both now read exactly the commits `git log --ancestry-path --no-merges a..b` lists, so `New units`, `Contract changes`, `Fix of a fix` and the fragment notice read one list.
 
 ## Where spec and implementation diverged
 
@@ -21,7 +21,9 @@ Two readers of a range walked it by its shape and read a sibling's work, brought
 | the two `walk_tip` cases' names | `questions.md` Q4 default (a): "keep the shapes, rewrite the docstrings and add the new assertion" / shapes kept, names changed too | code | each name stated `walk_tip`'s premise, a mechanism that is gone (`phases/phase-1.md`) |
 | the ledger fragment's name | the spawn prompt: `seal/ledger/1791384160.md` / `seal/ledger/1791384160-a-fix-range-is-its-own-commits-across-a-merge.md` | code | `.github/scripts/fold_ledger.py` takes the `### <id>` heading and the marker from the file name, and every fragment in history carries the full id |
 | "the five text-hygiene modules the brief names" | `plan.md` phase 4 / no brief in this tree names them | the reading below | the run's brief is not on this branch or on `chore/834-every-reader-and-record-is-inventoried`. Phase 4 ran the seven modules that hold document text to its rules over the files this item changed: `test_docs_line_wrap`, `test_no_passage_is_pasted_into_a_second_file`, `test_one_word_one_meaning`, `test_no_real_identifiers`, `test_release_hygiene`, `test_a_document_has_room_for_the_next_fold`, `test_a_folded_statement_names_what_enforces_it` |
-| where a sibling's commit sits | `spec.md` §*In*: "A sibling's commit … descends from `a` never" / the code owns a non-merge commit exactly when it has `a` as an ancestor, whatever branch it was made on, so a commit a merge brought in counts when it was made on top of `a` | every coordinate states the rule by what the code tests, with examples | the build wrote the spec's sentence without a limit, round 1 enumerated two merge shapes, and round 2's probes A2 and B2 showed the enumeration was wider than the code. An enumeration over merge shapes has no end, so round 2's fix pass states the test itself and gives the shapes as examples only (`phases/phase-1.md`) |
+| how the rule is stated | `spec.md` §*In* before the reframe: a merged-in commit "descends from `a` never" / rounds 1–3 each found an example beside the rule false in a history its author had not built, and the run stopped at round 3 on a second fix of a fix | the reframe, phases 5–7 | `spec.md` §*Reframed after round 3*: the home states only the sentence the code runs, every history the rounds built is a case of `tests/test_a_range_owns_what_git_lists_for_it.py`, and `tests/test_the_range_rule_states_no_shape.py` keeps shape and time vocabulary out of the home and its carriers |
+| shape D as two cases | `plan.md` phase 5: one case per shape, "D-branch and D-CI" / one case reading both checkouts, in the shape module and in the fragment module | code | on the branch D is a straight line every reading of a range agrees on, so neither mutation of `own_commits` turned that half red alone; read together, `--first-parent` turns the case red (`phases/phase-5.md`) |
+| the guard's list | `questions.md` Q6 (a): the nine proposed words and phrases / the nine plus `descends? from \S+ never` | code | round 1's false sentence used none of the nine, and the guard's own case asserts that each round's false sentence trips the list (`phases/phase-6.md`) |
 
 **Measured on #860's own range, after the build.** `99bcad40..092004bb` resolves in this clone. Its 5 own commits are 856aeeec, 56e98860, bab19faa, d6faf419 and 092004bb. `touched` reads 9 paths where the two ends' diff lists 74. In those 9 paths, `measure` finds 13 units added between the ends, and the per-unit filter keeps 2, both in `tests/test_the_seal_is_taken_once_by_the_sealer.py`. Over the two ends' `.py` paths, the reading before this work finds 113 added units; the record it wrote named 111, one per name. `spec.md`'s 22 was a count of top-level names `git diff` adds in that file, which is a different reading of the same fact. Executed by a probe that wrote no record and was deleted.
 
@@ -29,12 +31,12 @@ Two readers of a range walked it by its shape and read a sibling's work, brought
 
 | Item | Who must answer |
 |---|---|
-| `questions.md` Q3: the Windows leg's git emits `git grep -n -z` as `<rev>:<path>\0<line>\0<text>\n`, and `ls-tree -z` and `log --name-status -z` as measured on macOS; S10 and the three `-z` readers have run on macOS only | the pull request's CI run on the Windows shards, read by the orchestrator |
+| ✅ `questions.md` Q3: the Windows leg's git emits `git grep -n -z` as `<rev>:<path>\0<line>\0<text>\n`, and `ls-tree -z` and `log --name-status -z` as measured on macOS; S10 and the three `-z` readers have run on macOS only | round 1's record: PR #878's Windows shards ran the changed modules on git 2.55.0.windows.5 with no failure among them and no skip on S10 |
 | the full suite, the repository-wide lint and the typecheck over this branch | the sealer, once, after the review rounds settle |
 
 ## Not done
 
-- `survivor_check.py#corrected` over a hand-typed `--range` holding a merge reads the merged side's sentences as the range's. CI hands it `origin/<base>...HEAD`, where a merge of the base adds nothing, so only the hand-typed form is exposed. `spec.md` §*Out* leaves it out and asks the orchestrator to open an issue for the repository owner. That issue is still to file.
+- `survivor_check.py#corrected` over a hand-typed `--range` holding a merge reads the merged side's sentences as the range's. CI hands it `origin/<base>...HEAD`, where a merge of the base adds nothing, so only the hand-typed form is exposed. `spec.md` §*Out* leaves it out and asks the orchestrator to open an issue for the repository owner; round 1's record names #877 as holding that case.
 - `chain_check.py#added_on_branch` and `written_late`'s reading of a merge's first parent, `correction_check.py`'s first-parent fallback, and the three `ls-tree` readers becoming one are left to #529, #836 and #867, and #866 and #867, as `spec.md` §*Out* says.
 - #835's registry does not exist on this branch. `own_commits` states its input class in `spec.md` §*The input class of each reader this changes*, and its row joins the registry where that lands first.
 

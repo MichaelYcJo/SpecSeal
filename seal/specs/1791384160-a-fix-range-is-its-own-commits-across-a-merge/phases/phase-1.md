@@ -31,20 +31,16 @@ point. Nothing in either script hands `own_commits` such a start, so this
 changes no code. The home says the rule in terms of descent and makes no
 claim about where a start sits.
 
-*Corrected after round 1 (🟡 2):* "true for every range this work reads" was
-not. A start on the branch after the build still has two shapes against it,
-which the warden's probes measured. After a back-merge of the item's commits
-into the base, a later base commit descends from the start and is owned. An
-own commit on a topic forked before the start descends from it never. The
-home now states both limits.
-
-*Corrected after round 2 (🟡 1):* the two limits above were wider than the
-code, because the back-merge must merge the start or a commit after it, and
-a topic forked before the start is owned once it has merged the start. The
-rule is now stated by what `own_commits` tests at every coordinate. A
-non-merge commit is owned when it has the start as an ancestor, whatever
-branch it was made on, and the shapes are examples rather than the
-definition.
+*Corrected after rounds 1–3:* "true for every range this work reads" was a
+claim derived from the rule. Rounds 1, 2 and 3 each built a history in which
+it, or the sentence written to correct it, was false. The run stopped at
+round 3, and the reframe states the rule once, as the test the code runs: a
+range `a..b` owns exactly the commits `git log --ancestry-path --no-merges
+a..b` lists (`docs/the-record-layout.md` §*A range owns the commits that
+descend from its start*). What `own_commits` returns for each history the
+rounds built is a case of `tests/test_a_range_owns_what_git_lists_for_it.py`
+(`phases/phase-5.md`). The paragraph above stands as what phase 1 found,
+not as the rule.
 
 **Q1, measured on git 2.50.** Each commit is `\x01<full> <short>\0`, then a
 `\n` before its first entry, then `<status>\0<path>\0` per entry. A commit
