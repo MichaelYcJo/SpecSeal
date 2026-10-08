@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 7 |
-| Commit | written by the commit that opens phase 8, which names this record's commit |
+| Commit | 452cf167 |
 | Ran by | smith on Opus 5.5 |
 
 ## What this phase was asked
