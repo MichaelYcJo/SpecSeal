@@ -96,11 +96,12 @@ round 1's `Target SHA` to HEAD owns, as the next section defines them, and
 names each one that changed a path outside the `seal/` root and outside a
 `tests` directory and that no own commit changing the fragment descends from.
 On a linear history that is every commit after the fragment last changed. A
-move lists both its paths, so a file moved under `tests/` is named. CI's
-checkout, the pull request merged into its base, reads the same commits as the
-branch does, because the walk asks each commit's ancestry and never which
-parent of a merge it sits behind (the next section says which commits that
-ancestry makes the item's own).
+move lists both its paths, so a file moved under `tests/` is named. The
+notice reads `<round 1's Target SHA>..HEAD` wherever it runs. On CI's
+checkout HEAD is the pull request merged into its base, so there the range
+also holds every base commit that has round 1's target as an ancestor, which
+a branch checkout that has not merged the base does not hold, and CI can
+name a commit a local run does not.
 Each commit is attributed to the round whose `Fix range` owns it, to *after
 the last round*, or to *outside every round's fix range* for a commit between
 two rounds' ranges. It prints and never refuses, which is the measurement
@@ -118,23 +119,26 @@ Enforced by: skills/code-review/scripts/chain_check.py::fragment_left_behind, te
 
 ## A range owns the commits that descend from its start
 
-**A range `a..b` owns the non-merge commits that descend from `a` and that `b`
-reaches** — `git log --ancestry-path --no-merges a..b`. A commit is the
-range's own when it is a non-merge commit that has `a` as an ancestor and
-that `b` reaches, whatever branch it was made on. Ancestry alone decides, so
-a commit a merge brought in counts exactly when it was made on top of `a`.
-For example, a sibling's squash on a base that never merged `a` is not owned,
-while a sibling's commit made after the base merged `a` is; and an own fix on
-a topic forked before `a` is owned once that topic has merged `a`, and not
-before. Two readers walked a
-range by its shape instead, and both read a sibling's work as the item's own.
-`round-record close` diffed the range's two ends: one record's `New units`
-named 111 units, 109 of them a sibling's that a merge of the base had brought
-in (#860). The fragment notice above followed HEAD's first parent: on a branch
-rebuilt on its base with its old tip merged in, it named a sibling's squash
-and missed the item's own fix (#805). Which parent of a merge comes first is
-set by whoever ran `git merge`, and nothing here controls it. Whether a commit
-descends from the range's start is a fact git holds.
+**A range `a..b` owns exactly the commits `git log --ancestry-path
+--no-merges a..b` lists: a non-merge commit that has `a` as an ancestor and
+that `b` reaches.** That is the whole test `chain_check.py#own_commits` runs,
+and every reader of a range in `round-record` and `chain-check` imports it.
+It does not read which parent of a merge a commit sits behind, which branch
+the commit was made on, or when it was made. Whether a given commit of a
+given history is owned is answered by running `own_commits` on that history.
+`tests/test_a_range_owns_what_git_lists_for_it.py` holds the histories the
+review of #860 built, one case each, and a history it lacks becomes a case
+there rather than a sentence here.
+
+Two readers walked a range by the shape of its merges before this rule, and
+both read another work item's commits as this one's. `round-record close`
+diffed the range's two ends, and one record's `New units` named 111 units,
+109 of them another work item's that a merge of the base had brought in
+(#860). The fragment notice above followed HEAD's first parent, so on a
+branch rebuilt on its base with its old tip merged in, it named another work
+item's commit on the base and missed the item's own fix (#805). Which parent
+of a merge comes first is set by whoever ran `git merge`, and nothing here
+controls it. Ancestry is a fact git holds.
 
 `close` still measures the fix surface at the range's two ends, and keeps in
 `Contract changes` and `New units` only a unit that an owned commit added or
@@ -147,14 +151,12 @@ a..b`, because its job is to catch an end that moved and the writer and the
 checker both read it that way. So the count and the surface read one range
 two ways.
 
-What no reader can see is a change made only inside a merge's conflict
-resolution. The merge is owned by no range, so `close` refuses a `fixed` row
-that names it. Ancestry is the whole test, as the rule above says: an own
-commit without `a` as an ancestor leaves the surface, and a `fixed` row
-naming it is refused, while a sibling's commit with `a` as an ancestor joins
-it. A range whose start does not reach its end owns nothing, and `close`
-refuses it rather than writing an empty surface.
-Enforced by: skills/code-review/scripts/chain_check.py::own_commits, skills/code-review/scripts/round_record.py::own_units, tests/test_a_fragment_left_behind_is_named.py::test_a_branch_rebuilt_on_the_base_names_its_own_commits_and_not_the_siblings, tests/test_the_fixes_close_the_record.py::test_a_unit_a_merge_brought_into_a_file_an_own_commit_touched_is_not_new, tests/test_the_fixes_close_the_record.py::test_a_fixed_row_naming_a_commit_the_range_does_not_own_is_refused
+The rule has two limits. A change made only inside a merge's conflict
+resolution is in no owned commit, so no reader sees it, and `close` refuses
+a `fixed` row that names the merge. A range whose start does not reach its
+end owns nothing, and `close` refuses it rather than writing an empty
+surface.
+Enforced by: skills/code-review/scripts/chain_check.py::own_commits, skills/code-review/scripts/round_record.py::own_units, tests/test_a_range_owns_what_git_lists_for_it.py, tests/test_the_range_rule_states_no_shape.py, tests/test_a_fragment_left_behind_is_named.py::test_a_branch_rebuilt_on_the_base_names_its_own_commits_and_not_the_siblings, tests/test_the_fixes_close_the_record.py::test_a_unit_a_merge_brought_into_a_file_an_own_commit_touched_is_not_new, tests/test_the_fixes_close_the_record.py::test_a_fixed_row_naming_a_commit_the_range_does_not_own_is_refused
 
 ## docs/
 

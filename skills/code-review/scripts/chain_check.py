@@ -4488,16 +4488,12 @@ def own_commits(root, a, b):
     """[(full, short, [(status, path), …])], oldest first: the commits the
     range `a..b` owns and what each changed, or None where git fails.
 
-    **The non-merge commits that descend from `a` and that `b` reaches**
-    (#860, #805) — `docs/the-record-layout.md` §*A range owns the commits
-    that descend from its start* owns that rule and its examples. A commit is
-    the range's own when it is a non-merge commit that has `a` as an ancestor
-    and that `b` reaches, whatever branch it was made on; the parent order
-    `git merge` set is not read. Ancestry alone decides, so a commit a merge
-    brought in counts exactly when it was made on top of `a`: a sibling's
-    squash on a base that never merged `a` is not owned, and an own fix on a
-    topic forked before `a` is owned once that topic has merged `a`. A start
-    that does not reach its end owns nothing, and the answer is `[]`.
+    **The range's own commits** (#860, #805): what `git log --ancestry-path
+    --no-merges a..b` lists. `docs/the-record-layout.md` §*A range owns the
+    commits that descend from its start* owns that rule, and
+    `tests/test_a_range_owns_what_git_lists_for_it.py` holds a case per
+    history the review built. Git returns `[]` for a start that does not
+    reach its end.
 
     `--no-renames`, because with rename detection a move is listed by its
     destination alone: a behaviour file moved under `tests/` or `seal/`
@@ -4560,13 +4556,10 @@ def fragment_left_behind(reader, routing, root, item, records):
 
     ONE question per work item. Round 1's `Target SHA` is where the build
     ended, so the walk is the commits `<target>..HEAD` owns (`own_commits`),
-    and the build's own commits are never read. Ancestry alone decides which
-    commits those are (`own_commits`): a commit a merge brought in is read
-    exactly when it was made on top of the target, whichever parent of the
-    merge it sits behind. So CI's merge ref, the branch's own merge of its
-    base and a branch rebuilt on the base with its old tip merged in (#805)
-    all read the same commits, and a sibling's squash on a base that never
-    merged the target is not among them. Every owned
+    and the build's own commits are never read. Which commits those are is
+    `docs/the-record-layout.md` §*A range owns the commits that descend from
+    its start*; nothing here reads which parent of a merge comes first, which
+    is what read #805 wrong. Every owned
     commit that changed the fragment is a line: an owned commit is named when
     it changed a behaviour path (`behaviour_path`) and no such line descends
     from it, the line itself included. On a linear history that is every
@@ -4589,9 +4582,10 @@ def fragment_left_behind(reader, routing, root, item, records):
       no `round-1.md`            nothing says where the build ended. A
                                  `straight to the PR` item never reaches this
                                  function, for the same reason
-      round 1's target           squashed away, or off the branch after a
-      unresolvable, or not an    rebase. Walking `<target>..HEAD` from a
-      ancestor of HEAD           commit HEAD does not descend from reads the
+      round 1's target           gone from this clone once its branch
+      unresolvable, or not an    merged, or off the branch after a rebase.
+      ancestor of HEAD           Walking `<target>..HEAD` from a commit HEAD
+                                 does not descend from reads the
                                  build itself as late
       no `changelog.md` at HEAD  whether the item owes a fragment is not this
                                  question, and local mode commits none

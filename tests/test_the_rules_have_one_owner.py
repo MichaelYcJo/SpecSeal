@@ -336,14 +336,18 @@ RULES = {
     # sibling's work that a merge brought in as the item's own. The owner is
     # the document that already owns the fragment rule one of them serves,
     # because `docs/round-record-spec.md` stands under its line ceiling.
-    # WHAT IT PINS: the owner's headline sentence and each carrier naming the
-    # section; the readers are pinned by
+    # WHAT IT PINS: the owner's headline sentence, which since the reframe
+    # after round 3 is the test `own_commits` runs, and each carrier naming
+    # the section; the readers are pinned by
+    # `tests/test_a_range_owns_what_git_lists_for_it.py`,
     # `tests/test_a_fragment_left_behind_is_named.py` and
-    # `tests/test_the_fixes_close_the_record.py`.
+    # `tests/test_the_fixes_close_the_record.py`, and the carriers' stating
+    # no shape beside the link by `tests/test_the_range_rule_states_no_shape.py`.
     "17 a range owns the commits that descend from its start": (
         RECORD_LAYOUT,
-        "A range `a..b` owns the non-merge commits that descend from `a` and "
-        "that `b` reaches",
+        "A range `a..b` owns exactly the commits `git log --ancestry-path "
+        "--no-merges a..b` lists: a non-merge commit that has `a` as an "
+        "ancestor and that `b` reaches.",
         {
             CHAIN_CHECK: RANGE_OWNER,
             ROUND_RECORD: RANGE_OWNER,

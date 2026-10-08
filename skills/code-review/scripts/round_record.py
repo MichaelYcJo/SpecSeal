@@ -2348,12 +2348,10 @@ def fix_pass_units(reader, root, a, b):
     nothing about changed ones (`questions.md` Q2 of #823).
 
     Kept only where one of the range's own commits added or changed the unit
-    (`own_units`, #860). A commit is the range's own when it is a non-merge
-    commit that has `a` as an ancestor, whatever branch it was made on, so a
-    unit a merge brought in lands exactly when the commit that wrote it was
-    made on top of `a`; a sibling's squash on a base that never merged `a`
-    wrote nothing this run reviewed, and a finding inside its unit is no fix
-    of a fix (`chain.own_commits`).
+    (`own_units`, #860): a unit no own commit wrote is nothing this run's
+    fixes wrote, so a finding inside it is no fix of a fix. Which commits are
+    the range's own is `docs/the-record-layout.md` §*A range owns the
+    commits that descend from its start*.
     """
     units = {}
     mine = own_units(reader, root, chain.own_commits(root, a, b) or [])
@@ -3391,13 +3389,11 @@ def parse_range(root, value):
 def touched(root, a, b):
     """The paths the range's own commits changed that `b` carries, sorted.
 
-    The commits are `chain.own_commits`: the non-merge commits that descend
-    from `a` and that `b` reaches, whatever branch each was made on (#860).
-    A path only a merge brought in is this range's exactly when a commit made
-    on top of `a` changed it, and the path-level answer is the first of two
-    filters:
-    `own_units` is the second, because a file an own commit touched can
-    carry a merged-in unit too. A path the range deleted is not at `b`, so
+    The commits are the range's own, `chain.own_commits` (#860), which
+    `docs/the-record-layout.md` §*A range owns the commits that descend from
+    its start* defines. The path-level answer is the first of two filters:
+    `own_units` is the second, because a file an own commit touched can also
+    carry units no own commit wrote. A path the range deleted is not at `b`, so
     deletions are left out, and with `--no-renames` a move is its old path
     deleted and its new one added — a renamed file's units read as new when
     nothing at `a` carries that path, which is the honest reading of a
