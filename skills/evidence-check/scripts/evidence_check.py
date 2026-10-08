@@ -1188,13 +1188,19 @@ def brace_span(lines, i, family):
 def block_span(lines, i):
     """`(start, end)` 1-based for the YAML key on LINES[I]: the line and
     every following line deeper than it — YAML's block structure IS its
-    indentation, so this rule reads the file's own structure."""
+    indentation, so this rule reads the file's own structure — plus a
+    compact sequence, the `- ` items YAML lets a key's value start at the
+    key's own indent (`on:` / `- push`). The indentation rule stopped at the
+    first item and left the key's value out of the hash (#870)."""
     indent = len(lines[i]) - len(lines[i].lstrip())
     j = i + 1
     while j < len(lines):
         nxt = lines[j]
         if nxt.strip() and (len(nxt) - len(nxt.lstrip())) <= indent:
-            break
+            item = nxt[indent:]
+            at_own_indent = len(nxt) - len(nxt.lstrip()) == indent
+            if not (at_own_indent and (item == "-" or item.startswith("- "))):
+                break
         j += 1
     while j > i + 1 and not lines[j - 1].strip():
         j -= 1

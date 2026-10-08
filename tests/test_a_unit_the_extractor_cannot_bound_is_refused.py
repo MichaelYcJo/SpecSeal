@@ -573,3 +573,51 @@ def test_the_declaration_opener_is_spelled_once():
     use = "LIMIT: 1\nwhen v in OTHER:\n"
     assert ec.resolve_unit("w.yml", "OTHER", use) == ([], False)
     assert {n for n, _p, _u in ec.file_units("w.yml", use)} == {"LIMIT"}
+
+
+# --- S7: YAML's block rule, with the compact sequence ----------------------
+
+
+def indentation_span(lines, i):
+    """The indentation rule as it stood before #870, kept here as the
+    reference the block rule must agree with wherever no compact sequence
+    sits at a key's own indent."""
+    indent = len(lines[i]) - len(lines[i].lstrip())
+    j = i + 1
+    while j < len(lines):
+        if lines[j].strip() and len(lines[j]) - len(lines[j].lstrip()) <= indent:
+            break
+        j += 1
+    while j > i + 1 and not lines[j - 1].strip():
+        j -= 1
+    return i + 1, j
+
+
+def test_a_compact_sequence_belongs_to_its_key():
+    """S7. YAML lets a key's sequence start at the key's own indent, and the
+    indentation rule stopped at the first item: `on:` hashed alone."""
+    text = "on:\n- push\n- pull_request\njobs:\n  a: 1\n"
+    assert ec.resolve_unit("w.yml", "on", text) == ([(1, 3)], False)
+    assert ec.resolve_unit("w.yaml", "on", text) == ([(1, 3)], False)
+    assert ec.resolve_unit("w.yml", "jobs", text) == ([(4, 5)], False)
+    nested = "jobs:\n  a:\n    steps:\n    - run: x\n    - run: y\n  b: 2\n"
+    assert ec.resolve_unit("w.yml", "steps", nested) == ([(3, 5)], False)
+    assert ec.resolve_unit("w.yml", "a", nested) == ([(2, 5)], False)
+
+
+@pytest.mark.parametrize(
+    "rel, name",
+    [
+        (".github/workflows/test.yml", "pytest"),
+        (".github/workflows/test.yml", "ledger"),
+        (".github/workflows/publish-release.yml", "jobs"),
+    ],
+)
+def test_this_repositorys_bare_yaml_rows_keep_their_spans(rel, name):
+    """S7's other half: the bare YAML keys this repository's ledger cites
+    bound where the indentation rule bounded them, so their hashes hold."""
+    text = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+    lines = ec.gfm_lines(text)
+    (place,) = ec.resolve_unit(rel, name, text).places
+    assert place == indentation_span(lines, place[0] - 1), (rel, name, place)
+    assert place[1] - place[0] > 10, place
