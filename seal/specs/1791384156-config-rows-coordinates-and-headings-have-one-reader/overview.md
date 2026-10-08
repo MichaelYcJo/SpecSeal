@@ -42,6 +42,17 @@ everywhere.
 
 ## Not done
 
+**`spec.md` §*What this delivers* says more than the checker does** (round 1,
+⬜ 8). Its statement reads "A markdown heading is CommonMark's ATX heading,
+read where a renderer shows it". The checker's shown lines are
+`markdown_lines`, which blank closed fences and nothing else, so a `## B`
+inside an HTML block or a multi-line comment still opens a section there,
+where a renderer shows none; round 1 executed both shapes. The tree holds
+neither shape (0 and 0, the round's probe). Which lines a reader hides before
+it asks the heading rule is the live-line family #872 holds, so the mechanism
+is left to it, and the sentence in `spec.md`, the framer's file, stands with
+this paragraph as its limit until #872 decides.
+
 `reference_roots` reads a refusal as the default rather than refusing: its
 callers, `unverified-check` and the survivor sweep, are not among the commands
 `spec.md` names as refusing, and the default is what an unreadable file always

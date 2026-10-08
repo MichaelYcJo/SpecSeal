@@ -14,9 +14,12 @@
   for `Ledger frozen from`: an unreadable config used to turn the freeze
   off, so `--reverify` re-stamped released rows in place. Hooks say
   nothing about either state: the mode gate stays silent rather than
-  asking. In a `routing.md`, a `Review`, `Destination` or `Branch` row
-  written twice makes the file no declaration, so the commit gate asks; a
-  doubled optional row reads as unanswered.
+  asking. `chain-check`'s pact notices read the config the same way: one
+  that will not read is a notice naming it, and `chain-check --worktree` no
+  longer stops with a `UnicodeDecodeError` on such a file. In a
+  `routing.md`, a `Review`, `Destination` or `Branch` row written twice
+  makes the file no declaration, so the commit gate asks; a doubled
+  optional row reads as unanswered.
 
 - **The ledger coordinate has one grammar (#867).** `correction-check`,
   `settle` and the rider check read the checker's own pattern instead of
