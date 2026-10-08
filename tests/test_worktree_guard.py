@@ -9,7 +9,7 @@ import json
 import os
 
 import pytest
-from conftest import load_hook_module
+from conftest import load_hook_module, shell_probe
 
 wg = load_hook_module("worktree-guard.py", "wg")
 
@@ -725,11 +725,10 @@ def test_the_unbalanced_quote_note_is_read_from_the_command_as_written(
 def test_consent_is_not_read_out_of_a_command_that_did_not_parse(
     monkeypatch, capsys, repo
 ):
-    """The commit gate falls back to a SUBSTRING test when a command does not
-    parse cleanly (`has_marker`), and this guard must not inherit it. Reading
-    `[no-review]` loosely skips one check the user is being asked about
-    anyway; reading `[shared-tree-ok]` loosely turns this guard off with
-    nobody asked — the regression two review rounds went into closing."""
+    """A token inside a quote that never closes is prose, and no consent
+    read takes it: `hooks/tokens.py#given` reads nothing from where a split
+    fails (#868). Read loosely, `[shared-tree-ok]` would turn this guard off
+    with nobody asked — the regression two review rounds went into closing."""
     cmd = 'git worktree add ../wt f && echo "we agreed on [worktree-ok] yesterday'
     assert "[worktree-ok]" in cmd  # a substring test would say yes
     assert not wg.has_token(cmd, "[worktree-ok]")
@@ -2167,12 +2166,29 @@ def test_no_listed_form_moves_head_under_git(repo, tmp_path):
     # which expands the braces before git reads the words, and each switches
     # HEAD or adds a worktree. The guard reads the frozen words with the
     # command's unquoted braces, and none of them is listed. Red at
-    # `5623d728`, where all four were.
+    # `5623d728`, where all four were. The guard's half reads words and runs
+    # everywhere; bash's half runs only where `bash` is a shell.
     import shlex
 
-    braced_listed, acted = [], []
-    for n, form in enumerate(BRACED, start=len(FORMS) + len(SWITCHING)):
-        text = form.format(start=start, n=n)
+    braced = [
+        (n, form.format(start=start, n=n))
+        for n, form in enumerate(BRACED, start=len(FORMS) + len(SWITCHING))
+    ]
+    braced_listed = [
+        text
+        for _n, text in braced
+        if wg.shape_of(["git", *shlex.split(text)], braced=wg._unquoted_brace(text))
+        == "listed"
+    ]
+    assert not braced_listed, braced_listed
+    # On a `windows-latest` runner `bash` resolves to the WSL launcher, which
+    # exits 1 for every command it is handed (`conftest.shell_probe`; round 1
+    # of work item 1791384157, red 1). The ubuntu and macOS legs run it.
+    why = shell_probe("bash")
+    if why is not None:
+        pytest.skip(f"bash: {why}")
+    acted = []
+    for n, text in braced:
         copy = tmp_path / f"r{n}"
         shutil.copytree(template, copy)
         done = subprocess.run(
@@ -2183,12 +2199,8 @@ def test_no_listed_form_moves_head_under_git(repo, tmp_path):
         )
         assert done.returncode == 0, (text, done.returncode, done.stderr)
         if head(copy) != head(template) or (tmp_path / f"wt{n}").is_dir():
-            acted.append(form)
-        words = ["git", *shlex.split(text)]
-        if wg.shape_of(words, braced=wg._unquoted_brace(text)) == "listed":
-            braced_listed.append(form)
-    assert sorted(acted) == sorted(BRACED), acted
-    assert not braced_listed, braced_listed
+            acted.append(text)
+    assert len(acted) == len(BRACED), acted
 
 
 def test_the_readings_are_gone():
