@@ -279,3 +279,281 @@ def test_the_four_dispatches_read_one_table():
         assert "bounding_rule(" in body, f"{name} does not read the table"
         for spelled in ('endswith(".py")', "endswith('.py')", ".md')", '.md")'):
             assert spelled not in body, f"{name} tests the suffix itself: {spelled}"
+
+
+# --- S1, S3: the bracket walk bounds what the indentation rule cut ----------
+
+MULTI_LINE = (
+    "export function multiLine(\n"
+    "  opts: { a: number },\n"
+    "): number {\n"
+    "  return opts.a + 1\n"
+    "}\n"
+)
+
+
+def test_a_prettier_signature_keeps_its_body_in_the_span():
+    """S1, #848's shape. The `(` stays open over the parameter lines, the
+    `{` opens the body, and the unit ends where both have closed. The
+    indentation rule ended it at `): number {`, lines 1-2."""
+    assert ec.resolve_unit("f.ts", "multiLine", MULTI_LINE) == ([(1, 4)], False)
+
+
+def test_848s_reproduction_reads_a_body_edit_as_drifted(repo):
+    """#848's own script, as a case: stamp the row with `--reverify`, change
+    the body only, and `--strict` must say DRIFTED where it said `1 ok`."""
+    (repo / "f.ts").write_text(MULTI_LINE, encoding="utf-8")
+    cite(repo, "f.ts#multiLine@00000000")
+    ledger = "seal/ledger/f.md"
+    rr = run(
+        ["--reverify", "--checked", "2026-10-07", "--ledger", ledger, "."], str(repo)
+    )
+    assert rr.returncode == 0, rr.stdout + rr.stderr
+    assert run(["--strict", "--ledger", ledger, "."], str(repo)).returncode == 0
+    body = MULTI_LINE.replace("return opts.a + 1", "return opts.a * 100")
+    (repo / "f.ts").write_text(body, encoding="utf-8")
+    r = run(["--strict", "--ledger", ledger, "."], str(repo))
+    assert r.returncode != 0 and "DRIFTED" in r.stdout, r.stdout
+    assert "content changed at 1-4" in r.stdout, r.stdout
+
+
+@pytest.mark.parametrize(
+    "rel, text, name, span",
+    [
+        # S3: Allman. The parentheses close on the signature line and the
+        # next line opens with `{`; the indentation rule bounded line 1 alone.
+        ("f.c", "int add(int x)\n{\n  return x + 1;\n}\n", "add", (1, 3)),
+        # GNU: the `{` is deeper than the signature, which the walk also reads.
+        ("f.c", "int add(int x)\n  {\n    return x;\n  }\n", "add", (1, 3)),
+        # A constant whose value continues on deeper lines.
+        ("f.ts", "export const L =\n  [1, 2];\nexport const B = 2;\n", "L", (1, 2)),
+        # A one-line signature, exactly as the indentation rule had it.
+        ("f.go", "func f(x int) int {\n\treturn x\n}\n", "f", (1, 2)),
+    ],
+)
+def test_the_walk_bounds_the_shapes_a_formatter_writes(rel, text, name, span):
+    assert ec.resolve_unit(rel, name, text) == ([span], False)
+
+
+# --- Q1: each family's forms are blanked, a case per form ------------------
+
+# Every fixture holds a bracket inside each string, char and comment form of
+# its language that would end the unit early, or never, if it were read as
+# code. Each unit ends at its last line, so its span is (1, last - 1).
+FORMS = {
+    "js": (
+        "f.ts",
+        "function f(a) {\n"
+        '  const s = "}";\n'
+        "  const t = '{';\n"
+        "  const u = `x ${ {k: 1}.k } }`;\n"
+        "  const v = `{\n"
+        "  `;\n"
+        "  // }\n"
+        "  /* { */\n"
+        "  return a;\n"
+        "}\n",
+    ),
+    "c": (
+        "f.c",
+        "int f(int a) {\n"
+        "  char c = '}';\n"
+        '  const char *s = "{\\"";\n'
+        "  int n = 1'000;\n"
+        "  /* } */\n"
+        "  // {\n"
+        "  return a;\n"
+        "}\n",
+    ),
+    "cpp": (
+        "f.cpp",
+        "int f(int a) {\n"
+        '  auto r = R"x(})x";\n'
+        '  auto p = u8R"(")";\n'
+        "  char c = '{';\n"
+        "  return a;\n"
+        "}\n",
+    ),
+    "java": (
+        "F.java",
+        "String f(int a) {\n"
+        '  String b = """\n'
+        "      }\n"
+        '      """;\n'
+        "  char c = '}';\n"
+        '  return "{";\n'
+        "}\n",
+    ),
+    "cs": (
+        "F.cs",
+        "string F(int a) {\n"
+        '  var v = @"C:\\{dir}""}";\n'
+        '  var i = $"{a} }}{{ {d["k"]}";\n'
+        '  var r = """\n'
+        "    }\n"
+        '    """;\n'
+        "  char c = '{';\n"
+        '  return $@"{a}\\";\n'
+        "}\n",
+    ),
+    "kotlin": (
+        "f.kt",
+        "fun f(a: Int): String {\n"
+        '  val s = "${ mapOf(1 to "}").size } }"\n'
+        '  val r = """\n'
+        "    { ${a}\n"
+        '  """\n'
+        "  val c = '}'\n"
+        "  /* outer /* inner } */ still comment { */\n"
+        "  return s\n"
+        "}\n",
+    ),
+    "swift": (
+        "f.swift",
+        "func f(a: Int) -> String {\n"
+        '  let s = "\\( [a].count ) }"\n'
+        '  let r = #"raw "}" here"#\n'
+        '  let m = """\n'
+        "    {\n"
+        '    """\n'
+        "  /* a /* nested { */ } */\n"
+        "  return s\n"
+        "}\n",
+    ),
+    "go": (
+        "f.go",
+        "func f(a int) string {\n"
+        "\tr := '}'\n"
+        "\ts := `{\n"
+        "\t`\n"
+        '\tt := "}"\n'
+        "\treturn s\n"
+        "}\n",
+    ),
+    "rust": (
+        "f.rs",
+        "fn f(a: &'static str) -> &'static str {\n"
+        "    let c = '}';\n"
+        '    let r = r#"{"}"#;\n'
+        '    let s = "multi\n'
+        '    { line";\n'
+        "    /* outer /* inner { */ } */\n"
+        "    a\n"
+        "}\n",
+    ),
+}
+
+
+@pytest.mark.parametrize("family", sorted(FORMS))
+def test_each_familys_string_and_comment_forms_are_blanked(family):
+    rel, text = FORMS[family]
+    name = "F" if rel.endswith(".cs") else "f"
+    assert ec.brace_family(rel) == family
+    last = len(text.splitlines())
+    unit = ec.resolve_unit(rel, name, text)
+    assert unit == ([(1, last - 1)], False), (family, unit, unit.refused)
+
+
+def test_every_suffix_on_the_list_names_a_family_with_a_case():
+    """A language joins the list only with its forms written down and a case
+    for each (Q1)."""
+    assert set(ec.BRACE_FAMILY.values()) == set(FORMS)
+    assert frozenset(ec.BRACE_FAMILY) == ec.BRACE_SUFFIXES
+
+
+# --- S4: what the walk cannot bound is refused -----------------------------
+
+REMEDY = "; anchor a quoted line instead"
+
+
+@pytest.mark.parametrize(
+    "rel, text, why",
+    [
+        (
+            "f.ts",
+            "export function f() {\n  if (x) {\n    return 1;\n}\n",
+            "declared on line 1: the `{` of line 1 is never closed",
+        ),
+        (
+            "f.ts",
+            "function f() {\n  return 1;\n}}\n",
+            "declared on line 1: line 3 closes a `}` nobody opened",
+        ),
+        (
+            "f.ts",
+            "function f() {\n  return (1];\n}\n",
+            "declared on line 1: line 2 closes the `(` of line 2 with `]`",
+        ),
+        (
+            "f.ts",
+            "function f() {\n  /* never\n  return 1;\n}\n",
+            "declared on line 1: a string or comment opened at line 2 never ends",
+        ),
+        (
+            "f.ts",
+            'function f() {\n  const s = "abc;\n  return 1;\n}\n',
+            "declared on line 1: line 2 opens a string or char literal it never closes",
+        ),
+        (
+            "f.cpp",
+            'int f() {\n  auto r = R"a b(x)a b";\n  return 1;\n}\n',
+            "declared on line 1: line 2 holds a raw string the walk cannot read",
+        ),
+    ],
+)
+def test_a_unit_the_walk_cannot_bound_is_refused_with_why(rel, text, why):
+    """S4, and the unterminated forms. Each line a person reads is pinned
+    whole: the unit, the reason, the remedy."""
+    unit = ec.resolve_unit(rel, "f", text)
+    assert unit.places == [], unit
+    assert unit.refused == f"the bracket walk cannot bound `f` ({why}){REMEDY}"
+
+
+def test_an_unbalanced_unit_reads_broken_and_reverify_writes_nothing(repo):
+    """S4, both readings: the check prints the refusal and exits 2, and
+    `--reverify` prints it too and leaves the row as it was."""
+    text = "export function f() {\n  if (x) {\n    return 1;\n}\n"
+    (repo / "src" / "f.ts").write_text(text, encoding="utf-8")
+    ledger = cite(repo, "src/f.ts#f@00000000")
+    line = "the bracket walk cannot bound `f` (declared on line 1: the `{` of "
+    r = run(["."], str(repo))
+    assert r.returncode == 2 and "BROKEN" in r.stdout and line in r.stdout, r.stdout
+    rr = run(["--reverify", "--checked", "2026-10-08", "."], str(repo))
+    assert line in rr.stdout + rr.stderr, rr.stdout + rr.stderr
+    assert (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8") == ledger
+
+
+def test_a_walk_refusal_reaches_past_a_unit_it_does_not_cross():
+    """An unterminated string refuses the unit that crosses it, and only
+    that unit: the line after it is lexed as code again."""
+    text = 'function g() {\n  return 1;\n}\n\nconst s = "open;\n'
+    assert ec.resolve_unit("f.js", "g", text) == ([(1, 2)], False)
+
+
+def test_the_lexed_stream_is_computed_once_per_text():
+    """A file many rows cite is lexed once, as `parsed_spans` parses once."""
+    text = MULTI_LINE + "\nexport const OTHER = 1;\n"
+    ec.brace_lexed.cache_clear()
+    ec.resolve_unit("f.ts", "multiLine", text)
+    ec.resolve_unit("f.ts", "OTHER", text)
+    info = ec.brace_lexed.cache_info()
+    assert info.misses == 1 and info.hits >= 1, info
+
+
+# --- S9: one opener ----------------------------------------------------------
+
+
+def test_the_declaration_opener_is_spelled_once():
+    """S9. `file_units` listed names with its own copy of the opener
+    (inventory E18), so a change to one could list a name the other could
+    then not find."""
+    source = open(SCRIPT, encoding="utf-8").read()
+    assert source.count(r"[\w\s*&]*?") == 1, "the opener is spelled twice"
+    tree = ast.parse(source)
+    for fn in ("generic_units", "file_units"):
+        (node,) = [
+            n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == fn
+        ]
+        assert "declaration_opener(" in ast.unparse(node), fn
+    units = {n: p for n, p, _u in ec.file_units("f.ts", MULTI_LINE)}
+    assert units["multiLine"] == (1, 4), units
