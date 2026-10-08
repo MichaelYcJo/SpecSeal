@@ -566,8 +566,21 @@ def markdown_lines(text):
     blanked (`unquoted`) — the lines a renderer shows a heading on (#867).
     The count and the line numbers are `gfm_lines(text)`'s, so a region found
     here is the same region there, and its hash is taken over the lines as
-    written: where a region ENDS moves, its bytes do not."""
-    return gfm_lines(unquoted(text))
+    written: where a region ENDS moves, its bytes do not.
+
+    **Computed once per distinct text** (round 1 of #867, ⬜ 11): every
+    quoted `.md` anchor asks for its file's shown lines, and recomputing
+    them per anchor took a `--strict` run over this repository from 13.2 s
+    to 15.4 s. The memo is keyed on the TEXT, as `parsed_spans`' is, and
+    each caller gets a fresh list."""
+    return list(_shown_lines(text))
+
+
+@functools.cache
+def _shown_lines(text):
+    """`markdown_lines`' answer, stored once per distinct text, as a tuple
+    no caller can change."""
+    return tuple(gfm_lines(unquoted(text)))
 
 
 def text_regions(lines, anchor, markdown=False, shown=None):
@@ -3914,13 +3927,18 @@ def vendored_config_rows(text):
     row is the table's furniture and below it ends the table, and so does any
     other line once a row was found.
 
-    **It does not know fences or comments**, which the plugin's reader does;
-    a vendored copy reads a CI checkout's config, where the table is the
-    file's own. That is the one way the two differ, and the equality case's
-    table holds no fence and no comment for that reason. Every other shape
-    it reads as the reader does: until #867 a stray separator or a second
-    header was stepped past here, so the rows of a second table were read as
-    this one's, and an empty item was a row."""
+    **It differs from the plugin's reader in two ways, both stated.** It
+    does not know fences or comments, which the plugin's reader does; a
+    vendored copy reads a CI checkout's config, where the table is the
+    file's own. And it ends a line where GFM does (`gfm_lines`), where the
+    plugin's reader walks `str.splitlines` pieces, so a row holding a form
+    feed, U+2028 or another character only Python ends a line at is one row
+    here and two pieces there, neither of them a row (round 1 of #867, ⬜ 7,
+    measured over eight shapes). The equality case's table holds neither
+    shape, for those reasons. Every other shape it reads as
+    the reader does: until #867 a stray separator or a second header was
+    stepped past here, so the rows of a second table were read as this
+    one's, and an empty item was a row."""
     found, seen = [], False
     for line in gfm_lines(text):
         if not seen:

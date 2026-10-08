@@ -162,8 +162,9 @@ def table_rows(text):
     **A row a renderer does not show is not a row** (#658, #667). `parse`
     kept the LAST row of a label then, so an example quoted in a fenced block
     below the table answered for it, and so did an answer somebody parked in
-    an HTML comment; since #867 a label it is shown twice has no value. `shown` below is what this walks, and it hides exactly
-    the lines `hooks/blocks.py` is sure a renderer hides: inside a fenced
+    an HTML comment; since #867 a label shown twice has no value at all.
+    `shown` below is what this walks, and it hides exactly the lines
+    `hooks/blocks.py` is sure a renderer hides: inside a fenced
     block or a comment block that begins its line, where either closes.
     Every other line is read as it always was, so a fence or a `<!--` nobody
     closed hides nothing, and a declaration that read before still reads.
