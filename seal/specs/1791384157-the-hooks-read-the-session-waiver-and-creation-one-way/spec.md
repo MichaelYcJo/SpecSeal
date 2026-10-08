@@ -21,7 +21,9 @@ Issues #868 and #856, for release 0.21.0. Coordinates are at 5623d728
 | `docs/commit-review-gate-spec.md`, the consent-read paragraph under §*commit-review-gate (PreToolUse, Bash)* (*This is a JUDGMENT read. The scan for a waiver token is a CONSENT read*) | A token counts only where the command as written carries it, so a consent read can refuse a waiver and never grant one. In 3 removes the one read that grants where the command does not split |
 | `docs/the-review-and-parity-arms.md` §*Parity arm* | *The change* is every path the commit would carry. A diff git could not take carries no paths and is not a change confined to `docs/` and `seal/`; In 4 makes the arm ask there |
 | `skills/agent-contract/SKILL.md` §13 | A defence resting on a platform guarantee is verified with it removed. `CLAUDE_PID` (In 2) is one, so the `ps` walk stays as the route under it |
-| `skills/agent-contract/SKILL.md` §15 | Every case In 1–5 adds is seen red at 5623d728 before it is planted |
+| `skills/agent-contract/SKILL.md` §15 | Every case In 1–5 adds is seen red at 5623d728 before it is planted; every case the reframe adds is seen red at a8f86f44, the commit that closed round 3 |
+| `skills/code-review/SKILL.md` §*Verdicts that close too early* | An enumeration over an unbounded domain is a recorded limit, not a closed finding; it closes only when the uncertainty moves out of the classifier. Rounds 1–3 of this run enumerated what bash makes of a brace in the command word, and each round found the next shape. The reframe (In 5) moves the uncertainty out: the guard reads no brace for what it spells or where it stands |
+| `skills/code-review/orchestration.md` §*A fix of a fix twice sends the work item back to its framer* | Why this file carries a `Reframed` line and `plan.md` new phase rows with every closed phase keeping its commit |
 
 ## Scope
 
@@ -158,6 +160,71 @@ to name.
    (`questions.md` M2), recorded in `phases/phase-1.md` and in §A's
    failure-direction paragraph.
 
+   **Reframed after round 3: the rule reads every segment, and nothing
+   about where a brace stands.** Phase 3 built the paragraph above for a
+   segment the frozen reading reads as git. Round 1 found `{git,} rebase …`,
+   a segment that reading reads as no git; the fix read the command word's
+   comma alternatives (`_brace_spells_git`). Round 2 found nested, range and
+   `${…}` braces; the fix read every brace up to `cmdline.command_word`
+   (`_brace_command_at`). Round 3 found braces behind a runner's operand,
+   behind a redirection, glued to `(`, alternatives that are empty or a
+   runner (`{,} git switch x`, `{env,} git switch x`), and the `&` cut
+   (`2>&1 {git,} switch x`) — eight spellings silent in an ACTIVE tree, each
+   run by bash as `git switch feature/x` (round 3, 🟡 1–3, executed). Each
+   fix enumerated the shapes bash builds from a brace, and each round found
+   the next: the class `skills/code-review/SKILL.md` §*Verdicts that close
+   too early* names, and the one #692 stopped (`plan.md` Alternatives).
+
+   The rule that converges reads no position. **A word holding an unquoted
+   brace expansion (`_BRACE`: `{…,…}` with no whitespace inside, or a
+   sequence `{x..y}`, never after `$`), in any segment of the frozen walk,
+   makes that segment an unrecognised shape of kind `brace`, whatever the
+   segment's command word is and whatever bash would make of the brace.**
+   `cat {.gitignore,README.md}`, `{echo,printf} x`, `A={a,b} ls` and `for f
+   in x/{a,b}.md; do …; done` stop where the tree matters, exactly as `git
+   rebase {main,feature/x}` does, and are silent in a clean single-stream
+   tree. The quoting is still the command's, read off the judgment text
+   with its quoted spans removed, so `echo '{a,b}'` and `git commit -m
+   '{a,b}'` stay silent in every tree. A segment the frozen reading reads
+   as git keeps the order phase 3 built — a switch and a creation keep their
+   own rules, and the brace arm comes before every other kind — and a
+   segment it reads as no git is the brace shape on the same test and
+   nothing else: `_brace_command_at`, `_brace_spells_git` and `_ONE_BRACE`
+   leave the tree, and the guard no longer asks `cmdline.command_word`
+   about a brace. The plain spelling is the words written out as the shell
+   would make them, or the braces quoted where they are meant literally,
+   which is the text `_described` already carries.
+
+   **The tree a brace segment is judged in.** A segment the frozen reading
+   reads as git is placed as every git segment is, through
+   `worktree_consent.place`, its own `-C` composed. A segment it reads as no
+   git is judged in the tree `place` puts it in AND in every tree a `-C
+   <dir>` word pair anywhere in its words names, composed from the placed
+   directory: `{git,} -C W switch x` and `{env,} git -C W switch x` are
+   judged in `S` and in `W`, so with `S` clean and `W` ACTIVE the stop is a
+   `deny` naming `W`, and with `S` dirty and `W` clean an `ask` naming `S`.
+   More trees is the stopping direction (§*Unknowns resolve conservatively*),
+   and the `-C` pair is read as two plain words, not as what the brace
+   spells. A `-C` a brace hides (`{git,} {-C,} W switch x`, `-C {W,}`) is not
+   read, and the segment is judged where `place` puts it: the same named
+   limit §*Known limits* already gives a string handed to a shell, and the
+   reframe adds the brace to that bullet.
+
+   **Three named costs**, in place of the two above. A command holding a
+   quoted brace in one segment and an unquoted one in another stops on both
+   (as before, now for every segment). A brace in an assignment word before
+   a command (`A={a,b} ls`), which bash does not expand, stops too: the rule
+   reads no position, and the stopping direction on a shape phase 1 and
+   round 3 found in no recorded pair is cheaper than the position read that
+   did not converge (round 3, ⬜ 5). And a brace in an argument of a command
+   that is not git (`cat {a,b}`, the 33 recorded pairs of
+   `phases/phase-1.md` M2) stops where the tree matters: under the press it
+   is a `deny` the model rewrites as `cat a b`; otherwise one `ask`. The
+   count under this rule is `questions.md` M4, measured by phase 7 before
+   phase 9 builds, by phase 1's method with the self-check first, and it
+   replaces the 34,633 figure of §A, the changelog and ledger row S11b,
+   which carried no method (round 3, ⬜ 6).
+
 6. **What leaves the tree.** `worktree_consent.py#creation_directory`'s
    placement loop; the body of the guard's `judgeable` and its tokenizing
    adapter's doubling line (one home each); `session-lease.py#owner_pid`'s
@@ -168,6 +235,13 @@ to name.
    `tokens.steps_around_hooks`; two of the three `(…)` strips. Cases whose
    subject goes are retired or rewritten against the one reader, and the
    build names each in `phases/phase-N.md`.
+
+   Since the reframe: `hooks/worktree-guard.py#_brace_command_at`,
+   `#_brace_spells_git`, `#_ONE_BRACE`, and the brace branch of
+   `#_finding_tree` that parsed the words after a brace word as git (round
+   2's `-C` read). `tests/test_worktree_guard.py#test_a_brace_in_no_git_word_stays_silent`
+   is rewritten to the opposite claim (S18); the other brace cases keep
+   their names and gain parameters (`questions.md` W4).
 
 ### Out
 
@@ -191,6 +265,20 @@ to name.
 - **`hooks/cmdline_base.py`.** Unchanged; nothing here needs it reopened.
 - **#856's answer (a)**, expanding braces in the guard. Rejected in
   `plan.md` Alternatives.
+- **Reading where a brace stands** — whether it makes the command word,
+  what its alternatives spell, whether a runner, a redirection, a `(` or an
+  `&` cut stands before it, whether it is an assignment word. Rounds 1–3
+  built that reading three times and each round found the next shape; the
+  reframe reads none of it. A finding that asks for one more shape of it is
+  answered from In 5, not fixed.
+- **An exemption for assignment words** (`A={a,b} ls`). Sound for a word
+  bash would never make git of, but in a git segment `git rebase
+  A={main,x}` is one word to the frozen reading and two to git, so the
+  exemption needs a carve-out per segment kind, which is a position read
+  again. Rejected in `plan.md` Alternatives; the cost is named in In 5.
+- **A brace the frozen walk reads as a directory** (`cd {a,b} && …`, `git
+  -C {a,b} …`). Placed nowhere and judged in the session's own tree, as In
+  5 already said; the `cd` segment is now also the brace shape. Unchanged.
 - **Windows.** In 1's adapter and In 2's `ps`-less route are read, not run;
   `questions.md` names the answerer.
 
@@ -214,6 +302,14 @@ to name.
 | S14 | `_rebase_names_a_branch`'s docstring says the words are read once their redirections are off | the docstring; a `Corrected ·` row for R1 in the fragment |
 | S15 | `docs/worktree-guard-spec.md` §A names the brace shape, its plain spelling and its two costs, §*Known limits* adds the brace creation to the hidden-spelling bullet, §*Creation consent* says the record's clone is the one the guard judged; `docs/the-commit-gate-inside-git.md` names `CLAUDE_PID`, the one predicate and the one variable; `docs/commit-review-gate-spec.md`'s consent-read paragraph says a command that does not split carries no token; `docs/the-review-and-parity-arms.md` §*Parity arm* says a diff git could not take is asked about | the policy pin cases, each sentence with its `Enforced by:` line |
 | S16 | The stop cost of In 5 and the waiver cost of In 3 are counted over the recorded corpus by the method of 1791270162's phase 1 | `phases/phase-1.md`; the probe deleted |
+| S17 | Every spelling rounds 1–3 found stops in an ACTIVE tree as a `deny` naming the brace, and is silent in a clean single-stream tree: round 1's `{git,} rebase main feature/x`, `{,git} switch feature/x`; round 2's `{{git,},} switch feature/x`, `{,{git,}} switch feature/x`, `{g..g}it switch feature/x`, `${HOME}/bin/{git,} switch feature/x`; round 3's `timeout 5 {git,} switch feature/x`, `nice -n 5 {git,} switch feature/x`, `sudo -u x {git,} switch feature/x`, `env -u FOO {git,} switch feature/x`, `command -p {git,} switch feature/x`, `2>/dev/null {git,} switch feature/x`, `>/dev/null {git,} switch feature/x`, `({git,} switch feature/x)`, `{,} git switch feature/x`, `{env,} git switch feature/x`, `{nice,} git switch feature/x`, `{exec,} git switch feature/x`, `2>&1 {git,} switch feature/x` | `test_a_brace_that_makes_the_command_word_is_unrecognised` with round 3's thirteen added; the thirteen red at a8f86f44 (silent there, round 3 executed) |
+| S18 | A brace in any word of any segment stops where the tree matters and is silent in a clean single-stream tree: `cat {.gitignore,README.md}`, `echo {a,b}`, `ls {x,y}.md && git status`, `{echo,printf} x`, `echo {{a,b},c}`, `echo {git,} x`, `A={a,b} ls`, `A={{a,b},c} ls`, `for f in x/{a,b}.md; do echo $f; done` — `ask` in a dirty tree, `deny` under the press and in an ACTIVE tree, naming the brace and the segment's words | `test_a_brace_in_no_git_word_stays_silent` rewritten as `test_a_brace_in_any_word_is_the_brace_shape`, its parameters kept; red at a8f86f44 by construction (each silent there) |
+| S19 | A quoted brace stays what it was in every segment: `echo '{a,b}'`, `printf "{a, b}"`, `cat 'x/{a,b}.md'` are silent in every tree, and S12's forms are unchanged; the named cost holds: `echo '{a,b}' ; ls {c,d}` stops on both segments and the reason names both | `test_a_quoted_brace_in_a_git_word_stays_listed` extended; one case pinning the cost |
+| S20 | A brace segment the frozen reading reads as no git is judged in the tree it is placed in and in every tree a `-C <dir>` pair in its words names: `{git,} -C W switch x`, `{env,} git -C W switch x`, `timeout 5 {git,} -C W switch x`, `2>&1 {git,} -C W switch x` deny with `S` clean and `W` ACTIVE, naming `W`, and ask with `S` dirty and `W` clean, naming `S`; `{git,} {-C,} W switch x` with `S` clean and `W` dirty is silent, the named limit | `test_a_brace_command_word_is_judged_in_the_tree_its_c_names` extended with the `S`-dirty direction, the three new forms and the limit; the `S`-dirty direction and the runner forms red at a8f86f44 |
+| S21 | `_brace_command_at`, `_brace_spells_git` and `_ONE_BRACE` are absent from `hooks/worktree-guard.py`, and `_finding_tree` parses no words after a brace word as git | `phases/phase-9.md`'s removal table; `uvx ruff check hooks/` for what they imported |
+| S22 | The over-stop of the reframed rule is counted over the recorded corpus by phase 1's method — the pairs the rule stops tree-blind, split by whether the stopping segment's command word is `git`, with the assignment-word pairs and the quoted-beside-unquoted pairs counted apart — after a self-check that stops S17's thirteen round-3 spellings and none of S19's quoted forms; the figure, the corpus table and the method are in `phases/phase-7.md`, and §A, the changelog and ledger row S11b carry it with a pointer to the method | `phases/phase-7.md`; the probe deleted; the policy pin for §A's figure |
+| S23 | `test_a_pid_beside_no_session_id_on_either_side_is_not_recorded` builds both absences: the environment variable removed or empty, the payload key absent or empty, four parameters; `test_a_pid_exported_for_another_session_is_not_recorded`'s `outer=None` removes the variable; `run_main_in_process` leaves `session_id` out of the payload for `None` | the four parameters green at a8f86f44; `[None-None]` and `[-]` red with `hooks/session-lease.py` at e0c5a191, shown in `phases/phase-8.md` as round 3's ⬜ 4 executed it |
+| S24 | `docs/worktree-guard-spec.md` §A says a brace in any word of any segment is the brace shape, names the three costs, the union of trees and the figure with its method, and §*Known limits* adds a `-C` a brace hides to the string-handed-to-a-shell bullet; the changelog fragment's brace bullet says the same and names no command-word rule | the policy pin cases, each sentence with its `Enforced by:` line |
 
 ## Data & interfaces
 
@@ -233,6 +329,11 @@ to name.
 - `hooks/worktree-guard.py`: `has_token`, `judgeable`,
   `_tokenize_with_separators` and `sessions_in_tree` import; `_git_finding`
   and `_described` gain `brace`; `_rebase_names_a_branch`'s docstring.
+  Since the reframe: `_segment_finding` reads every segment for a brace
+  word on the one test `_git_finding` uses; `_finding_tree` answers the
+  placed tree and every `-C <dir>` tree for a non-git brace segment (how a
+  finding carries more than one tree is `questions.md` W3);
+  `_brace_command_at`, `_brace_spells_git` and `_ONE_BRACE` are gone.
 - `hooks/commit-review-gate.py`: `git` → `gate.git`; `has_marker` →
   `tokens.given`; `changed_paths` answers `None` on a failed diff.
 - Policy: the four documents S15 names, with `Enforced by:` lines.
@@ -248,4 +349,12 @@ to name.
 No row is a person's: #856's choice is decided from §A (In 5), and the
 grounds are there and in `plan.md`'s Alternatives for a reader to overturn.
 
+Since the reframe it holds one person's row, P1: the owner confirmed (c) on
+2026-10-08 as *an unquoted brace expansion in a git word*, and In 5 now
+reads every word of every segment, which stops `cat {a,b}` where the tree
+matters. The default is the wide rule and the build ships on it; the row is
+there because the sentence the owner confirmed is narrower than the one
+built. Two measurements (M4, M5) and two of the work's (W3, W4) join it.
+
 Framed 2026-10-07 by framer, before the build.
+Reframed 2026-10-08 by framer, after round 3.

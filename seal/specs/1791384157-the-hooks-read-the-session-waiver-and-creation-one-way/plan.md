@@ -26,6 +26,16 @@ shape, and is neither predicted nor named a limit.
 `spec.md` In 1–6 is the contract; this file is the order the work arrives in
 and why each design was chosen over its alternative.
 
+**Reframed after round 3.** Phases 1–6 closed and the review chain ran
+three rounds. Everything but the brace held; the brace's command-word
+reading was fixed twice and each round found the next shape (`rounds/round-1..3.md`),
+and `skills/code-review/orchestration.md` §*A fix of a fix twice sends the
+work item back to its framer* stopped the fix passes. Phases 7–10 below are
+the redesign: the brace rule reads every segment and no position, the
+command-word reading leaves the tree, the lease case is made able to fail,
+and the over-stop is measured by phase 1's method before the rule is built.
+Phases 1–6 keep their commits.
+
 ## Technical context
 
 Coordinates at 5623d728 (`seal/specs/1791382684-…/inventory/1-hooks-shell.md`
@@ -91,6 +101,47 @@ in every `*.jsonl` under `~/.claude/projects/*SpecSeal*/`, distinct
 (command, cwd) pairs, each walked by the frozen reading, tree-blind, with a
 self-check on the spec's own shapes before any zero is trusted.
 
+**Brace, as the tree stands at a8f86f44 (the reframe's coordinates, read
+by the framer on 2026-10-08).** `hooks/worktree-guard.py:2007-2029`
+(`_BRACE`, `_unquoted_brace`: the pattern and the command-level quoting
+read, both kept); `:2178-2196` (`_git_finding`, the brace arm after the
+creation and switch checks, kept); `:2270-2284` (`_segment_finding`, which
+asks `_brace_command_at` for a non-git segment — the line the reframe
+replaces with `_git_finding`'s own test, `any(_BRACE.search(t) for t in
+tokens)`); `:2287-2327` (`_ONE_BRACE`, `_brace_spells_git`,
+`_brace_command_at` — the units that leave); `:2346-2400`
+(`_merged_findings`, which reads a cut group's frozen-git parts through
+`_git_finding` and so already reads their braces; a part with no frozen git
+is read as its own segment by `main`'s loop, so `2>&1 {git,} switch x`'s
+second part `1 {git,} switch x` is the brace shape there without a change
+here); `:2480-2510` (`_finding_tree`, whose brace branch parses the words
+after the brace word as git — leaves — and whose `worktree_consent.place`
+call is the placement the union builds on); `:2635-2650` (`_described`'s
+`brace` text, both languages, whose plain spelling already covers a non-git
+segment); `:3004-3040` (`main`, `braced` read once off the judgment text).
+`tests/test_worktree_guard.py:1891-2075` (the brace cases; `BRACE_SHAPES`,
+`BRACE_EN`, `BRACE_KO` above them), `:2174-2180` (`BRACED`, the git-binding
+forms). `tests/test_lease_liveness.py:401-414` (the case round 3's ⬜ 4
+names), `:417-432` (the round-1 case with the same `outer=None`
+inheritance), `:449-470` (`run_main_in_process`, which always sends
+`session_id`). `docs/worktree-guard-spec.md:55-90` (§A's brace paragraph,
+with the 34,633 figure at :86), `:895-899` (the string-handed-to-a-shell
+bullet of §*Known limits*). Round 3's paste-ready text
+(`rounds/round-3-report.md` §*Paste-ready fixes*) is the enumeration the
+reframe declines; its regression lists are S17's spellings and its lease
+case is S23's, taken as written.
+
+**The failure scenario of the reframed brace rule.** The rule stops a
+command with a brace in any word where the tree matters. In six months the
+owner's own release runs, which list `seal/specs/<id>/{spec,plan,questions}.md`
+for `sed` and `ls` in a dirty tree, meet a `deny` each time under the press
+and rewrite; if that cost reads as too high, the way back is not a position
+read — it is P1 of `questions.md`, reopened with the measured count beside
+it. What cannot happen is the round-3 class: there is no shape of brace the
+rule misses, because it reads none, and the only silence left is a brace
+the quoting read calls quoted, which is `tokens.QUOTED_SPANS`'s and shared
+with `is_plain`.
+
 **The failure scenario of the chosen approach.** In six months a fifth hook
 needs the session or a creation's directory and writes its own walk beside
 the one reader, because nothing in the tree stops a new copy. What catches
@@ -113,6 +164,8 @@ under git.
 | `tokens.given` (now the only token reader) | bare words of the command and of `without_bodies` | guess | refused (no split, no token) |
 | `gate.git` (now the only runner) | git's exit code and stdout | observed | refused (`None`, and the parity arm asks) |
 | `_git_finding`'s `brace` arm | the frozen words and the judgment text's unquoted spans | guess | refused (a stop where the tree matters) |
+| `_segment_finding`'s brace test, every segment (the reframe) | the frozen words of every segment, the same test as the arm above, no command word read | guess | refused (a stop where the tree matters, whatever the word stands for) |
+| `_finding_tree` for a non-git brace segment (the reframe) | `place`'s directory and every `-C <dir>` word pair of the segment | guess | the union is judged; a `-C` a brace hides falls to `place`'s directory, a named limit |
 
 ## Alternatives considered
 
@@ -131,6 +184,14 @@ under git.
 | In 3: three readers through one `tokens.given` | one splitter, one body rule, one parenthesis rule; the only behaviour change is on a command that does not split, where the refusal already names the way on | **chosen** |
 | In 4: `gate.git` raises on failure | in a git hook, a traceback and a refused commit with no reason text; in a PreToolUse gate, a pending failure record and the call goes ahead (`dispatch.py:161-170`), which is silence | rejected |
 | In 4: `gate.git` answers `None` on failure, `""` on an empty answer, and the parity path reader turns `None` into *asks* | each caller says at its own line which exit is an ordinary *no*; the parity arm asks where it was silent; nothing else changes | **chosen** |
+| Reframe, In 5: keep the command-word reading and apply round 3's paste-ready fixes (`_brace_hands_on`, the runner and redirection boundary, the `(` strip, the `&`-cut read) | the third fix of the same class in one run; the records show each boundary chosen leaves the next spelling open (`sudo -u x {git,}` and `command -p {git,}` were read, not run, in round 3 itself), and the memory of #692 names a reviewer's ordering patch as the stopped class. `skills/code-review/orchestration.md` refuses the pass | rejected |
+| Reframe, In 5: a brace in any word of any segment is the brace shape, no position read, no alternative read | over-stops on `cat {a,b}` where the tree matters (33 recorded pairs tree-blind, `phases/phase-1.md`; M4 re-counts) and on `A={a,b} ls` (none recorded). Every stop is a `deny` with a plain spelling under the press, an `ask` otherwise; `CLAUDE.md`'s goal prices a stop that asks nobody as cheap, and §*Unknowns resolve conservatively* prices a wrong deny at one prompt. The uncertainty is out of the classifier (`code-review` §*Verdicts that close too early*) | **chosen** |
+| Reframe, In 5: the wide rule with an exemption for assignment words (`^NAME=…`), which bash does not expand | sound for a word bash can never make `git` of, but in a git segment `git rebase A={main,x}` is one word to the frozen reading and two to git, so the exemption needs a per-kind carve-out, and the carve-out is a position read: the class the reframe leaves. Zero recorded pairs hold an assignment-word brace, so the exemption buys nothing measured | rejected |
+| Reframe, In 5: a brace segment stops wherever it is, clean tree included | over-stops every `ls x/{a,b}` in every tree, which is the 33 pairs on every run rather than where the tree matters; §A's stop for an unrecognised shape is taken only where one of the first four rows would speak, and the brace is an unrecognised shape like the others | rejected |
+| Reframe, the tree: a non-git brace segment is judged only where `place` puts it, its `-C` unread, as a string handed to a shell is | honest and converging, but round 2's 🟡 2 showed the gap it leaves (`{git,} -C W switch x` silent with `S` clean and `W` ACTIVE), and the `-C <dir>` pair is readable as two plain words with no brace read | rejected |
+| Reframe, the tree: judged in `place`'s tree AND every `-C <dir>` pair's tree (the union) | reads `-C` as a plain word pair, so `{-C,} W` and `-C {W,}` are not read: a named limit beside the `sh -c` one. More trees is the stopping direction, and §A already reads every tree on the line before the stop | **chosen** |
+| Reframe, the measurement: trust round 3's 34,775-pair count and build | the figure was the reviewer's, by phase 1's method, but under the command-word rule; the reframed rule stops more, and §A's own figure at :86 carries no method. A zero with no method is the thing phase 1 refused to trust | rejected |
+| Reframe, the measurement: phase 7 measures the reframed rule before phase 9 builds it, by phase 1's method, self-check first | costs one phase; buys the figure §A, the changelog and S11b carry, with its method written where the next reviewer reads it | **chosen** |
 
 ## Phases
 
@@ -146,6 +207,10 @@ says how. No phase runs the broad gate; the sealer does (§2).
 | 4 | **One session reader (In 2).** `hooksession.is_claude`, `claude_pid`, `SESSION_VARIABLE`; `session-lease.py#owner_pid` and `sessions_in_tree` through them; `_P2` formatted from the one name; `steps_around_hooks` reading it; S4–S6 red first, the `CLAUDECODE` fixtures of `test_the_commit_gate_decides_at_the_commit.py` rewritten to the one name with one flipped to plain; `docs/the-commit-gate-inside-git.md` §*A commit with no Claude session* and the stand-aside paragraph's word list, pinned — NAME NOT IN TREE | `uv run --frozen pytest -q -p no:cacheprovider tests/test_lease_liveness.py tests/test_the_commit_gate_decides_at_the_commit.py tests/test_the_hooks_are_installed_where_git_runs_them.py tests/test_worktree_guard.py`; `test_s9_*` green; the stub text asserted free of `CLAUDECODE` | 8f056802 |
 | 5 | **One waiver reader and one runner (In 3, In 4).** `tokens.without_bodies` with the frozen fallback; `has_marker` and `has_token` through `tokens.given`, `_reads_marker`, the guard's `carries` and `_without_bodies` gone; `gate.git` answering `None`, `crg.git` gone, each caller's ordinary-*no* line explicit, the three path readers handing `None` through and `touches_code(None)` True; S7–S10 red first, S8's property case over the three corpora; the consent-read paragraph of `docs/commit-review-gate-spec.md`, §*The arms* of `docs/the-commit-gate-inside-git.md` and §*Parity arm* of `docs/the-review-and-parity-arms.md`, pinned | `uv run --frozen pytest -q -p no:cacheprovider tests/test_the_old_spellings_reach_the_hook.py tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py tests/test_gate_judges_the_repo_it_commits_to.py tests/test_chain_hooks_hardening.py tests/test_the_commit_gate_decides_at_the_commit.py tests/test_guard_resolves_the_tree_it_judges.py tests/test_a_gate_that_fails_says_so.py`; `uvx ruff check hooks/` for the dead imports | 077c0bc6 |
 | 6 | **The fragments and the closures.** `seal/ledger/1791384157-….md` with a row per scenario and the `Re-read ·`/`Corrected ·` rows for G3, G6 (0.17.0), W1 (0.18.2), T1 (0.18.3), F3 and R1 (0.20.0), written in one pass; `changelog.md` naming #868 and #856 and carrying phase 1's two figures; `overview.md` with the divergences, the `Not verified` table (Windows, read not run — the repository owner) and what was fed back; `plan.md`'s Status column closed | `bin/evidence-check . --strict`, `bin/correction-check` where the fragment carries corrections, and the five text-hygiene modules the framer ran, exit codes read directly | efb73268 |
+| 7 | **Measure the reframed rule before building it (round 3's ⬜ 6, ⬜ 5's count; S22).** A deleted `test_tmp_*` probe by phase 1's method over the recorded corpus, tree-blind, with the hooks at a8f86f44 on the path: M4, the pairs a brace in any word of any segment stops, split by whether the stopping segment's command word is `git`, with the assignment-word pairs and the quoted-beside-unquoted pairs counted apart, and the self-check on S17's thirteen round-3 spellings (each must stop) and S19's quoted forms (none may) before any figure is trusted. M5 run in a scratch directory: `bash -c 'A={a,b}; printf %s "$A"'` and the same under zsh, read off the output. `phases/phase-7.md` with the corpus table, the method, the self-check line and the figures, user paths rewritten to `/Users/x/`; the probe, its result files and every scratch directory gone (§7). Nothing in the tree but the record | the record's tables; the self-check line; `ls` of the scratchpad showing no `test_tmp_*` of this phase | |
+| 8 | **The lease case that can fail (round 3's ⬜ 4; S23).** `test_a_pid_beside_no_session_id_on_either_side_is_not_recorded` over `environment ∈ {None, ""}` × `payload ∈ {None, ""}`, `None` removing the variable and leaving the key out; `run_main_in_process` leaving `session_id` out for `None`; `test_a_pid_exported_for_another_session_is_not_recorded`'s `outer=None` removing the variable. Seen red by checking out `hooks/session-lease.py` at e0c5a191 into a scratch clone and running the module there (§8: from Python, never the session's checkout): `[None-None]` and `[-]` red, as round 3 executed | `uv run --frozen pytest -q -p no:cacheprovider tests/test_lease_liveness.py`, exit code read directly (§1); the red run in `phases/phase-8.md` | |
+| 9 | **A brace in any word of any segment is the brace shape (round 3's 🟡 1–3, ⬜ 5; S17–S21, S24).** `_segment_finding` reads a non-git segment on `_git_finding`'s own test; `_brace_command_at`, `_brace_spells_git`, `_ONE_BRACE` and `_finding_tree`'s brace branch leave; `_finding_tree` answers `place`'s tree and every `-C <dir>` pair's tree for a non-git brace segment (W3); S17's thirteen, S18's rewritten case, S19's cost case and S20's directions each red at a8f86f44 first; `_described`'s text re-read against a non-git segment in both languages; §A's brace paragraph rewritten in the reframed sentence with the three costs, the union and phase 7's figure pointing at its method; §*Known limits*' `sh -c` bullet gains the brace-hidden `-C`; the `Enforced by:` lines renamed where S18's case is; ledger row S11b rewritten in place (the fragment is unreleased) and S11, S15b re-hashed; the changelog's brace bullet rewritten with no command-word rule in it | `uv run --frozen pytest -q -p no:cacheprovider tests/test_worktree_guard.py tests/test_guard_resolves_the_tree_it_judges.py tests/test_the_guard_asks_once_per_session.py` and the policy-pin module for the guard spec, exit codes read directly; `uvx ruff check hooks/`; `bin/mutation-check` on the one test and the union; the git-binding case under bash | |
+| 10 | **The fragments and the closures, again.** Ledger rows for S17–S24 in the fragment; `overview.md`'s divergence rows for what phases 7–9 found, its `Not verified` table (M5's zsh half where phase 7 could not run it; Windows as before) and what was fed back; `changelog.md` carrying phase 7's figure; `plan.md`'s Status column for 7–10 | `bin/evidence-check . --strict`, `bin/correction-check`, and the five text-hygiene modules, exit codes read directly | |
 
 This table is also where the work records how far it got. There is no separate
 task list: a list of tasks is mutable progress, and a stale one asserts a state
@@ -195,6 +260,13 @@ grammar, which phase 6's fragment uses as every fragment does.
   fails meets the parity question where it met silence.
 - The guard's stop gains one kind, `brace`, with its own text in both
   languages; under the press it is a `deny` with the plain spelling.
+- Since the reframe, that stop is taken for a brace in any word of any
+  segment where the tree matters: `ls x/{a,b}.md` in a dirty tree is one
+  `ask`, or a `deny` under the press that the model rewrites as `ls x/a.md
+  x/b.md`. Over the recorded corpus that is the 33 pairs phase 1 counted
+  outside git words, re-counted by phase 7. A quoted brace is untouched.
+- `{git,} -C W switch x` is judged in `W` and in the tree it was typed
+  from; a `-C` a brace hides is judged only in the latter.
 - A lease may record a pid for a session whose process is not named
   `claude`, where the harness exports `CLAUDE_PID` to its hooks (M1).
 - No migration, no new dependency, no new environment variable the plugin
