@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 880 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `ba0bcc65c4c8be03296771ce128f442e8501947b..ba0bcc65c4c8be03296771ce128f442e8501947b`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | no |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,9 +31,9 @@ Verifying round 2 of round 1's fixes: 4f44e5c9..96f6d42b plus the record commits
 | 🟢 | round 1's finding 4 is closed — the `-x` over-strictness is named | `skills/verify/scripts/broad_gate.py#RAN_TO_ITS_END` | confirmed | read: the comment carries the sentence |
 | 🟢 | round 1's finding 5 is closed — the recorder leaves out what pytest's line leaves out | `skills/verify/scripts/pytest_record/specseal_pytest_record.py#category_of` | confirmed | read: the same filter on the same report object as pytest 9.1.1's line, so no count pytest prints moves; executed: the guard reverted turns its case red |
 | carried | round 1's finding 6 — a run that `pytest.exit(returncode=0)` stopped still seals with counts | `skills/verify/scripts/broad_gate.py#panel` | deferred #883 | already deferred in round 1; the overview's *Not done* names #883 |
-| ⬜ 1 | a failing suite with an unplaced test loses its counts line, and `UNPLACED` does not say so as `UNREAD_HERE` does | `skills/verify/scripts/broad_gate.py#UNPLACED` | open | read: `failure_lines` prints no counts where `unplaced` is not 0; `UNPLACED`, the docstring and `agents/sealer.md` say nothing of it |
-| ⬜ 2 | nothing removes `SCALE_FOR_OLDER_HOOKS` after 0.21, and three wordings disagree about which release does | `skills/verify/scripts/broad_gate.py#SCALE_FOR_OLDER_HOOKS` | open | read: a comment, `docs/the-broad-gate.md` and the changelog fragment promise it; no case or issue holds them to it |
-| ⬜ 3 | a collect report whose `count_towards_summary` is false is still counted | `skills/verify/scripts/pytest_record/specseal_pytest_record.py#pytest_collectreport` | open | read: pytest 9.1.1 filters collect reports too; no known producer sets it false |
+| ⬜ 1 | a failing suite with an unplaced test loses its counts line, and `UNPLACED` does not say so as `UNREAD_HERE` does | `skills/verify/scripts/broad_gate.py#UNPLACED` | answered | a note, left as it stands: the failure form already prints `UNPLACED` with the count before it would print the counts, so a reader learns why the counts line is missing; the stale docstring and `agents/sealer.md:131` sentence are prose; read: `failure_lines` prints no counts where `unplaced` is not 0; `UNPLACED`, the docstring and `agents/sealer.md` say nothing of it |
+| ⬜ 2 | nothing removes `SCALE_FOR_OLDER_HOOKS` after 0.21, and three wordings disagree about which release does | `skills/verify/scripts/broad_gate.py#SCALE_FOR_OLDER_HOOKS` | deferred #885 | #885 — removing the constant belongs to the first release after 0.21; #885 names the constant, its pin, the docs sentence and the comment; read: a comment, `docs/the-broad-gate.md` and the changelog fragment promise it; no case or issue holds them to it |
+| ⬜ 3 | a collect report whose `count_towards_summary` is false is still counted | `skills/verify/scripts/pytest_record/specseal_pytest_record.py#pytest_collectreport` | answered | a note, left as it stands: no known producer sets `count_towards_summary` false on a collect report; read: pytest 9.1.1 filters collect reports too; no known producer sets it false |
 | ❓ | the full suite at the target | the `Broad gate` row in `seal/config.md` | ❓ out of verified scope | contract §2 gives the broad run to the sealer, who answers it after the rounds |
 | ❓ | the three macOS shards of CI at the target | CI run 37728336035 | ❓ out of verified scope | pending at report time; the orchestrator reads `gh pr checks 880` before marking the pull request ready |
 
