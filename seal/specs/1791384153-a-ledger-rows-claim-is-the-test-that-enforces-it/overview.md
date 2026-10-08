@@ -34,7 +34,33 @@ the suite says whether the claim still holds.
 |---|---|
 | The full suite, the repository-wide lint and the typecheck | the sealer, spawned by the orchestrator after the review rounds settle |
 | The new cases on the Windows and Linux legs (the vendored copy, the node-id paths with `/`) | CI at the pull request |
-| `bin/evidence-check --strict .` after `origin/release/v0.21.0` is merged in: its head carries 22 drifted coordinates this branch does not (`templates/config.md#"# Repository config"`, `tests/test_every_reader_ends_a_line_where_gfm_does.py#OUT_OF_CLASS`), and #870 edits `evidence_check.py` beside this | the orchestrator, at whichever merge of the release branch lands second (`plan.md` §*Sequencing with the siblings*) |
+| ✅ `bin/evidence-check --strict .` after `origin/release/v0.21.0` is merged in: its head carries 22 drifted coordinates this branch does not (`templates/config.md#"# Repository config"`, `tests/test_every_reader_ends_a_line_where_gfm_does.py#OUT_OF_CLASS`) | measured at the integration step: release head ad447367 merged at df42a36c, the drift read and re-stamped, `--strict` exit 0 (§*The release branch's integration drift, cleared here*) |
+| `bin/evidence-check --strict .` once #870, which edits `evidence_check.py` beside this, lands on the release branch | the orchestrator, at whichever of the two lands second (`plan.md` §*Sequencing with the siblings*) |
+
+## The release branch's integration drift, cleared here
+
+`origin/release/v0.21.0` at ad447367 read 33 drifted coordinates with no
+branch's edit to blame: four siblings (#837, #867, #869, #860) each edited a
+unit another had re-read, each sealed against its own base, and nothing read
+the combination. This branch merged that head (df42a36c) and cleared them,
+every row read against the merged text first; no claim had stopped holding,
+so no `Corrected ·` row was written and no released row was owed a
+`Re-read ·` row — each family's newest reading sat in a fragment still under
+`seal/ledger/`, re-stamped in place.
+
+| Family (coordinate) | Drifted findings | Rows read and re-stamped | Grounds |
+|---|---|---|---|
+| `agents/warden.md#"## Report"` | 8 | 6 (`1791384154` S3; `1791384156` S3, the wrap rule, A6, A7, R7), in phase 5 | #837 added two sentences on a ⬜ note to §*Report*; #867 changed the section's end, not its words; none of the six claims reads either (`phases/phase-5.md`) |
+| `templates/config.md#"# Repository config"` | 14 | 2 (`1791384156` and `1791384158`, each `Re-read · S8`) | #867 added the doubled-row paragraph above the table and the freeze sentence; #869 rewrote rule 3 of the broad-gate table. The first `\| Item \| Value \|` table's first row is still `Commit and pull request language \| English` |
+| `tests/test_every_reader_ends_a_line_where_gfm_does.py#OUT_OF_CLASS` | 10 | 7 (`1791384156` K21, G14, W9; `1791384158` G14, W9; `1791384160` G14, W9) | #867 added `mode_refusal`, #869 removed `suite_counts`, #860 removed `touched` and `tracked_at`; the merged dict holds all three edits, `read_record` is still named as a tool's output, and the guard module is green at the merged head |
+| `skills/verify/scripts/payload_meter.py#heading_starts` | 1 | 1 (`1791384160` `Corrected · G9`) | #867 asked `heading_level` for levels 2 and 3 in place of `^#{2,3} `; the split is still `gfm_lines` with ends kept, which is G9's claim |
+
+The merge's one conflict was in
+`seal/ledger/1791384154-a-records-finding-closes-once-at-the-runs-end.md`:
+this branch's re-stamp of the S3 re-read on `agents/warden.md` (32850e68)
+and the release branch's of the verifying-round re-read on
+`skills/code-review/orchestration.md` (af16aa7c) were on adjacent lines.
+Both stand, each the newer of its side.
 
 ## Not done
 
