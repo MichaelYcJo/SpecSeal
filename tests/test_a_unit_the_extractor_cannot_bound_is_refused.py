@@ -569,3 +569,7 @@ def test_the_declaration_opener_is_spelled_once():
         assert "declaration_opener(" in ast.unparse(node), fn
     units = {n: p for n, p, _u in ec.file_units("f.ts", MULTI_LINE)}
     assert units["multiLine"] == (1, 4), units
+    # The colon judgment travels with the opener: `x in NAME:` is a use.
+    use = "LIMIT: 1\nwhen v in OTHER:\n"
+    assert ec.resolve_unit("w.yml", "OTHER", use) == ([], False)
+    assert {n for n, _p, _u in ec.file_units("w.yml", use)} == {"LIMIT"}

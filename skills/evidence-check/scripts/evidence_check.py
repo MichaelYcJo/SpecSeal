@@ -1510,12 +1510,13 @@ def file_units(rel, body):
         units = [(n, p[0], False) for n, p in seen.items() if len(p) == 1]
     elif rule in ("brace", "block"):
         # `generic_units`' own opener, asked for any name (#870): a second
-        # spelling here could list a name the rule then cannot find.
+        # spelling here could list a name the rule then cannot find. Which
+        # match declares is `generic_units`' judgment, so it is not made here.
         opener = declaration_opener(r"\w+")
         names = set()
         for line in lines:
             m = opener.match(line)
-            if opens_declaration(m):
+            if m:
                 names.add(m.group("name"))
         family = brace_family(rel)
         for name in sorted(names):
