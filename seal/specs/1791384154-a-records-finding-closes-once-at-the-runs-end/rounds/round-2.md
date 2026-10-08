@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 879 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `be3c452aa09d6934f057337151bf63201702953b..b0e52bb2111c338140026742a58544728d9dc592`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | first — 🟡 1 at skills/code-review/scripts/chain_check.py#NOTES_FROM, a unit round-1's fixes changed |
 | Needs a fix | yes — 🟡 1 (the cutoff holds for the batch, not for a 0.21.0 work item framed after it) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,9 +25,9 @@ Verifying round 2 of round 1's fixes: e10a7c35..38696bb0, plus the fix table at 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The cutoff's premise, that the first records held to it are written under the rule, is false for any 0.21.0 work item framed after the batch: its id passes 1791384163 while its rounds run under 0.20.0's `close`, which admits a ⬜ closed `fixed`; round 1's finding 2 is closed for #858 and #864 only | `skills/code-review/scripts/chain_check.py:863` | open | executed: `date +%s` is 1791432483; the merged clone shows #858 and #864 closed five ⬜ rows `fixed` between them under 0.20.0. Read: milestone 0.21.0 has about ten open issues with no work item |
-| ⬜ 2 | The changelog fragment says every 0.21.0 work item is before the cutoff and prints | `seal/specs/1791384154-a-records-finding-closes-once-at-the-runs-end/changelog.md:21` | open | read; false for the first item framed from the open milestone |
-| ⬜ 3 | A carried confirmation in round 1's record quotes a blocking glyph in its Finding cell, so the `release` check fails at 636becce now that `close` ticked `Pass` | `seal/specs/1791384154-a-records-finding-closes-once-at-the-runs-end/rounds/round-1.md:36` | open | executed: this branch's `chain_check.py` errors on line 36 as draft and as ready. Read: CI `release` fails on the same line; it clears when round-2.md is the last record |
+| 🟡 1 | The cutoff's premise, that the first records held to it are written under the rule, is false for any 0.21.0 work item framed after the batch: its id passes 1791384163 while its rounds run under 0.20.0's `close`, which admits a ⬜ closed `fixed`; round 1's finding 2 is closed for #858 and #864 only | `skills/code-review/scripts/chain_check.py:863` | **fixed** `23f22eb4` | fixed at 23f22eb4 — the value stays `1791384163`, right for the release the owner scoped on 2026-10-08 (the eleven framed items plus #834's build, all below it); `NOTES_FROM`'s comment, the owner file's sentence, the test's constant and the ledger's N2 now say what it assumes — no item of that release framed after the batch — and that whoever frames one moves the cutoff past its own id in the same change. The far-future value was not taken: it would switch the rule off for every item framed after the release ships, which is the case the rule is for; executed: `date +%s` is 1791432483; the merged clone shows #858 and #864 closed five ⬜ rows `fixed` between them under 0.20.0. Read: milestone 0.21.0 has about ten open issues with no work item |
+| ⬜ 2 | The changelog fragment says every 0.21.0 work item is before the cutoff and prints | `seal/specs/1791384154-a-records-finding-closes-once-at-the-runs-end/changelog.md:21` | answered | corrected at `23f22eb4` — the changelog fragment names the eleven items framed with this one as before the cutoff, and says a later one moves it; read; false for the first item framed from the open milestone |
+| ⬜ 3 | A carried confirmation in round 1's record quotes a blocking glyph in its Finding cell, so the `release` check fails at 636becce now that `close` ticked `Pass` | `seal/specs/1791384154-a-records-finding-closes-once-at-the-runs-end/rounds/round-1.md:36` | answered | cleared by round-2.md being the last record, as the finding says: at `b0e52bb2`, executed, `chain_check.py --baseline origin/release/v0.21.0` names nothing on round-1.md, judged ready or draft (draft exit 0); no edit taken; executed: this branch's `chain_check.py` errors on line 36 as draft and as ready. Read: CI `release` fails on the same line; it clears when round-2.md is the last record |
 | 🟢 | round 1's blocking finding is closed — the rider on smith's Phases section is re-measured and re-stamped | `agents/smith.md:87` | confirmed | executed: rider module passes; a probe gives 1, 1 and True at `5623d728` and at HEAD. Read: CI rider cases pass |
 | 🟢 | round 1's finding 2 is closed for the merged siblings — #858 and #864 print and do not fail | `skills/code-review/scripts/chain_check.py:863` | confirmed | executed: chain-check over the merge, baselines `release/v0.21.0` and `main`; five notices, no sibling error. The class is finding 1 of this round |
 | 🟢 | round 1's finding 3 is closed — `new` refuses the redesign's first record over the stopped run's open note | `skills/code-review/scripts/round_record.py:2626` | confirmed | executed: the case is red with the refusal disabled and green restored. Read: not the mechanism the fix-pass section refuses (see the prose) |
