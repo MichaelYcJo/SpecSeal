@@ -332,8 +332,8 @@ RULES = {
         },
     ),
     # A seventeenth, from #860 and #805. Two readers walked a range by its
-    # shape -- the two ends' diff, HEAD's first parent -- and both read a
-    # sibling's work that a merge brought in as the item's own. The owner is
+    # shape -- the two ends' diff, HEAD's first parent -- and both read
+    # another work item's commits that a merge brought in as this one's. The owner is
     # the document that already owns the fragment rule one of them serves,
     # because `docs/round-record-spec.md` stands under its line ceiling.
     # WHAT IT PINS: the owner's headline sentence, which since the reframe

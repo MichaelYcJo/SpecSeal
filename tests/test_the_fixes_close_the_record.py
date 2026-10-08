@@ -1333,8 +1333,8 @@ def test_a_fixed_row_naming_a_commit_the_range_does_not_own_is_refused(repo, nam
     commit_named = merge if named == "the merge" else sibling
     out = refused(repo, fix_table(f"| 1 | fixed | {commit_named[:7]} |\n"), f"{a}..{b}")
     assert "is not one of the range's own commits" in out, out
-    # Round 2 of #860: a commit a merge brought in is owned when it was made
-    # on top of the start, so the refusal says which ones it is not.
+    # Round 2 of #860: the refusal names the merged-in commits it refuses as
+    # those not made on top of the start, which `own_commits` does not list.
     assert (
         f"a merge, or a commit a merge brought in that was not made on top of {a[:7]}"
         in out
