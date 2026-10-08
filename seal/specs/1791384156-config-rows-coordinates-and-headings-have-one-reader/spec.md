@@ -236,7 +236,7 @@ say so.
 
 - `hooks/config.py`: a reader of the file that returns its text or a refusal
   that tells absent from unreadable, and a reader of one item over the rows
-  that returns a value or a refusal naming a doubled item — `config_value` · NAME NOT IN TREE.
+  that returns a value or a refusal naming a doubled item — `config_value`.
   `declared_mode`, `reference_roots`, `declared_pacts` and `pact_declaration`
   read through them; `pact_declaration`'s own doubled-row sentences become
   the generic one's.
@@ -244,11 +244,11 @@ say so.
 - `hooks/routing.py#parse`: a doubled label has no value.
 - `skills/evidence-check/scripts/evidence_check.py`: the locator and hash
   pieces of `ANCHOR_RE` exported as named strings beside `ANCHOR_PATH` and
-  `ANCHOR_NAME` — `ANCHOR_LOCATOR`, `ANCHOR_HASH` · NAME NOT IN TREE;
+  `ANCHOR_NAME` — `ANCHOR_LOCATOR`, `ANCHOR_HASH`;
   `frozen_from` through the config reader's value rule; a twin of the value
   rule and of the heading rule beside `vendored_config_rows` —
-  `vendored_config_value`, `vendored_heading_level` · NAME NOT IN TREE; a
-  `heading_rule` · NAME NOT IN TREE switch beside `fence_rule` and
+  `vendored_config_value`, `vendored_heading_level`; a
+  `heading_rule` switch beside `fence_rule` and
   `cell_rule`; `heading_path`, `text_regions` (markdown), `file_units` (`.md`),
   `citation_for`, `content_matches` and `resolve_unit` compute `.md` regions
   over `gfm_lines(unquoted(text))`; `heading_level` becomes the twin's name
@@ -274,7 +274,7 @@ say so.
   rule.
 - `.github/scripts/rider_check.py`: the stamp pattern is built from the
   checker's locator and hash pieces at `load_checker`.
-- `tests/commonmark_oracle.py`: `heading_lines` · NAME NOT IN TREE — the
+- `tests/commonmark_oracle.py`: `heading_lines` — the
   lines markdown-it reads as ATX headings, with their level, from the
   parser's `heading_open` tokens whose markup is a `#` run; imports
   unchanged, so `tests/test_the_hooks_hide_what_a_renderer_hides.py::test_the_oracle_imports_the_parser_and_nothing_of_this_repositorys`

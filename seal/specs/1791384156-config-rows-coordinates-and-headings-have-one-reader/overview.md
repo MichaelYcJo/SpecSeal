@@ -6,9 +6,9 @@ than reconstructed at the end. Facts that must outlive this work item go to the
 evidence ledger, not here.
 
 📋 implement applied
-· spec:     (filled when the build closes)
-· evidence: (filled when the build closes)
-· verified: (filled when the build closes)
+· spec:     this work item's `handoff.md`, `spec.md`, `plan.md`, `questions.md`; `docs/the-pact.md` §*How a signer names the pact*; `docs/the-evidence-ledger.md` §*A released row is read again in the branch's fragment*; `templates/config.md` §*The ledger freeze*; `CONTRIBUTING.md` §*What a change to a gate must carry* (direction and prompt budget, stated per phase)
+· evidence: `seal/ledger/1791384156-config-rows-coordinates-and-headings-have-one-reader.md` — K1–K25 for the new units, nine `Corrected ·` rows (0.9.1 S7–S10 and S1, 0.15.3 F5 and F1, 0.11.4's two rows, 0.15.0 A6 and A7, 0.8.1 R7), and 61 `Re-read ·` rows written by `--reverify --into` after each cited claim was read
+· verified: executed — every new case seen red against 5623d728 (or the earlier phase's code) and green after, `bin/mutation-check` on every added unit, each phase's touched modules, the eight suite-wide guard modules the orchestrator named, `bin/evidence-check --strict .` (0 drifted, 0 broken, 0 refused), `bin/correction-check --range origin/release/v0.21.0...HEAD` (exit 0), `uvx ruff check` and `uvx ruff format --check` on the changed files; measured by probes, deleted: the grammar's compiled patterns, `correction-check`'s identities over the released ledgers, `settle`'s 8,218 spans, the heading rule against markdown-it over 777 tracked `.md` files and 3,000 generated documents. Read — each drifted released row's claim. Unverified — the full suite (the sealer's)
 
 ## Why this work exists
 
@@ -29,6 +29,9 @@ everywhere.
 | How many identities `correction-check` gains and loses | `plan.md` phase 3: "gains an identity for two released rows and loses nine MALFORMED-shaped ones" / measured per row: 58 gained, 5 lost, 47 rows keyed whole | the measurement | the frame counted coordinate spans; per row identity the old pattern's `[^`@|]` also refused 56 quoted locators holding a code span or `\|` (`phases/phase-3.md`) |
 | What S12's coordinate grep finds | `spec.md` S12: nothing outside `evidence_check.py` / `pact_check.py#CHANGE_RE` | exempted by name | it reads a pact review's `<work-item-id>@<content hash>`, a record id and no coordinate |
 | What `evidence-check` refuses on | `spec.md` S1, S3: "`evidence-check` … exits 2" / only `--reverify` refuses | `--reverify` | the plain check reads no config row at all; refusing it on a config it does not read would stop every CI run on an unrelated file |
+| Where the property case lives | `spec.md` S10: "a property case beside `tests/test_the_hooks_hide_what_a_renderer_hides.py`" / `tests/test_one_heading_rule_holds_to_commonmark.py` | a module of its own | it reads one rule against one oracle function and has three corpora of its own; the module the spec names holds the hide property, and its own case pins the oracle's imports, which this leaves unchanged |
+| What the property compares | `spec.md` S10: "its answer equals markdown-it's ATX heading set for the document" / equal on every shown line except a heading indented one to three spaces under a list item | the stated limit | a rule that reads one line cannot see the list item above it; the module names the limit, counts it in the generated corpus, and requires the tree to hold none (`phases/phase-4.md`) |
+| What S12's heading grep finds | `spec.md` S12: nothing outside the rule, its twin, the slugger and the walker / also the fold's and the changelog's `## X.Y.Z` lines, the fold's demotion of a fragment's headings, the three paragraph-end block lists, and YAML and Python comments | exempted by name, each with its reason | all but the demotion are out of scope by `spec.md` §*Scope*'s Out list or are no markdown at all; the demotion is under §*Not done* |
 
 ## Not verified
 
@@ -44,6 +47,23 @@ callers, `unverified-check` and the survivor sweep, are not among the commands
 `spec.md` names as refusing, and the default is what an unreadable file always
 read there.
 
+`.github/scripts/fold_ledger.py#demote` still reads a fragment's headings by
+`^(#{1,6})\s` to push them two levels down at the release. It is a reader of
+a markdown heading, but it rewrites bytes the release ships, and moving it
+onto the one rule changes what the fold writes for a heading indented one to
+three spaces; no fragment in the tree holds one. That is a change to the
+release's output with its own argument, so it is left, exempted by name in
+`tests/test_a_format_has_one_reader.py`, and stated here for the review.
+
+`unverified_check.py#readable` blanks 41 lines in 15 tracked `.md` files that
+markdown-it shows as headings — files that quote fences inside code spans.
+That is which lines a reader hides, the family #872 holds (the seven
+live-line rules), not the heading rule, so it is left to that issue.
+
+The two formats the issue named and this work did not build are filed:
+`seal/config.md`'s own table grammar against the GFM walker as #871, and the
+seven live-line rules as #872.
+
 ## Fed back into the spec
 
 - Inferred during implementation: `settle` and the commit advisor read a
@@ -51,3 +71,8 @@ read there.
 - Inferred during implementation: `correction-check` reads `seal/config.md` at
   a commit with `git cat-file`, so a tree or an undecodable blob there is
   refused naming the cause (fragment row K9).
+- Inferred during implementation: a `Corrected ·` row's citation is read from
+  its Code grounds cell, never from the claim (fragment row K15).
+- Inferred during implementation: a heading indented under a list item is the
+  item's, and the one rule, reading one line, does not see it; the tree holds
+  none (fragment row K20).
