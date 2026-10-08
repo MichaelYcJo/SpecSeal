@@ -1986,6 +1986,15 @@ def test_a_brace_that_makes_the_command_word_is_unrecognised(
         "A={a,b} ls",
         "A={{a,b},c} ls",
         "for f in x/{a,b}.md; do echo $f; done",
+        # Round 4, yellow 2: what bash expands that the test refused, a signed
+        # sequence (`git rebase main1 main2`), a brace after an escaped `$`
+        # (`$a $b`), and quoted whitespace inside the braces. The test errs
+        # toward stopping now: a `,` or a `..` between an unquoted `{` and a
+        # `}` in one word is a brace expansion. Red at `df73a69c`.
+        "git rebase main{+1..2}",
+        "echo {1..+3}",
+        "echo \\${a,b}",
+        'echo {"a b",c}',
     ],
 )
 def test_a_brace_in_any_word_is_the_brace_shape(
@@ -2053,6 +2062,11 @@ def _two_trees(repo, tmp_path, session_state, w_state):
         "{{env,}} git -C {w} switch feature/x",
         "timeout 5 {{git,}} -C {w} switch feature/x",
         "2>&1 {{git,}} -C {w} switch feature/x",
+        # Round 4, yellow 1: a git segment whose brace stands before its `-C`,
+        # which the frozen reading takes for the subcommand. Red at
+        # `df73a69c`.
+        "git {{,}} -C {w} switch feature/x",
+        "git {{--no-pager,}} -C {w} switch feature/x",
     ],
 )
 def test_a_brace_command_word_is_judged_in_the_tree_its_c_names(
@@ -2077,6 +2091,75 @@ def test_a_brace_command_word_is_judged_in_the_tree_its_c_names(
     monkeypatch.setattr(wg, "sessions_in_tree", sessions)
     decision, reason = verdict(monkeypatch, capsys, repo, command.format(w=w2))
     assert decision == "ask" and STOP in reason and "uncommitted" in reason, reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["{git,} -C .. -C W switch feature/x", "git {,} -C .. -C W switch feature/x"],
+)
+def test_a_brace_segment_composes_its_c_values_as_git_does(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """Round 4 of work item 1791384157, yellow 1. git composes its `-C`
+    values in order, so `-C .. -C W` runs in `../W`; the union read each `-C`
+    alone and missed it. With the session's tree clean and `../W` ACTIVE the
+    stop is a `deny` naming it. Red at `df73a69c`."""
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(tmp_path / "np"))
+    assert repo.parent == tmp_path, repo
+    w, sessions = _two_trees(repo, tmp_path, "clean", "active")
+    monkeypatch.setattr(wg, "sessions_in_tree", sessions)
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and STOP in reason and str(w) in reason, reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "echo ${HOME}",
+        "echo {}",
+        "echo {a}",
+        "find . -name x -exec echo {} \\;",
+        "awk '{print $1, $2}' f.txt",
+        'echo \'{"a":1,"b":2}\'',
+        "jq '{a: .x, b: .y}' f.json",
+        "echo ${a,}",
+        "cat <<EOF\n{a,b}\nEOF",
+        "echo {a, b}",
+        # The same unquoted two words beside a quoted brace: the command
+        # holds no brace expansion, so the quoted one stays quoted.
+        "git commit -m '{a,b}' && echo {c, d}",
+        "echo \\{a,b\\}",
+        "git log @{-1}..HEAD",
+    ],
+)
+def test_what_the_shell_does_not_expand_stays_silent(
+    monkeypatch, capsys, repo, command
+):
+    """Round 4 of work item 1791384157, yellow 2's other side. The brace test
+    errs toward stopping, and these stay silent through quoting and word
+    boundaries rather than through an exception list: a parameter expansion
+    (`${HOME}`, `${a,}`), braces with no `,` or `..` (`{}`, `{a}`, `find`'s
+    `{}`, `@{-1}`), quoted text (`awk`, JSON, `jq`), a heredoc body, unquoted
+    whitespace that makes two words of the braces, and escaped braces. Each
+    is silent in every tree."""
+    for state in STATES:
+        in_state(monkeypatch, repo, state)
+        got = verdict(monkeypatch, capsys, repo, command)
+        assert got == ("silent", ""), (state, command, got)
+
+
+def test_a_brace_in_a_command_that_will_not_split_stops(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 4 of work item 1791384157, white 4. A command the splitter
+    cannot close (ANSI-C `$'…\\'…'`) was read only for a bare `git`, so a
+    brace bash makes `git` of there said nothing in an ACTIVE tree; an
+    unquoted brace in its text is a finding too. Red at `df73a69c`."""
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(tmp_path / "np"))
+    in_state(monkeypatch, repo, "active")
+    command = ": $'\\'' && {g..g}it switch feature/x && : \"'\""
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and STOP in reason, reason
 
 
 def test_a_c_a_brace_hides_is_the_named_limit(monkeypatch, capsys, repo, tmp_path):

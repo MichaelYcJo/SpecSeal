@@ -2000,15 +2000,32 @@ BODY_DEPTH = 32
 # The openers of a substitution, for the text test alone.
 _OPENERS = ("$(", "`", "<(", ">(")
 
-# A brace expansion bash and zsh perform before git runs (#856): `{a,b}` with
-# no whitespace inside, and a sequence `{1..3}`, `{a..c}`, `{1..9..2}`, never
-# after a `$`, where the braces are a parameter expansion. `{a}`, `{}` and
-# `@{-1}` expand to nothing else and do not match.
-_BRACE = re.compile(
-    r"(?<!\$)\{(?:[^{}\s]*,[^{}\s]*"
-    r"|-?\d+\.\.-?\d+(?:\.\.-?\d+)?"
-    r"|[A-Za-z]\.\.[A-Za-z](?:\.\.-?\d+)?)\}"
-)
+# A brace expansion bash and zsh perform before the command runs (#856), read
+# so that it errs toward stopping: an unquoted `{` followed later in the same
+# word by a `}`, with a `,` or a `..` between them. Nothing about what is
+# between is read, so a signed sequence (`{+1..3}`), a nested brace and a
+# brace bash would refuse all count. Round 4 of work item 1791384157 found the
+# narrower test (`{a,b}` with no brace inside, sequences of digits or single
+# letters) missing what bash expands, and the direction is the guard's:
+# a brace it cannot tell about is a stop where the tree matters.
+#
+# This is the test on a command's text with its quoted spans and escapes
+# taken out (`_unquoted_brace`), so a quoted brace, an escaped one (`\{a,b\}`)
+# and a heredoc body are silent by the shell's own quoting, and a word ends at
+# whitespace, so `{a, b}`, which the shell makes two words of, is silent too.
+# A `$` directly before the `{` there is a parameter expansion (`${HOME}`,
+# `${a,}`), which the shell's grammar makes no brace expansion, and an
+# escaped `\$` is gone with the escape, so `\${a,b}` (`$a $b` to bash) stops.
+# `{}`, `{a}`, `find`'s `{}` and `@{-1}..HEAD` hold no `,` or `..` before a
+# `}` in their word.
+_BRACE = re.compile(r"(?<!\$)\{\S*?(?:,|\.\.)\S*?\}")
+
+# The same test on a word the frozen splitter made, asked only where the
+# command's text holds one (`_unquoted_brace`). The splitter has taken the
+# quotes and escapes off, so whitespace inside the braces was quoted (`{"a
+# b",c}` is two words to bash) and a `$` before them may have been escaped:
+# neither is read as an exception here.
+_BRACE_IN_WORD = re.compile(r"\{.*?(?:,|\.\.).*?\}", re.S)
 
 
 def _unquoted_brace(text) -> bool:
@@ -2192,7 +2209,7 @@ def _git_finding(tokens, parsed, braced=False):
         return "creation", None
     if sub == "switch":
         return "switch", None
-    if braced and any(_BRACE.search(t) for t in tokens):
+    if braced and any(_BRACE_IN_WORD.search(t) for t in tokens):
         return "unrecognised", Finding("brace", words)
     hidden = _hidden_mover(sub, args)
     if hidden:
@@ -2282,7 +2299,7 @@ def _segment_finding(tokens, braced=False):
     parsed = parse_git(tokens)
     if parsed:
         return _git_finding(tokens, parsed, braced)
-    if braced and any(_BRACE.search(t) for t in tokens):
+    if braced and any(_BRACE_IN_WORD.search(t) for t in tokens):
         return "unrecognised", Finding("brace", _spoken(tokens))
     finding = _hidden_in(tokens)
     return ("unrecognised", finding) if finding else (None, None)
@@ -2406,7 +2423,11 @@ def _command_findings(text, clean, depth=0):
             if inner is not None:
                 found.append(Finding("body", " ".join(body.split()), inner))
                 break
-    if not clean and _holds_git(text):
+    # A brace counts there too, read off the raw text: the quoting the
+    # splitter could not close is the quoting `_unquoted_brace` reads, so an
+    # ANSI-C `$'…\'…'` beside `{g..g}it switch x` hid the brace (round 4 of
+    # work item 1791384157, white 4).
+    if not clean and (_holds_git(text) or _BRACE.search(text)):
         found.append(Finding("untokenizable", " ".join(text.split())))
     return found
 
@@ -2467,28 +2488,31 @@ def _finding_tree(tokens, wheres, cwd):
 def _finding_trees(finding, tokens, wheres, cwd):
     """Every directory an unrecognised shape's verdict is about.
 
-    `_finding_tree`'s one, and for a brace segment the frozen reading reads
-    as no git, also every tree a `-C <dir>` word pair among its words names,
-    composed onto the directory the segment is placed in: `{git,} -C W switch
-    x` and `{env,} git -C W switch x` are judged in the session's tree AND in
-    `W`, because which word bash makes the command of is the thing the guard
-    does not read (the reframe of work item 1791384157, In 5, S20; round 2's
-    yellow 2). More trees is the stopping direction. The pair is two plain
-    words, `-C` and the word after it, the way `cmdline_base.parse_git` reads
-    a git segment's `-C`; a glued `-C<dir>` is read by neither. A `-C` a brace
+    `_finding_tree`'s one, and for a brace segment also every tree its `-C
+    <dir>` word pairs name: each pair alone, and the pairs composed in order
+    as git composes them, onto the directory the segment is placed in.
+    `{git,} -C W switch x`, `{env,} git -C W switch x` and `git {,} -C W
+    switch x` are judged in the session's tree AND in `W`, and `{git,} -C ..
+    -C W switch x` in `../W`, because which word bash makes the command or
+    the subcommand of is the thing the guard does not read, in a segment the
+    frozen reading reads as git or not (the reframe of work item 1791384157,
+    In 5, S20; round 4, yellow 1: `git {,} -C W` is git to the frozen reading
+    with `{,}` for its subcommand, so its `-C` was never composed). More
+    trees is the stopping direction. The pair is two plain words, `-C` and
+    the word after it, the way `cmdline_base.parse_git` reads a git
+    segment's `-C`; a glued `-C<dir>` is read by neither. A `-C` a brace
     hides (`{git,} {-C,} W switch x`) is not read, the named limit a string
     handed to a shell already has."""
     trees = [_finding_tree(tokens, wheres, cwd)]
-    if (
-        tokens is None
-        or getattr(finding, "kind", None) != "brace"
-        or parse_git(tokens) is not None
-    ):
+    if tokens is None or getattr(finding, "kind", None) != "brace":
         return trees
     here, _target = worktree_consent.place(tokens, wheres, cwd)
+    chdirs = []
     for at, word in enumerate(tokens[:-1]):
         if word == "-C":
+            chdirs.append(tokens[at + 1])
             trees.append(apply_chdir(here, [tokens[at + 1]]))
+            trees.append(apply_chdir(here, list(chdirs)))
     return trees
 
 

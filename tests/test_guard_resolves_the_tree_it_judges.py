@@ -849,15 +849,20 @@ def test_the_guard_policy_names_the_brace_shape_and_its_costs():
         "neither bash nor zsh expands, stops too",
         "A brace in an argument of a command that is not git (`cat {a,b}`) stops "
         "where the tree matters",
-        "in the tree the walk places it in and in every tree a `-C <dir>` word "
-        "pair among its words names",
-        "Of 32,498 distinct command and directory pairs recorded by 2026-10-08, "
-        "the rule stops 31, every one a command that is not git",
+        # Round 4, yellows 1-3.
+        "A brace segment is judged in the tree the walk places it in and in every "
+        "tree a `-C <dir>` word pair among its words names, each pair alone and "
+        "the pairs composed in order as git composes them",
+        "an unquoted `{` followed later in the same word by a `}`, with a `,` or "
+        "a `..` between them",
+        "Of 32,715 distinct command and directory pairs recorded by 2026-10-08, "
+        "the rule stops 34: 33 a command that is not git, and one a git segment",
         "by the method `phases/phase-7.md` of work item 1791384157 writes down",
     ):
         assert sentence in text, sentence
     for gone in (
         "the command-word rule stops none",
+        "every one a command that is not git",
         "the segment is judged in the tree the `-C` after the brace word names",
     ):
         assert gone not in text, gone
