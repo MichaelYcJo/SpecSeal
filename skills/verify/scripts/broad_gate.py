@@ -2959,11 +2959,15 @@ def rounds_rows(item, record):
     """The `rounds` row and, where it has one, the row beneath it (#666).
 
     `<R>` is the count of round records, as before. ` · capped` is appended
-    where the last record's `Needs a fix` begins `yes`: `seal` has already
-    refused an unchecked `Pass`, so that is a record whose every finding
-    closed while the reviewer's own answer still says the round needed a fix
-    — the shape `skills/verify/SKILL.md` §*The broad gate* defines a run
-    that ended at the cap by. The row beneath counts the verdict rows
+    where the last record's `Needs a fix` says the run reopened as
+    `chain_check.says_reopened` reads it (#866): `seal` has already refused
+    an unchecked `Pass`, so that is a record whose every finding closed while
+    the reviewer's own answer still says the round needed a fix — the shape
+    `skills/verify/SKILL.md` §*The broad gate* defines a run that ended at
+    the cap by. The panel is that cell's third reader and has no reading of
+    its own: a cell `says_reopened` answers None for — `yes` alone, a word
+    outside the vocabulary, an empty cell — is a record that cannot answer,
+    and prints `<R>` alone like the shapes below. The row beneath counts the verdict rows
     `chain_check.verdict_of` calls `deferred` or `deferred (no home)` and
     lists the distinct homes after `→`, in table order, a homeless deferral
     counted and naming none. The two were ` . ` and `->` until #832 (`SEP`,
@@ -2977,7 +2981,8 @@ def rounds_rows(item, record):
 
     **`<R>` alone wherever the record cannot answer both questions** — a
     record that cannot be read, a `broad-gate.md` home, a record with no
-    `Needs a fix` row, and one with no readable `## Verdicts` table. Half an
+    `Needs a fix` row or one `says_reopened` cannot read, and one with no
+    readable `## Verdicts` table. Half an
     answer there would be a `capped` with no count beside it, or a count
     with nothing saying whether the run was capped, and neither is a shape
     `seal` leaves on a record it accepted (`spec.md` S4)."""
@@ -2989,9 +2994,10 @@ def rounds_rows(item, record):
     found, col, _header, _errors = chain.verdict_table(
         reader, record.lines, os.path.basename(record.path)
     )
-    if needs is None or col < 0:
+    reopened = chain.says_reopened(needs) if needs is not None else None
+    if reopened is None or col < 0:
         return [("rounds", head)]
-    if reader.visible(needs).strip().lower().startswith("yes"):
+    if reopened:
         head += f"{SEP}capped"
     count, homes = 0, []
     for _line, seen in found:

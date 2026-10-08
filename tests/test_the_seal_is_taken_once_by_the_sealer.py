@@ -4307,11 +4307,45 @@ def rounds_of(tmp_path, text, rounds=3):
     ],
 )
 def test_rounds_says_capped_and_counts_what_was_deferred(tmp_path, text, rows):
-    """A10. `capped` is read off the last record's `Needs a fix` beginning
-    `yes`; the row beneath counts the verdicts `chain_check.verdict_of` calls
+    """A10. `capped` is read off the last record's `Needs a fix` through
+    `chain_check.says_reopened` (#866); the row beneath counts the verdicts `chain_check.verdict_of` calls
     `deferred` and lists their homes, read through `chain_check`'s own
     readers rather than a second parser of a round record."""
     assert rounds_of(tmp_path, text) == rows
+
+
+@pytest.mark.parametrize(
+    "needs, head",
+    [
+        ("yes — 🟡 1, the wording", "3 · capped"),
+        # Emphasis comes off first, as `says_reopened` takes it off: the
+        # panel used to read these as not capped, because they begin `*`.
+        ("**yes — 🟡 1, the wording**", "3 · capped"),
+        ("`yes` — 🟡 1, the wording", "3 · capped"),
+        # A cell the check cannot read answers nothing: the panel used to
+        # read the first two as capped.
+        ("yes", None),
+        ("yesterday's finding is closed", None),
+        ("maybe", None),
+        ("", None),
+        ("no", "3"),
+        ("no — every finding closed", "3"),
+    ],
+)
+def test_the_panels_capped_is_the_gates_reopening(tmp_path, needs, head):
+    """#866 S1: the panel is the third reader of `Needs a fix` and reads it
+    through `chain_check.says_reopened`. True draws `capped`, False draws the
+    count alone over the deferral row, and None — a cell the check refuses —
+    is a record that cannot answer, which prints `<R>` with no row beneath."""
+    chain = check_module()
+    reopened = chain.says_reopened(needs)
+    rows = rounds_of(tmp_path, capped_record(needs=needs))
+    if head is None:
+        assert reopened is None, needs
+        assert rows == [("rounds", "3")], (needs, rows)
+        return
+    assert reopened == head.endswith("capped"), needs
+    assert rows == [("rounds", head), ("", "2 deferred → #664")], (needs, rows)
 
 
 def test_a_record_with_no_rows_or_no_record_prints_the_count_alone(tmp_path):
