@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 881 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `aa8cd28235a2a8c4351a1626ca1ffd4789b5f644..bdf65b2025758e49f7ce7e6475ce583f311d3279`, 5 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | first — 🟡 2 at hooks/worktree-guard.py#_BRACE, a unit round-4's fixes changed |
 | Needs a fix | yes — 🟡 1 (a `$` before a quote hides a brace that makes `git`), 🟡 2 (whitespace inside a substitution or a parameter expansion ends the brace's word) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,10 +25,10 @@ Verifying round 5 of round 4's fixes: fba9fff0..08f34e45 plus the table and the 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A `$` that begins a quote (`$''`, `$'x'`, `$""`) is left before the `{` when the quote is taken out, so `$''{g..g}it switch feature/x` reads as a parameter expansion and is silent in an ACTIVE tree; bash and zsh run `git switch feature/x` | `hooks/worktree-guard.py:2046` | open | executed: bash 3.2.57 and zsh 5.9 make `$''{g..g}it` the word `git`, a fake git ran `switch feature/x`; four spellings silent in an ACTIVE tree at the target; with the fix the three proposed parameters are red at the target and green, the 13 silent forms stay silent |
-| 🟡 2 | Whitespace inside `$( … )`, backticks or `${ … }` ends the brace's word for `_BRACE` and for the per-word test, so `{git,$(: x)} switch feature/x`, its backtick twin and `{git,${x:- }} switch feature/x` are silent in an ACTIVE tree; bash runs `git switch feature/x` | `hooks/worktree-guard.py:2021` | open | executed: bash prints `[git]` for all three and a fake git ran `switch feature/x`; the splitter cuts the word into `{git,$(:` and `x)}`; with the fix all three deny, three guard modules 416 passed, corpus 34 of 33,088 unchanged; also `:2212` and `:2302`; not #886, whose command word a substitution makes |
-| ⬜ 3 | A reflog range (`git diff HEAD@{1}..HEAD@{0}`, `git log @{u}..@{1}`) asks in a dirty tree, and §A's silent list names `@{-1}` without saying that a range across two reflog braces stops | `docs/worktree-guard-spec.md:80` | open | executed: both `ask`, naming the brace shape; it is the stopping direction the orchestrator chose, so one clause naming the cost is all it asks |
-| ⬜ 4 | The 34-pair self-check ran 21 must-stop and 15 must-not forms, but phase 7 step 6, its `Self-check` line and `questions.md` M4 name 19 and 6, the extra forms are written nowhere, and ledger S22 carries both figures | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/phases/phase-7.md:75` | open | a correction of the run's paperwork; executed: steps 1 to 5 re-run to 34 of 33,077, one git, none assignment; step 4's `_BRACE` and the guard's `_BRACE_IN_WORD` (NAME NOT IN TREE since round 5's fixes) agree on 34 and differ on the assignment column (0 against 1) |
+| 🟡 1 | A `$` that begins a quote (`$''`, `$'x'`, `$""`) is left before the `{` when the quote is taken out, so `$''{g..g}it switch feature/x` reads as a parameter expansion and is silent in an ACTIVE tree; bash and zsh run `git switch feature/x` | `hooks/worktree-guard.py:2046` | **fixed** `b6079033` | fixed at b6079033; executed: bash 3.2.57 and zsh 5.9 make `$''{g..g}it` the word `git`, a fake git ran `switch feature/x`; four spellings silent in an ACTIVE tree at the target; with the fix the three proposed parameters are red at the target and green, the 13 silent forms stay silent |
+| 🟡 2 | Whitespace inside `$( … )`, backticks or `${ … }` ends the brace's word for `_BRACE` and for the per-word test, so `{git,$(: x)} switch feature/x`, its backtick twin and `{git,${x:- }} switch feature/x` are silent in an ACTIVE tree; bash runs `git switch feature/x` | `hooks/worktree-guard.py:2021` | **fixed** `b6079033` | fixed at b6079033; executed: bash prints `[git]` for all three and a fake git ran `switch feature/x`; the splitter cuts the word into `{git,$(:` and `x)}`; with the fix all three deny, three guard modules 416 passed, corpus 34 of 33,088 unchanged; also `:2212` and `:2302`; not #886, whose command word a substitution makes |
+| ⬜ 3 | A reflog range (`git diff HEAD@{1}..HEAD@{0}`, `git log @{u}..@{1}`) asks in a dirty tree, and §A's silent list names `@{-1}` without saying that a range across two reflog braces stops | `docs/worktree-guard-spec.md:80` | answered | corrected at b6079033: §A names a reflog range across two braces among the deliberate over-stops, and the brace-shape case pins `git diff HEAD@{1}..HEAD@{0}` and `git log @{u}..@{1}` as stops; executed: both `ask`, naming the brace shape; it is the stopping direction the orchestrator chose, so one clause naming the cost is all it asks |
+| ⬜ 4 | The 34-pair self-check ran 21 must-stop and 15 must-not forms, but phase 7 step 6, its `Self-check` line and `questions.md` M4 name 19 and 6, the extra forms are written nowhere, and ledger S22 carries both figures | `seal/specs/1791384157-the-hooks-read-the-session-waiver-and-creation-one-way/phases/phase-7.md:75` | answered | corrected at bdf65b20: `phases/phase-7.md` writes the 57 must-stop and 20 must-not forms the self-check ran and the tests they come from; ledger S22 and `questions.md` M4 carry 42 of 33,287; a correction of the run's paperwork; executed: steps 1 to 5 re-run to 34 of 33,077, one git, none assignment; step 4's `_BRACE` and the guard's `_BRACE_IN_WORD` (NAME NOT IN TREE since round 5's fixes) agree on 34 and differ on the assignment column (0 against 1) |
 | 🟢 | round 4's yellow 1 is closed — the `-C` union composes in order and covers a git segment whose brace stands before its `-C` | `hooks/worktree-guard.py:2488` | confirmed | executed: the four new parameters fail with the guard of `fba9fff0` and pass at the target; seven more spellings with `-C ''`, `-C ""`, absolute values first and mid-chain each deny naming `W` |
 | 🟢 | round 4's yellow 2 is closed — a signed sequence and a brace after an escaped `$` stop | `hooks/worktree-guard.py:2021` | confirmed | executed: the four new parameters of the brace-shape test fail at `fba9fff0` and pass at the target; the class stays open as this round's 🟡 1 and 🟡 2 |
 | 🟢 | round 4's yellow 3 is closed — §A says 34 of 32,715 with one git pair, and its pin holds the sentence | `docs/worktree-guard-spec.md:116` | confirmed | read: the sentence and its pin at `tests/test_guard_resolves_the_tree_it_judges.py:828`; executed: phase 7's steps 1 to 5 re-run to 34 with one git pair |
