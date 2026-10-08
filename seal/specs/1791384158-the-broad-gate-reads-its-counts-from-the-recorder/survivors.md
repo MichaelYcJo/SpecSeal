@@ -38,3 +38,5 @@ this work owes a correction in place:
 | `agents/smith.md` | The depth is measured rather than declared | the same phrase; still true |
 | `skills/verify/scripts/broad_gate.py` | **A row is refused four ways, and all four are exit 2 with nothing run** | shares "is the counterfeit `verify` names" with a retired scale case's docstring; still true |
 | `.test_durations` | -m pytest -q -p no:cacheprovider tests-a | the test runner's timing data, keyed by test ids; not prose |
+| `tests/test_a_script_says_which_interpreter_it_needs.py` | "guarded -- it refuses at entry with a sentence naming the floor" | round 1's fix removed `seal_stamp.py`'s row, which shared this phrase; this row is another script's, still guarded at entry |
+| `seal/releases/0.9.1.md` | `CLASSIFIED` gained `skills/verify/scripts/seal_stamp.py`, which refuses at entry under 3.12 | released, frozen; a re-read of R3 dated 2026-10-02, history of the row round 1's fix removed, and this fragment re-reads R3 against the registry as it stands |
