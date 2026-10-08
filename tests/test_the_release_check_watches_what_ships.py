@@ -67,7 +67,7 @@ STAYS_HOME = {
     "install.sh",  # a person runs it from a clone; the loader never does
     "uninstall.sh",
     "ruff.toml",
-    ".test_durations",  # what CI's Windows shards are divided by (#841)
+    ".test_durations",  # what CI's Windows and macOS shards are divided by (#841, #864)
 }
 
 
