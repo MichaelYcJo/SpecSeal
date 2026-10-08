@@ -4629,9 +4629,10 @@ def carried_notes(reader, root, records, strict=True):
                                          draft over an open note is the
                                          ordinary state of a review running
 
-    The current run is `runs_of`'s last, so a stopped run whose notes were
-    left open is not read once the redesign's records exist; `round_record.py
-    notes` closes them at the `second`, before the framer is spawned. Neither
+    The current run is `runs_of`'s last, so a stopped run is not read once
+    the redesign's records exist; `round_record.py notes` closes its notes at
+    the `second`, before the framer is spawned, and `round_record.py new`
+    refuses the redesign's first record while one is open. Neither
     arm has a cutoff on the second reading: 0 of the 73 numbered ⬜ rows the
     corpus held on 2026-10-07 were open.
     """
