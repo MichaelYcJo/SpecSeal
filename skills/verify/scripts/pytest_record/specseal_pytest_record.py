@@ -314,7 +314,12 @@ class Recorder:
         element of the teststatus hook's answer, asked the way the terminal
         reporter asks it. None where the hook answered nothing a word can be
         read from, or raised -- the terminal reporter would then have raised
-        first, and this hook raises nothing out."""
+        first, and this hook raises nothing out. `""` for a report pytest
+        sets `count_towards_summary` false on, which its terminal reporter
+        leaves off the summary line whatever its category (#869 round 1's
+        ⬜ 5)."""
+        if not getattr(report, "count_towards_summary", True):
+            return ""
         try:
             status = self.config.hook.pytest_report_teststatus(
                 report=report, config=self.config

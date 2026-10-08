@@ -1302,3 +1302,14 @@ def test_a_teststatus_answer_that_holds_no_word_writes_no_category():
         assert recorder.category_of(report) is None, answer
     Config.hook.answer = ["", "", ""]
     assert recorder.category_of(report) == ""
+
+    # #869 round 1's ⬜ 5: a report pytest's terminal reporter leaves off its
+    # summary line counts nowhere, whatever the hook would answer, and the
+    # hook is not asked.
+    class Uncounted:
+        count_towards_summary = False
+
+    Config.hook.answer = ("passed", ".", "PASSED")
+    asked.clear()
+    assert recorder.category_of(Uncounted()) == ""
+    assert asked == []

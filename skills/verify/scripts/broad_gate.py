@@ -1986,7 +1986,11 @@ def record_path(path, worktree):
 # pytest-xdist 3.8 under `-n 2` (`phases/phase-1.md` of 1791384158). One stop
 # shows in neither: a `pytest.exit()` raised by a `pytest_sessionfinish`
 # hook that runs after the recorder's is raised after the `end` line was
-# written, and that session reads as one that ran to its end.
+# written, and that session reads as one that ran to its end. One
+# over-strictness is named rather than closed: pytest sets `shouldfail` after
+# the test that reaches `-x` or `--maxfail`, last test or not, so a session
+# whose limit fell on its last test ran every test and still reads unended
+# (#869 round 1's ⬜ 4).
 RAN_TO_ITS_END = (0, 1, 5)
 
 # The category pytest's terminal reporter counts a collect report under
