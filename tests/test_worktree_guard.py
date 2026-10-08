@@ -2021,6 +2021,8 @@ def test_a_brace_that_makes_the_command_word_is_unrecognised(
         "git commit -m '{a,b}' && { echo x,y; }",
         "git diff HEAD@{1}..HEAD@{0}",
         "git log @{u}..@{1}",
+        "echo ${r%..*}",
+        'echo "$({ echo x,y; })"',
     ],
 )
 def test_a_brace_in_any_word_is_the_brace_shape(
@@ -2093,6 +2095,11 @@ def _two_trees(repo, tmp_path, session_state, w_state):
         # `df73a69c`.
         "git {{,}} -C {w} switch feature/x",
         "git {{--no-pager,}} -C {w} switch feature/x",
+        # Round 5, yellow 2: a brace the splitter cut at a substitution's
+        # whitespace is read in the segment's words joined, so its `-C` is
+        # read too. Red at `b9a4bcff`.
+        "{{git,$(: x)}} -C {w} switch feature/x",
+        "git {{,$(: x)}} -C {w} switch feature/x",
     ],
 )
 def test_a_brace_command_word_is_judged_in_the_tree_its_c_names(
@@ -2151,8 +2158,10 @@ def test_a_brace_segment_composes_its_c_values_as_git_does(
         "cat <<EOF\n{a,b}\nEOF",
         "echo \\{a,b\\}",
         "git log @{-1}..HEAD",
-        # A quoted parameter expansion says nothing, whatever it holds.
+        # A quoted parameter expansion says nothing, whatever it holds, and
+        # an unquoted one holding no `,` or `..` is the one exception.
         'echo "${a,}"',
+        "echo ${a},${b}",
     ],
 )
 def test_what_the_shell_does_not_expand_stays_silent(
