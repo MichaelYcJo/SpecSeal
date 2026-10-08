@@ -9,3 +9,4 @@
 | ⬜ 6 | answered | corrected at ef383561: a hand-written `Re-read · S9` row cites S9 with its heading anchor and the two paragraph anchors that carry the reading; the fence cut stays #867's |
 | ⬜ 7 | answered | corrected at ef383561 and 4f58a081: this item's ledger S4 and the reader's docstring say the job's entries are read in one place, and name `tests/test_release_hygiene.py`'s and `tests/test_arm_check.py`'s readings as the two that remain |
 | ⬜ 8 | answered | corrected at ef383561: the changelog's headline says a run alone no longer waits, and a paragraph names GitHub's five-job macOS cap on the Free, Pro and Team plans |
+| ⬜ 2 | answered | a note, left as it stands: both shapes are refused rather than misread, so the reader blocks more than YAML does and never less; no entry in `test.yml` has either shape |

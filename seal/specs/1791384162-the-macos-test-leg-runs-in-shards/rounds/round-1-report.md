@@ -33,7 +33,7 @@ the one durations file:
 `tests/test_ci_gives_the_checks_what_they_need.py:144` finds the one
 `include:` and reads only the lines under it. Nothing checks what else sits
 under `matrix:`. Probe P2 added `python: ["3.12", "3.13"]` beside
-`include:` in the module's own fixture. `pytest_matrix` returned its three
+`include:` in the module's own fixture. `pytest_matrix` returned its three (NAME NOT IN TREE: renamed `matrix_include_entries` by round 1's fix)
 entries and raised nothing.
 
 This matters because GitHub only runs each `include:` entry as a job of its
@@ -73,10 +73,10 @@ value, though, and the refusal message points at nesting rather than at the
 expression. I record it so the next editor does not take it for a YAML
 error.
 
-### ⬜ 3 · The name `pytest_matrix` breaks pytest if the helper ever moves into a conftest
+### ⬜ 3 · The name `pytest_matrix` breaks pytest if the helper ever moves into a conftest (NAME NOT IN TREE: renamed `matrix_include_entries` by round 1's fix)
 
 pytest reads every `pytest_`-prefixed function in a conftest as a hook. In
-probe P6 a conftest that defined `pytest_matrix` stopped the run with
+probe P6 a conftest that defined `pytest_matrix` stopped the run with (NAME NOT IN TREE: renamed `matrix_include_entries` by round 1's fix)
 `INTERNALERROR … PluginValidationError: unknown hook 'pytest_matrix'`, exit
 3. Today the helper lives in a test module, where pytest does not register
 hooks, so nothing breaks. But `plan.md` Alternative G names `conftest.py` as
@@ -157,7 +157,7 @@ Suggested wording: "a run alone no longer waits on it".
 
 ## What this round checked and found sound
 
-- **Reader shape (question 1).** `pytest_matrix` reads every entry
+- **Reader shape (question 1).** `pytest_matrix` reads every entry (NAME NOT IN TREE: renamed `matrix_include_entries` by round 1's fix)
   `test.yml` holds (P1). The four private slices are gone:
   `grep -rn 'index("  pytest:")' tests/` and a search for
   `"  ledger:"` slices found none. The remaining readers of `test.yml` read
@@ -234,7 +234,7 @@ Suggested wording: "a run alone no longer waits on it".
 | P3 `${{ inputs.split }}` as a value; `note: it's` | both refused: "a nested collection", "an unclosed quote" |
 | P4 the timeout case with group 2's `timeout: 15` removed | red: "a leg with no timeout" |
 | P5 the shard case with macOS group 3 as group 2, as `--splits 4`, and with a split on ubuntu | red in all three |
-| P6 a conftest that defines `pytest_matrix`, run by pytest 9.1.1 | exit 3, INTERNALERROR, PluginValidationError: unknown hook 'pytest_matrix' |
+| P6 a conftest that defines `pytest_matrix`, run by pytest 9.1.1 | exit 3, INTERNALERROR, PluginValidationError: unknown hook 'pytest_matrix' (NAME NOT IN TREE: renamed `matrix_include_entries` by round 1's fix) |
 | `evidence-check --strict .` in the clone | exit 0; 6,844 ok, 0 drifted, 0 broken |
 | `gh api` for the repository's two rulesets | required checks are `lint`, `release` and `ledger`; no `pytest` job by name |
 | `gh run view 37700567455 --json jobs` | head 3a946dd0, success; every time in `phases/phase-2.md` agrees |
@@ -265,7 +265,7 @@ P6 exit 3 ["INTERNALERROR> pluggy._manager.PluginValidationError: unknown hook '
 
 ### 🟡 1
 
-In `tests/test_ci_gives_the_checks_what_they_need.py`, `pytest_matrix`,
+In `tests/test_ci_gives_the_checks_what_they_need.py`, `pytest_matrix`, (NAME NOT IN TREE: renamed `matrix_include_entries` by round 1's fix)
 after `head = …`:
 
 ```python
