@@ -178,21 +178,26 @@ def merge(repo, message, *heads):
     return git(repo, "rev-parse", "HEAD").stdout.strip()
 
 
-def check(repo, monkeypatch, capsys, arm=True):
+def check(repo, monkeypatch, capsys, arm=True, head_ref=None):
+    """`head_ref` is the branch a workflow names in `GITHUB_HEAD_REF`, for a
+    merge ref whose base already holds the declaration, where the diff
+    against the base adds no `routing.md` to find it by."""
     mod = load()
     if not arm:
         monkeypatch.setattr(mod, "fragment_left_behind", lambda *a, **k: ([], []))
     for name in ("GITHUB_EVENT_PATH", "GITHUB_HEAD_REF", "GITHUB_ACTIONS"):
         monkeypatch.delenv(name, raising=False)
+    if head_ref is not None:
+        monkeypatch.setenv("GITHUB_HEAD_REF", head_ref)
     code = mod.main(["--baseline", "base", "--root", str(repo)])
     return code, capsys.readouterr().out
 
 
-def judged(repo, monkeypatch, capsys):
+def judged(repo, monkeypatch, capsys, head_ref=None):
     """The check's code and output — and S8: the code is the one the same tree
     has with the arm removed, whatever the arm printed."""
-    code, out = check(repo, monkeypatch, capsys)
-    without, _ = check(repo, monkeypatch, capsys, arm=False)
+    code, out = check(repo, monkeypatch, capsys, head_ref=head_ref)
+    without, _ = check(repo, monkeypatch, capsys, arm=False, head_ref=head_ref)
     assert code == without, (
         f"the arm moved the exit status from {without} to {code}. It prints "
         f"and never refuses — a stop in an unattended run for a fragment "
@@ -582,6 +587,42 @@ def test_a_fragment_brought_along_on_each_of_two_lines_clears_both(
 
     _code, out = judged(repo, monkeypatch, capsys)
     assert notice(out) is None, out
+
+
+def test_the_notice_reads_the_range_its_head_gives_it(repo, monkeypatch, capsys):
+    """S17 of #860, round 3's shape D. The base merges the branch at round 1's
+    target, a behaviour commit lands on the base, and the branch adds its own
+    without merging the base. The notice reads `<target>..HEAD` wherever it
+    runs: a branch checkout's HEAD does not reach the base's commit, and CI's
+    merge ref does, so CI names that commit too. `docs/the-record-layout.md`
+    §*A commit after the build brings its changelog fragment along* states
+    that input; the arm still never moves the exit status (`judged`). Both
+    checkouts in one case: the branch's half alone is a straight line no
+    mutation of `own_commits` turns red.
+
+    The merge ref's run names the branch in `GITHUB_HEAD_REF`, as a workflow
+    does: the base already holds the declaration here, so the diff against
+    it adds no `routing.md` to find one by."""
+    target = built(repo)
+    open_round(repo, 1, target)
+    git(repo, "switch", "-q", "base")
+    merge(repo, "the base merges the branch", "feature")
+    on_base = change(repo, "hooks/sibling.py", message="a commit on the base")
+    git(repo, "switch", "-q", "feature")
+    own = change(repo, "hooks/x.py", message="the branch's own commit")
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    line = notice(out)
+    assert line is not None, out
+    assert f"`{own[:7]}` (after the last round" in line, line
+    assert on_base[:7] not in line, line
+
+    ci_merge_ref(repo)
+    _code, out = judged(repo, monkeypatch, capsys, head_ref="feature")
+    line = notice(out)
+    assert line is not None, out
+    assert f"`{own[:7]}` (after the last round" in line, line
+    assert f"`{on_base[:7]}` (after the last round" in line, line
 
 
 def test_a_branch_rebuilt_on_the_base_names_its_own_commits_and_not_the_siblings(
