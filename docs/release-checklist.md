@@ -319,12 +319,14 @@ installed session is ever told about.
 come after the tag, and neither was written down anywhere: publishing the
 release note, which three consecutive releases skipped, and telling the plugin
 directory, which had no step at all because until 2026-09-16 there was no
-directory to tell. Both are boxes now, and each carries the command that
-answers it — a box a reader cannot act on is the same defect one layer up.
+directory to tell. Both are boxes now. The first carries the command that
+answers it; the second carries the command that reads what a script can and
+names the page that answers the rest — a box a reader cannot act on is the
+same defect one layer up.
 
 ```bash
 gh release view vX.Y.Z                              # did the note publish
-python3 .github/scripts/plugin_directory_check.py   # what the directory has
+python3 .github/scripts/plugin_directory_check.py   # what the marketplace files hold
 ```
 
 - [ ] **A GitHub Release exists at `vX.Y.Z`** — `gh release view vX.Y.Z`.
@@ -362,20 +364,30 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
       set; attach the PNG it names with
       `gh release upload`, then apply the note it prints with
       `gh release edit --notes-file`.
-- [ ] **The plugin directory's answer has been read** —
-      `python3 .github/scripts/plugin_directory_check.py`. It says, per
-      directory, whether this plugin is listed, which commit the entry pins,
-      and whether that commit is an ancestor of `main`. **It reports and never
-      fails**, deliberately: the directories sync on somebody else's schedule,
-      one of the two has gone twenty-eight days without a commit, and a red
-      nobody can act on is what `CLAUDE.md`'s first goal is against. Not
-      listed means submitting it through the form the command names, which is
-      a person's act, once. Listed while pinning an older commit means the
-      directory has not caught up — resubmit through the same form. Whether an
-      update reaches a listed plugin on its own is readable from nowhere
-      public — it is an open question, and the repository owner is who
-      answers it — and resubmitting is unnecessary under one answer and never
-      wrong under either.
+- [ ] **The marketplace files and the directory's page have been read** —
+      `python3 .github/scripts/plugin_directory_check.py`. It reads the two
+      marketplace files on GitHub and says, per file, whether this plugin has
+      an entry, which commit the entry pins, and whether that commit is an
+      ancestor of `main`. **It reports and never fails**, deliberately: the
+      files sync on somebody else's schedule, one of the two once went
+      twenty-eight days without a commit, and a red nobody can act on is what
+      `CLAUDE.md`'s first goal is against. Those files are not the directory,
+      the catalog people browse inside Claude, and the directory is readable
+      from nowhere a script can reach, so the command ends by saying it was
+      not read and printing the address of the page that answers. A portal
+      listing is answered on the portal's Submissions page, with its status
+      and the version that is live. It picks up each new version from its
+      tracked branch without a resubmission, and a version that passes goes
+      live by the listing's publish setting, which by default waits for
+      somebody to select Publish (`claude.com/docs/plugins/submit`, §*Publish
+      a passing version*). A Console listing is answered on the Console
+      page. SpecSeal's listing is a Console listing, by the repository owner's
+      reading of the Console page on 2026-10-07, and a Console listing takes
+      no new version until a person moves it to the portal
+      (`claude.com/docs/directory/publish`, §*Move an earlier submission to
+      the developer portal*), so no release reaches the directory through it
+      until then. Whether it shows up at all is what a search for SpecSeal
+      inside Claude answers.
 
 <!-- specs/1788789330-the-update-notice-names-the-expensive-move -->
 **A notice telling somebody an update landed names the move it costs them.**
