@@ -627,3 +627,72 @@ def test_this_repositorys_bare_yaml_rows_keep_their_spans(rel, name):
     (place,) = ec.resolve_unit(rel, name, text).places
     assert place == indentation_span(lines, place[0] - 1), (rel, name, place)
     assert place[1] - place[0] > 10, place
+
+
+# --- S11, S12: what a person reads says what the code does ----------------
+
+SKILL = os.path.join(ROOT, "skills", "evidence-check", "SKILL.md")
+POLICY = os.path.join(ROOT, "docs", "the-evidence-ledger.md")
+FRAGMENT = os.path.join(
+    ROOT,
+    "seal",
+    "specs",
+    "1791384159-a-unit-the-extractor-cannot-bound-is-refused",
+    "changelog.md",
+)
+
+
+def flat(path):
+    return " ".join(open(path, encoding="utf-8").read().split())
+
+
+def test_the_skill_no_longer_describes_the_indentation_rule():
+    """S11. Three sentences described the rule this work removed; a reader
+    who met them would expect a body-less span to be right."""
+    skill = flat(SKILL)
+    for gone in (
+        "lands on the closing brace in a brace language",
+        "a language-aware rule for what closes a block is the per-language "
+        "parser this deliberately does not have",
+        "| a symbol elsewhere |",
+    ):
+        assert gone not in skill, gone
+    assert "no bounding rule for `.rb`; anchor a quoted line instead" in skill
+    for suffix in sorted(ec.BRACE_SUFFIXES):
+        assert suffix in skill, suffix
+
+
+def test_the_policy_paragraph_names_the_cases_that_enforce_it():
+    policy = open(POLICY, encoding="utf-8").read()
+    marker = "<!-- specs/1791384159-a-unit-the-extractor-cannot-bound-is-refused -->"
+    paragraph = policy.split(marker, 1)[1].split("\n\n", 1)[0]
+    enforced = [
+        line for line in paragraph.splitlines() if line.startswith("Enforced by:")
+    ]
+    assert len(enforced) == 1, paragraph
+    for case in (
+        "test_a_prettier_signature_keeps_its_body_in_the_span",
+        "test_a_bare_symbol_in_a_suffix_no_rule_names_is_refused_with_the_remedy",
+    ):
+        assert (
+            f"test_a_unit_the_extractor_cannot_bound_is_refused.py::{case}"
+            in (enforced[0])
+        )
+
+
+def test_the_changelog_fragment_tells_an_installer_what_to_run():
+    """S12. The fragment is gathered into the release's notes, so it holds
+    no `## ` line, and its `### Changed` entry says the three things an
+    installer meets on upgrade and what each asks of them."""
+    text = open(FRAGMENT, encoding="utf-8").read()
+    assert not [line for line in text.splitlines() if line.startswith("## ")]
+    changed = " ".join(text.split("### Changed", 1)[1].split())
+    for said in (
+        "What an installer sees on upgrade",
+        "`DRIFTED` once",
+        "then run `evidence-check --reverify`",
+        "reads `BROKEN` with the remedy on its line",
+        "`Corrected ·` repair",
+        "every other row keeps its hash and its verdict",
+    ):
+        assert said in changed, said

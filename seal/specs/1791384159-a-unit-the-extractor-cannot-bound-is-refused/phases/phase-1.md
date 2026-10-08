@@ -57,5 +57,5 @@ narrows that when `generic_units` takes the rule.
 | Removed item | Where it must land |
 |---|---|
 | The `SyntaxError` fall-through in `resolve_unit` and its comment "The fallback survives only for the file ast cannot read at all" | `bounding_rule`'s docstring and `unbounded`'s Python sentence; `py_spans`' docstring now says the file is refused |
-| `test_a_syntax_error_still_falls_back_to_the_text_rule` | `test_a_syntax_error_is_refused_rather_than_read_by_the_text_rule`, same fixture, the refusal pinned |
+| `test_a_syntax_error_still_falls_back_to_the_text_rule` · NAME NOT IN TREE | `test_a_syntax_error_is_refused_rather_than_read_by_the_text_rule`, same fixture, the refusal pinned |
 | Three of the four suffix tests (`resolve_unit`, `minor_region`, `file_units`, `content_matches` each spelled its own) | `bounding_rule`, read by all four; S10's case |
