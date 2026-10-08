@@ -38,7 +38,8 @@ options exist.
 
 **The fix pass hands back a `## Fixes` table, and `close` applies it.** The
 handover carries `| # | Verdict | Commit or grounds |`, one row per open
-finding, the verdict `fixed`, `answered` or `deferred <home>`; you run
+finding but a ⬜, which takes none (§*A note closes once, at the run's end*
+below), the verdict `fixed`, `answered` or `deferred <home>`; you run
 `round-record close --item <dir> --round N --fixes <file> --range <a>..<b>`
 and the record's verdict cells, `Fix range`, `Contract changes` and
 `New units` are written from that table and the fix range. The pass writes no
@@ -192,10 +193,52 @@ answers with grounds has opened nothing needing a fix, and the run ends there.
 whose `Location` is under `seal/specs/`, `seal/ledger/`, `seal/releases/` or
 `seal/ledger.md` owes no fix pass and no reader: what `chain_check` or
 `evidence_check` refuses is corrected in the closing commit, and what neither
-reads is prose, corrected in passing or not at all. `Needs a fix` does not
-count it. `docs/review-chain-spec.md` §*The last round verifies* owns the rule
-and the count behind it — 33 of the last branch's 65 findings were located in
-records.
+reads is prose, a ⬜ like any other. `Needs a fix` does not count it.
+`docs/review-chain-spec.md` §*The last round verifies* owns the rule and the
+count behind it — 33 of the last branch's 65 findings were located in records.
+The section below says when a ⬜ closes: once, at the run's end.
+
+### A note closes once, at the run's end
+
+**A ⬜ commissions nothing before the run ends, and closes once at its end.**
+A note is the reviewer's mark for a finding that reads badly while the
+behaviour and the fact stay right (`skills/code-review/SKILL.md` §*Findings
+format*). Until this rule each one took a row in its own round's fix table,
+and a note closed `fixed` commissioned a reader for a sentence: on #822's run
+five notes were the only fix words of one record, and they spent the run's one
+reopening.
+
+So a note is carried open in the record that holds it, and closed there:
+
+| When | What a ⬜ takes |
+|---|---|
+| a round's fix pass | no row. `round-record close` leaves it open and refuses a row for it, and `Pass` stays unticked over it |
+| the next round | nothing. It is not reported again; `## Inherited coordinates` already carries its coordinate and its word |
+| the run's end | one row in the notes table, closed by `round-record notes --item <dir> --fixes <table> --at <sha>` with every other note of the run, in one pass and at one commit |
+
+**The run's end is the last record of the run reading `Fixes checked by | no
+fixes to check`**, which holds at all four exits: a verifying round that
+opened nothing, the reopening bound, the round cap's verifying round, and a
+`second` — where `notes` runs before the framer is spawned, so the framer
+reads corrected records. `notes` refuses before it.
+
+Each note closes `answered` with `corrected at <sha>` as its grounds where the
+closing commit corrected it — `corrected` in the notes table, with `--at`
+naming that commit — `answered` with the grounds it stands on, or `deferred
+<home>` by the ladder below; never `fixed`. The notes table is the fix table
+with a `Round` column in front, `| Round | # | Verdict | Commit or grounds |`,
+because a finding's id restarts at every round. No fix pass, no reader and no
+check follows the notes commit: the broad gate reads it, and what the gate
+does not read stands or is filed.
+
+`round-record seal` refuses while a note of the run is open, and
+`chain_check.py` holds the rule at the pull request: a ⬜ closed on a fix
+word is an error for a work item begun at or after `1791384163` and a notice
+before it, and a ⬜ still open on a record of the run is an error at a ready
+pull request and a notice on a draft. The cutoff is one past the batch #837
+was framed in, whose rounds ran under the previous `close`, and it assumes no
+item of that release is framed after the batch; one that is moves the cutoff
+past its own id in the same change (`chain_check.NOTES_FROM` says why).
 
 ### The cap is a ceiling, and this is the floor it never had
 
@@ -249,7 +292,7 @@ framer:
 
 | Step | What |
 |---|---|
-| The record | every open finding closes `deferred the frame` through `close`, so `Fixes checked by` reads `no fixes to check` and `Pass` is ticked over the deferrals, as a capped record's is |
+| The record | every open finding but a ⬜ closes `deferred the frame` through `close`, so `Fixes checked by` reads `no fixes to check`; at the same moment, before the framer is spawned, `round-record notes` closes the stopped run's notes (§*A note closes once, at the run's end*), and `Pass` is ticked over the deferrals, as a capped record's is |
 | The pull request | labelled `chain: reframed` |
 | The framer | spawned again with the run's round records as its input — they are in the tree, so the prompt names them and carries nothing else. It rewrites `plan.md` (new phase rows; a closed phase keeps its commit) and `spec.md` where the scope moves, and adds `Reframed <date> by <who>, after round <N>.` under the `Framed` line. Under `Automation \| yes` the spawn asks nobody |
 | The redesign | approved by a second `Approved` line in `plan.md` when `smith` is spawned for it, built, and reviewed. `round_record.py new` refuses its first record until the `Reframed` line names the stop, and that record starts the count at `no` |

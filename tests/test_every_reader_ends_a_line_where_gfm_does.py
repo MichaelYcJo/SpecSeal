@@ -638,6 +638,9 @@ OUT_OF_CLASS = {
     ("skills/implement/scripts/seal.py", "gitlinks_under_root"): (1, GIT),
     ("skills/implement/scripts/seal.py", "other_worktrees"): (1, GIT),
     ("skills/implement/scripts/seal.py", "porcelain"): (1, GIT),
+    # #867: the lines `with_row` splits, for the same walk, so the refusal
+    # of two `Mode` rows names the lines the writer would have read.
+    ("skills/implement/scripts/seal.py", "mode_refusal"): (1, F),
     ("skills/implement/scripts/seal.py", "with_row"): (1, F),
     ("skills/implement/scripts/seal.py", "write_row"): (1, F),
     ("skills/settle/scripts/settle.py", "released"): (1, GIT),

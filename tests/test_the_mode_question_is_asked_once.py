@@ -110,6 +110,88 @@ def test_the_four_spellings_of_undeclared_are_one_answer(config, repo, text, exp
     assert config.declared_mode(str(home)) == expected
 
 
+# --- #867: a row written twice, and a file that will not read --------------
+
+
+def write_unreadable(home, shape):
+    """`<home>/config.md` in one of the two unreadable shapes that hold on
+    macOS, Linux and Windows alike: a directory of that name, and bytes that
+    do not decode as UTF-8. A permission bit is left out on purpose: Windows
+    and a root user both read through it."""
+    path = os.path.join(str(home), "config.md")
+    if shape == "directory":
+        os.mkdir(path)
+    else:
+        with open(path, "wb") as f:
+            f.write(b"| Item | Value |\n|---|---|\n| Mode | \xff\xfe shared |\n")
+    return path
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        "| Mode | shared |\n| Mode | local |\n",
+        "| Mode | local |\n| Mode | local |\n",
+        "| Mode | shared |\n| Record language | Korean |\n| Mode |  |\n",
+    ],
+    ids=["two values", "the same value twice", "one value and an empty row"],
+)
+def test_a_mode_row_written_twice_has_no_value(config, repo, rows):
+    """S1 of #867, the reader's half. The reader took the first row and the
+    checker took the last, so a person editing the row they could see might be
+    editing the one that does not answer. A row written twice has no value
+    -- not its first and not its last -- and the refusal names the item and
+    how many times it is written. Seen red against the first-wins reader:
+    `('mode', 'shared')` for the first shape."""
+    home = opt_in_shared(repo)
+    write_config(home, TABLE.format(rows=rows))
+    kind, said = config.declared_mode(str(home))
+    assert kind == "refused", (kind, said)
+    assert said == "`Mode` appears 2 times — one value"
+
+
+def test_an_absent_config_and_an_unreadable_one_are_two_states(config, repo):
+    """S3 of #867, the reader's half. No file declares nothing; a file that is
+    there and will not read is refused with a sentence naming the path. The
+    reader tells the two apart once, so no caller opens the file again to
+    find out -- `hooks/mode-gate.py#unreadable` did, and is gone."""
+    home = opt_in_shared(repo)
+    assert config.config_text(str(home)) == (None, None)
+    assert config.declared_value(str(home), "Mode") == (None, None)
+    for shape in ("directory", "undecodable"):
+        path = write_unreadable(home, shape)
+        text, said = config.config_text(str(home))
+        assert text is None and said.startswith(path + " is there and cannot"), said
+        assert config.declared_value(str(home), "Mode") == (None, said)
+        assert config.declared_mode(str(home)) == ("refused", said)
+        if shape == "directory":
+            os.rmdir(path)
+        else:
+            os.remove(path)
+
+
+def test_one_row_is_its_value_and_no_row_is_none(config):
+    """The two answers beside the refusal, so a reader of `config_value` can
+    tell an empty row from no row: `""` is a row somebody left empty, and
+    None is no row at all."""
+    text = TABLE.format(rows="| Mode | shared |\n| Broad gate |  |\n")
+    assert config.config_value(text, "Mode") == ("shared", None)
+    assert config.config_value(text, "Broad gate") == ("", None)
+    assert config.config_value(text, "Ledger frozen from") == (None, None)
+    assert config.config_value(None, "Mode") == (None, None)
+
+
+def test_a_fenced_example_of_a_row_does_not_double_the_live_one(config):
+    """The count is over the rows `config_rows` takes, so the example a
+    person pastes from `templates/config.md` into a fence above the table
+    (#429) is not a second row."""
+    text = (
+        "```markdown\n| Item | Value |\n|---|---|\n| Mode | local |\n```\n\n"
+        + TABLE.format(rows="| Mode | shared |\n")
+    )
+    assert config.config_value(text, "Mode") == ("shared", None)
+
+
 def test_rows_above_the_header_are_not_rows_of_this_table(config, repo):
     """A mutation survived here, and the branch it broke is the one the
     docstring's whole claim rests on: the header is this table's furniture
@@ -690,7 +772,7 @@ def test_a_file_whose_last_line_has_no_ending_gets_its_row_on_a_line(
     stuck = tmp_path / "stuck" / "seal"
     stuck.mkdir(parents=True)
     write_config(stuck, no_ending)
-    monkeypatch.setattr(seal, "with_row", lambda text, value: text)
+    monkeypatch.setattr(seal, "with_row", lambda text, value: (text, ""))
     refused = seal.write_row(str(stuck), "shared")
     assert "would not read the `Mode` row back" in refused, refused
     assert "fence" not in refused, (
@@ -714,7 +796,8 @@ def test_the_fence_rule_answers_the_same_for_a_crlf_file(config, tmp_path):
     spec = importlib.util.spec_from_file_location("specseal_seal_for_429_crlf", path)
     seal = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(seal)
-    written = seal.with_row(crlf(FENCED_ABOVE), "local")
+    written, refused = seal.with_row(crlf(FENCED_ABOVE), "local")
+    assert refused == "", refused
     assert "| Mode | local |\r\n| Broad gate | EXAMPLE |\r\n```" in written, (
         f"the writer rewrote the fenced row of a CRLF file:\n{written!r}"
     )
@@ -1122,10 +1205,10 @@ def test_a_config_nobody_can_open_is_silence_not_a_deny(repo, shape):
     """`hooks/optin.py`'s rule, which this module's docstring adopts: a
     repository this cannot read is one it says nothing about.
 
-    `hooks/config.py#declared_mode` folds *will not open* into *declared
-    nothing*, and that is right for the WRITER — `seal mode` goes on to write
-    the row either way. For a gate the two are different states, and treating
-    them alike denied a repository whose answer might already be there.
+    `hooks/config.py#declared_mode` used to fold *will not open* into
+    *declared nothing*; for a gate the two are different states, and treating
+    them alike denied a repository whose answer might already be there. Since
+    #867 the reader answers `refused` for it, and the gate reads that alone.
 
     Reachable, not exotic: `hooks/optin.py#repo_root` already records a
     repository under a path a cp949 console cannot decode, and a row
@@ -1134,19 +1217,30 @@ def test_a_config_nobody_can_open_is_silence_not_a_deny(repo, shape):
     """
     home = opt_in_shared(repo)
     path = os.path.join(str(home), "config.md")
-    if shape == "directory":
-        os.mkdir(path)
-    elif shape == "undecodable":
-        with open(path, "wb") as f:
-            f.write(b"| Item | Value |\n|---|---|\n| Mode | \xff\xfe shared |\n")
-    else:
+    if shape == "unreadable":
         write_config(home, TABLE.format(rows="| Mode | shared |\n"))
         os.chmod(path, 0o000)
+    else:
+        write_unreadable(home, shape)
     try:
         assert decision_of(run_hook(GATE, payload("ls", repo))) == "silent"
     finally:
         if shape == "unreadable":
             os.chmod(path, 0o600)
+
+
+def test_a_mode_row_written_twice_is_silence_not_a_question(repo):
+    """S1 of #867, the hook's half. A `Mode` row written twice has no value,
+    and the gate reads that refusal as it reads an unreadable file: it says
+    nothing. Asking the mode question would send a session to `seal mode`,
+    which refuses to write into a file whose rows disagree. Seen red against
+    the first-wins reader: the first row, `whatever`, names no mode, and the
+    gate denied."""
+    write_config(
+        opt_in_shared(repo),
+        TABLE.format(rows="| Mode | whatever |\n| Mode | shared |\n"),
+    )
+    assert decision_of(run_hook(GATE, payload("git commit -m x", repo))) == "silent"
 
 
 def test_one_local_root_is_one_question_for_the_whole_clone(repo, tmp_path):

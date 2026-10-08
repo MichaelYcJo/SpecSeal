@@ -787,25 +787,37 @@ def seal_home(root):
 
 
 def config_text(home):
-    """The root's `config.md` as text, or None where it will not read."""
-    try:
-        with open(os.path.join(home, CONFIG), encoding="utf-8") as handle:
-            return handle.read()
-    except (OSError, ValueError):
-        return None
+    """The root's `config.md` as text, or None where there is none or it
+    will not read: the text half of `hooks/config.py#config_text`, the one
+    place the file is opened (#867). Every caller of this one runs after
+    `broad_command`, which has already refused a file that will not read,
+    so None here is a file that is not there."""
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    return config.config_text(home)[0]
 
 
 def broad_command(home):
     """The `Broad gate` row's value, or None for every way of not having one:
-    no file, no row, an empty value, a file that will not read."""
+    no file, no row, an empty value.
+
+    **Two states are refused, not read as no row** (#867): a `config.md`
+    that is there and will not read, and a `Broad gate` row written twice.
+    Either raises `Refused` naming the path, so the sealer's gate exits 2
+    with nothing run. Read as no row, an unreadable file was reported as a
+    missing row, which sent a person to add a row the file already held,
+    and a doubled row ran its first command."""
     config = load(CONFIG_READER, "specseal_config_for_broad_gate")
-    text = config_text(home)
+    text, refused = config.config_text(home)
+    if refused is not None:
+        raise Refused(f"broad-gate: {refused}. Nothing ran")
     if text is None:
         return None
-    for item, value in config.config_rows(text):
-        if item == ROW:
-            return value or None
-    return None
+    value, refused = config.value_of(config.config_rows(text), ROW)
+    if refused is not None:
+        raise Refused(
+            f"broad-gate: {os.path.join(home, CONFIG)}: {refused}. Nothing ran"
+        )
+    return value or None
 
 
 # A refused line's first cell, read the way a cell was read before the escape

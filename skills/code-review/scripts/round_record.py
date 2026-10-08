@@ -59,9 +59,10 @@ reach-back the orchestrator forgot five times on the last branch — and runs
 it is committed rather than by CI afterwards.
 
 `close` is the other end of the round. It takes the smith's fix table — one
-row per finding under `## Fixes`, `| # | Verdict | Commit or grounds |`, the
-verdict `fixed` with the commit, `answered` with the grounds, or `deferred
-<home>` — and the range of fix commits, and derives the rest:
+row per open finding under `## Fixes`, `| # | Verdict | Commit or grounds |`,
+the verdict `fixed` with the commit, `answered` with the grounds, or
+`deferred <home>`; a ⬜ note takes no row and is left open for `notes` — and
+the range of fix commits, and derives the rest:
 
   the verdict cells    `**fixed** `<sha>`` with the grounds prefixed
                        `fixed at <sha>`, `answered` with the grounds, or
@@ -95,6 +96,15 @@ finding whose `Location` sits inside a unit an earlier record's `New units`
 names, in a file the range adds a unit to. The refusal names the unit, the
 finding, the record, and the exit the rule gives. The check runs the way it
 runs for `new`.
+
+`notes` closes a run's notes once, at its end (#837): every open ⬜ of every
+record of the run, from one notes table — the fix table with a `Round` column
+in front, the words `corrected`, `answered` and `deferred <home>` — and
+`--at`, the commit the corrections are in. It refuses before the run's last
+record reads `Fixes checked by | no fixes to check`, writes the ⬜ cells the
+way `close` writes its own, re-derives `Pass`, reaches into every later
+record's `## Inherited coordinates`, and runs the check. `seal` refuses while
+a note of an ended run is open.
 
 **Every cell writer takes a structured value and refuses one it cannot
 write.** A `|` or a newline in any cell, or a comma in `New units` or
@@ -1632,7 +1642,7 @@ def inherited_rows(reader, earlier):
     return out
 
 
-def reach_forward(reader, rounds, n, rows):
+def reach_forward(reader, rounds, n, rows, into=None, text=None):
     """Round N+1's inherited rows for round N, at the words round N's verdict
     cells now carry. Returns `(path, text, filled)` or None.
 
@@ -1640,6 +1650,17 @@ def reach_forward(reader, rounds, n, rows):
     fix table has just left it — the caller has those in hand, and taking
     them rather than re-reading the record is what keeps this a pure read of
     the file it writes.
+
+    **`into` names a later record than N+1, and `text` is that record as the
+    caller already holds it** (#837). `notes` closes the notes of every
+    record of a run at once, and `inherited_rows` is first-seen-wins across
+    rounds, so round K's coordinate sits under round K in EVERY later
+    record's table — all of them owe the new word, not N+1's alone. The
+    caller reaches into each later record in round order and hands the text
+    it has already rewritten, so two earlier records' words land in one later
+    record without either write taking the other's back. Every refusal below
+    reads the same for any `into`, because `new` writes every later record's
+    table from every earlier record.
 
     **Two records committed together stated the same findings as open and as
     fixed** (#342). `new --round N+1` writes `## Inherited coordinates` from
@@ -1675,15 +1696,17 @@ def reach_forward(reader, rounds, n, rows):
     wrote, so a table naming none of round N's rows and missing some of round
     N's coordinates is one that lost rows, and it is refused naming them.
     """
-    path = os.path.join(rounds, f"round-{n + 1}.md")
-    if not os.path.exists(path):
-        return None
-    text = read_text(path, f"later record round-{n + 1}.md")
+    later = n + 1 if into is None else into
+    path = os.path.join(rounds, f"round-{later}.md")
+    if text is None:
+        if not os.path.exists(path):
+            return None
+        text = read_text(path, f"later record round-{later}.md")
     raw, lines = reader.gfm_lines(text), reader.readable(text)
     body = table_body(reader, lines, INHERITED, INHERITED_HEADER, False)
     if body is None:
         raise Refused(
-            f"round-{n + 1}.md exists and has no readable `{INHERITED}` table, "
+            f"round-{later}.md exists and has no readable `{INHERITED}` table, "
             f"so the rows this round's verdicts belong in cannot be found. "
             "Its `Why` cells will go on saying what round "
             f"{n} said before its fixes; write the section, or remove the "
@@ -1707,7 +1730,7 @@ def reach_forward(reader, rounds, n, rows):
         coordinate = seen[1]
         if coordinate not in rows:
             raise Refused(
-                f"round-{n + 1}.md inherits `{coordinate}` from {mine}, and "
+                f"round-{later}.md inherits `{coordinate}` from {mine}, and "
                 f"round-{n}'s verdict table holds no row with that `Location`. "
                 "The reach-forward sets a `Why` cell from the row it names and "
                 "does not guess which row that is; correct the coordinate; no "
@@ -1739,7 +1762,7 @@ def reach_forward(reader, rounds, n, rows):
             named = ", ".join(sorted(unaccounted))
             many = "s" if len(unaccounted) > 1 else ""
             raise Refused(
-                f"round-{n + 1}.md's `{INHERITED}` table names no row from "
+                f"round-{later}.md's `{INHERITED}` table names no row from "
                 f"{mine} and does not account for {len(unaccounted)} of round "
                 f"{n}'s coordinate{many} either: {named}. `new` writes one row "
                 "per `Location` cell of every earlier record, so a table it "
@@ -2221,11 +2244,13 @@ def bound_line(reader, routing, rounds, n):
 STOPS_HERE = "the fix passes stop here"
 # The severities that commission no fix, so a row carrying one never lands:
 # `OWED_MARKERS`' comment below says 🟢, ❓ and ⬜ commission nothing by
-# definition, and a ⬜ is "fixed in passing or not at all". Measured over the
-# committed corpus (`phases/phase-4.md` of #823), counting them took the work
-# items the stop would have reached from 18 to 24 of 57, on notes alone.
+# definition, and a ⬜ is carried open and closed once at the run's end by
+# `notes` (#837), never on a fix word. Measured over the committed corpus
+# (`phases/phase-4.md` of #823), counting them took the work items the stop
+# would have reached from 18 to 24 of 57, on notes alone. The ⬜ is
+# `chain_check.NOTE`, the one spelling the checker's note arms read too.
 COMMISSIONS_NOTHING = (
-    "\N{WHITE LARGE SQUARE}",
+    chain.NOTE,
     "\N{LARGE GREEN CIRCLE}",
     "\N{BLACK QUESTION MARK ORNAMENT}",
 )
@@ -2564,7 +2589,12 @@ def build(reader, routing, args, root, item, rounds):
         for _i, cells in keyed.values()
     ]
     open_rows = [w for w in words if w not in chain.CLOSED_WORDS]
-    checker, surface = landing_values(words)
+    # An open note keeps `Pass` unticked and commissions no reader (#837):
+    # `close` holds why, at the same derivation.
+    carried = carried_ids(reader, keyed)
+    checker, surface = landing_values(
+        [w for n, w in zip(keyed, words, strict=True) if n not in carried]
+    )
 
     earlier = earlier_records(routing, rounds, args.round)
     if args.round > 1 and not any(k == args.round - 1 for k, _ in earlier):
@@ -2588,6 +2618,23 @@ def build(reader, routing, args, root, item, rounds):
             "the framer writes it when it rewrites the plan. Nothing was written"
         )
     previous_pair = next(((k, p) for k, p in earlier if k == args.round - 1), None)
+    # #837, round 1's 🟡 3. The redesign's first record is where the stopped
+    # run's notes stop being read: `seal`, `notes` and
+    # `chain_check.carried_notes` read the run the LAST record belongs to.
+    # Refused here, while `notes` can still close them, rather than left open
+    # on a run nothing reads again.
+    if stopped is not None and previous_pair == stopped:
+        left = open_notes(reader, run_of_last(reader, earlier))
+        if left:
+            raise Refused(
+                f"round-{stopped[0]}.md ended its run at a "
+                f"`{chain.FOF_SECOND}` with {named_notes(left)} still open. A "
+                "note closes once, at the run's end, and the "
+                f"`{chain.FOF_SECOND}` is that end: run `{NOTES_COMMAND}` "
+                "before the redesign's first record, which would leave them on "
+                "a run nothing reads again. "
+                f"{chain.NOTES_OWNER}; nothing was written"
+            )
     # A `second` closed on deferrals and wrote no fixes, so nothing of this
     # record can land in a unit it wrote: the redesign's first record starts
     # the count at `no`.
@@ -2852,13 +2899,19 @@ def new(args):
     # commissioned at all, whatever the bound above says (#823).
     if stop is not None:
         print(stop)
+    # The run's notes, carried open until it ends (#837): the count is said
+    # where the next spawn is decided, and nothing is commissioned by it.
+    carried = carried_line(reader, routing, rounds)
+    if carried is not None:
+        print(f"round-record: {carried}")
     return run_check(root, args.baseline or default_baseline(root))
 
 
 # --- close: the fix table applied, the fix surface measured ------------------
 
 # The smith's fix-pass handover: one row per OPEN finding of the round it
-# answers, under this heading, in these columns. `agents/smith.md` and
+# answers but a ⬜ note, which takes none and closes at the run's end through
+# `notes` (#837), under this heading, in these columns. `agents/smith.md` and
 # `skills/implement/SKILL.md` §5 tell the smith to write it, and
 # `tests/test_the_fixes_close_the_record.py` reads both from here — one
 # constant, three carriers.
@@ -2872,6 +2925,18 @@ FIXED, ANSWERED, DEFERRED_WORD = "fixed", "answered", chain.DEFERRED
 assert {FIXED, ANSWERED, DEFERRED_WORD} <= chain.CLOSED_WORDS, (
     "a fix verdict the checker cannot close"
 )
+# The notes table `notes` takes at the run's end (#837): the fix table's
+# heading and columns with a `Round` column in front, because a finding's id
+# restarts at every round and two open notes of one run share one as often as
+# not. `corrected` is a word of this table alone: the record carries it as
+# `answered` with `corrected at <sha>` as its grounds, the spelling
+# `docs/review-chain-spec.md` §*The last round verifies* prescribes, so no
+# reader of a verdict cell meets a word it does not know.
+NOTES_HEADER = ("Round", *FIXES_HEADER)
+NOTES_TABLE_LABEL = "notes table"
+NOTES_ROUND_RE = re.compile(r"(?:round-)?(\d+)(?:\.md)?")
+CORRECTED = "corrected"
+assert CORRECTED not in chain.CLOSED_WORDS, "a notes word the record would carry"
 # One spelling, held in the checker because the checker reads it too (#427):
 # this generator writes the prefix and `chain_check` names a cell carrying two.
 FIXED_AT = chain.CLOSE_PREFIX
@@ -3659,7 +3724,20 @@ def call_sites(reader, root, b, rel, name, at_b):
     return named + ([PYTEST] if tested else [])
 
 
-def fix_table(reader, path):
+def round_of_cell(reader, seen, line):
+    """The round a notes-table row names in its `Round` cell, or `Refused`."""
+    found = NOTES_ROUND_RE.fullmatch(chain.EMPHASIS.sub("", seen).strip())
+    if found is None:
+        raise Refused(
+            f"the {NOTES_TABLE_LABEL} has a row whose `{NOTES_HEADER[0]}` cell "
+            f"reads {seen!r}: {line.strip()}. Write `round-K`, the record the "
+            "note stands in — a finding's id restarts at every round, so the "
+            "id alone does not say which note a row closes"
+        )
+    return int(found.group(1))
+
+
+def fix_table(reader, path, notes=False):
     """{finding number: (word, value, note)} from the smith's `## Fixes`.
 
     `value` is the commit for `fixed`, the grounds for `answered`, the home
@@ -3667,6 +3745,13 @@ def fix_table(reader, path):
     Refused: a row whose `#` names no number or names one twice, a verdict
     outside the three, a `fixed` whose third cell names no commit, an
     `answered` with no grounds, a `deferred` with no home.
+
+    **`notes` reads the notes table instead** (#837): `NOTES_HEADER`, the
+    `Round` column in front, keyed `(round, id)` because an id restarts at
+    every round. Its three words are `corrected` (the third cell a note, which
+    may be empty — the commit is `notes --at`'s), `answered <grounds>` and
+    `deferred <home>`; `fixed` is refused with the rule's sentence, because a
+    note commissions no reader and `fixed` commissions one.
     """
     # The rider that stood here is spent: it asked for the empty-span repair
     # and the `note` line below now cuts the commit's own code span, where it
@@ -3678,31 +3763,58 @@ def fix_table(reader, path):
     # written as a code span already arrives with its backticks gone
     # (measured 2026-09-14). The other two callers are still a real cost and
     # nothing has measured them, so the constant is left alone.
-    text = read_text(path, "fix table")
+    header = NOTES_HEADER if notes else FIXES_HEADER
+    label = NOTES_TABLE_LABEL if notes else FIX_TABLE_LABEL
+    text = read_text(path, label)
     raw, lines = reader.gfm_lines(text), reader.readable(text)
     out, taken, bad, keyed = {}, {}, [], []
     # Two passes, so the id refusal names every offending row before a verdict
     # word on some other row can refuse first. `idless` is off here: in this
     # table the row IS the commission, and one naming no finding has nothing
     # to apply itself to.
-    for i, cells in table_body(reader, lines, FIXES, FIXES_HEADER, True):
+    for i, cells in table_body(reader, lines, FIXES, header, True):
         seen = [reader.visible(c) for c in cells]
-        if len(seen) < len(FIXES_HEADER):
+        if len(seen) < len(header):
             raise Refused(f"a fix row has {len(seen)} cells: {raw[i].strip()!r}")
-        number = finding_number(FIX_TABLE_LABEL, seen[0], raw[i], taken, bad, False, [])
+        held = taken
+        if notes:
+            k = round_of_cell(reader, seen[0], raw[i])
+            seen, held = seen[1:], taken.setdefault(k, {})
+        number = finding_number(label, seen[0], raw[i], held, bad, False, [])
         if number is not None:
-            keyed.append((number, seen))
-    refusal = id_refusal(FIX_TABLE_LABEL, bad)
+            keyed.append(((k, number) if notes else number, seen))
+    refusal = id_refusal(label, bad)
     if refusal is not None:
         raise refusal
-    for number, seen in keyed:
+    admitted = (CORRECTED, ANSWERED) if notes else (FIXED, ANSWERED)
+    for key, seen in keyed:
+        # What a sentence calls the row, and the cells a paste-ready row
+        # starts with: `finding 3` and `3` in a fix table, `round-2's note 3`
+        # and `round-2 | 3` in a notes table.
+        name = f"round-{key[0]}'s note {key[1]}" if notes else f"finding {key}"
+        lead = f"round-{key[0]} | {key[1]}" if notes else f"{key}"
         verdict = chain.EMPHASIS.sub("", seen[1]).strip().rstrip(".").strip()
         word, third = verdict.lower(), seen[2].strip()
-        if word == FIXED:
+        if notes and (
+            word == FIXED
+            or (word.startswith(FIXED) and word[len(FIXED)] in chain.SEPARATORS)
+        ):
+            raise Refused(
+                f"{name} is `{FIXED}`, and a note never closes on a fix "
+                "word: it commissions nothing — no fix pass and no reader — "
+                f"and `{FIXED}` commissions a reader. Write `{CORRECTED}` "
+                f"where the closing commit corrected it (`--at` names that "
+                f"commit), `{ANSWERED}` with the grounds it stands on, or "
+                f"`{DEFERRED_WORD} <home>`. {chain.NOTES_OWNER}; no cell was "
+                "written"
+            )
+        if notes and word == CORRECTED:
+            out[key] = (CORRECTED, "", third)
+        elif word == FIXED:
             sha = chain.SHA_RE.search(third)
             if not sha:
                 raise Refused(
-                    f"finding {number} is `{FIXED}` and its third cell names no "
+                    f"{name} is `{FIXED}` and its third cell names no "
                     f"commit: {third!r}. A fix is a commit somebody can open"
                 )
             # Cut the commit's own code span, not just the commit. Cutting
@@ -3727,14 +3839,14 @@ def fix_table(reader, path):
             if start and third[start - 1] == "`" and third[end : end + 1] == "`":
                 start, end = start - 1, end + 1
             note = (third[:start] + third[end:]).strip(chain.SEPARATORS + ".")
-            out[number] = (FIXED, sha.group(), note)
+            out[key] = (FIXED, sha.group(), note)
         elif word == ANSWERED:
             if not third:
                 raise Refused(
-                    f"finding {number} is `{ANSWERED}` with no grounds in its "
+                    f"{name} is `{ANSWERED}` with no grounds in its "
                     "third cell. An answer nobody can argue with is not one"
                 )
-            out[number] = (ANSWERED, third, "")
+            out[key] = (ANSWERED, third, "")
         elif word == DEFERRED_WORD or (
             word.startswith(DEFERRED_WORD)
             and word[len(DEFERRED_WORD)] in chain.SEPARATORS
@@ -3742,7 +3854,7 @@ def fix_table(reader, path):
             home = verdict[len(DEFERRED_WORD) :].strip(chain.SEPARATORS) or third
             if not home:
                 raise Refused(
-                    f"finding {number} is `{DEFERRED_WORD}` with no home. Write "
+                    f"{name} is `{DEFERRED_WORD}` with no home. Write "
                     f"`{DEFERRED_WORD} #N` or `{DEFERRED_WORD} <path>` — a "
                     "deferral to nowhere is how *someone will look at it* "
                     "becomes nobody did"
@@ -3775,10 +3887,9 @@ def fix_table(reader, path):
             # above it already tested to be a separator, so none of them can
             # leave a stop behind.
             rest = third[len(home) :] if third.startswith(home) else third
-            out[number] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS + "."))
+            out[key] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS + "."))
         elif any(
-            word.startswith(w) and word[len(w)] in chain.SEPARATORS
-            for w in (FIXED, ANSWERED)
+            word.startswith(w) and word[len(w)] in chain.SEPARATORS for w in admitted
         ):
             # The cell BEGINS with a word this table admits and carries a
             # suffix, which is one cell doing two cells' work.
@@ -3801,23 +3912,24 @@ def fix_table(reader, path):
             # because a space follows the word there (round 1's finding 3).
             head = next(
                 w
-                for w in (FIXED, ANSWERED)
+                for w in admitted
                 if word.startswith(w) and word[len(w)] in chain.SEPARATORS
             )
             raise Refused(
-                f"finding {number}'s verdict `{seen[1]}` begins with `{head}` "
+                f"{name}'s verdict `{seen[1]}` begins with `{head}` "
                 f"and then carries more. The Verdict cell holds the word alone "
                 f"and everything after it goes in `{FIXES_HEADER[2]}`: write "
-                f"`| {number} | {head} | {verdict[len(head) :].strip(chain.SEPARATORS)} |`. "
+                f"`| {lead} | {head} | {verdict[len(head) :].strip(chain.SEPARATORS)} |`. "
                 f"Only `{DEFERRED_WORD} <home>` carries its own suffix, because "
                 "the home is what makes a deferral readable"
             )
         else:
             raise Refused(
-                f"finding {number}'s verdict `{seen[1]}` is none of `{FIXED}`, "
-                f"`{ANSWERED}`, `{DEFERRED_WORD} <home>` — the three a fix pass "
-                "may hand over. A reviewer's words (`withdrawn`, `not a "
-                "defect`) are the reviewer's to write"
+                f"{name}'s verdict `{seen[1]}` is none of `{admitted[0]}`, "
+                f"`{ANSWERED}`, `{DEFERRED_WORD} <home>` — the three a "
+                f"{'notes table' if notes else 'fix pass'} may hand over. A "
+                "reviewer's words (`withdrawn`, `not a defect`) are the "
+                "reviewer's to write"
             )
     return out
 
@@ -4241,6 +4353,33 @@ def field_index(reader, lines, label):
     return hits[0]
 
 
+def forward_rows(reader, lines, raw):
+    """{Location cell: (`#` cell, verdict word)} for every verdict row of a
+    record as `raw` now holds it, first row at a coordinate winning — the map
+    `reach_forward` reads. `close` builds it after its fix table applies and
+    `notes` after the notes table does; `close`'s comment where it calls this
+    holds why every row and why the first."""
+    location = VERDICT_HEADER.index("Location")
+    number = VERDICT_HEADER.index("#")
+    now = {}
+    for i, _cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
+        seen = [
+            reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
+        ]
+        if len(seen) > VERDICT_COL and seen[location]:
+            now.setdefault(
+                seen[location], (seen[number], chain.verdict_of(seen, VERDICT_COL))
+            )
+    return now
+
+
+def carried_ids(reader, keyed):
+    """The ids of the OPEN notes among `keyed` ({id: (index, cells)}, the shape
+    `verdict_rows` returns), read by `chain.note_rows` (#837)."""
+    rows = [(n, [reader.visible(c) for c in cells]) for n, (_i, cells) in keyed.items()]
+    return {n for _line, n, is_open in chain.note_rows(rows, VERDICT_COL) if is_open}
+
+
 def close(args):
     """Apply the fix table, measure the surface, tick `Pass`, run the check.
 
@@ -4279,23 +4418,43 @@ def close(args):
             f"{', '.join(map(str, unknown))}, not in round {args.round}'s verdict "
             f"table (which has {held})"
         )
+    # A note takes no row in a fix table, open or closed (#837): it
+    # commissions nothing while the run runs and closes once at its end,
+    # through `notes`. Asked before the two refusals below, so a ⬜ row is
+    # named as a note rather than as a finding the reviewer already closed.
+    marked = [
+        (n, [reader.visible(c) for c in cells]) for n, (_i, cells) in rows.items()
+    ]
+    note_ids = {n for _line, n, _open in chain.note_rows(marked, VERDICT_COL)}
+    noted = sorted(n for n in fixes if n in note_ids)
+    if noted:
+        raise Refused(
+            f"the fix table has a row for {chain.NOTE} "
+            f"{', '.join(map(str, noted))} of round {args.round}, and a note "
+            "takes no row in a fix table: it commissions nothing while the run "
+            "runs — no fix pass and no reader — and closes once at the run's "
+            f"end, with every other note of the run, by `{NOTES_COMMAND}`. "
+            f"Take the row out. {chain.NOTES_OWNER}; no cell was written"
+        )
     open_now = [
         n
         for n, (_i, cells) in rows.items()
         if chain.verdict_of([reader.visible(c) for c in cells], VERDICT_COL)
         not in chain.CLOSED_WORDS
     ]
-    missing = [n for n in open_now if n not in fixes]
+    missing = [n for n in open_now if n not in fixes and n not in note_ids]
     if missing:
         raise Refused(
             f"finding{'s' if len(missing) > 1 else ''} {', '.join(map(str, missing))} "
             f"of round {args.round} left with no row in the fix table. Every open "
             f"finding takes a row — `{FIXED}`, `{ANSWERED}`, or "
-            f"`{DEFERRED_WORD} <home>` — or the record stays open"
+            f"`{DEFERRED_WORD} <home>` — or the record stays open; a "
+            f"{chain.NOTE} note takes none and is carried to the run's end"
         )
     # A row for a finding the reviewer closed in the report (`withdrawn`,
     # `not a defect`) would overwrite the reviewer's verdict with the smith's
-    # (round 1 of #161's own chain, 🟡 3). One row per OPEN finding.
+    # (round 1 of #161's own chain, 🟡 3). One row per OPEN 🔴 or 🟡, and none
+    # for a ⬜, which the refusal above names.
     already = sorted(n for n in fixes if n not in open_now)
     if already:
         named = ", ".join(
@@ -4482,17 +4641,7 @@ def close(args):
     # is foreclosed -- 71 of the 247 committed records that parse repeat a
     # `Location`, over 105 coordinates (2026-09-15), so a refusal would refuse
     # records this repository has already written.
-    location = VERDICT_HEADER.index("Location")
-    number = VERDICT_HEADER.index("#")
-    now = {}
-    for i, _cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
-        seen = [
-            reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
-        ]
-        if len(seen) > VERDICT_COL and seen[location]:
-            now.setdefault(
-                seen[location], (seen[number], chain.verdict_of(seen, VERDICT_COL))
-            )
+    now = forward_rows(reader, lines, raw)
     still_open = [w for w in words if w not in chain.CLOSED_WORDS]
     # The same derivation `new` makes from the report's verdicts, over the
     # verdicts as the table left them. Both of its answers are written here,
@@ -4512,7 +4661,20 @@ def close(args):
     #
     # Only the landing value is corrected. A cell naming a `round-N` is a
     # later round's reading and is not this pass's to touch.
-    checker, _surface = landing_values(words)
+    #
+    # An open note is left out of the landing and kept in `Pass` (#837): it
+    # commissions nothing while the run runs, so it commissions no reader
+    # either, and counted here it held every record carrying one at `nobody`
+    # -- a run whose verifying round opened only a note never read `no fixes
+    # to check`, which is the run's end `notes` waits for.
+    post = {
+        n: (i, row_cells(reader, raw[i], len(VERDICT_HEADER)))
+        for n, (i, _cells) in rows.items()
+    }
+    notes_open = carried_ids(reader, post)
+    checker, _surface = landing_values(
+        [w for n, w in zip(rows, words, strict=True) if n not in notes_open]
+    )
     boxes = [i for i, ln in enumerate(lines) if chain.PASS_RE.match(ln)]
     if len(boxes) != 1:
         raise Refused(f"the record has {len(boxes)} `Pass` boxes and needs one")
@@ -4569,6 +4731,7 @@ def close(args):
     write_record(reader, target, "\n".join(raw) + ending)
     if forward is not None:
         write_record(reader, forward[0], forward[1])
+    carried = carried_line(reader, routing, rounds)
     counts = {
         w: sum(1 for word, _, _ in fixes.values() if word == w)
         for w in (FIXED, ANSWERED, DEFERRED_WORD)
@@ -4587,6 +4750,343 @@ def close(args):
             f"{'s' if forward[2] > 1 else ''} filled"
             if forward is not None
             else ""
+        )
+        + (f"; {carried}" if carried is not None else "")
+    )
+    return run_check(root, args.baseline or default_baseline(root))
+
+
+# --- notes: a run's notes, closed once at its end ----------------------------
+#
+# #837. `skills/code-review/orchestration.md` §*A note closes once, at the
+# run's end* owns the rule; this is the command it names, and `seal` below and
+# `chain_check.carried_notes` are what refuse a run that skipped it.
+
+
+def run_of_last(reader, found):
+    """The `(K, path)` records of the run the LAST record on disk belongs to.
+
+    Not `current_run(found)`, which answers for the NEXT record and is empty
+    when the last one is a `second` — the stopped run whose notes `notes`
+    closes before the framer is spawned. The run the last record joined is
+    the one `current_run` gives for the records before it.
+    """
+    run, _stopped = current_run(reader, found[:-1])
+    return [*run, found[-1]]
+
+
+def checker_of(reader, rows):
+    """(`Fixes checked by` as written, and as compared) for a record's rows.
+
+    The run's end is the second one reading `no fixes to check` on the run's
+    last record: `seal` asks it before the cell is written and `notes` before
+    a note is closed, and one spelling of the comparison is what keeps the
+    two agreeing about when a run has ended.
+    """
+    checker = reader.visible(chain.field(rows, chain.CHECKED_BY) or "").strip()
+    return checker, checker.strip("`").rstrip(".").lower()
+
+
+def record_notes(reader, text):
+    """[(id, open)] for the numbered ⬜ rows of a record's verdict table."""
+    keyed = verdict_rows(reader, reader.readable(text))
+    rows = [(n, [reader.visible(c) for c in cells]) for n, (_i, cells) in keyed.items()]
+    return [(n, is_open) for _line, n, is_open in chain.note_rows(rows, VERDICT_COL)]
+
+
+def open_notes(reader, run):
+    """[(K, id)] for every note still open on a record of `run`, in order."""
+    return [
+        (k, n)
+        for k, path in run
+        for n, is_open in record_notes(reader, read_text(path, f"round-{k}.md"))
+        if is_open
+    ]
+
+
+def named_notes(carried):
+    """`round-1.md's ⬜ 3, round-2.md's ⬜ 1` for `open_notes`' answer."""
+    return ", ".join(f"round-{k}.md's {chain.NOTE} {n}" for k, n in carried)
+
+
+NOTES_COMMAND = "round-record notes --item <dir> --fixes <table> --at <sha>"
+# What `new` and `close` say when the run carries notes open (#837), so the
+# count is in front of the orchestrator at the two moments it decides what
+# runs next, and the command that closes them is named there.
+CARRIED = (
+    "{count} note{s} open across the run {dash} closed once at its end by "
+    "`round-record notes`"
+)
+
+
+def carried_line(reader, routing, rounds):
+    """`CARRIED` for the run the last record on disk belongs to, or None
+    where it carries no note open."""
+    found = earlier_records(routing, rounds, sys.maxsize)
+    if not found:
+        return None
+    carried = open_notes(reader, run_of_last(reader, found))
+    if not carried:
+        return None
+    return CARRIED.format(
+        count=len(carried), s="" if len(carried) == 1 else "s", dash=DASH
+    )
+
+
+def notes(args):
+    """Close every open note of the run at once, at the run's end (#837).
+
+    The rule is `skills/code-review/orchestration.md` §*A note closes once,
+    at the run's end*. Every refusal comes before the write, as `close`'s
+    do, and they are asked in this order:
+
+      the run has not ended       the run's last record does not read
+                                  `Fixes checked by | no fixes to check`
+      the notes table             `fix_table(…, notes=True)`: the `Round`
+                                  column, `corrected`, `answered <grounds>`,
+                                  `deferred <home>`, and `fixed` refused
+      `--at`                      required while a row reads `corrected`;
+                                  where given, it resolves, HEAD descends
+                                  from it, and it is not the run's last
+                                  `Target SHA` or an ancestor of it, because
+                                  the notes commit comes after the last
+                                  review
+      a row for no note           a round outside the run, an id its record
+                                  does not hold, a 🔴 or 🟡 (closed by
+                                  `close`), or a note already closed
+      a note with no row          every open note of the run takes one
+
+    Then each record's ⬜ cells are written the way `close` writes its own —
+    the verdict word, and grounds joined in front of the reviewer's, with the
+    close-prefix guard — `Pass` is re-derived on each record it touched, every
+    later record's `## Inherited coordinates` is reached into (`reach_forward`
+    with `into`), and the chain check runs. Nothing else in a record is
+    touched, and nothing is committed.
+    """
+    reader, routing, root, _item, rounds = where(args)
+    found = earlier_records(routing, rounds, sys.maxsize)
+    if not found:
+        raise Refused(
+            f"{rounds} holds no round-N.md — there is no run whose notes could close"
+        )
+    run = run_of_last(reader, found)
+    last_k, last_path = run[-1]
+    last_text = read_text(last_path, f"last record round-{last_k}.md")
+    last_rows = chain.table_rows(reader, reader.readable(last_text))
+    checker, plain = checker_of(reader, last_rows)
+    if plain != chain.NO_FIXES:
+        raise Refused(
+            f"round-{last_k}.md is the last record of the run and its "
+            f"`{chain.CHECKED_BY}` reads `{checker or 'nothing'}`, so the run "
+            "has not ended. A note closes once, at the run's end — when the "
+            f"run's last record reads `{chain.CHECKED_BY} | {chain.NO_FIXES}`: "
+            "a verifying round that opened nothing, the reopening bound, the "
+            "round cap's verifying round, or a `second`. "
+            f"{chain.NOTES_OWNER}; no cell was written"
+        )
+    fixes = fix_table(reader, args.fixes, notes=True)
+
+    at = None
+    if args.at is not None:
+        at = reader.commit_of(root, args.at)
+        if at is None:
+            raise Refused(
+                f"--at {args.at} does not resolve in {root} — a correction "
+                "names a commit somebody can open; no cell was written"
+            )
+        if not chain.is_ancestor(root, at, "HEAD"):
+            raise Refused(
+                f"--at {args.at} is not an ancestor of HEAD, so the branch "
+                "does not carry the commit the corrections are said to be "
+                "in; no cell was written"
+            )
+        for sha in chain.SHA_RE.findall(chain.field(last_rows, chain.TARGET) or ""):
+            reviewed = chain.resolves_to(root, sha)
+            if reviewed is not None and chain.is_ancestor(root, at, reviewed):
+                raise Refused(
+                    f"--at {args.at} is round-{last_k}.md's `{chain.TARGET}` "
+                    f"`{sha}` or an ancestor of it. The notes commit comes "
+                    "after the run's last review — a correction the last "
+                    "round already read was not made at the run's end; no "
+                    "cell was written"
+                )
+    elif any(word == CORRECTED for word, _v, _n in fixes.values()):
+        raise Refused(
+            f"a row reads `{CORRECTED}` and --at names no commit. "
+            f"`{CORRECTED}` is written as `{ANSWERED}` with `{CORRECTED} at "
+            "<sha>` as its grounds, and the commit is --at's; no cell was "
+            "written"
+        )
+
+    # Every record's table, read before anything is written.
+    held = {}
+    for k, path in run:
+        text = read_text(path, f"round-{k}.md")
+        lines = reader.readable(text)
+        keyed = verdict_rows(reader, lines)
+        rows = [
+            (n, [reader.visible(c) for c in cells]) for n, (_i, cells) in keyed.items()
+        ]
+        marked = {n: is_open for _l, n, is_open in chain.note_rows(rows, VERDICT_COL)}
+        held[k] = (path, text, lines, keyed, marked)
+    outside = sorted(k for k, _n in fixes if k not in held)
+    if outside:
+        raise Refused(
+            f"the {NOTES_TABLE_LABEL} names round"
+            f"{'s' if len(outside) > 1 else ''} {', '.join(map(str, outside))}, "
+            f"outside the run that ends at round-{last_k}.md (rounds "
+            f"{', '.join(str(k) for k, _p in run)}); no cell was written"
+        )
+    unknown = sorted(key for key in fixes if key[1] not in held[key[0]][3])
+    not_notes = sorted(
+        key for key in fixes if key not in unknown and key[1] not in held[key[0]][4]
+    )
+    closed = sorted(
+        key
+        for key in fixes
+        if key not in unknown and key not in not_notes and not held[key[0]][4][key[1]]
+    )
+    if unknown:
+        raise Refused(
+            "the notes table names "
+            + ", ".join(f"round-{k}'s {n}" for k, n in unknown)
+            + ", which no verdict table of the run holds as a numbered row; "
+            "no cell was written"
+        )
+    if not_notes:
+        raise Refused(
+            "the notes table has a row for "
+            + ", ".join(f"round-{k}'s finding {n}" for k, n in not_notes)
+            + f", which {'is not a' if len(not_notes) == 1 else 'are not'} "
+            f"{chain.NOTE} note. A \N{LARGE RED CIRCLE} or "
+            "\N{LARGE YELLOW CIRCLE} closes in its round's fix table through "
+            "`close`; `notes` closes notes alone. No cell was written"
+        )
+    if closed:
+        raise Refused(
+            "the notes table has a row for "
+            + ", ".join(f"round-{k}'s {chain.NOTE} {n}" for k, n in closed)
+            + ", already closed in its verdict table. `notes` closes the OPEN "
+            "notes and no other — a row here would overwrite what the record "
+            "already says; no cell was written"
+        )
+    missing = [
+        (k, n)
+        for k, (_p, _t, _l, _keyed, marked) in held.items()
+        for n, is_open in marked.items()
+        if is_open and (k, n) not in fixes
+    ]
+    if missing:
+        raise Refused(
+            f"{named_notes(missing)} "
+            f"{'is' if len(missing) == 1 else 'are'} open and the notes "
+            "table has no row for "
+            f"{'it' if len(missing) == 1 else 'them'}. The notes close once, "
+            "every one of them in this pass — `corrected`, `answered`, or "
+            f"`{DEFERRED_WORD} <home>`; no cell was written"
+        )
+
+    # Each record's cells, then each later record's inherited rows, in round
+    # order and in memory: a later record can be reached into by two earlier
+    # ones, and its own notes are written over the text those reaches left.
+    stamp = at[:8] if at else ""
+    pending, ticked, filled = {}, [], {}
+    for k in sorted({k for k, _n in fixes}):
+        path, text, _lines, keyed, _marked = held[k]
+        text = pending.get(path, text)
+        raw, lines = reader.gfm_lines(text), reader.readable(text)
+        keyed = verdict_rows(reader, lines)
+        for (rk, n), (word, value, note) in fixes.items():
+            if rk != k:
+                continue
+            i, _cells = keyed[n]
+            cells = row_cells(reader, raw[i], len(VERDICT_HEADER))
+            while len(cells) <= GROUNDS_COL:
+                cells.append("")
+            old = cells[GROUNDS_COL].strip()
+            if word == CORRECTED:
+                cells[VERDICT_COL] = ANSWERED
+                grounds = f"{CORRECTED} at {stamp}" + (
+                    f" {DASH} {note}" if note else ""
+                )
+            elif word == ANSWERED:
+                cells[VERDICT_COL], grounds = ANSWERED, value
+            else:
+                cells[VERDICT_COL] = f"{DEFERRED_WORD} {value}"
+                grounds = value + (f" {DASH} {note}" if note else "")
+            # `close`'s guard, for `close`'s reason: a cell already carrying
+            # these grounds, or a close-prefix, was closed once already.
+            if old and (old.startswith(grounds) or chain.CLOSE_PREFIX_RE.match(old)):
+                raise Refused(
+                    f"round-{k}'s {chain.NOTE} {n} has a `Grounds` cell that "
+                    f"already carries a closing -- {old[:60]!r} -- so this row "
+                    "was closed once already and only its "
+                    f"`{chain.VERDICT_COLUMN}` cell was reopened. Restore the "
+                    "`Grounds` cell to what the reviewer wrote, or leave the "
+                    "row as it is. No cell was written"
+                )
+            cells[GROUNDS_COL] = grounds + (f"; {old}" if old else "")
+            raw[i] = row([escape(c) for c in cells])
+        words = [
+            chain.verdict_of(
+                [
+                    reader.visible(c)
+                    for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
+                ],
+                VERDICT_COL,
+            )
+            for i, _c in keyed.values()
+        ]
+        boxes = [i for i, ln in enumerate(lines) if chain.PASS_RE.match(ln)]
+        if len(boxes) != 1:
+            raise Refused(
+                f"round-{k}.md has {len(boxes)} `Pass` boxes and needs one; no "
+                "cell was written"
+            )
+        shut = all(w in chain.CLOSED_WORDS for w in words)
+        raw[boxes[0]] = f"- [{'x' if shut else ' '}] Pass"
+        if shut:
+            ticked.append(k)
+        ending = "\n" if text.endswith("\n") else ""
+        pending[path] = "\n".join(raw) + ending
+        now = forward_rows(reader, lines, raw)
+        for later, later_path in found:
+            if later <= k:
+                continue
+            reached = reach_forward(
+                reader,
+                rounds,
+                k,
+                now,
+                into=later,
+                text=pending.get(later_path)
+                or read_text(later_path, f"round-{later}.md"),
+            )
+            if reached is not None:
+                pending[later_path] = reached[1]
+                filled[later] = filled.get(later, 0) + reached[2]
+
+    for path, text in pending.items():
+        write_record(reader, path, text)
+    counts = {
+        w: sum(1 for word, _v, _n in fixes.values() if word == w)
+        for w in (CORRECTED, ANSWERED, DEFERRED_WORD)
+    }
+    print(
+        f"round-record: closed {len(fixes)} note{'s' if len(fixes) != 1 else ''} "
+        f"of the run ending at round-{last_k}.md {DASH} "
+        + ", ".join(
+            f"{n} {w}" + (f" at {stamp}" if w == CORRECTED and n else "")
+            for w, n in counts.items()
+        )
+        + (
+            f"; `Pass` ticked on {', '.join(f'round-{k}.md' for k in ticked)}"
+            if ticked
+            else ""
+        )
+        + "".join(
+            f"; {INHERITED} of round-{k}.md | {c} row{'s' if c != 1 else ''} filled"
+            for k, c in sorted(filled.items())
         )
     )
     return run_check(root, args.baseline or default_baseline(root))
@@ -4745,12 +5245,17 @@ def seal(args):
     a name: it takes neither `--fixes` nor `--range`, reads no verdict row,
     and writes one cell.
 
-    Six refusals, each before the write. Counted rather than described --
+    Seven refusals, each before the write. Counted rather than described --
     the number is the `raise Refused` sites in this function, and both times
     a document put a smaller number on them it was wrong inside one round.
 
       the record has no `Pass` box, or more than one   nothing here can be
           read, so nothing is written
+      a note of the run is still open, where the run has ended   a ⬜ is
+          carried open until the run ends and closed there once, by
+          `notes` (#837). `Pass` reads this record alone, so a note carried
+          on an earlier record passed it; asked before `Pass` so a note on
+          this record is named as a note
       `Pass` is unchecked          a finding is still OPEN in the verdict
           table, so the round has not ended and the run this cell records
           would be a run over findings still open
@@ -4816,7 +5321,7 @@ def seal(args):
     nothing.
 
     **`--check` asks every refusal above and writes nothing** (#702). The
-    seven — the six here and `seal_home`'s — are raised in the same order
+    eight — the seven here and `seal_home`'s — are raised in the same order
     with the same sentences, and so are the three the write path's callees
     raise: `field_index` (no `Broad gate` row, or two), `cell` (a pipe or a
     newline in the value) and `hiders_close` (a comment the record never
@@ -4864,6 +5369,27 @@ def seal(args):
             f"round-{n}.md has {len(boxes)} `Pass` boxes and needs one; no cell "
             "was written"
         )
+    checker, plain = checker_of(reader, rows)
+    # #837. A run that has ENDED with a note still open, on this record or an
+    # earlier one of the run: `Pass` reads the last record alone, so a note
+    # carried on round 1 passed it, and an open note on this record would
+    # meet the `Pass` refusal below, which names no way out. Asked only where
+    # the run has ended -- before that, the two refusals below are the true
+    # ones, and `notes` would refuse too.
+    if n is not None and plain == chain.NO_FIXES:
+        carried = open_notes(
+            reader, run_of_last(reader, earlier_records(routing, rounds, sys.maxsize))
+        )
+        if carried:
+            raise Refused(
+                f"{len(carried)} note{'s' if len(carried) != 1 else ''} of the "
+                f"run {'is' if len(carried) == 1 else 'are'} still open: "
+                f"{named_notes(carried)}. The run has ended — round-{n}.md "
+                f"reads `{chain.CHECKED_BY} | {chain.NO_FIXES}` — and a note "
+                "closes once, at the run's end, before the broad gate seals "
+                f"it: `{NOTES_COMMAND}`. {chain.NOTES_OWNER}; no cell was "
+                "written"
+            )
     if n is not None and boxes[0].group(1) == " ":
         raise Refused(
             f"round-{n}.md's `Pass` is unchecked — a finding in its verdict "
@@ -4895,8 +5421,6 @@ def seal(args):
     # the write then refused on that very row. `reach_back` two hundred lines
     # up already refuses an unreadable cell rather than acting on it, and
     # says why -- this is the same cell, one subcommand over.
-    checker = reader.visible(chain.field(rows, chain.CHECKED_BY) or "").strip()
-    plain = checker.strip("`").rstrip(".").lower()
     if n is not None and plain != chain.NO_FIXES:
         # A `round-N` is refused HERE rather than left to the check after the
         # write (#335). `CHECKER_RE` tests the SHAPE of the cell and cannot
@@ -5053,6 +5577,28 @@ def main(argv=None):
         default=None,
         help="the base for chain_check (default: the upstream, else origin/main)",
     )
+    t = sub.add_parser(
+        "notes", help="close the run's open notes once, at the run's end (#837)"
+    )
+    t.add_argument("--item", required=True, help="the work item directory")
+    t.add_argument(
+        "--fixes",
+        required=True,
+        help=f"the notes table, a file: `{FIXES}` with "
+        f"`| {' | '.join(NOTES_HEADER)} |`",
+    )
+    t.add_argument(
+        "--at",
+        default=None,
+        help=f"the commit the corrections are in; required while a row reads "
+        f"`{CORRECTED}`",
+    )
+    t.add_argument("--root", default=None, help="the repository (default: the item's)")
+    t.add_argument(
+        "--baseline",
+        default=None,
+        help="the base for chain_check (default: the upstream, else origin/main)",
+    )
     s = sub.add_parser("seal", help="set the LAST record's Broad gate cell alone")
     s.add_argument("--item", required=True, help="the work item directory")
     s.add_argument(
@@ -5075,7 +5621,7 @@ def main(argv=None):
     )
     args = ap.parse_args(argv)
     try:
-        commands = {"new": new, "close": close, "seal": seal}
+        commands = {"new": new, "close": close, "notes": notes, "seal": seal}
         return commands[args.command](args)
     except Refused as exc:
         print(f"round-record: {exc}", file=sys.stderr)

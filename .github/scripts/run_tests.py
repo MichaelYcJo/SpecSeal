@@ -121,7 +121,8 @@ CMARKGFM_VERSION = "2025.10.22"
 CMARKGFM = f"cmarkgfm=={CMARKGFM_VERSION}"
 
 # `pytest-split`, the plugin the Windows leg of `.github/workflows/test.yml`
-# stores its per-case durations with, and later divides the suite by (#841).
+# stores its per-case durations with (#841), and that divides the suite by
+# them into the shards of the Windows and macOS legs (#841, #864).
 # Pinned for the parser's reason, since the file it writes is what the
 # division is computed from. CI-only, so it is NOT in `PACKAGES` below:
 # `bin/test` never stores durations or divides the suite, and a local build

@@ -44,6 +44,7 @@ import pathlib
 import re
 import subprocess
 
+import pytest
 from conftest import on_disk, step_running
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -1560,6 +1561,60 @@ def test_a_freeze_row_that_is_not_an_id_is_refused_and_nothing_is_judged(tmp_pat
     assert code == 2, out
 
 
+def test_a_freeze_row_written_twice_is_refused_and_nothing_is_judged(tmp_path, capsys):
+    """S1 of #867, `correction-check`'s half. A `Ledger frozen from` row
+    written twice has no value: the range is refused at exit 2 naming the row
+    and the count, and no report is printed. Seen red against the last-wins
+    reader, which read the second value and judged the range."""
+    root, start = repo_at(
+        tmp_path,
+        {
+            "seal/config.md": frozen_config("1500000000")
+            + "| Ledger frozen from | 0 |\n",
+            RELEASED: RELEASED_TEXT,
+        },
+    )
+    head = branch_that(root, start, {RELEASED: RELEASED_TEXT.replace("Read.", "x")})
+    code, out = check(root, f"{start}...{head}")
+    said = capsys.readouterr().err
+    assert code == 2, out + said
+    assert out == "", out
+    assert "`Ledger frozen from` appears 2 times — one value" in said, said
+    assert "seal/config.md at " in said, said
+
+
+@pytest.mark.parametrize("shape", ["directory", "undecodable"])
+def test_an_unreadable_config_at_the_tip_is_refused_not_read_as_no_row(
+    tmp_path, capsys, shape
+):
+    """S3 of #867, `correction-check`'s half. `git show` printed a tree's
+    listing at exit 0 and decoded a blob with replacement characters, so a
+    `seal/config.md` that is a directory, or that holds bytes that do not
+    decode, could read as no freeze row and a range editing a released file
+    pass. It is refused at exit 2 naming the path and the commit. Seen red
+    against the `git show` reader."""
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT})
+    run(root, "checkout", "-q", "-b", "work", start)
+    write(root, RELEASED, RELEASED_TEXT.replace("Read.", "x"))
+    if shape == "directory":
+        write(root, "seal/config.md/README.md", "not a config\n")
+    else:
+        (pathlib.Path(root) / "seal" / "config.md").write_bytes(
+            b"# config\n\n| Item | Value |\n|---|---|\n"
+            b"| Record language | \xff\xfe |\n| Ledger frozen from | 1500000000 |\n"
+        )
+    write(root, ROUTING_AT.format(1500000001), "| Review | straight to the PR |\n")
+    head = commit(root, "the branch's work")
+    code, out = check(root, f"{start}...{head}")
+    said = capsys.readouterr().err
+    assert code == 2, out + said
+    assert "seal/config.md at " in said and "is there and cannot be read" in said, said
+    # The sentence names the cause it checked: a tree is not a file, and a
+    # blob's bytes that do not decode are the codec's own words.
+    cause = "a tree in git, not a file" if shape == "directory" else "codec"
+    assert cause in said, said
+
+
 def correction_merge(tmp, base, ours, theirs, resolution, files=None):
     """A merge of two branches over CITING, resolved by hand to RESOLUTION,
     with the released file and FILES in the base."""
@@ -1647,6 +1702,73 @@ def test_a_closing_pipe_citation_is_keyed_by_the_citation():
     assert list(found) == [
         'seal/releases/0.1.0.md#"### 1000000001-the-first">"R1 · the released claim \\|"'
     ], found
+
+
+# --- #867: a row's identity is read by the coordinate's one grammar --------
+
+
+def test_a_path_with_no_extension_has_its_coordinate_as_its_identity():
+    """S6 of #867. The 0.8.2 release row anchored on `bin/test` had no
+    identity here: this module's own pattern required a `.ext` before the
+    `#`, so a merge dropping a correction of that row was silence. Read by
+    `evidence_check.py#ANCHOR_RE`, the row is named by its coordinate with
+    the hash dropped, as every other row is. Seen red against the module's
+    own pattern: `frozenset()`."""
+    line = (
+        '| R1 · the runner | `bin/test#"# Typed as \\`bin/test\\`, never as a '
+        'bare \\`test\\`"@6f0c2a1b`, `bin/round-record#main@0123abcd` | read | '
+        "2026-01-01 | |"
+    )
+    row = cc.Row(line)
+    assert row.anchors == frozenset(
+        {
+            'bin/test#"# Typed as \\`bin/test\\`, never as a bare \\`test\\`"',
+            "bin/round-record#main",
+        }
+    ), row.anchors
+
+
+@pytest.mark.parametrize(
+    "example",
+    [
+        "`docs/a.md#1장@abcdef12`",
+        "`docs/a.md#1-scope @abcdef12`",
+        "`src/a.py#handler @abcdef12`",
+    ],
+)
+def test_a_malformed_example_quoted_in_a_row_is_no_identity(example):
+    """S6. The 0.15.5 and 0.15.6 release rows quote MALFORMED coordinates as
+    examples of what the checker refuses; the checker reads none of them as
+    a coordinate, and this module now reads them the same way. Seen red
+    against the module's own pattern, which took each as an identity."""
+    row = cc.Row(f"| E1 · a malformed example, {example}, is named | read | | |")
+    assert row.anchors == frozenset(), row.anchors
+
+
+def test_a_first_cell_holding_an_escaped_pipe_is_keyed_whole():
+    """S6. The first cell is the shared reader's (`split_row`), which honours
+    `\\|`; a raw split keyed this row on `T1 · a row quoting \\`, a fragment
+    of its claim, which 47 released rows shared the shape of. Seen red
+    against the raw split."""
+    row = cc.Row(
+        "| T1 · a row quoting `\\| Item \\| Value \\|` | `a/one.py#f@11111111` "
+        "| read | 2026-01-01 | |"
+    )
+    assert row.key == "T1 · a row quoting `| Item | Value |`", row.key
+
+
+def test_a_citation_is_the_first_coordinate_of_the_code_grounds_cell():
+    """A `Corrected ·` row's citation is read from its Code grounds cell, so
+    a coordinate the claim itself quotes is never taken for the row it
+    corrects."""
+    line = (
+        "| Corrected · `a/one.py#f@11111111` no longer holds | "
+        '`seal/releases/0.1.0.md#"### 1000000001-the-first">"R1 ·"@abcdef12`, '
+        "`a/one.py#g@22222222` | read | 2026-02-01 | Corrected 2026-02-01 |"
+    )
+    assert list(cc.corrections(line + "\n")) == [
+        'seal/releases/0.1.0.md#"### 1000000001-the-first">"R1 ·"'
+    ]
 
 
 def test_a_dropped_closing_pipe_correction_is_reported(tmp_path):

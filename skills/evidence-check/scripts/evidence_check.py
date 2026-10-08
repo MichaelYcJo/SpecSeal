@@ -141,13 +141,25 @@ HELP_EPILOG = _EPILOG_HEAD + (__doc__ or "").partition(_EPILOG_HEAD)[2]
 # records arm reads a name written the way a coordinate is written with the
 # same two pieces (`RECORD_COORD_RE`, #508): one grammar, so *a coordinate*
 # means one thing in both arms.
+#
+# **This is the one grammar of the coordinate** (#867). `correction_check.py`
+# and `settle.py` load this module and read `ANCHOR_RE` itself, and
+# `.github/scripts/rider_check.py` builds its stamp from `ANCHOR_LOCATOR` and
+# `ANCHOR_HASH`, because a stamp is a coordinate minus its path. Three
+# regexes used to spell it again, and they disagreed: `correction-check` gave
+# no identity to a path with no `.ext` (`bin/test`) and gave one to a quoted
+# MALFORMED example with a space before the `@`. A locator form added here is
+# read by every one of them; a reader that copied a piece would not be.
 ANCHOR_PATH = r"[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?"
 ANCHOR_NAME = r"[A-Za-z_][A-Za-z0-9_.]*"
+ANCHOR_QUOTED = r"\"(?:[^\"\n]|\\\")+\""
+ANCHOR_LOCATOR = ANCHOR_QUOTED + r"|" + ANCHOR_NAME
+ANCHOR_HASH = r"[0-9a-f]{6,12}"
 ANCHOR_RE = re.compile(
     r"(?P<path>" + ANCHOR_PATH + r")"
-    r"#(?P<locator>\"(?:[^\"\n]|\\\")+\"|" + ANCHOR_NAME + r")"
-    r"(?:>(?P<claim>\"(?:[^\"\n]|\\\")+\"))?"
-    r"@(?P<hash>[0-9a-f]{6,12})"
+    r"#(?P<locator>" + ANCHOR_LOCATOR + r")"
+    r"(?:>(?P<claim>" + ANCHOR_QUOTED + r"))?"
+    r"@(?P<hash>" + ANCHOR_HASH + r")"
 )
 HASH_LEN = 8
 # A clause of a pact held in another repository, cited from a signer
@@ -514,12 +526,64 @@ def parsed_spans(text):
     return out
 
 
+def vendored_heading_level(line):
+    """`unverified_check.py#heading_level`, for a copy with no reader beside
+    it: CommonMark 4.2's ATX heading — at most three spaces, one to six `#`,
+    then a space, a tab or the end of the line — as its level, or None.
+    `tests/test_evidence_check.py#test_the_vendored_heading_rule_agrees_with_the_shared_one`
+    holds the two equal."""
+    indent = len(line) - len(line.lstrip(" "))
+    if indent > 3:
+        return None
+    s = line[indent:]
+    n = len(s) - len(s.lstrip("#"))
+    if 1 <= n <= 6 and (len(s) == n or s[n] in " \t\r\n"):
+        return n
+    return None
+
+
+@functools.cache
+def heading_rule():
+    """`heading_level`: the shared reader's where this is the plugin's own
+    copy, and the vendored twin where it is not (#867), beside `fence_rule`
+    and `cell_rule`."""
+    reader = shared_reader()
+    return reader.heading_level if reader is not None else vendored_heading_level
+
+
 def heading_level(line):
-    m = re.match(r"^(#{1,6})\s", line)
-    return len(m.group(1)) if m else None
+    """The level of the markdown heading LINE is, or None — the one rule,
+    `heading_rule()`, under the name every caller here and
+    `pact_check.py#clause_hash` already spell. It used to be `^#{1,6}\\s` on
+    any line, so a heading indented up to three spaces was not one, and a
+    `## B` quoted inside a fence was: the regions below read it on the lines
+    a renderer shows (`markdown_lines`)."""
+    return heading_rule()(line)
 
 
-def text_regions(lines, anchor, markdown=False):
+def markdown_lines(text):
+    """TEXT's lines as GFM ends them, with every line inside a closed fence
+    blanked (`unquoted`) — the lines a renderer shows a heading on (#867).
+    The count and the line numbers are `gfm_lines(text)`'s, so a region found
+    here is the same region there, and its hash is taken over the lines as
+    written: where a region ENDS moves, its bytes do not.
+
+    **Computed once per distinct text** (round 1 of #867, ⬜ 11): every
+    quoted `.md` anchor asks for its file's shown lines, and recomputing
+    them per anchor took a `--strict` run over this repository from 13.2 s
+    to 15.4 s. The memo is keyed on the TEXT, as `parsed_spans`' is, and
+    each caller gets a fresh list."""
+    return list(_shown_lines(text))
+
+
+@functools.cache
+def _shown_lines(text):
+    """`markdown_lines`' answer, stored once per distinct text, as a tuple
+    no caller can change."""
+    return tuple(gfm_lines(unquoted(text)))
+
+
+def text_regions(lines, anchor, markdown=False, shown=None):
     """Every region a text anchor matches, 1-based and inclusive.
 
     A markdown heading owns everything down to the next heading at its level or
@@ -531,17 +595,24 @@ def text_regions(lines, anchor, markdown=False):
     and YAML, and reading one as a heading made a 23-line comment block resolve
     to its first line alone. Found by migrating this repository's own ledger,
     not by reasoning about it.
+
+    **A heading is read on SHOWN, the lines a renderer shows** (#867):
+    `markdown_lines` of the same text, which the caller passes for a markdown
+    file. A `## B` quoted in a closed fence opens no section and ends none.
+    The text is still matched on LINES as written, so an anchor on a line
+    inside a fence finds its paragraph as it did.
     """
+    shown = lines if shown is None else shown
     want = " ".join(anchor.split())
     out = []
     for i, line in enumerate(lines):
         if " ".join(line.split()) != want:
             continue
-        level = heading_level(line) if markdown else None
+        level = heading_level(shown[i]) if markdown else None
         if level is not None:
             j = i + 1
             while j < len(lines):
-                k = heading_level(lines[j])
+                k = heading_level(shown[j])
                 if k is not None and k <= level:
                     break
                 j += 1
@@ -570,6 +641,9 @@ def heading_path(lines, parts):
     Each part narrows inside the section the previous one opened, so a heading
     that repeats across a document is disambiguated by its parent rather than
     by a line number. Zero matches or several is the caller's BROKEN.
+
+    LINES are `markdown_lines` (#867): a heading quoted in a closed fence is a
+    blank line there, so it is no part of any path and ends no section.
     """
     regions = [(1, len(lines))]
     for part in parts:
@@ -648,9 +722,12 @@ def resolve_unit(path, locator, text):
     if locator.startswith('"'):
         body = unescape(locator[1:-1])
         if markdown:
+            # A heading is read where a renderer shows one (#867).
+            shown = markdown_lines(text)
             parts = [p for p in body.split(HEADING_SEP) if p.strip()]
             if parts and heading_level(parts[0].strip()) is not None:
-                return heading_path(lines, parts), False
+                return heading_path(shown, parts), False
+            return text_regions(lines, body, markdown, shown), False
         return text_regions(lines, body, markdown), False
     if path.endswith(".py"):
         spans = py_spans(text)
@@ -925,7 +1002,10 @@ def file_units(rel, body):
             if len(places) == 1:
                 units.append((name, places[0], False))
     elif rel.endswith(".md"):
+        # Headings read where a renderer shows one (#867); a quoted heading
+        # in a closed fence is a blank line here and no unit.
         seen = {}
+        lines = markdown_lines(body)
         for i, line in enumerate(lines):
             level = heading_level(line)
             if level is None:
@@ -2419,18 +2499,20 @@ def citation_for(root, path, number, body=None):
     raw = gfm_lines(body)
     lines = gfm_lines(unquoted(body))
     rel = SEAL_PREFIX + os.path.relpath(path, seal_home(root)).replace(os.sep, "/")
+    # The headings are read on the shown lines (#867), so a heading quoted in
+    # a closed fence in a release file is never a citation's section.
     trail = []
     for n in range(number - 1, 0, -1):
-        level = heading_level(raw[n - 1])
+        level = heading_level(lines[n - 1])
         if level is not None and all(level < held for held, _ in trail):
-            trail.insert(0, (level, raw[n - 1].strip()))
+            trail.insert(0, (level, lines[n - 1].strip()))
     texts = [text for _, text in trail]
     tries = [texts[-1:], texts] + [[text] for text in reversed(texts[:-1])]
     cell = re.split(r"(?<!\\)\|", lines[number - 1].strip()[1:])[0]
     for parts in tries:
         if not parts or any("`" in text for text in parts):
             continue
-        found = heading_path(raw, parts)
+        found = heading_path(lines, parts)
         if len(found) != 1 or not found[0][0] < number <= found[0][1]:
             continue
         literal = unique_literal(lines, found[0], number, cell)
@@ -3822,65 +3904,135 @@ def reverify(
 FROZEN_ROW = "Ledger frozen from"
 CONFIG_READER = os.path.join(HERE, "..", "..", "..", "hooks", "config.py")
 CONFIG_HEADER_RE = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
+# A line of a two-cell row's SHAPE, which `notify_may_be_always` judges a
+# line by on its own; an empty item is that shape too.
 CONFIG_ROW_RE = re.compile(
     r"^\|\s*(?P<item>(?:[^|\\]|\\.)*?)\s*\|\s*(?P<value>(?:[^|\\]|\\.)*?)\s*\|\s*$"
 )
+# The vendored copy's twin of `hooks/config.py#CONFIG_ROW` and
+# `#CONFIG_SEPARATOR`, spelled as that file spells them (#867): the row's item
+# takes at least one character, so `|| x |` is no row in either reader.
+# `tests/test_evidence_check.py#test_the_vendored_config_rule_agrees_with_the_shared_one`
+# holds the two readers equal over the config table's own shapes.
+VENDORED_CONFIG_ROW_RE = re.compile(
+    r"^\|\s*(?P<item>(?:[^|\\]|\\.)+?)\s*\|\s*(?P<value>(?:[^|\\]|\\.)*?)\s*\|\s*$"
+)
+RULE_LINE_RE = re.compile(r"^\|[\s:|-]+\|$")
 
 
 def vendored_config_rows(text):
     """`hooks/config.py#config_rows`, for a copy with no `hooks/` beside it:
-    the `(item, value)` rows under the first `| Item | Value |` header, up to
-    the first line that is not one. It does not know fences or comments, which
-    the plugin's reader does; a vendored copy reads a CI checkout's config,
-    where the table is the file's own."""
+    the `(item, value)` rows under the first `| Item | Value |` header, with
+    the stop rule that reader keeps — a header or a separator above the first
+    row is the table's furniture and below it ends the table, and so does any
+    other line once a row was found.
+
+    **It differs from the plugin's reader in two ways, both stated.** It
+    does not know fences or comments, which the plugin's reader does; a
+    vendored copy reads a CI checkout's config, where the table is the
+    file's own. And it ends a line where GFM does (`gfm_lines`), where the
+    plugin's reader walks `str.splitlines` pieces, so a row holding a form
+    feed, U+2028 or another character only Python ends a line at is one row
+    here and two pieces there, neither of them a row (round 1 of #867, ⬜ 7,
+    measured over eight shapes). The equality case's table holds neither
+    shape, for those reasons. Every other shape it reads as
+    the reader does: until #867 a stray separator or a second header was
+    stepped past here, so the rows of a second table were read as this
+    one's, and an empty item was a row."""
     found, seen = [], False
     for line in gfm_lines(text):
         if not seen:
             seen = bool(CONFIG_HEADER_RE.match(line))
             continue
-        if RULE_LINE_RE.match(line.strip()):
+        if CONFIG_HEADER_RE.match(line) or RULE_LINE_RE.match(line.strip()):
+            if found:
+                break
             continue
-        m = CONFIG_ROW_RE.match(line)
+        m = VENDORED_CONFIG_ROW_RE.match(line)
         if not m:
             if found:
                 break
             continue
         found.append(
-            (m.group("item").replace("\\|", "|"), m.group("value").replace("\\|", "|"))
+            (
+                m.group("item").strip().replace("\\|", "|"),
+                m.group("value").strip().replace("\\|", "|"),
+            )
         )
     return found
 
 
-RULE_LINE_RE = re.compile(r"^\|[\s:|-]+\|$")
+def vendored_config_value(rows, item):
+    """`hooks/config.py#value_of`, for a copy with no `hooks/` beside it: no
+    row is `(None, None)`, one row is `(its value, None)`, and a row written
+    more than once has no value and the reader's own sentence."""
+    values = [value for found, value in rows if found == item]
+    if len(values) > 1:
+        return None, f"`{item}` appears {len(values)} times — one value"
+    return (values[0], None) if values else (None, None)
+
+
+def vendored_config_text(home):
+    """`hooks/config.py#config_text`, for a copy with no `hooks/` beside it:
+    `(None, None)` for no file, `(text, None)` for a file read strictly as
+    UTF-8, and `(None, the reader's sentence)` for one that is there and
+    will not read."""
+    path = os.path.join(home, "config.md")
+    if not os.path.lexists(path):
+        return None, None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read(), None
+    except (OSError, ValueError) as exc:
+        why = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
+        return None, (
+            f"{path} is there and cannot be read as UTF-8 text ({why}), so no "
+            "row of it can be read — a config that is absent declares "
+            "nothing, and one that will not read is refused rather than read "
+            "as absent"
+        )
 
 
 @functools.cache
-def config_reader():
-    """`config_rows`: the one reader of `seal/config.md`,
-    `hooks/config.py#config_rows`, where this is the plugin's own copy -- told
-    apart the way `shared_reader` tells it -- and the vendored one where it is
-    not."""
+def config_rule():
+    """`(config_text, config_rows, value_of)`: the one reader of
+    `seal/config.md`, `hooks/config.py`, where this is the plugin's own copy
+    -- told apart the way `shared_reader` tells it -- and the vendored twins
+    where it is not."""
     skill = os.path.join(HERE, "..", "SKILL.md")
     if os.path.isfile(CONFIG_READER) and os.path.isfile(skill):
         spec = importlib.util.spec_from_file_location("specseal_config", CONFIG_READER)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        return module.config_rows
-    return vendored_config_rows
+        return module.config_text, module.config_rows, module.value_of
+    return vendored_config_text, vendored_config_rows, vendored_config_value
 
 
 def frozen_from(root):
     """`(cutoff, refusal)`: the `Ledger frozen from` value as a whole number,
     or None where the row is absent or empty, and a sentence where the value
-    is not a work-item id. `0` is a value: it binds every work item."""
-    path = os.path.join(seal_home(root), "config.md")
-    text = read(path)
+    is not a work-item id. `0` is a value: it binds every work item.
+
+    **The freeze never turns off because the file could not be read**
+    (#867). A `config.md` that is there and will not read, and a `Ledger
+    frozen from` row written twice, are refusals, the shape a non-numeric
+    value already took: `--reverify` exits 2 naming them and writes nothing.
+    Before, an unreadable file read as no row, so the freeze was off and a
+    released row was re-stamped in place."""
+    home = seal_home(root)
+    path = os.path.join(home, "config.md")
+    text_of, rows_of, value_of = config_rule()
+    text, refusal = text_of(home)
+    if refusal is not None:
+        return None, refusal
     if text is None:
         return None, None
-    values = [value for item, value in config_reader()(text) if item == FROZEN_ROW]
-    if not values or not values[-1].strip():
+    value, refusal = value_of(rows_of(text), FROZEN_ROW)
+    if refusal is not None:
+        return None, f"{display_name(path, root)}: {refusal}"
+    if value is None or not value.strip():
         return None, None
-    value = values[-1].strip()
+    value = value.strip()
     if not value.isdigit():
         return None, (
             f"the `{FROZEN_ROW}` row of {display_name(path, root)} holds "
@@ -4509,7 +4661,7 @@ PACT_CHANGE_UNDONE = (
 @functools.cache
 def plugin_module(path, name):
     """The plugin's own module at PATH, or None for a vendored copy, told
-    apart as `config_reader` tells it: the module and this skill's `SKILL.md`
+    apart as `config_rule` tells it: the module and this skill's `SKILL.md`
     both beside this script, where the plugin ships them."""
     skill = os.path.join(HERE, "..", "SKILL.md")
     if not (os.path.isfile(path) and os.path.isfile(skill)):

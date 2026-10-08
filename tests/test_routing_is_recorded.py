@@ -638,6 +638,83 @@ def test_the_commit_gate_decides_the_same_with_the_planning_row_and_without(repo
         assert decision_of(gate(repo)) == "silent", answer
 
 
+# --- #867: a label written twice has no value --------------------------------
+
+
+@pytest.mark.parametrize(
+    "label, first, second",
+    [
+        ("Review", DIRECT, CHAIN),
+        ("Review", CHAIN, CHAIN),
+        ("Destination", "open the pull request", "stop before the pull request"),
+        ("Branch", "feature/y", "feature/x"),
+    ],
+    ids=["review, two answers", "review, one answer twice", "destination", "branch"],
+)
+def test_a_strict_label_written_twice_is_no_declaration(label, first, second):
+    """S5 of #867 at the parser. `parse` kept the LAST row of a label, so a
+    second `Review` row below the first answered for it and nothing said
+    there were two. A label written twice has no value, the rule
+    `hooks/config.py#value_of` gives a config row; for a strict label that
+    makes the file no declaration. Seen red against the last-wins parser:
+    each shape parsed, `feature/x` and the chain answering."""
+    answers = {
+        "Review": CHAIN,
+        "Destination": "open the pull request",
+        "Branch": "feature/x",
+    }
+    doubled = "| Axis | Answer |\n|---|---|\n" + "".join(
+        f"| {lab} | {first} |\n| {lab} | {second} |\n"
+        if lab == label
+        else f"| {lab} | {answer} |\n"
+        for lab, answer in answers.items()
+    )
+    assert [lab for lab, _ in routing.table_rows(doubled)].count(label) == 2
+    assert routing.parse(doubled) is None, doubled
+
+
+def test_an_optional_label_written_twice_is_unanswered():
+    """S5's second half. An optional label doubled is unanswered, on the
+    terms an unreadable optional answer already has: the declaration stands.
+    Seen red against the last-wins parser: `planning` read `framer`."""
+    text = two_axis_text().replace(
+        "| Branch |", "| Planning | the session |\n| Planning | framer |\n| Branch |"
+    )
+    parsed = routing.parse(text)
+    assert parsed is not None and parsed["review"] == CHAIN
+    assert parsed["planning"] is None
+    for label in (routing.IMPLEMENTATION, routing.AUTOMATION, routing.ANSWER_PRESSED):
+        answers = {
+            routing.IMPLEMENTATION: routing.IMPLEMENTATION_ANSWERS,
+            routing.AUTOMATION: routing.AUTOMATION_ANSWERS,
+            routing.ANSWER_PRESSED: routing.ANSWER_PRESSED_ANSWERS,
+        }[label]
+        twice = with_row(label, answers[0]).replace(
+            "| Branch |", f"| {label} | {answers[0]} |\n| Branch |"
+        )
+        parsed = routing.parse(twice)
+        assert parsed is not None, label
+        assert {
+            routing.IMPLEMENTATION: parsed["implementation"],
+            routing.AUTOMATION: parsed["automation"],
+            routing.ANSWER_PRESSED: parsed["pressed"],
+        }[label] is None, label
+
+
+def test_a_review_label_written_twice_makes_the_gate_ask(repo):
+    """S5 at the gate: a doubled strict label is no declaration, so the
+    commit gate asks as it does for any `routing.md` that will not parse.
+    Seen red against the last-wins parser: silent."""
+    opt_in(repo)
+    path = declare(repo, review=CHAIN)
+    body = path.read_text(encoding="utf-8")
+    path.write_text(
+        body.replace(f"| Review | {CHAIN} |\n", f"| Review | {CHAIN} |\n" * 2),
+        encoding="utf-8",
+    )
+    assert fired(gate(repo))
+
+
 # --- the fifth and sixth rows: a property of the run, and which button ------
 
 
@@ -746,8 +823,9 @@ def declared(name):
 )
 def test_the_routing_shapes_read_as_the_frame_expects(name, expected):
     """S10. A row inside a fenced block or a comment block that closes is no
-    answer, and `parse` keeps the last row of a label, so before this an
-    example or a parked row below the table overrode it. A table wholly
+    answer, and `parse` kept the last row of a label, so before this an
+    example or a parked row below the table overrode it (since #867 a label
+    shown twice has no value at all). A table wholly
     hidden is no declaration (R2, R9): the direction this module fails in,
     and the ask that follows is the one every unreadable `routing.md` gets."""
     assert declared(name) == expected

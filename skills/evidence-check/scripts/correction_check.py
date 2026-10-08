@@ -287,6 +287,32 @@ def load_config(path=CONFIG_READER):
 
 config = load_config()
 
+# The coordinate's one grammar, `evidence_check.py#ANCHOR_RE`, for a row's
+# identity (#867). Loaded by path beside the two readers above, and a copy
+# without it is refused the same way: this command ships beside the checker.
+CHECKER = os.path.join(HERE, "evidence_check.py")
+
+
+def load_checker(path=CHECKER):
+    """`evidence_check.py` as a module, or a sentence and exit 2."""
+    if not os.path.isfile(path):
+        sys.stderr.write(
+            f"correction-check: cannot read {path}, and it holds the one "
+            "grammar of a ledger coordinate, which is what names a row. This "
+            "command ships beside it under `skills/`; a copy of one script "
+            "taken on its own is not a plugin. Nothing was examined.\n"
+        )
+        raise SystemExit(2)
+    spec = importlib.util.spec_from_file_location(
+        "specseal_evidence_for_corrections", path
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+checker = load_checker()
+
 # The three addresses a ledger lives at. The fragment glob is watched from the
 # first commit rather than added later, because `fold_ledger.py` moves every
 # fragment into a release file at the release and a check watching one of
@@ -419,12 +445,34 @@ MARKER = re.compile(
     r"[ \t]+(\d{4}-\d{2}-\d{2})(?!\d)"
 )
 
-# A content anchor with its hash dropped: `path#unit` out of `path#unit@hash`.
-# The hash is what a correction changes and the anchor is what it does not, so
-# only the left half is an identity. Both the plain and the double-backtick
-# spellings the ledger uses reach this the same way -- the pattern is anchored
-# on the `#` and the `@`, not on the quoting around them.
-ANCHOR = re.compile(r"([^\s`|]+\.[A-Za-z0-9]+#[^`@|]*?)@[0-9a-f]{6,}")
+
+def identities(text, start=0):
+    """Every content anchor in TEXT from START on with its hash dropped, in
+    order: `path#unit` out of `path#unit@hash`, and `path#"a">"b"` out of a
+    quoted locator narrowed by a claim. The hash is what a correction changes
+    and the anchor is what it does not, so only the left half is an identity.
+
+    **Read by the checker's own grammar, `evidence_check.py#ANCHOR_RE`**
+    (#867). This module used to keep a pattern of its own that required a
+    `.ext` before the `#` and took any run up to the `@` that held no
+    backtick and no pipe, so a row anchored on `bin/test`, or on a quoted
+    heading holding a code span or `\\|`, had no identity -- a merge dropping
+    its correction was silence -- and a MALFORMED example quoted in a row,
+    which the checker reads as no coordinate, was one. Measured over the
+    released ledgers when the pattern went: 58 identities gained (2 paths
+    with no `.ext`, 56 quoted locators holding a backtick or `\\|`), 5 lost
+    (the MALFORMED examples of 0.15.5 and 0.15.6), every `Corrected ·`
+    citation the same."""
+    return [
+        m.group(0)[: m.start("hash") - m.start() - 1]
+        for m in checker.ANCHOR_RE.finditer(text, start)
+    ]
+
+
+# A pipe that ends a cell: one no backslash escapes, the split
+# `unverified_check.py#split_row` makes.
+CELL_END = re.compile(r"(?<!\\)\|")
+
 
 # A markdown table separator, which is not a row anything can lose.
 SEPARATOR = re.compile(r"^\|[\s:|-]*\|$")
@@ -439,15 +487,26 @@ class Row:
     """One table row of a ledger file, with the three things it is judged by.
 
     `key` is the first cell whitespace-collapsed, `anchors` the content
-    anchors it cites with their hashes dropped, and `markers` the multiset of
-    correction markers it carries.
+    anchors it cites with their hashes dropped (`identities`), `grounds_at`
+    the offset in RAW where the second cell begins -- where a citing row's
+    citation stands first -- and `markers` the multiset of correction
+    markers it carries.
+
+    **The cells are the shared reader's, `unverified_check.py#split_row`**
+    (#867), which honours `\\|` as every other reader of a ledger row does. A
+    raw split ended the first cell at an escaped pipe, so a row whose claim
+    quoted a table line was keyed on a fragment of its first cell (47 rows in
+    the released ledgers when the split went).
     """
 
     def __init__(self, raw):
         self.raw = raw
-        cells = raw.strip().strip("|").split("|")
-        self.key = " ".join(cells[0].split()) if cells else ""
-        self.anchors = frozenset(a.strip() for a in ANCHOR.findall(raw))
+        cells = reader.split_row(raw) or [""]
+        self.key = " ".join(cells[0].split())
+        lead = raw.find("|")
+        end = CELL_END.search(raw, lead + 1) if lead >= 0 else None
+        self.grounds_at = end.end() if end else len(raw)
+        self.anchors = frozenset(identities(raw))
         self.markers = markers(raw)
 
     def __repr__(self):
@@ -573,24 +632,26 @@ def losses(parent_text, result_text):
 # first anchor is the released row it reads. A `Corrected ·` row is identified
 # by that citation with its hash dropped, which no later edit to the row moves.
 CORRECTED_ROW = "Corrected · "
-# A citation's locator is quoted, and a quoted segment may hold `\|` -- the
-# closing-pipe literal `evidence_check.py#citation_for` writes, or a heading
-# with a pipe in it. `ANCHOR` stops at any `|`, so it is tried second
-# (round 1, 🟡 5).
-CITATION = re.compile(
-    r'([^\s`|]+\.[A-Za-z0-9]+#"(?:[^"\\]|\\.)*"(?:>"(?:[^"\\]|\\.)*")?)@[0-9a-f]{6,}'
-)
 
 
 def corrections(text):
-    """`{citation: row}` for every `Corrected ·` row of `text`."""
+    """`{citation: row}` for every `Corrected ·` row of `text`: the first
+    coordinate of the row's Code grounds cell, with its hash dropped, read by
+    the checker's grammar (`identities`). A citation's locator is quoted and
+    may hold `\\|` -- the closing-pipe literal
+    `evidence_check.py#citation_for` writes, or a heading with a pipe in it
+    -- which `ANCHOR_RE`'s quoted locator reads whole (round 1, 🟡 5).
+
+    A second spelling of the quoted locator used to stand here, tried before
+    the plain pattern; since #867 there is one grammar and no order to get
+    wrong."""
     found = {}
     for row in rows(text):
         if not row.key.startswith(CORRECTED_ROW):
             continue
-        cited = CITATION.search(row.raw) or ANCHOR.search(row.raw)
+        cited = identities(row.raw, row.grounds_at)
         if cited:
-            found.setdefault(cited.group(1).strip(), row)
+            found.setdefault(cited[0], row)
     return found
 
 
@@ -926,16 +987,60 @@ RELEASE_FILE = re.compile(r"^seal/releases/(\d+\.\d+\.\d+)\.md$")
 BASE_VERSION = re.compile(r"release/v(\d+\.\d+\.\d+)$")
 
 
+def config_at(root, rev):
+    """`(text, refusal)` for `seal/config.md` as REV holds it — the two
+    states `hooks/config.py#config_text` tells apart on disk, told apart for
+    a blob (#867).
+
+      (None, None)     REV holds nothing at that path: nothing is declared
+      (text, None)     a blob that decodes as UTF-8
+      (None, refusal)  something is there and will not read as text — a
+                       tree of that name, or bytes that do not decode — in
+                       the reader's own sentence, naming the path and REV
+
+    `git show` alone could not tell them apart: it prints a tree's listing
+    at exit 0, and it decoded with `errors="replace"`, so neither was ever
+    refused and a decode error read whatever rows survived it."""
+    spec = f"{rev}:{CONFIG}"
+    kind = git(root, "cat-file", "-t", spec)
+    if kind is None:
+        return None, None
+    where = f"{CONFIG} at {rev[:12]}"
+    if kind.strip() != "blob":
+        return None, config.unreadable_config(
+            where, OSError(0, f"a {kind.strip()} in git, not a file")
+        )
+    out = subprocess.run(
+        ["git", "-C", root, "cat-file", "blob", spec], capture_output=True
+    )
+    if out.returncode != 0:
+        return None, config.unreadable_config(
+            where, OSError(0, out.stderr.decode("utf-8", "replace").strip())
+        )
+    try:
+        return out.stdout.decode("utf-8"), None
+    except UnicodeDecodeError as undecodable:
+        return None, config.unreadable_config(where, undecodable)
+
+
 def cutoff_at(root, rev):
     """The `Ledger frozen from` value at REV, or None where the row is absent
-    or empty. A value that is not a whole number is `Refused`."""
-    text = git(root, "show", f"{rev}:{CONFIG}")
+    or empty. A value that is not a whole number is `Refused`, and so is a
+    `config.md` that is there and will not read, and a row written twice
+    (#867): the freeze arm never turns off because the file could not be
+    read, which is the one direction that passes a pull request editing a
+    frozen file."""
+    text, refusal = config_at(root, rev)
+    if refusal is not None:
+        raise Refused(refusal)
     if text is None:
         return None
-    values = [v for item, v in config.config_rows(text) if item == FROZEN_ROW]
-    if not values or not values[-1].strip():
+    value, refusal = config.value_of(config.config_rows(text), FROZEN_ROW)
+    if refusal is not None:
+        raise Refused(f"{CONFIG} at {rev[:12]}: {refusal}")
+    if value is None or not value.strip():
         return None
-    value = values[-1].strip()
+    value = value.strip()
     if not value.isdigit():
         raise Refused(
             f"the `{FROZEN_ROW}` row of {CONFIG} holds `{value}`, which is not a "

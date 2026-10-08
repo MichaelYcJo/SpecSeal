@@ -799,6 +799,32 @@ def test_a_blocking_finding_below_a_subheading_is_still_in_the_table(repo):
     assert "`Pass` is checked" in out
 
 
+def test_a_wrapped_line_opening_with_an_issue_number_ends_no_section():
+    """S9 of #867. A line beginning `#120)` at column 0 is paragraph text
+    (CommonMark 4.2 wants a space after the run), and `heading_level` read it
+    as a level-1 heading because it tested `startswith("#")`: the
+    `## Verdicts` section ended above it and the open 🔴 row below fell
+    outside. Read by the one rule, `unverified_check.py#heading_level`, the
+    row is inside. Seen red against `startswith("#")`."""
+    check = _module("chain_check_for_an_issue_led_line", CHECK)
+    reader = _module("reader_for_an_issue_led_line", check.READER)
+    text = (
+        "# r\n\n## Verdicts\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
+        "| 🟢 1 | something | `f.py:1` | confirmed | read |\n\n"
+        "A note wrapped by hand, which the reviewer continued as\n"
+        "#120) was the issue that opened it.\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
+        "| 🔴 2 | the open one | `f.py:2` | open | grounds |\n"
+    )
+    lines = reader.readable(text)
+    assert check.section_end(lines, 2) == len(lines)
+    rows, _col, _header, _errors = check.verdict_table(
+        reader, lines, "rounds/round-1.md"
+    )
+    assert "🔴 2" in [seen[0] for _n, seen in rows], rows
+
+
 def test_a_repeated_header_row_is_not_a_verdict_row():
     """Round 1's 🟡 3, the checker's half. A record whose `## Verdicts` holds
     a second table under a `###` — or a hand-pasted header — used to hand

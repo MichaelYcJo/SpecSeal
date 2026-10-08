@@ -4967,3 +4967,22 @@ def test_a_top_level_specs_directory_is_never_a_retired_work_item(tmp_path):
     assert code == 1 and "docs/policy.md" in text, (
         f"a top-level specs/ directory was excused as a retired work item:\n{text}"
     )
+
+
+def test_a_ledger_row_below_an_issue_led_line_keeps_its_heading():
+    """#867. `ledger_rows` files each row under the last heading above it,
+    and read `startswith("#")`, so a line beginning `#120)` became that
+    heading and the rows below it were filed under prose. The one rule,
+    `unverified_check.py#heading_level`, reads it as paragraph text. Seen red
+    against `startswith("#")`."""
+    loaded = module()
+    lines = [
+        "### 1790000000-an-item",
+        "",
+        "#120) was the issue a wrapped note named",
+        "| R1 · a claim | `a.py#f@11111111` | read | 2026-01-01 | |",
+    ]
+    rows = loaded.ledger_rows(lines, loaded.reader().live_lines)
+    assert [(heading, row_id) for _n, heading, row_id, _line in rows] == [
+        ("### 1790000000-an-item", "R1")
+    ], rows

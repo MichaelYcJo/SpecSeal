@@ -180,6 +180,66 @@ def test_a_fenced_example_is_not_a_second_section(tmp_path):
     assert not err and len(op) == 2
 
 
+def test_a_line_opening_with_an_issue_number_does_not_end_the_section(tmp_path):
+    """S9 of #867. `headings` read `startswith("#")`, so a line beginning
+    `#120)` ended `## Not verified` and the row below it went uncounted, at
+    exit 0 — the permissive direction. By the one rule,
+    `unverified_check.py#heading_level`, the line is paragraph text inside
+    the section: the row below is counted, and the line itself is named as
+    a line in the table that is not a row. Seen red against
+    `startswith("#")`: two rows and no error."""
+    text = CANONICAL + "#120) wrapped onto its own line\n| a third item | the owner |\n"
+    op, _, err = uc.check_file(write(tmp_path, text))
+    assert len(op) == 3, op
+    assert [message for _line, message in err] == [
+        "a line inside the table that is not a table row"
+    ], err
+
+
+@pytest.mark.parametrize(
+    "line, level",
+    [
+        ("## Not verified", 2),
+        ("   ## Not verified", 2),
+        ("    ## Not verified", None),
+        ("\t## Not verified", None),
+        ("#120) wrapped", None),
+        ("#84's line", None),
+        ("####### seven", None),
+        ("#\tx", 1),
+        ("#", 1),
+        ("## closed ##", 2),
+    ],
+)
+def test_the_heading_rule_reads_commonmarks_atx_heading(line, level):
+    """S8 and S9's shapes at the rule itself (#867): CommonMark 4.2, at most
+    three spaces, one to six `#`, then a space, a tab or the end."""
+    assert uc.heading_level(line) == level
+
+
+@pytest.mark.parametrize(
+    "line, matches",
+    [
+        ("## Not verified", True),
+        ("### not VERIFIED, read", True),
+        ("   ## Not verified", True),
+        ("##\tNot verified", True),
+        ("# Not verified", False),
+        ("#### Not verified", False),
+        ("#120) not verified", False),
+        ("## Not done", False),
+    ],
+)
+def test_a_base_revisions_heading_is_a_level_two_or_three_heading_by_the_rule(
+    line, matches
+):
+    """#867 round 1, 🟡 6. `LOOSE_HEADING` decides a base revision's wording
+    alone; whether the line is a heading, and at which level, is
+    `heading_level`'s. Its own pattern, `^#{2,3}\\s`, missed a heading
+    indented up to three spaces. Seen red against that pattern."""
+    assert bool(uc.LOOSE_HEADING.match(line)) is matches
+
+
 def test_escaped_pipes_inside_a_cell_do_not_split_it(tmp_path):
     section = CANONICAL + "| whether `a \\| b` parses | the next session |\n"
     op, _, err = uc.check_file(write(tmp_path, section))

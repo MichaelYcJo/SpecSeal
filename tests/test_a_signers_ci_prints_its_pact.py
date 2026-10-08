@@ -117,14 +117,14 @@ def tree(tmp_path, name, config_text, spec, passed=True, declare=True, pact=None
     return repo
 
 
-def run(repo):
+def run(repo, *extra):
     env = dict(os.environ)
     env.pop("GITHUB_HEAD_REF", None)
     event = repo.parent / f"{repo.name}-event.json"
     event.write_text(json.dumps({"pull_request": {"draft": False}}), "utf-8")
     env["GITHUB_EVENT_PATH"] = str(event)
     done = subprocess.run(
-        [sys.executable, CHECK, "--baseline", "base", "--root", str(repo)],
+        [sys.executable, CHECK, "--baseline", "base", "--root", str(repo), *extra],
         capture_output=True,
         encoding="utf-8",
         errors="replace",
@@ -197,6 +197,30 @@ def test_a_row_that_will_not_parse_is_a_notice_and_never_a_failure(
     assert code == plain_code == 0, out
     assert said in out, out
     assert "`pact-check` at the pact's repository exits 2 on it" in out, out
+
+
+@pytest.mark.parametrize("where", ["HEAD", "--worktree"])
+def test_a_config_that_will_not_read_is_a_notice_and_never_a_crash(tmp_path, where):
+    """#867 round 1, 🟡 5. The pact notices read `seal/config.md` through
+    `config_at_head`, the states `hooks/config.py#config_text` tells apart:
+    a committed config whose bytes do not decode is one notice naming it,
+    and the exit status does not move. Seen red against the notices' own
+    reading: at HEAD the lenient decode read the `Pact` row through the bad
+    byte and printed the relationship as if nothing were wrong, and under
+    `--worktree` the strict read raised `UnicodeDecodeError` out of the
+    whole check."""
+    signed = tree(tmp_path, "signed", config(("Pact", PACT_URL)), SPEC)
+    raw = config(("Pact", PACT_URL)).encode("utf-8") + b"| Note | caf\xe9 |\n"
+    (signed / "seal" / "config.md").write_bytes(raw)
+    commit(signed, "a config another encoding wrote")
+    extra = ("--worktree",) if where == "--worktree" else ()
+    code, out = run(signed, *extra)
+    assert code == 0, out
+    assert "Traceback" not in out, out
+    assert "the pact relationship was not read: " in out, out
+    assert "config.md" in out.split("was not read: ", 1)[1].split(" ", 1)[0], out
+    assert "is there and cannot be read as UTF-8 text" in out, out
+    assert "signs the pact" not in out, out
 
 
 def test_s8_a_notify_row_below_the_table_is_a_notice_naming_it(tmp_path):
