@@ -32,6 +32,7 @@ exit code read.
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1372,3 +1373,140 @@ def test_the_two_cutoffs_are_the_id_of_the_item_that_wrote_them():
     reader = _load("reader_for_the_cutoffs", module.READER)
     ok, how = cutoff_item_is_traceable(ROOT, reader, module.FLOOR_FROM)
     assert ok, f"{how} — so the first records held to both rules are nobody's"
+
+
+# --- #866 S10: the gate and the printed bound walk one function -------------
+
+GENERATOR = os.path.join(ROOT, "skills", "code-review", "scripts", "round_record.py")
+
+
+def walk_record(floor, needs, verdict):
+    """The three rows the floor's walks read, and nothing else."""
+    return (
+        "# a round\n\n| Field | Value |\n|---|---|\n"
+        f"| Needs a fix | {needs} |\n| Loses a record or crashes | {floor} |\n\n"
+        "- [x] Pass\n\n## Verdicts\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
+        f"| 🟡 1 | something | `f.py:1` | {verdict} | grounds |\n"
+    )
+
+
+QUIET = ("no", "no", "answered")
+FIXED = ("no", "no", "**fixed** `abc1234`")
+REOPENED = ("no", "yes — 🟡 1, the wording", "answered")
+
+
+@pytest.mark.parametrize(
+    "run, count, reopen",
+    [
+        # Met, then quiet, then quiet: the count walk from round 1 reaches 2.
+        ([QUIET, QUIET, QUIET], ("round-1.md", 2), None),
+        # Met, then fix-closing twice: the reopening walk's second.
+        ([QUIET, FIXED, FIXED], None, ("round-1.md", "round-3.md")),
+        # Met, then reopened without fixes, then quiet: the count stops at
+        # round 2 and nothing is refused.
+        ([QUIET, REOPENED, QUIET], None, None),
+        # Two floor records, the second's own walk spent past it.
+        (
+            [("yes — 🔴 1", "no", "answered"), QUIET, QUIET, QUIET],
+            ("round-2.md", 2),
+            None,
+        ),
+    ],
+    ids=["quiet-quiet", "fixed-fixed", "reopened-quiet", "two-floors"],
+)
+def test_the_gate_and_the_printed_bound_read_one_walk(tmp_path, run, count, reopen):
+    """#866 S10. `chain_check.stopping_floor`, asked of every record as the
+    gate asks it, and `round_record.floor_and_fixes`, the printed bound's
+    reading, over one run of records: the record the count walk's error names
+    and its count, and the record the reopening walk names as the second,
+    are the same on both sides — both are `chain_check.floor_walks` now.
+    Seen red by breaking `floor_walks`, which moves both at once."""
+    check = check_module()
+    check.WORKTREE = True
+    reader = _load("reader_for_the_walks", check.READER)
+    generator = _load("generator_for_the_walks", GENERATOR)
+    rounds = tmp_path / NEW_ITEM / "rounds"
+    rounds.mkdir(parents=True)
+    rels = []
+    for n, (floor, needs, verdict) in enumerate(run, 1):
+        (rounds / f"round-{n}.md").write_text(
+            walk_record(floor, needs, verdict), encoding="utf-8"
+        )
+        rels.append(f"{NEW_ITEM}/rounds/round-{n}.md")
+
+    counted, reopened = {}, {}
+    for i, rel in enumerate(rels):
+        errors, _notices = check.stopping_floor(
+            reader, str(tmp_path), rel, rels[i + 1 :]
+        )
+        for _rel, _line, message in errors:
+            found = re.search(r"after this one reaches (\d+)\.", message)
+            if found:
+                counted[os.path.basename(rel)] = int(found.group(1))
+            found = re.search(r"(round-\d+\.md) is the second later record", message)
+            if found:
+                reopened[os.path.basename(rel)] = found.group(1)
+    assert counted == (dict([count]) if count else {}), counted
+    assert reopened == (dict([reopen]) if reopen else {}), reopened
+
+    floor_at, fixes, spent, _running, counted_at = generator.floor_and_fixes(
+        reader, [(n, str(tmp_path / r)) for n, r in enumerate(rels, 1)]
+    )
+    assert floor_at is not None
+    if count:
+        assert (os.path.basename(counted_at), spent) == count
+    else:
+        assert spent <= 1, (counted_at, spent)
+    if reopen:
+        assert os.path.basename(floor_at) == reopen[0]
+        assert os.path.basename(fixes[1]) == reopen[1], fixes
+    else:
+        assert len(fixes) <= 1, fixes
+
+
+def test_a_later_record_git_does_not_carry_stops_no_walk(tmp_path):
+    """#866: `facts_at_head` answers three False for a record the gate cannot
+    read, so it is counted and stops nothing — a record nobody can open must
+    never be what quiets the count's refusal. Round 2 is absent here, and the
+    count from round 1 still reaches 2."""
+    check = check_module()
+    check.WORKTREE = True
+    reader = _load("reader_for_the_unread_walk", check.READER)
+    rounds = tmp_path / NEW_ITEM / "rounds"
+    rounds.mkdir(parents=True)
+    for n in (1, 3):
+        (rounds / f"round-{n}.md").write_text(walk_record(*QUIET), encoding="utf-8")
+    rels = [f"{NEW_ITEM}/rounds/round-{n}.md" for n in (1, 2, 3)]
+    assert check.facts_at_head(reader, str(tmp_path), rels[1]) == (False,) * 3
+    errors, _notices = check.stopping_floor(reader, str(tmp_path), rels[0], rels[1:])
+    assert any("after this one reaches 2." in m for _r, _l, m in errors), errors
+
+
+@pytest.mark.parametrize(
+    "counts, cuts",
+    [
+        ([1, 2, 0], [1]),
+        ([1, 2, 1, 2, 0], [1, 3]),
+        # A `second` with no landing earlier in its run cuts nothing.
+        ([2, 0], []),
+        ([1, 2, 2], [1]),
+        ([None, 1, None, 2], [3]),
+    ],
+)
+def test_one_function_cuts_a_run_for_both_callers(counts, cuts, monkeypatch):
+    """#866: `chain_check.cut_runs` is where a run is cut, and
+    `round_record.current_run` hands the next record the records after the
+    LAST cut, with the `second` that made it."""
+    check = check_module()
+    assert check.cut_runs(counts) == cuts
+    generator = _load("generator_for_the_cut", GENERATOR)
+    earlier = [(k, f"round-{k}.md") for k in range(1, len(counts) + 1)]
+    by_path = dict(zip((p for _k, p in earlier), counts, strict=True))
+    monkeypatch.setattr(generator, "fof_count_of", lambda _r, path: by_path[path])
+    run, stopped = generator.current_run(None, earlier)
+    if cuts:
+        assert stopped == earlier[cuts[-1]], stopped
+        assert run == earlier[cuts[-1] + 1 :], run
+    else:
+        assert (run, stopped) == (earlier, None)

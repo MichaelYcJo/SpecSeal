@@ -2012,9 +2012,10 @@ def floor_and_fixes(reader, earlier):
       |               |        | floor record's own walk, which starts    |
       |               |        | fresh — so every floor record is walked  |
 
-    That is the enumeration, taken by construction over `stopping_floor`'s
-    body — the two loops under `word == FLOOR_NO`, which is the whole of what
-    it does with `later` — and then a monotonicity question asked of each,
+    That is the enumeration, taken by construction over the two walks —
+    `chain.floor_walks` since #866, the one function the gate's
+    `stopping_floor` and this both call, where they were two loops apiece —
+    and then a monotonicity question asked of each,
     rather than by reading for more instances of the shape. Reading the
     earliest floor record's count walk alone printed `one reopening remains`
     at round 4 of this work item while the gate returned an error at
@@ -2051,35 +2052,28 @@ def floor_and_fixes(reader, earlier):
     — the permissive direction, and against what this docstring says it does
     (round 1, 🟡 12). `checked_by` already names the unreadable record.
     """
-    seen = []
+    paths, facts = [], []
     for _k, path in earlier:
         try:
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
         except OSError:
             return None, [], 0, False, None
-        lines = reader.readable(text)
-        rows = chain.table_rows(reader, lines)
-        floor = chain.field(rows, chain.FLOOR)
-        met = floor is not None and (
-            chain.yes_or_no(reader.visible(floor).strip())[0] == chain.FLOOR_NO
-        )
-        needs = chain.field(rows, chain.NEEDS)
-        # Through the gate's own reader of the reopening question rather
-        # than a `== FLOOR_YES` of this line's own (#138): a bare `yes` is
-        # no reopening there, so it is none here, and the printed bound and
-        # the gate cannot be made to disagree by one cell — #218's class.
-        reopened = needs is not None and (
-            chain.says_reopened(reader.visible(needs).strip()) is True
-        )
-        seen.append((path, met, reopened, chain.closed_with_a_fix(reader, lines, path)))
+        # The gate's own reading of each record and its own two walks
+        # (`chain.record_facts`, `chain.floor_walks`, #866), so the printed
+        # bound and the gate cannot be made to disagree by one cell or one
+        # loop — #218's class. A bare `yes` is no reopening there, so it is
+        # none here (#138).
+        paths.append(path)
+        facts.append(chain.record_facts(reader, reader.readable(text), path))
 
-    floor_i = next((i for i, row in enumerate(seen) if row[1]), None)
-    if floor_i is None:
+    walks = chain.floor_walks(facts)
+    if not walks:
         return None, [], 0, False, None
+    floor_i = min(walks)
     # The reopening walk, from the EARLIEST floor record — the only start it
     # needs, by the monotonicity argument above.
-    fixes = [p for p, _m, _r, wrote in seen[floor_i + 1 :] if wrote]
+    fixes = [paths[j] for j in walks[floor_i][0]]
 
     # The count walk, from EVERY floor record. Among the walks still running,
     # the earliest has the largest count — a later walk's records are all in
@@ -2100,19 +2094,11 @@ def floor_and_fixes(reader, earlier):
     # after the stop would be counted too (the ticket's ninth mutation
     # survivor, which this reading closes).
     counted, counted_at, running = 0, None, False
-    for i, (path, met, _r, _w) in enumerate(seen):
-        if not met:
-            continue
-        spent, stopped = 0, False
-        for _p, _m, reopened, wrote in seen[i + 1 :]:
-            spent += 1
-            if reopened or wrote:
-                stopped = True
-                break
+    for i, (_fixers, spent, stopped) in sorted(walks.items()):
         fires = spent > 1 if stopped else spent >= 1
         if fires and spent > counted:
-            counted, counted_at, running = spent, path, not stopped
-    return seen[floor_i][0], fixes, counted, running, counted_at
+            counted, counted_at, running = spent, paths[i], not stopped
+    return paths[floor_i], fixes, counted, running, counted_at
 
 
 def bound_line(reader, routing, rounds, n):
@@ -2281,17 +2267,13 @@ def current_run(reader, earlier):
     **Only a `second` its run counted cuts it** (round 1's ⬜ 2): one with no
     earlier landing in the run is a record that disagrees with its run, which
     the gate refuses, and letting it cut would restart the floor's walks on a
-    stop that never happened. `chain_check.runs_of` cuts by the same rule.
+    stop that never happened. Where the cuts fall is `chain.cut_runs`' answer,
+    the one `chain_check.runs_of` reads (#866).
     """
-    last, landed = None, False
-    for index, (_k, path) in enumerate(earlier):
-        count = fof_count_of(reader, path) or 0
-        if count == 2 and landed:
-            last, landed = index, False
-        elif count:
-            landed = True
-    if last is None:
+    cuts = chain.cut_runs([fof_count_of(reader, path) for _k, path in earlier])
+    if not cuts:
         return list(earlier), None
+    last = cuts[-1]
     return list(earlier[last + 1 :]), earlier[last]
 
 

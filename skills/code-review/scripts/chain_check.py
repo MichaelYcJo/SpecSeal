@@ -2828,9 +2828,11 @@ def says_reopened(value):
     ONE reader for the reopening question (#138). `yes_or_no` above parses
     the vocabulary and leaves the reason to the caller; this is the caller
     that decides what the cell MEANS for the floor's bound, and it is read by
-    `run_reopened` and `stopping_floor` here and by the generator's printed
-    bound (`round_record.py#floor_and_fixes`), so the gate and the line a
-    session reads before spawning cannot disagree about one cell.
+    `record_facts` and `stopping_floor` here — `record_facts` for the gate
+    and for the generator's printed bound (`round_record.py#floor_and_fixes`)
+    alike — and by the broad gate's panel (`broad_gate.py#rounds_rows`,
+    #866), so the gate, the line a session reads before spawning and the
+    stamp cannot disagree about one cell.
 
       `yes — <what>`             True — the run reopened
       `no`, `no — <why>`         False — a reason after `no` is still `no`
@@ -2841,7 +2843,7 @@ def says_reopened(value):
                                  records and bought the run a round. A cell
                                  the checker refuses must never be the thing
                                  that quiets a refusal, which is the
-                                 direction `run_reopened` already states
+                                 direction `record_facts` states
     """
     word, reason = yes_or_no(value)
     if word == FLOOR_NO:
@@ -3535,7 +3537,7 @@ def commissioned_fixes(reader, root, rel):
 def written_late_reason(reader, root, rel):
     """The reason this record gives for having been written late, or None.
 
-    `run_reopened`'s shape, reading `WRITTEN_LATE` instead of `NEEDS` and for
+    `record_facts`' reading of `NEEDS`, of `WRITTEN_LATE` instead and for
     the same reason: one vocabulary, one reader. `yes_or_no` is what already
     reads `no` / `yes -- <what>`, so this row cannot drift from the two rows
     that spelling came from.
@@ -3727,54 +3729,90 @@ def written_late(reader, root, base, rel, fork=None):
     return errors, notices
 
 
-def run_reopened(reader, root, rel):
-    """True when this record's `Needs a fix` says the run reopened.
+def record_facts(reader, lines, rel):
+    """(floor met, run reopened, closed on a fix) for one record's lines.
 
-    None when the row is absent, its value is outside the vocabulary, or it
-    is a bare `yes` with nothing after it, and None counts as NOT reopening
-    wherever it is read: `plan.md` declares the failure direction *blocks
-    more*, and a row this cannot read must never be the thing that quiets a
-    refusal. The record itself is told about the unreadable row — and the
-    bare `yes` — by `stopping_floor`, so the state is never silent.
+    The three facts the floor's two walks read off every record (#866), for
+    the gate here (`stopping_floor`, over records at `HEAD`) and for the
+    generator's printed bound (`round_record.py#floor_and_fixes`, over
+    records on disk). The text source is the caller's; the reading is this.
+
+      floor met     `Loses a record or crashes` reads `no`, by `yes_or_no`
+      reopened      `Needs a fix` says the run reopened, by `says_reopened`.
+                    None there — the row absent, a word outside the
+                    vocabulary, a bare `yes` — is NOT a reopening: `plan.md`
+                    of the work item that added the walk declares the
+                    direction *blocks more*, and a row the checker cannot
+                    read must never be what quiets a refusal. `stopping_floor`
+                    tells the record itself about such a row
+      closed on     the record's own verdicts closed on a fix somebody wrote,
+      a fix         by `closed_with_a_fix`. `Needs a fix` is the REVIEWER's
+                    answer to what it opened, and the bound needs another
+                    one — were fixes written that owe a reader — and the two
+                    come apart when the orchestrator fixes a 🟡 the reviewer
+                    said could be answered: the row reads `no` over fixes
+                    that exist. Round 7 of the work item that added this stop
+                    had no terminal record any exit would accept without it;
+                    the direction is ALLOW, one record wider in one sequence,
+                    because the alternative can only be satisfied by
+                    rewriting `fixed` to `answered`, a false record
     """
+    rows = table_rows(reader, lines)
+    floor = field(rows, FLOOR)
+    met = floor is not None and (
+        yes_or_no(reader.visible(floor).strip())[0] == FLOOR_NO
+    )
+    needs = field(rows, NEEDS)
+    reopened = needs is not None and (
+        says_reopened(reader.visible(needs).strip()) is True
+    )
+    return met, reopened, closed_with_a_fix(reader, lines, rel)
+
+
+def facts_at_head(reader, root, rel):
+    """`record_facts` for a record as git carries it at `HEAD`, and three
+    False for one it does not: an unreadable record is already an error
+    from `checked_by` and `open_blocking`, and a second cause named here
+    would not be the cause."""
     text = read_record(root, rel)
     if text is None:
-        return None
-    cell = field(table_rows(reader, reader.readable(text)), NEEDS)
-    if cell is None:
-        return None
-    return says_reopened(reader.visible(cell).strip())
+        return False, False, False
+    return record_facts(reader, reader.readable(text), rel)
 
 
-def wrote_fixes(reader, root, rel):
-    """True when this record's own verdicts closed on a fix somebody wrote.
+def floor_walks(facts):
+    """{i: (fix-closing records after it, records the count spent, stopped)}
+    for every record `i` of FACTS whose floor was met (#866).
 
-    `run_reopened` reads `Needs a fix`, which is the REVIEWER's answer to
-    what it opened. The bound needs a different answer -- were fixes written
-    that owe a reader -- and the two come apart in exactly one sequence: the
-    orchestrator fixes a 🟡 the reviewer said could be answered with grounds.
-    The row then reads `no` over fixes that exist, and the record that follows
-    answers to THIS round rather than to the one that met the floor, exactly
-    as it does after a reopening. So the count stops here too.
+    FACTS is `record_facts` for each record of one run, in round order. The
+    two walks after a floor record, written once, for the gate's errors and
+    the generator's printed bound alike — they were two loops here and a
+    second pair in `round_record.py`, argued equivalent by a docstring:
 
-    The fact is already in the record. `closed_with_a_fix` is what refuses
-    `no fixes to check` beside a `fixed` verdict, and until round 7 of the
-    work item that added it nothing else read it: that run had no terminal
-    record any of its three exits would accept -- a verifying round after the
-    `no` was a second uncounted record, and ending at the `no` was refused
-    both ways. The direction is ALLOW, one record wider in one sequence, and
-    it is the cheaper mistake because the alternative is a checker that can
-    only be satisfied by rewriting `fixed` to `answered` over fixes that
-    exist, which is a false record and the subject of that work item.
+      the reopening   every later record that closed on a fix, wherever it
+                      sits; never stops. A second one is the run reopened
+                      twice (issue #161)
+      the count       every later record up to and including the first that
+                      reopened the run or closed on a fix; stops there. A
+                      second counted record is #81's shape, a quiet round
+                      after the verifying round
 
-    A record this cannot read returns False, the way `closed_with_a_fix`
-    does: the unreadable state is already an error from `open_blocking`, and
-    a second cause named here would not be the cause.
-    """
-    text = read_record(root, rel)
-    if text is None:
-        return False
-    return closed_with_a_fix(reader, reader.readable(text), rel)
+    Each walk starts at its own floor record: the count walk restarts at
+    every one, which is what keeps it bounded, and the caller decides which
+    start it refuses or prints."""
+    walks = {}
+    for i, (met, _reopened, _wrote) in enumerate(facts):
+        if not met:
+            continue
+        spent, stopped = 0, False
+        for _met, reopened, wrote in facts[i + 1 :]:
+            spent += 1
+            if reopened or wrote:
+                stopped = True
+                break
+        fixers = [j for j in range(i + 1, len(facts)) if facts[j][2]]
+        walks[i] = (fixers, spent, stopped)
+    return walks
 
 
 def stopping_floor(reader, root, rel, later):
@@ -3794,10 +3832,11 @@ def stopping_floor(reader, root, rel, later):
     behaving correctly rather than running on. Counting blindly made that
     sequence unwritable — round 1's 🔴 1, found on this work item's own first
     record, which answers the floor `no` and `Needs a fix: yes`. The second
-    stop is `wrote_fixes`, above: the row is the reviewer's answer to what it
-    opened, the verdict column is whether fixes were written, and round 7 of
-    the work item that added it had no terminal record until the walk read
-    both.
+    stop is the closed-on-a-fix fact of `record_facts`: the row is the
+    reviewer's answer to what it opened, the verdict column is whether fixes
+    were written, and round 7 of the work item that added it had no terminal
+    record until the walk read both. The walks themselves are `floor_walks`,
+    which the generator's printed bound reads too (#866).
 
     Both rows are read here rather than in two functions, because the bound
     is one question spread over two cells and a second reader of `Needs a
@@ -3981,12 +4020,13 @@ def stopping_floor(reader, root, rel, later):
         # OR wrote fixes, that one included. After either the records answer
         # to THAT round rather than to this one -- a reopening because the
         # reviewer opened something, a fix because the orchestrator wrote
-        # something over a `no` -- and the run is a finding run again.
-        counted = 0
-        for other in later:
-            counted += 1
-            if run_reopened(reader, root, other) or wrote_fixes(reader, root, other):
-                break
+        # something over a `no` -- and the run is a finding run again. This
+        # record met the floor by the `word` read above; the walks are
+        # `floor_walks`' from it, over the later records' facts at HEAD.
+        fixers, counted, _stopped = floor_walks(
+            [(True, False, False)]
+            + [facts_at_head(reader, root, other) for other in later]
+        )[0]
         if counted > 1:
             # The FIRST counted record is the verifying round this row
             # allows; every counted record after it is one too many. Round
@@ -4029,9 +4069,9 @@ def stopping_floor(reader, root, rel, later):
         # The second walk, over the whole of `later` and never stopping: the
         # records whose verdicts closed on a fix, wherever they sit. The
         # first is the reopening this row allows; the second is the run
-        # reopened twice. `wrote_fixes` and not `run_reopened`, because what
-        # a reader is owed is fixes -- a `deferred` verdict wrote none.
-        reopened = [other for other in later if wrote_fixes(reader, root, other)]
+        # reopened twice. Closed on a fix and not reopened, because what a
+        # reader is owed is fixes -- a `deferred` verdict wrote none.
+        reopened = [later[j - 1] for j in fixers]
         if len(reopened) > 1:
             first, second = (os.path.basename(p) for p in reopened[:2])
             message = (
@@ -4085,20 +4125,33 @@ def runs_of(reader, root, records):
     **Only a `second` its run counted cuts it** (round 1's ⬜ 2). One with no
     earlier landing in its run disagrees with its run, `fix_of_a_fix` refuses
     it, and letting it cut would restart the floor's walks on a stop that
-    never happened. `round_record.py#current_run` cuts by the same rule.
+    never happened. Where the cuts fall is `cut_runs`' answer, which
+    `round_record.py#current_run` reads too (#866).
     """
-    runs, current, landed = [], [], False
-    for rel in records:
-        current.append(rel)
-        count = fof_of(reader, root, rel)[1] or 0
+    runs, start = [], 0
+    for cut in cut_runs([fof_of(reader, root, rel)[1] for rel in records]):
+        runs.append(records[start : cut + 1])
+        start = cut + 1
+    if start < len(records):
+        runs.append(records[start:])
+    return runs
+
+
+def cut_runs(counts):
+    """The indices a run is cut after, for `Fix of a fix` COUNTS in round order
+    (#866): every `second` (2) its run counted, which is one with a landing
+    (1 or 2) earlier in the same run. A count of None is no landing. One
+    function for the gate (`runs_of`, counts at `HEAD`) and the generator
+    (`round_record.py#current_run`, counts on disk), which cut by the same
+    rule in two loops before."""
+    cuts, landed = [], False
+    for i, count in enumerate(counts):
         if count == 2 and landed:
-            runs.append(current)
-            current, landed = [], False
+            cuts.append(i)
+            landed = False
         elif count:
             landed = True
-    if current:
-        runs.append(current)
-    return runs
+    return cuts
 
 
 ROUND_RE = re.compile(r"round-(\d+)\.md$")
