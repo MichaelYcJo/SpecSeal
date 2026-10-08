@@ -10,7 +10,7 @@
 
 Build phase 1 of `plan.md` and hand back, because phase 2 reads a CI run only
 the orchestrator can start. The three `macos-latest` shard entries at
-`timeout: 35`; `pytest_matrix` beside `jobs` with its fixture cases; the four
+`timeout: 35`; `pytest_matrix` (NAME NOT IN TREE: `matrix_include_entries` since round 1's fix) beside `jobs` with its fixture cases; the four
 private slices of the `pytest` job moved onto `jobs` and the helper; the shard
 module widened to a table of sharded systems with its first case renamed;
 every sentence that said macOS is one job; every new or changed case seen red.
@@ -34,7 +34,7 @@ no pull request.
    have carried a red `ledger` job. The `Corrected · S4` row in
    `seal/ledger/1791384162-the-macos-test-leg-runs-in-shards.md` re-points S4
    to the renamed case and carries every coordinate S4 rests on, plus
-   `pytest_matrix`, which the case now reads through. Its hashes were stamped
+   `pytest_matrix` (NAME NOT IN TREE: renamed by round 1's fix), which the case now reads through. Its hashes were stamped
    by `evidence-check --reverify --ledger <the fragment> --checked
    2026-10-08`. After it, `evidence-check .` exits 1: 10 drifted, 0 broken.
 2. **The collection figure names the wrong run.** `spec.md` Scope 1 puts the
@@ -81,9 +81,9 @@ because YAML allows it.
 
 **Q3, the seam for #835.** #835's registry has not landed on
 `release/v0.21.0`. The docstring of
-`tests/test_ci_gives_the_checks_what_they_need.py#pytest_matrix` names its
+`tests/test_ci_gives_the_checks_what_they_need.py#matrix_include_entries` names its
 input class (*owned*) and what it refuses. #835's build adds the row for it
-there, beside `conftest.py`'s readers.
+there, beside `conftest.py`'s readers. (The reader was `pytest_matrix` when this phase closed, NAME NOT IN TREE: round 1's fix renamed it.)
 
 **Seen red (§15), and the units mutated.** All are executed 2026-10-08.
 
@@ -99,7 +99,7 @@ there, beside `conftest.py`'s readers.
   - the pytest-line case with `${{ matrix.split }}` taken off the line;
   - the floor case with one macOS shard at `"3.11"`;
   - the pins case with `pytest-split==0.10.0` on the pip line;
-  - in `pytest_matrix` and `_flow_mapping`, eleven breaks: the block-style
+  - in `pytest_matrix` (NAME NOT IN TREE: renamed by round 1's fix) and `_flow_mapping`, eleven breaks: the block-style
     refusal deleted, comments not taken off, nested values not refused, a key
     written twice not refused, an unclosed quote not refused, the quotes left
     on, the no-entry refusal deleted, the `include:` count check weakened, the

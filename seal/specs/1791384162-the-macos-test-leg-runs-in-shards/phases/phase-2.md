@@ -80,7 +80,7 @@ three and the sum of the fifty):
   `Re-read ·` rows: 0.8.2's R3, 0.16.0's P1-1, 0.18.0's R3, and 0.20.0's S1
   and S2. Each claim was read first and holds. Pinned versions are still
   compared on the pip line, and the floor is still read from every matrix
-  entry, now through `pytest_matrix`.
+  entry, now through `pytest_matrix` (NAME NOT IN TREE: `matrix_include_entries` since round 1's fix).
 - `plan.md` lines 152 and 153 now quote the two released hashes without the
   coordinate form, which is the framer's sentence with only that changed.
 - After these, `evidence-check --strict .` exits 0.
