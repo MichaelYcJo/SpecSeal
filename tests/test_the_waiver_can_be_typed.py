@@ -120,11 +120,11 @@ def payload(cmd, repo):
     [
         ": '[no-review]'; git commit -m x",
         "git commit -m x  # [no-review]",
-        "git commit -m x  # don't [no-review]",
-        "git commit -m x  # it's [no-review], deliberately",
+        "git commit -m x  # [no-review] it's deliberate",
+        "git commit -m x  # [no-review] -- don't ask",
     ],
 )
-def test_an_apostrophe_beside_the_marker_does_not_silence_the_waiver(tmp_path, command):
+def test_an_apostrophe_after_the_marker_does_not_silence_the_waiver(tmp_path, command):
     """Whether the command parses is measured on the command as WRITTEN.
 
     The judgment read drops comments, so a command carrying an apostrophe in
@@ -135,13 +135,38 @@ def test_an_apostrophe_beside_the_marker_does_not_silence_the_waiver(tmp_path, c
     started dropping comments and refused after, with nothing to tell the user
     why.
 
-    Two of these rows carry an apostrophe and two do not; all four are the
-    author writing the marker on purpose.
+    Since #868 the one consent reader, `hooks/tokens.py#given`, reads the bare
+    words before the point a split fails, so a marker written before the
+    apostrophe is read. Changed by work item 1791384157: the two apostrophe
+    rows had the apostrophe BEFORE the marker, which waived only through
+    `has_marker`'s substring fallback; they are
+    `test_an_apostrophe_before_the_marker_waives_nothing` now.
     """
     repo = opted_in_repo(tmp_path)
     assert decision_of(run_hook("commit-review-gate.py", payload(command, repo))) == (
         "silent"
     ), command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit -m x  # don't [no-review]",
+        "git commit -m x  # it's [no-review], deliberately",
+    ],
+)
+def test_an_apostrophe_before_the_marker_waives_nothing(tmp_path, command):
+    """#868 In 3, the cost `spec.md` of work item 1791384157 names: to a
+    reader that reads comments on purpose, the apostrophe opens a quote that
+    never closes, and a marker inside it is read as nothing. The substring
+    fallback that honoured it is gone, because reading loosely is the one
+    direction that waives with nobody asked; the stop names the marker typed
+    in front, `: '[no-review]'; git commit …`, which splits. No recorded run
+    held this form (`phases/phase-1.md`)."""
+    repo = opted_in_repo(tmp_path)
+    out = run_hook("commit-review-gate.py", payload(command, repo))
+    assert decision_of(out) in ("deny", "ask"), (command, out)
+    assert ": '[no-review]'" in out, out
 
 
 def test_the_form_the_gate_advises_is_the_one_that_runs(tmp_path):

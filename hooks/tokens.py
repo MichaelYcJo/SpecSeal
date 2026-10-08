@@ -30,15 +30,44 @@ The rules are the two consent reads 0.16.0 had, joined:
     #780, the worktree guard's `has_token` already do;
   * **a parenthesis riding on a word is not part of it** --
     `(git worktree add ../wt f [worktree-ok])` (the guard's `has_token`);
-  * **an unbalanced quote reads nothing** -- the guard's choice over the
-    commit gate's substring fallback, because reading loosely is the
-    direction that waives without anybody asking, and here the cost of the
-    other direction is one refusal.
+  * **a quote that never closes reads nothing from where it opens** -- the
+    words read before the split fails are read, and none after it. A word
+    inside an unclosed quote is prose a shell would refuse to run, so the
+    commit gate's substring fallback, which read it, is gone: reading
+    loosely is the direction that waives without anybody asking. The words
+    before it are kept because the documented comment form carries an
+    English apostrophe after the token often enough to count
+    (`# [shared-tree-ok] the release's own tree`): the comment is a comment
+    to the shell, which runs the command, and this splitter, which reads
+    comments on purpose, reads its apostrophe as a quote. Over the recorded
+    runs that kept four of the guard's tokens and read none the base's reads
+    did not (work item 1791384157, `phases/phase-1.md`).
+    A quote this splitter cannot close is not always one bash refuses, and
+    ANSI-C quoting is the known disagreement, in both directions: `$'it\\'s'`
+    is one closed word to bash, while shlex closes the quote at `\\'` and
+    reads the rest as a quote that never closes. So a waiver typed after
+    `git commit -m $'it\\'s'` is refused although bash runs the command, and
+    a token inside `echo $'it\\'s [shared-tree-ok] x'` is read although bash
+    quotes it, as every base read did too (round 1 of work item 1791384157,
+    white 6). The waiver typed in front is the way on in the first.
+
+**This is the one reader of a consent token** (#868). The commit gate's
+`has_marker`, the worktree guard's `has_token` and the old spelling handed to
+the git hooks (`hooks/answer-write.py`) all answer `token in given(command)`.
 """
 
+import re
 import shlex
 
+import hooksession
+
 KNOWN = ("[no-review]", "[no-parity]", "[worktree-ok]", "[shared-tree-ok]")
+
+# A backslash escape, a single-quoted span and a double-quoted span: what a
+# text read takes out to see what the shell leaves unquoted. `is_plain` reads
+# a subshell or a group through it, and the worktree guard reads a brace
+# expansion through it (#856), so the two agree on what a quote is.
+QUOTED_SPANS = re.compile(r"\\.|'[^']*'|\"(?:\\.|[^\"\\])*\"")
 
 
 def words(command):
@@ -76,15 +105,47 @@ def without_bodies(command):
     return drop_heredoc_bodies(command if reduced is None else reduced)
 
 
+def _read_words(text):
+    """The bare words of TEXT, comments included, up to where its split fails:
+    a quote that never closes ends the read, and nothing from inside it is a
+    word."""
+    lexer = shlex.shlex(text or "", posix=True, punctuation_chars=";&|<>")
+    lexer.commenters = ""
+    lexer.whitespace_split = True
+    read = []
+    try:
+        for word in lexer:
+            read.append(word)
+    except ValueError:
+        pass
+    return read
+
+
 def _bare(text):
-    return {w.strip("()") for w in words(text)}
+    return {w.strip("()") for w in _read_words(text)}
 
 
-def given(command):
+def given(command, fallback=None):
     """The known tokens `command` carries as bare words outside its
     here-document bodies, in `KNOWN`'s order -- read in the command as written
-    AND in `without_bodies`, so a token in a body counts nowhere (#773)."""
-    found = _bare(command) & _bare(without_bodies(command))
+    AND in `without_bodies`, so a token in a body counts nowhere (#773).
+
+    FALLBACK is the body reader to use where `without_bodies` raises,
+    `hooks/cmdline.py` failing to load among the causes. The worktree guard
+    hands the frozen reader's `drop_heredoc_bodies`, so a broken wider reader
+    still finds the bodies and the single-stream creation deny keeps its way
+    past (released row T1 of 0.18.3). It is an argument rather than an import
+    because the frozen reader is the guard's and the consent writer's alone
+    (`tests/test_the_frozen_reading_never_grows.py`). Without one the error
+    propagates, which is the commit gate's direction: a gate that raises is
+    reported by `hooks/dispatch.py`."""
+    try:
+        bodiless = without_bodies(command)
+    except (Exception, SystemExit):
+        if fallback is None:
+            raise
+        bodiless = fallback(command or "")
+    found = _bare(command) & _bare(bodiless)
     return tuple(t for t in KNOWN if t in found)
 
 
@@ -106,10 +167,11 @@ def steps_around_hooks(command):
     `--config-env`, `git config`, a `GIT_CONFIG_*` value), a config file that
     can carry it (`include.path`, `includeIf.<condition>.path`, `HOME=`,
     `XDG_CONFIG_HOME=`), any `GIT_CONFIG*` assignment, `env` emptying the
-    environment, and a word naming
-    `CLAUDECODE` or `CLAUDE_CODE_SESSION_ID` whole -- the last two leave the
-    stub no session variable. A command that does not split is read as one of
-    them.
+    environment, and a word naming the session variable
+    (`hooksession.SESSION_VARIABLE`, `CLAUDE_CODE_SESSION_ID`) whole, which
+    leaves the stub no session variable. `CLAUDECODE` left the list with
+    #868, because the stub no longer reads it. A command that does not split
+    is read as one of them.
     The direction is the refusal's: a word read here that meant nothing costs
     the reading's judgment of one command, which is 0.16.0's.
     """
@@ -124,19 +186,19 @@ def steps_around_hooks(command):
         after = split[i + 1] if i + 1 < len(split) else ""
         if _empties_the_environment(word, after):
             return True
-        # The stub's P2 short-cut reads two session names, so a command that
-        # empties, unsets or reassigns either leaves the stub no session where
-        # no lease stands: `NAME= git commit`, `env -u NAME`, `env -uNAME`,
+        # The stub's P2 short-cut reads one session name, so a command that
+        # empties, unsets or reassigns it leaves the stub no session where no
+        # lease stands: `NAME= git commit`, `env -u NAME`, `env -uNAME`,
         # `env --unset=NAME`, `unset NAME` (round 2 of #692, 🟡 1, executed).
         # 0.16.0's reading stopped each. The name is compared whole, so
-        # `$CLAUDECODE` or a message that mentions it is not one.
+        # `$CLAUDE_CODE_SESSION_ID` or a message that mentions it is not one.
         name, eq, value = word.strip("()").partition("=")
         session = name
         if name == "--unset":
             session = value
         elif name.startswith("-u"):
             session = name[2:]
-        if session in ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID"):
+        if session == hooksession.SESSION_VARIABLE:
             return True
         # A config file the command names can carry core.hooksPath where no
         # word does: `include.path` or `includeIf.<condition>.path`, set by
@@ -201,8 +263,6 @@ def is_plain(command):
         substitution behind an unquoted delimiter;
       * `steps_around_hooks` finds none of its words.
     """
-    import re
-
     from cmdline import (
         drop_comments,
         drop_heredoc_bodies,
@@ -216,7 +276,7 @@ def is_plain(command):
     if substitution_bodies(text):
         return False
     # A subshell, a group or a function body, outside every quoted span.
-    bare = re.sub(r"\\.|'[^']*'|\"(?:\\.|[^\"\\])*\"", "", text)
+    bare = QUOTED_SPANS.sub("", text)
     if any(ch in bare for ch in "(){}"):
         return False
     if any("$(" in b or "`" in b for b in heredoc_bodies(drop_comments(command))):

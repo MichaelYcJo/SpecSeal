@@ -60,6 +60,83 @@ reading yields (§*Which tree*) as one of three shapes, from its words alone:
   whose git is not all listed, behind a redirection or a zsh precommand
   word, or in a command that would not split into words.
 
+**A brace expansion is unrecognised (#856).** bash and zsh make other
+words of `{main,feature/x}`, `--ro{,}` and `{1..3}` before git runs, so `git
+rebase {main,feature/x}` is `git rebase main feature/x` to git, `git rebase
+--ro{,} feature/x` is `--root`, and `git stash {branch,} x` takes a branch:
+the words the frozen reading read are not git's, and the question this
+section asks has no answer for them. And bash makes `git` itself of a brace
+as readily: `{git,} switch x`, `{env,} git switch x` and `2>&1 {git,} switch
+x` all run `git switch x`. A word holding an unquoted brace expansion, in any
+segment, makes that segment an unrecognised shape, whatever its command word
+is and whatever bash would make of the brace. A brace expansion is read off
+the command's text, not its words, so that it errs toward stopping: each
+quoted span (`'…'`, `"…"`, `$'…'`, `$"…"`) and each escape stands in as one
+space, and then a `{`, later a `,` or a `..`, and later a `}` is a brace,
+with no word boundary and no nesting read. A segment is the brace shape where
+its words, joined, hold one, and a brace the text holds and no one segment's
+words hold (a brace group holding a comma) is the command's, judged in the
+session's own tree. One exception is kept: a `${` whose span holds no brace,
+`,` or `..` is a parameter expansion (`${HOME}`, `${x:- }`). So a signed
+sequence `{+1..3}`, a nested brace, quoted whitespace inside the braces,
+`\${a,b}` (`$a $b` to bash), `$''{g..g}it` (`git` to bash and zsh, the `$`
+of a quote is no parameter expansion) and `{git,$(: x)}` (`git` to bash,
+whitespace inside a substitution is no word boundary) all stop (rounds 4 and
+5 of work item 1791384157). What stays silent does so by the shell's quoting
+and that one exception, not by a list of spellings: a quoted or escaped
+brace, a heredoc body, `${HOME}`, and braces with no `,` or `..` before a
+later `}` (`{}`, `{a}`, `find`'s `{}`, `@{-1}..HEAD`). Some forms bash
+expands nothing in stop on purpose, because the test reads no word boundary
+and no nesting: a case-modifying `${a,}`, unquoted braces bash makes two
+words of (`echo {a, b}`), a brace group holding a comma (`{ echo x,y; }`),
+a parameter expansion holding a `..` (`${r%..*}`) and a reflog range across
+two braces (`git diff HEAD@{1}..HEAD@{0}`). That is a stop where the tree
+matters; a brace the test missed was a silent switch. A command the
+splitter could not close is read for such a brace in its raw text too. Its
+plain spelling is the words
+written out as the shell would make them, or the braces quoted where they are
+meant literally. The quoting is read off the command's text, because the
+frozen splitter has taken the quotes off the words, so `git commit -m
+'{a,b}'` and `echo '{a,b}'` stay silent. In a segment the frozen reading
+reads as git, a switch and a creation keep their own rules. Nothing about a
+brace is read beyond that: not what bash makes of it, and not where it
+stands. Three review rounds of work item 1791384157 each read one more
+position (the command word's alternatives, every word up to the command
+word, a runner's operand) and each found the next spelling bash builds `git`
+from, so the guard stops on the brace instead, as on every shape it does not
+recognise. Expanding the braces in the guard was the other answer, and it is
+not taken: it would be a shell prediction, the family that did not converge
+on one (#834).
+
+A brace segment is judged in the tree the walk places it in and in every
+tree a `-C <dir>` word pair among its words names, each pair alone and the
+pairs composed in order as git composes them, from the placed directory. So
+`{git,} -C W switch x` and `git {,} -C W switch x` stop where either the
+session's tree or `W` matters, and `{git,} -C .. -C W switch x` where `../W`
+does: which word bash makes the command or the subcommand of is what the
+guard does not read, and more trees is the stopping direction. A `git -C`
+value or a `cd` operand holding a brace is read as one word, so that segment
+is placed in a directory that does not exist and falls back to the session's
+own tree, as §*Which tree* says.
+
+Three costs are named. A command holding a quoted brace in one segment and
+an unquoted one in another stops on both, because the quoting is the
+command's. A brace in an assignment word before a command (`A={a,b} ls`),
+which neither bash nor zsh expands, stops too, because the rule reads no
+position. A brace in an argument of a command that is not git (`cat {a,b}`)
+stops where the tree matters: under the press it is a `deny` the model
+rewrites as `cat a b`, and otherwise one `ask`. Of 33,287 distinct command
+and directory pairs recorded by 2026-10-08, the rule stops 42: 41 a command
+that is not git, and one a git segment, `git add` of a path holding
+`{plan,questions}`, which the owner's rule (c) stopped before the rule was
+widened. Eight of the 42 are round 5's reading: seven brace groups holding a
+comma, judged as the command's, and one parameter expansion holding a `..`;
+the round 4 reading stops the other 34 and nothing the round 5 reading lets
+through. Two stop on a brace in an assignment word alone, and one holds a
+quoted brace beside an unquoted one. Counted tree-blind by the method
+`phases/phase-7.md` of work item 1791384157 writes down, corrected in rounds
+4 and 5.
+
 A creation is §B's and is read as it was.
 
 **The stop for an unrecognised shape.** It is taken only where one of the
@@ -118,8 +195,11 @@ stops ask no person anything; without it each is one `ask`. Over the
 31,193 distinct command and directory pairs this repository's runs recorded
 before 2026-10-03, the shapes stop 315 tree-blind, 55 of them pairs the
 guard before #826 did not stop at its most cautious, and they let through
-none it stopped (work item 1791270162, `phases/phase-3.md`).
-Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git, tests/test_worktree_guard.py::test_the_stop_names_each_tree_that_matters_in_both_languages, tests/test_worktree_guard.py::test_a_cut_group_is_judged_in_the_tree_its_own_c_names
+none it stopped (work item 1791270162, `phases/phase-3.md`). The brace
+shape adds 42 of 33,287 pairs recorded by 2026-10-08, 41 a brace in a
+command that is not git and one a git segment, as the brace paragraph above
+says.
+Enforced by: tests/test_worktree_guard.py::test_a_listed_shape_is_silent_in_every_tree_and_spawns_nothing, tests/test_worktree_guard.py::test_an_unrecognised_shape_stops_where_the_tree_matters, tests/test_worktree_guard.py::test_the_same_shapes_are_silent_in_a_clean_single_stream_tree, tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_stop_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_consent_record_is_not_the_press, tests/test_guard_resolves_the_tree_it_judges.py::test_no_redirection_makes_a_moving_verb_listed_wherever_it_stands, tests/test_guard_resolves_the_tree_it_judges.py::test_a_shape_in_a_clean_tree_takes_no_stop_from_one_in_a_dirty_tree, tests/test_worktree_guard.py::test_no_approval_runs_a_line_past_an_active_tree, tests/test_worktree_guard.py::test_a_rebase_naming_a_branch_is_unrecognised, tests/test_worktree_guard.py::test_no_listed_form_moves_head_under_git, tests/test_worktree_guard.py::test_the_stop_names_each_tree_that_matters_in_both_languages, tests/test_worktree_guard.py::test_a_cut_group_is_judged_in_the_tree_its_own_c_names, tests/test_worktree_guard.py::test_a_brace_expansion_in_a_git_word_is_unrecognised, tests/test_worktree_guard.py::test_a_quoted_brace_in_a_git_word_stays_listed, tests/test_worktree_guard.py::test_the_brace_stop_reads_in_korean, tests/test_worktree_guard.py::test_a_brace_that_makes_the_command_word_is_unrecognised, tests/test_worktree_guard.py::test_a_brace_in_any_word_is_the_brace_shape, tests/test_worktree_guard.py::test_a_brace_command_word_is_judged_in_the_tree_its_c_names, tests/test_worktree_guard.py::test_a_c_a_brace_hides_is_the_named_limit, tests/test_worktree_guard.py::test_a_quoted_brace_beside_an_unquoted_one_stops_on_both, tests/test_worktree_guard.py::test_a_brace_segment_composes_its_c_values_as_git_does, tests/test_worktree_guard.py::test_what_the_shell_does_not_expand_stays_silent, tests/test_worktree_guard.py::test_a_brace_in_a_command_that_will_not_split_stops
 
 ### B. Worktree creation (`git worktree add`, or Agent/Task `isolation: "worktree"`)
 
@@ -296,6 +376,15 @@ whole fact, the way the choice marker's is.
   is the same clone. A session that creates its first worktree from the main
   tree and its second from inside a linked one has made one decision, so it
   pays for one.
+- **The clone the guard judged.** The writer places a creation by the
+  guard's own placement, `hooks/worktree_consent.py#place`, through the same
+  tokenizing adapter, so the record lands under the clone whose tree the guard
+  judged (#868). Before #868 the writer took the first directory of the walk
+  that it could compute, and that disagreed with the guard twice: `eval x ; cd
+  A || git worktree add …` was filed under `A`, the branch the `||` skips, and
+  `cd <missing> ; git worktree add …` under a directory that holds nothing, so
+  no record was written at all. bash runs both creations in the session's own
+  directory, and that is where both are judged and filed.
 - **No expiry and no pruning.** A session id is already scoped to a session, so
   a time bound can only produce one new outcome: a session that outlives it is
   asked a second time, which is the failure this removes.
@@ -466,7 +555,7 @@ another session's branch out from under it.
 **The prompt budget.** Zero for a session whose person pressed `automation`. One per session otherwise, from one per worktree unbounded — for a creation written on its own, which is the form the measured six took. Re-measured after round 2's fixes, six creations in one session on a clean single-stream tree: **deny, allow, allow, allow, allow, allow**.
 With consent, a creation written as one segment of a compound gets no allow,
 and neither does one carrying an expansion, a redirection, a wrapper or a **path-qualified command word**, because that is exactly what the bound above refuses to speak for. The guard is silent there, so what each one costs is whatever the user's own permission settings ask. The last of those is what round 2's second fix added to the list, and it moves nothing in the budget: `git worktree add …`, the same backgrounded, and the `\git` spelling all still allow.
-Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks, tests/test_the_guard_asks_once_per_session.py::test_a_typed_answer_that_qualifies_the_preset_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny, tests/test_the_guard_asks_once_per_session.py::test_a_switch_written_after_a_creation_is_judged, tests/test_the_guard_asks_once_per_session.py::test_the_order_of_a_switch_and_a_creation_does_not_decide, tests/test_the_guard_asks_once_per_session.py::test_a_command_with_both_is_never_weaker_than_either_alone, tests/test_the_guard_asks_once_per_session.py::test_the_command_word_class_is_what_the_allow_covers, tests/test_the_guard_asks_once_per_session.py::test_the_guard_is_never_silent_where_the_writer_records
+Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks, tests/test_the_guard_asks_once_per_session.py::test_a_typed_answer_that_qualifies_the_preset_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny, tests/test_the_guard_asks_once_per_session.py::test_a_switch_written_after_a_creation_is_judged, tests/test_the_guard_asks_once_per_session.py::test_the_order_of_a_switch_and_a_creation_does_not_decide, tests/test_the_guard_asks_once_per_session.py::test_a_command_with_both_is_never_weaker_than_either_alone, tests/test_the_guard_asks_once_per_session.py::test_the_command_word_class_is_what_the_allow_covers, tests/test_the_guard_asks_once_per_session.py::test_the_guard_is_never_silent_where_the_writer_records, tests/test_guard_resolves_the_tree_it_judges.py::test_the_consent_writer_files_a_creation_where_bash_runs_it, tests/test_guard_resolves_the_tree_it_judges.py::test_the_writer_files_under_the_clone_the_guard_judged, tests/test_guard_resolves_the_tree_it_judges.py::test_the_consent_writer_composes_the_creations_own_dash_c
 
 ### Decided before git runs (#692)
 
@@ -826,9 +915,10 @@ at one prompt against a wrong allow breaking another session's tree.
   how `rebase`'s branch-naming form was found. A form no row's case runs is
   still a reading.
 - A creation only a hidden spelling holds (`git 2>&1 worktree add …`, `git
-  worktree 2>/dev/null add …`) is an unrecognised shape, so in a clean tree
-  nobody else is in it says nothing and §B never reads it, as at 0.16.0
-  before #678. The consent writer files nothing for it either.
+  worktree 2>/dev/null add …`, and since #856 `git worktree {add,} ../wt f`,
+  whose `add` only bash's brace expansion makes) is an unrecognised shape, so
+  in a clean tree nobody else is in it says nothing and §B never reads it, as
+  at 0.16.0 before #678. The consent writer files nothing for it either.
 - A `rebase` is listed, and detaches HEAD while it runs: a session switching
   in the same tree during that window meets a detached HEAD rather than the
   branch. The guard judges the command before it runs and reads no window.
@@ -843,7 +933,11 @@ at one prompt against a wrong allow breaking another session's tree.
   tree its segment names, the one it was typed from: its own `-C` and `cd`
   are not read. `sh -c 'git -C W switch x'` with `W` dirty and the
   session's tree clean says nothing, as it did before #826. Only a git the
-  wider reading reads as a segment of its own has its `-C` composed.
+  wider reading reads as a segment of its own has its `-C` composed, and a
+  brace segment's `-C <dir>` word pairs are read, but not a `-C` the
+  brace makes: a `-C` a string hides is not read, and so is a `-C` a brace
+  hides in a segment that is not git (`{git,} {-C,} W switch x`), which is
+  judged where the walk places it.
 - Where `hooks/cmdline.py` did not load, or the reader that glues an `&`
   cut back raises, a git the cut split is judged in the tree the part before
   the cut names: `git -C W worktree 2>&1 add …` is judged in `W`, and `2>&1

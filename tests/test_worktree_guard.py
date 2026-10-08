@@ -9,7 +9,7 @@ import json
 import os
 
 import pytest
-from conftest import load_hook_module
+from conftest import load_hook_module, shell_probe
 
 wg = load_hook_module("worktree-guard.py", "wg")
 
@@ -725,11 +725,10 @@ def test_the_unbalanced_quote_note_is_read_from_the_command_as_written(
 def test_consent_is_not_read_out_of_a_command_that_did_not_parse(
     monkeypatch, capsys, repo
 ):
-    """The commit gate falls back to a SUBSTRING test when a command does not
-    parse cleanly (`has_marker`), and this guard must not inherit it. Reading
-    `[no-review]` loosely skips one check the user is being asked about
-    anyway; reading `[shared-tree-ok]` loosely turns this guard off with
-    nobody asked — the regression two review rounds went into closing."""
+    """A token inside a quote that never closes is prose, and no consent
+    read takes it: `hooks/tokens.py#given` reads nothing from where a split
+    fails (#868). Read loosely, `[shared-tree-ok]` would turn this guard off
+    with nobody asked — the regression two review rounds went into closing."""
     cmd = 'git worktree add ../wt f && echo "we agreed on [worktree-ok] yesterday'
     assert "[worktree-ok]" in cmd  # a substring test would say yes
     assert not wg.has_token(cmd, "[worktree-ok]")
@@ -1864,6 +1863,432 @@ def test_a_rebase_naming_a_branch_is_unrecognised(monkeypatch, capsys, repo, com
     ), reason
 
 
+# #856: S11 of work item 1791384157. bash makes other words of each before git
+# runs (`git rebase main feature/x`, `git rebase --ro --ro feature/x`, `git
+# stash branch x`, `git worktree add ../wt f`), so the words the frozen
+# reading read are not git's.
+BRACE_SHAPES = (
+    "git rebase {main,feature/x}",
+    "git rebase --ro{,} feature/x",
+    "git stash {branch,} x",
+    "git worktree {add,} ../wt f",
+)
+BRACE_EN = (
+    "a word holding a brace expansion (`{a,b}`, `{1..3}`), which the shell "
+    "turns into other words before the command runs, so this guard cannot tell "
+    "which command that is. Write the words out as the "
+    "shell would make them, as in `git rebase main feature/x` for `git rebase "
+    "{main,feature/x}`, or quote the braces where they are meant literally."
+)
+BRACE_KO = (
+    "중괄호 확장(`{a,b}`, `{1..3}`)이 든 단어이며, 셸은 명령이 실행되기 전에 이를 "
+    "다른 단어들로 바꾸므로 이 guard 는 어떤 명령인지 알 수 없습니다. 셸이 만들 "
+    "단어를 직접 풀어 쓰세요. 예: `git rebase "
+    "{main,feature/x}` 대신 `git rebase main feature/x`. 중괄호를 글자 그대로 쓰려면 "
+    "따옴표로 감싸세요."
+)
+
+
+@pytest.mark.parametrize("command", BRACE_SHAPES)
+def test_a_brace_expansion_in_a_git_word_is_unrecognised(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """S11 of work item 1791384157 (#856, the owner's answer (c) of
+    2026-10-08). The shape stops where the tree matters, names the brace and
+    its plain spelling, and is a `deny` in an ACTIVE tree and under the
+    press; silent in a clean single-stream tree, like every unrecognised
+    shape. Red at `5623d728`, where each was listed or a creation-free
+    `worktree` and silent in every tree."""
+    empty = tmp_path / "no-projects"
+    empty.mkdir()
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(empty))
+    in_state(monkeypatch, repo, "active")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and STOP in reason, (command, decision, reason)
+    assert f"`{command}` — {BRACE_EN}" in reason, reason
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "ask" and BRACE_EN in reason, (command, decision, reason)
+    monkeypatch.setattr(
+        wg.worktree_consent, "PROJECTS_ROOT", str(pressed_root(tmp_path, repo))
+    )
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and BRACE_EN in reason, (command, decision, reason)
+    in_state(monkeypatch, repo, "clean")
+    assert verdict(monkeypatch, capsys, repo, command) == ("silent", "")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "{git,} rebase main feature/x",
+        "{,git} switch feature/x",
+        # Round 2 of work item 1791384157, yellow 1: braces the guard does not
+        # take apart, each run by bash as `git switch feature/x`. Red at
+        # `e0c5a191`.
+        "{{git,},} switch feature/x",
+        "{,{git,}} switch feature/x",
+        "{g..g}it switch feature/x",
+        "${HOME}/bin/{git,} switch feature/x",
+        # Round 3, yellows 1-3 (S17): behind a runner's operand, behind a
+        # redirection, glued to `(`, alternatives that are empty or a runner,
+        # and an `&` cut. Each run by bash as `git switch feature/x`. Red at
+        # `a8f86f44`.
+        "timeout 5 {git,} switch feature/x",
+        "nice -n 5 {git,} switch feature/x",
+        "sudo -u x {git,} switch feature/x",
+        "env -u FOO {git,} switch feature/x",
+        "command -p {git,} switch feature/x",
+        "2>/dev/null {git,} switch feature/x",
+        ">/dev/null {git,} switch feature/x",
+        "({git,} switch feature/x)",
+        "{,} git switch feature/x",
+        "{env,} git switch feature/x",
+        "{nice,} git switch feature/x",
+        "{exec,} git switch feature/x",
+        "2>&1 {git,} switch feature/x",
+    ],
+)
+def test_a_brace_that_makes_the_command_word_is_unrecognised(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """#856's class: bash makes `git` of a brace before the frozen reading
+    reads the words, so that reading read no git and the guard said nothing
+    in an ACTIVE tree (round 1 of work item 1791384157, yellow 3; rounds 2
+    and 3 found the next spellings). Since the reframe after round 3, a brace
+    in any word of any segment is the brace shape, so none of these needs the
+    guard to know what bash makes of it or where it stands."""
+    empty = tmp_path / "no-projects"
+    empty.mkdir()
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(empty))
+    in_state(monkeypatch, repo, "active")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and STOP in reason and BRACE_EN in reason, reason
+    in_state(monkeypatch, repo, "clean")
+    assert verdict(monkeypatch, capsys, repo, command) == ("silent", "")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "echo {a,b}",
+        "ls {x,y}",
+        "ls {x,y}.md && git status",
+        "cat {.gitignore,README.md}",
+        # Round 2: a command-word brace taken apart exactly that makes no git,
+        # and braces in arguments, which make no command word whatever they
+        # are.
+        "{echo,printf} x",
+        "echo {{a,b},c}",
+        "echo {git,} x",
+        # S18: an assignment word, which neither bash nor zsh expands
+        # (`phases/phase-7.md` M5), and a loop's word list.
+        "A={a,b} ls",
+        "A={{a,b},c} ls",
+        "for f in x/{a,b}.md; do echo $f; done",
+        # Round 4, yellow 2: what bash expands that the test refused, a signed
+        # sequence (`git rebase main1 main2`), a brace after an escaped `$`
+        # (`$a $b`), and quoted whitespace inside the braces. The test errs
+        # toward stopping now: a `,` or a `..` between an unquoted `{` and a
+        # `}` in one word is a brace expansion. Red at `df73a69c`.
+        "git rebase main{+1..2}",
+        "echo {1..+3}",
+        "echo \\${a,b}",
+        'echo {"a b",c}',
+        # Round 5, yellow 1: a `$` that begins a quote is no parameter
+        # expansion, and bash and zsh make `git` of `$''{g..g}it`. The quoted
+        # span stands in as a space now, never as nothing. Red at `b9a4bcff`.
+        "$''{g..g}it switch feature/x",
+        "$''{g..g}it rebase main feature/x",
+        '$""{git,} -C . switch feature/x',
+        "echo $'x'{a,b}",
+        # Round 5, yellow 2: whitespace inside a substitution or a parameter
+        # expansion is no word boundary to bash, which makes `git` of each.
+        # The test reads the text, not the words. Red at `b9a4bcff`.
+        "{git,$(: x)} switch feature/x",
+        "{git,`: x`} switch feature/x",
+        "{git,${x:- }} switch feature/x",
+        # Round 5's deliberate over-stops: the test reads no word boundary and
+        # no nesting, and keeps one exception, a `${` holding no `,` or `..`.
+        # So a case-modifying `${a,}`, unquoted braces bash makes two words
+        # of, a brace group holding a comma and a reflog range across two
+        # braces stop, though bash expands none of them. A stop where the tree
+        # matters is the price; a missed brace was a silent switch.
+        "echo ${a,}",
+        "git log ${x,}",
+        "echo {a, b}",
+        "git commit -m '{a,b}' && echo {c, d}",
+        "git commit -m '{a,b}' && { echo x,y; }",
+        "git diff HEAD@{1}..HEAD@{0}",
+        "git log @{u}..@{1}",
+        "echo ${r%..*}",
+        'echo "$({ echo x,y; })"',
+        "{ echo x,y; }",
+    ],
+)
+def test_a_brace_in_any_word_is_the_brace_shape(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """S18 of work item 1791384157, reframed after round 3. A brace in any
+    word of any segment is the brace shape, whatever the command and wherever
+    the brace stands: an `ask` in a dirty tree, a `deny` under the press and
+    in an ACTIVE tree, silent in a clean single-stream tree, and the reason
+    names the brace. This case asserted the opposite until the reframe
+    (`test_a_brace_in_no_git_word_stays_silent`); each parameter was silent
+    at `a8f86f44`. The cost is named in `docs/worktree-guard-spec.md` §A and
+    counted in `phases/phase-7.md`."""
+    empty = tmp_path / "no-projects"
+    empty.mkdir()
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(empty))
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "ask" and BRACE_EN in reason, (command, decision, reason)
+    in_state(monkeypatch, repo, "active")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and BRACE_EN in reason, (command, decision, reason)
+    monkeypatch.setattr(
+        wg.worktree_consent, "PROJECTS_ROOT", str(pressed_root(tmp_path, repo))
+    )
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and BRACE_EN in reason, (command, decision, reason)
+    in_state(monkeypatch, repo, "clean")
+    assert verdict(monkeypatch, capsys, repo, command) == ("silent", "")
+
+
+def _two_trees(repo, tmp_path, session_state, w_state):
+    """A session tree and a second clone `W` in the states named, and the
+    sessions stub that reads `W` as ACTIVE where W_STATE says so."""
+    import shutil
+
+    w = tmp_path / "W"
+    shutil.copytree(repo, w)
+    (repo / "f.txt").write_text(
+        "changed\n" if session_state == "dirty" else "one\ntwo\nthree\n",
+        encoding="utf-8",
+    )
+    (w / "f.txt").write_text(
+        "changed\n" if w_state == "dirty" else "one\ntwo\nthree\n",
+        encoding="utf-8",
+    )
+    active = [(111, str(w), 1.0, 0.5, "VS Code")]
+
+    def sessions(top, own=""):
+        if w_state == "active" and os.path.samefile(top, w):
+            return active, [], True
+        return [], [], True
+
+    return w, sessions
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "{{git,}} -C {w} switch feature/x",
+        "{{git,}} -C {w} rebase main feature/x",
+        "{{{{git,}},}} -C {w} switch feature/x",
+        # S20: the runner forms and the `&` cut.
+        "{{env,}} git -C {w} switch feature/x",
+        "timeout 5 {{git,}} -C {w} switch feature/x",
+        "2>&1 {{git,}} -C {w} switch feature/x",
+        # Round 4, yellow 1: a git segment whose brace stands before its `-C`,
+        # which the frozen reading takes for the subcommand. Red at
+        # `df73a69c`.
+        "git {{,}} -C {w} switch feature/x",
+        "git {{--no-pager,}} -C {w} switch feature/x",
+        # Round 5, yellow 2: a brace the splitter cut at a substitution's
+        # whitespace is read in the segment's words joined, so its `-C` is
+        # read too. Red at `b9a4bcff`.
+        "{{git,$(: x)}} -C {w} switch feature/x",
+        "git {{,$(: x)}} -C {w} switch feature/x",
+    ],
+)
+def test_a_brace_command_word_is_judged_in_the_tree_its_c_names(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """Round 2 of work item 1791384157, yellow 2, and S20 of its reframe. A
+    brace segment the frozen reading reads as no git is judged in the tree
+    the walk places it in AND in every tree a `-C <dir>` pair among its words
+    names. With the session's tree clean and `W` ACTIVE it is a `deny` naming
+    `W`; with the session's tree dirty and `W` clean it is an `ask`, because
+    the placed tree matters too. The `S`-dirty direction and the runner forms
+    were red at `a8f86f44`, where only the words after the command word's
+    brace were read."""
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(tmp_path / "np"))
+    w, sessions = _two_trees(repo, tmp_path, "clean", "active")
+    monkeypatch.setattr(wg, "sessions_in_tree", sessions)
+    decision, reason = verdict(monkeypatch, capsys, repo, command.format(w=w))
+    assert decision == "deny" and STOP in reason and str(w) in reason, reason
+    shutil_free = tmp_path / "second"
+    shutil_free.mkdir()
+    w2, sessions = _two_trees(repo, shutil_free, "dirty", "clean")
+    monkeypatch.setattr(wg, "sessions_in_tree", sessions)
+    decision, reason = verdict(monkeypatch, capsys, repo, command.format(w=w2))
+    assert decision == "ask" and STOP in reason and "uncommitted" in reason, reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["{git,} -C .. -C W switch feature/x", "git {,} -C .. -C W switch feature/x"],
+)
+def test_a_brace_segment_composes_its_c_values_as_git_does(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """Round 4 of work item 1791384157, yellow 1. git composes its `-C`
+    values in order, so `-C .. -C W` runs in `../W`; the union read each `-C`
+    alone and missed it. With the session's tree clean and `../W` ACTIVE the
+    stop is a `deny` naming it. Red at `df73a69c`."""
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(tmp_path / "np"))
+    assert repo.parent == tmp_path, repo
+    w, sessions = _two_trees(repo, tmp_path, "clean", "active")
+    monkeypatch.setattr(wg, "sessions_in_tree", sessions)
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and STOP in reason and str(w) in reason, reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "echo ${HOME}",
+        "echo {}",
+        "echo {a}",
+        "find . -name x -exec echo {} \\;",
+        "awk '{print $1, $2}' f.txt",
+        'echo \'{"a":1,"b":2}\'',
+        "jq '{a: .x, b: .y}' f.json",
+        "cat <<EOF\n{a,b}\nEOF",
+        "echo \\{a,b\\}",
+        "git log @{-1}..HEAD",
+        # A quoted parameter expansion says nothing, whatever it holds, and
+        # an unquoted one holding no `,` or `..` is the one exception.
+        'echo "${a,}"',
+        "echo ${a},${b}",
+    ],
+)
+def test_what_the_shell_does_not_expand_stays_silent(
+    monkeypatch, capsys, repo, command
+):
+    """Round 4 of work item 1791384157, yellow 2's other side, and round 5's.
+    The brace test errs toward stopping, and these stay silent through
+    quoting and one exception rather than through a list: a parameter
+    expansion holding no `,` or `..` (`${HOME}`), braces with no `,` or `..`
+    before a later `}` (`{}`, `{a}`, `find`'s `{}`, `@{-1}..HEAD`), quoted
+    text (`awk`, JSON, `jq`, a quoted `${a,}`), a heredoc body and escaped
+    braces. Each is silent in every tree. Three forms this case held in round
+    4 (`echo ${a,}`, `echo {a, b}` and the same beside a quoted brace) stop
+    since round 5, a deliberate over-stop pinned in
+    `test_a_brace_in_any_word_is_the_brace_shape`."""
+    for state in STATES:
+        in_state(monkeypatch, repo, state)
+        got = verdict(monkeypatch, capsys, repo, command)
+        assert got == ("silent", ""), (state, command, got)
+
+
+def test_a_brace_in_a_command_that_will_not_split_stops(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 4 of work item 1791384157, white 4. A command the splitter
+    cannot close (ANSI-C `$'…\\'…'`) was read only for a bare `git`, so a
+    brace bash makes `git` of there said nothing in an ACTIVE tree; an
+    unquoted brace in its text is a finding too. Red at `df73a69c`."""
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(tmp_path / "np"))
+    in_state(monkeypatch, repo, "active")
+    command = ": $'\\'' && {g..g}it switch feature/x && : \"'\""
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "deny" and STOP in reason, reason
+
+
+def test_a_c_a_brace_hides_is_the_named_limit(monkeypatch, capsys, repo, tmp_path):
+    """S20's named limit: a `-C` a brace hides (`{git,} {-C,} W switch x`) is
+    not read, so the segment is judged where the walk places it; with the
+    session's tree clean and `W` dirty it says nothing, as a string handed to
+    a shell does (`docs/worktree-guard-spec.md` §*Known limits*)."""
+    w, sessions = _two_trees(repo, tmp_path, "clean", "dirty")
+    monkeypatch.setattr(wg, "sessions_in_tree", sessions)
+    got = verdict(monkeypatch, capsys, repo, f"{{git,}} {{-C,}} {w} switch x")
+    assert got == ("silent", ""), got
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # A body is read with its own quoting.
+        "echo $(git rebase {main,feature/x})",
+        # A cut group is read whole, and the cut took the deciding word.
+        "git worktree &>/dev/null {add,} ../wt f",
+    ],
+)
+def test_a_brace_in_a_body_or_a_cut_group_is_unrecognised(
+    monkeypatch, capsys, repo, command
+):
+    """S11 of work item 1791384157, the two places a git is read besides its
+    own segment. Each stops in a dirty tree and names the brace. Both
+    survived a break dropping the brace reading from their reader until
+    these cases."""
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(monkeypatch, capsys, repo, command)
+    assert decision == "ask" and BRACE_EN in reason, (command, decision, reason)
+
+
+def test_a_broken_token_reader_reads_every_brace_as_unquoted(monkeypatch, capsys, repo):
+    """S11 of work item 1791384157, its failure direction: where
+    `hooks/tokens.py` did not load, the quoting cannot be read, so a quoted
+    brace in a git word stops too, and an unquoted one still does. A broken
+    reader costs a stop and never a silence. Survived a break answering no
+    brace at all until this case."""
+    monkeypatch.setattr(wg, "tokens", None)
+    in_state(monkeypatch, repo, "dirty")
+    for command in (BRACE_SHAPES[0], "git commit -m '{a,b}'"):
+        decision, reason = verdict(monkeypatch, capsys, repo, command)
+        assert decision == "ask" and BRACE_EN in reason, (command, decision, reason)
+
+
+def test_the_brace_stop_reads_in_korean(monkeypatch, capsys, repo):
+    """§14 for S11: the brace kind's own text in the second language."""
+    monkeypatch.setenv("SPECSEAL_LANG", "ko")
+    wko = load_hook_module("worktree-guard.py", "wg_ko_brace")
+    in_state(monkeypatch, repo, "dirty", module=wko)
+    decision, reason = verdict(monkeypatch, capsys, repo, BRACE_SHAPES[0], module=wko)
+    assert decision == "ask" and BRACE_KO in reason, reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit -m '{a,b}'",
+        "git log --format='{%h}'",
+        'git commit -m "{a, b}"',
+        "git log --format=%h -- 'docs/{a,b}.md'",
+        "git commit -m x && echo '{a,b}'",
+        # `git log ${x,}` and a brace group holding a comma beside a quoted
+        # brace stood here until round 5; both stop since, a deliberate
+        # over-stop (`test_a_brace_in_any_word_is_the_brace_shape`).
+        # S19: in a segment that is not git, too.
+        "echo '{a,b}'",
+        'printf "{a, b}"',
+        "cat 'x/{a,b}.md'",
+    ],
+)
+def test_a_quoted_brace_in_a_git_word_stays_listed(monkeypatch, capsys, repo, command):
+    """S12 and S19 of work item 1791384157: a brace the shell does not
+    expand because it is quoted leaves the shape what it was in every
+    segment, silent in every tree."""
+    for state in STATES:
+        in_state(monkeypatch, repo, state)
+        got = verdict(monkeypatch, capsys, repo, command)
+        assert got == ("silent", ""), (state, command, got)
+
+
+def test_a_quoted_brace_beside_an_unquoted_one_stops_on_both(monkeypatch, capsys, repo):
+    """S19's named cost: the quoting is read off the command's text, so a
+    quoted brace in one segment beside an unquoted one in another reads as
+    unquoted in both, and the stop names both."""
+    in_state(monkeypatch, repo, "dirty")
+    decision, reason = verdict(monkeypatch, capsys, repo, "echo '{a,b}' ; ls {c,d}")
+    assert decision == "ask" and BRACE_EN in reason, reason
+    assert "`echo {a,b}`" in reason and "`ls {c,d}`" in reason, reason
+
+
 @pytest.mark.parametrize(
     "command",
     [
@@ -1965,6 +2390,15 @@ SWITCHING = (
     "checkout feature/x",
     "switch feature/x",
 )
+# #856: forms whose braces bash expands into other words before git runs,
+# written for `str.format`. Each switches HEAD or adds a worktree under bash
+# (S13 of work item 1791384157), and the guard reads none of them as listed.
+BRACED = (
+    "rebase {{{start},feature/x}}",
+    "rebase --ro{{,}} feature/x",
+    "stash {{branch,}} y",
+    "worktree {{add,}} ../wt{n} feature/x",
+)
 
 
 def test_no_listed_form_moves_head_under_git(repo, tmp_path):
@@ -2033,6 +2467,46 @@ def test_no_listed_form_moves_head_under_git(repo, tmp_path):
         set(FORMS.values()) ^ set(listed)
     )
     assert sorted(moved) == sorted(SWITCHING), moved
+
+    # #856 (S13 of work item 1791384157): each braced form runs through bash,
+    # which expands the braces before git reads the words, and each switches
+    # HEAD or adds a worktree. The guard reads the frozen words with the
+    # command's unquoted braces, and none of them is listed. Red at
+    # `5623d728`, where all four were. The guard's half reads words and runs
+    # everywhere; bash's half runs only where `bash` is a shell.
+    import shlex
+
+    braced = [
+        (n, form.format(start=start, n=n))
+        for n, form in enumerate(BRACED, start=len(FORMS) + len(SWITCHING))
+    ]
+    braced_listed = [
+        text
+        for _n, text in braced
+        if wg.shape_of(["git", *shlex.split(text)], braced=wg._unquoted_brace(text))
+        == "listed"
+    ]
+    assert not braced_listed, braced_listed
+    # On a `windows-latest` runner `bash` resolves to the WSL launcher, which
+    # exits 1 for every command it is handed (`conftest.shell_probe`; round 1
+    # of work item 1791384157, red 1). The ubuntu and macOS legs run it.
+    why = shell_probe("bash")
+    if why is not None:
+        pytest.skip(f"bash: {why}")
+    acted = []
+    for n, text in braced:
+        copy = tmp_path / f"r{n}"
+        shutil.copytree(template, copy)
+        done = subprocess.run(
+            ["bash", "-c", f"git -C {shlex.quote(str(copy))} {text}"],
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            env={**os.environ, "GIT_EDITOR": "true", "GIT_PAGER": "cat"},
+        )
+        assert done.returncode == 0, (text, done.returncode, done.stderr)
+        if head(copy) != head(template) or (tmp_path / f"wt{n}").is_dir():
+            acted.append(text)
+    assert len(acted) == len(BRACED), acted
 
 
 def test_the_readings_are_gone():

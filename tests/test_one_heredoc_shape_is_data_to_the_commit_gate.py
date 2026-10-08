@@ -467,8 +467,10 @@ DOCUMENTED = {
     "a trailing comment on the program's suffix": (
         "python3 - <<'EOF'\nprint(1)\nEOF\n{commit}  # {w}"
     ),
-    "a trailing comment with an apostrophe": (
-        "cat > {scratch} <<EOF\nbody\nEOF\n{commit}  # don't {w}"
+    # #868: an apostrophe AFTER the token in its comment keeps it; one before
+    # it is `test_a_waiver_behind_an_apostrophe_in_its_comment_waives_nothing`.
+    "a trailing comment with an apostrophe after the waiver": (
+        "cat > {scratch} <<EOF\nbody\nEOF\n{commit}  # {w} -- it's a probe"
     ),
 }
 
@@ -490,6 +492,27 @@ def test_s3_the_documented_forms_still_waive_beside_a_body(tmp_path, name):
     got, out = decide(command, session, "with")
     assert got == "silent", out
     assert decide(tokenless(command), session, "without")[0] in ("deny", "ask")
+
+
+def test_a_waiver_behind_an_apostrophe_in_its_comment_waives_nothing(tmp_path):
+    """#868 In 3, the cost the frame named: `# don't [no-review]` opens a quote
+    at the apostrophe to the one token reader, which reads comments on
+    purpose, so the waiver after it is inside a quote that never closes and
+    reads as nothing. It waived through `has_marker`'s substring fallback
+    until work item 1791384157, and was the documented form this module
+    pinned as S3's `a trailing comment with an apostrophe`. No recorded run
+    held one (`phases/phase-1.md`). It meets the tokenless verdict now, and
+    the waiver typed in front is the way on."""
+    session = make_repo(tmp_path / "session")
+    target = make_repo(tmp_path / "undeclared")
+    command = (
+        f"cat > {q(tmp_path / 'pr.md')} <<EOF\nbody\nEOF\n"
+        f"{commit_into(target)}  # don't {WAIVER}"
+    )
+    got, out = decide(command, session, "with")
+    assert got == decide(tokenless(command), session, "without")[0], out
+    assert got in ("deny", "ask"), out
+    assert decide(f": '{WAIVER}'; {command}", session, "front")[0] == "silent"
 
 
 def s5_shell_body(target, in_front=False):
@@ -564,11 +587,43 @@ def test_s6_neither_read_honours_a_token_the_base_did_not(tmp_path):
     """S6. For every command above, each read finds a token only where the
     base read found it. `NEWLY_READ` turns red the moment either read drops
     the AND with its base read; the rest are green at `94d7b2e0` by
-    definition."""
+    definition.
+
+    Since #868 the two reads are one (`has_marker` is `tokens.given`), and
+    it reads the words before a split fails, so its base is the two base
+    reads together: it finds a token only where one of them did. The
+    documented comment with an apostrophe after the waiver is the case the
+    strict base `given` refused and `has_marker` read."""
     for command in every_case(tmp_path):
+        bases = base_given(command) | ({WAIVER} if base_marker(command) else set())
         assert not gate.has_marker(command, WAIVER) or base_marker(command), command
-        assert set(gate.tokens.given(command)) <= base_given(command), command
+        assert set(gate.tokens.given(command)) <= bases, command
     assert not base_marker(NEWLY_READ["has_marker"])
     assert not gate.has_marker(NEWLY_READ["has_marker"], WAIVER)
     assert not base_given(NEWLY_READ["given"])
     assert gate.tokens.given(NEWLY_READ["given"]) == ()
+
+
+# --- #868 In 3: the waiver has one reader --------------------------------------
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # The waiver typed inside a quote that never closes: prose to a shell
+        # that would refuse to run the command, never a bare word.
+        "git commit -m 'x [no-review]",
+        'git commit -m "x [no-review]',
+    ],
+)
+def test_a_waiver_only_a_substring_holds_waives_nothing(tmp_path, command):
+    """S7 of work item 1791384157 (#868). `has_marker` read a command that
+    does not split by the substring test, so a `[no-review]` inside an
+    unclosed quote waived the review arm. It reads through `tokens.given` now,
+    which takes no word from inside a quote, so the review arm is missing and
+    the refusal names the waiver typed in front, which splits. Red at
+    `5623d728`, where the gate was silent."""
+    repo = make_repo(tmp_path / "undeclared")
+    got, out = decide(f"cd {q(repo)} && {command}", repo)
+    assert got in ("deny", "ask"), out
+    assert "No review is recorded" in out and ": '[no-review]'" in out, out

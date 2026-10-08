@@ -229,6 +229,17 @@ pathspec pick up, because two of the three forms never touch the index. A
 document-root row that said *staged* would describe a narrower silence than
 the gate actually keeps, and a reader would expect a prompt where none comes.
 
+A diff git could not take is not a change confined to the document roots.
+Where a `git diff` that lists the paths exits non-zero, cannot start or times
+out, the paths are unknown, and the arm asks; it used to read the failure as
+an empty diff and say nothing (#868). The PreToolUse reading, `pre-commit`
+and the `reference-transaction` backstop read the paths through one runner,
+`hooks/gate.py#git`, which answers None for a failure, and
+`hooks/gate.py#touches_code` answers True for None. That includes `-a` or a
+pathspec on a branch with no commit yet, where `git diff HEAD` has no `HEAD`
+to read. `tests/test_chain_hooks_hardening.py` holds the three cases, one per
+reader.
+
 The mark says a comparison was recorded, not that it was a good one. Writing
 it for work nobody compared converts "nobody checked" into "someone checked
 and it was fine" — the one claim the parity methodology exists to keep honest.

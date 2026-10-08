@@ -68,7 +68,10 @@ def waived(cwd, session):
     round 1's 🟡 9). The ancestry is walked once, and only if an answer is
     there to match it."""
     out = set()
-    for value in gate.git(["config", "--get-all", "specseal.waive"], cwd).splitlines():
+    # `config --get-all` exits 1 where no such key is set: no waiver, git's
+    # ordinary no, not a failure.
+    configured = gate.git(["config", "--get-all", "specseal.waive"], cwd) or ""
+    for value in configured.splitlines():
         for word in value.replace(",", " ").split():
             if word in (gate.REVIEW, gate.PARITY):
                 out.add(word)
@@ -155,7 +158,7 @@ def _sequencer_commit(cwd, commit=None):
     started by another `git` process. Every way of not reading it is False,
     so the commit is judged; on Windows, where no `ps` answers, it always is.
     """
-    git_dir = gate.git(["rev-parse", "--absolute-git-dir"], cwd)
+    git_dir = gate.git(["rev-parse", "--absolute-git-dir"], cwd) or ""
     if not git_dir or not any(
         os.path.exists(os.path.join(git_dir, name)) for name in SEQUENCER
     ):
@@ -170,13 +173,16 @@ def _sequencer_commit(cwd, commit=None):
 
 
 def _judged_dir(cwd):
-    git_dir = gate.git(["rev-parse", "--absolute-git-dir"], cwd)
+    # Outside a repository `rev-parse` exits non-zero: no directory, and no
+    # mark is left or taken.
+    git_dir = gate.git(["rev-parse", "--absolute-git-dir"], cwd) or ""
     return os.path.join(git_dir, JUDGED) if git_dir else ""
 
 
 def _leave_mark(cwd, head, date):
     d = _judged_dir(cwd)
-    tree = gate.git(["write-tree"], cwd)
+    # A tree git could not write leaves no mark, so the backstop judges.
+    tree = gate.git(["write-tree"], cwd) or ""
     if not d or not tree or not date:
         return
     try:
@@ -197,7 +203,8 @@ def _leave_mark(cwd, head, date):
 def _take_mark(cwd, old, new, date):
     """True when `pre-commit` judged this update; the mark is used up."""
     d = _judged_dir(cwd)
-    tree = gate.git(["rev-parse", "--verify", "--quiet", f"{new}^{{tree}}"], cwd)
+    # `--verify --quiet` exits 1 for a name with no tree: no mark to take.
+    tree = gate.git(["rev-parse", "--verify", "--quiet", f"{new}^{{tree}}"], cwd) or ""
     if not d or not tree:
         return False
     path = os.path.join(d, _key(old, tree, date))
@@ -221,12 +228,14 @@ def pre_commit(cwd, environ, stream):
     if context is None:
         return 0
     top, _common, session = context
-    head = gate.git(["rev-parse", "--verify", "--quiet", "HEAD"], cwd)
+    # An unborn branch exits non-zero: no HEAD is git's ordinary no.
+    head = gate.git(["rev-parse", "--verify", "--quiet", "HEAD"], cwd) or ""
     arms = gate.arms_missing(
         cwd,
         top,
         waived(cwd, session),
-        lambda: gate.git(["diff", "--cached", "--name-only"], cwd).splitlines(),
+        # None where `git diff` failed, which the parity arm asks about (#868).
+        lambda: gate.lines(gate.git(["diff", "--cached", "--name-only"], cwd)),
         head=head,
     )
     if arms and not _sequencer_commit(cwd):
@@ -238,7 +247,8 @@ def pre_commit(cwd, environ, stream):
 def _commit_lines(lines, cwd):
     """The (old, new) pairs of this transaction that move a branch or a
     detached HEAD, once each."""
-    detached = not gate.git(["symbolic-ref", "-q", "HEAD"], cwd)
+    # `symbolic-ref -q` exits 1 on a detached HEAD, which is the answer read.
+    detached = not (gate.git(["symbolic-ref", "-q", "HEAD"], cwd) or "")
     seen, out = set(), []
     for line in lines:
         parts = line.split()
@@ -258,12 +268,13 @@ def _commit_lines(lines, cwd):
 
 def _paths_between(cwd, base, new):
     """A callable listing the paths the commit `new` carries over `base` --
-    over nothing, for a root commit."""
+    over nothing, for a root commit -- or answering None where git could not
+    list them, which the parity arm asks about (#868)."""
     if base:
         args = ["diff", "--name-only", base, new]
     else:
         args = ["diff-tree", "--root", "-r", "--name-only", "--no-commit-id", new]
-    return lambda: gate.git(args, cwd).splitlines()
+    return lambda: gate.lines(gate.git(args, cwd))
 
 
 def reference_transaction(cwd, environ, state, lines, stream):

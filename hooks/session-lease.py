@@ -20,12 +20,17 @@ sessions' branch switches (measured: two conversations ended minutes apart,
 and a third could not switch). Writing the owning pid lets the guard ask
 whether that session still exists instead of assuming it does.
 
-The pid is the `claude` process found by walking up from this hook, NOT
-`getppid()` — measured here, the immediate parent is the shell that spawned
-the hook (`/bin/zsh`), which dies constantly. Treating that as the owner
-would retire live leases. When no `claude` ancestor is found the record omits
-`pid` entirely, and the guard reads that as unattributable — a question for
-the user rather than either assumption.
+The pid is the session's `claude` process, NOT `getppid()` — measured here,
+the immediate parent is the shell that spawned the hook (`/bin/zsh`), which
+dies constantly. Treating that as the owner would retire live leases. It is
+`hooks/hooksession.py#claude_pid`'s answer: `CLAUDE_PID` where the harness
+exports it beside this session's own `CLAUDE_CODE_SESSION_ID`, else the
+nearest ancestor whose name is `claude`. That is the
+reader the commit gate's lease route asks for the same pid, so the lease
+this records is the lease it finds (#868); this file used to walk on its
+own, matching any name that held `claude`. When no `claude` process is found
+the record omits `pid` entirely, and the guard reads that as unattributable —
+a question for the user rather than either assumption.
 """
 
 import json
@@ -37,6 +42,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import console
+import hooksession
 
 
 def git_dir(path):
@@ -52,37 +58,6 @@ def git_dir(path):
         return r.stdout.strip() if r.returncode == 0 else None
     except Exception:
         return None
-
-
-def owner_pid():
-    """The `claude` process this hook hangs off, or None if it cannot be seen.
-
-    None is a real answer and is recorded as such: an extension host whose
-    process is not named `claude` must not be mistaken for a session that has
-    exited.
-    """
-    cur = os.getppid()
-    for _ in range(15):
-        try:
-            r = subprocess.run(
-                ["ps", "-o", "ppid=,comm=", "-p", str(cur)],
-                capture_output=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=5,
-            )
-            out = r.stdout.strip()
-            if not out:
-                return None
-            ppid_s, _, comm = out.partition(" ")
-            if "claude" in comm:
-                return cur
-            cur = int(ppid_s)
-        except Exception:
-            return None
-        if cur <= 1:
-            return None
-    return None
 
 
 def main():
@@ -111,7 +86,23 @@ def main():
         return
     leases = os.path.join(gd, "specseal-leases")
     record = {"ts": int(time.time()), "host": socket.gethostname()}
-    pid = owner_pid()
+    # `CLAUDE_PID` is this session's only where the environment is this
+    # session's: a `claude` started from another session's Bash inherits that
+    # session's pid, and a hook the harness gives no variable of its own would
+    # record it in this session's lease, where no reader of this session looks
+    # (round 1 of work item 1791384157, yellow 4). So the variable is read
+    # only beside a `CLAUDE_CODE_SESSION_ID` that is the payload's own, and
+    # the walk answers everywhere else, as it did before #868 (§13). Failure
+    # is silent, as everything here is: a reader that raises records no pid,
+    # which the guard reads as unattributable.
+    try:
+        # A missing id names no session, so two absences do not match (round
+        # 2 of work item 1791384157, white 4).
+        sid = os.environ.get(hooksession.SESSION_VARIABLE) or ""
+        own = bool(sid) and sid == payload.get("session_id")
+        pid = hooksession.claude_pid(None if own else {})
+    except Exception:
+        pid = None
     if pid is not None:
         record["pid"] = pid
     try:

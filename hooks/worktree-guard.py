@@ -171,11 +171,11 @@ try:
 except (Exception, SystemExit):
     wide = None
 
-# The consent reads' rules, shared with the commit gate (#773, #780): asked
-# only for `without_bodies`, the command with its here-document bodies taken
-# out. Guarded like the import above, because this guard's rows do not need
-# it: where it cannot load, `has_token` finds the bodies with the frozen
-# reader instead.
+# The one consent-token reader, shared with the commit gate (#773, #780,
+# #868): `has_token` is `tokens.given`, and the brace reading takes its quoted
+# spans (#856). Guarded like the import above, because this guard's rows do
+# not need it: where it cannot load, no token is read and every brace reads
+# as unquoted, each costing a prompt and never a silence.
 try:
     import tokens
 except (Exception, SystemExit):
@@ -184,6 +184,11 @@ except (Exception, SystemExit):
 # The AFTER half of this guard: it owns the consent record, and this file reads
 # it. A plain filename again -- and the reason that file's name carries an
 # underscore where every other gate here carries a hyphen.
+#
+# `hooksession` beside it: which process is a Claude session is one test,
+# `hooksession.is_claude`, shared with the lease writer and the commit gate's
+# lease route (#868).
+import hooksession
 import worktree_consent
 from cmdline_base import apply_chdir, parse_git
 
@@ -229,50 +234,11 @@ def load_input():
         return {}
 
 
-def _tokenize_with_separators(command: str, windows=None):
-    """`cmdline.split_segments_with_separators`, Windows separators carried across.
-
-    Returns `([(operator, tokens), ...], parsed_cleanly)`. The operator is what
-    joined each segment to the one before it, and reading a `cd` needs it: `&&`
-    runs what follows where the `cd` arrived, `||` runs it only if the `cd`
-    failed, which is where the shell already was.
-
-    On Windows `\\` is the path separator, and POSIX-mode shlex reads it as an
-    escape: `git -C C:\\proj\\repo switch topic` tokenizes to `C:projrepo` and
-    the value naming the repository is gone. Doubling the backslashes first
-    hands them back. The one form that comes out still doubled is a
-    single-quoted path, where shlex unescapes nothing, and `apply_chdir`
-    collapses those with `os.path.normpath` -- which is `ntpath` on Windows
-    (measured).
-
-    `windows` is overridable so the branch can be exercised from any platform:
-    the failure it guards is invisible on the machines most sessions run on,
-    and the value it destroys is the one that decides WHICH repository the
-    command acts on.
-
-    A `cd` argument is the same kind of value as a `-C` one, arrives the same
-    way, and goes through this same doubling — which is the whole of what the
-    adapter has to say about it, since both then reach `apply_chdir` and its
-    `normpath`.
-    """
-    # RIDER: a UNC path in SINGLE quotes still loses the repository.
-    # `git -C '\\\\server\\share\\repo' switch x` reaches `apply_chdir` with the
-    # leading pair doubled: the line below doubles every backslash, shlex
-    # unescapes nothing inside single quotes, and `ntpath.normpath` collapses
-    # interior runs but not the leading pair that names the host. The guard
-    # then finds no repository there and exits silently. The base hook handled
-    # this form, so this one place went backwards; every other Windows form
-    # (bare, double-quoted, relative) was compared against base and matches.
-    # Verified 2026-08-31 against _tokenize_with_separators@8801e5d6.
-    #
-    # A `cd` operand goes through this same doubling since that fix, so the
-    # single-quoted UNC form loses the repository there too and the rider now
-    # covers both. Read, not run: there is no Windows runner here.
-    if windows is None:
-        windows = os.name == "nt"
-    if windows:
-        command = command.replace("\\", "\\\\")
-    return cmdline.split_segments_with_separators(command)
+# The tokenizing adapter and the placement live in `hooks/worktree_consent.py`
+# since #868, beside the consent writer that reads the same command, so the
+# directory a creation is filed under is the one this guard judged.
+_tokenize_with_separators = worktree_consent.split_with_separators
+segment_cwd = worktree_consent.segment_cwd
 
 
 def _tokenize(command: str, windows=None):
@@ -395,69 +361,43 @@ def has_token(command: str, token: str) -> bool:
     silent. Shell prose is usually quoted, so the residual is narrow, but it
     is a residual and not a property.
 
-    **No substring fallback for a command that does not parse cleanly**, and
-    that is where this parts company with the commit gate's `has_marker`,
-    which does fall back. The asymmetry above is the reason: reading a marker
-    loosely costs one skipped check the user is being asked about anyway,
-    while reading this token loosely turns the guard off with nobody asked.
+    **No substring fallback for a command that does not parse cleanly**: a
+    quote that never closes ends the read, and nothing inside it is a word.
     Measured: `git worktree add ../wt f && echo "we agreed on [worktree-ok]
-    yesterday` carries the token as a substring and gives no consent.
+    yesterday` carries the token as a substring and gives no consent. Since
+    #868 the commit gate's `has_marker` reads the same way.
 
     **Comments are NOT dropped here**, and that is the one way this read
     differs from the judgment read `split_command` does. A retry token is
     written in a comment on purpose — `git worktree add ../wt f
     # [worktree-ok]` is the documented form — so dropping comments first would
-    throw away the only place the token is ever written.
+    throw away the only place the token is ever written. A parenthesis riding
+    on a word is not part of it, so `(git worktree add ../wt f
+    [worktree-ok])` carries the token: creation is the one verdict in this
+    guard with no `ask` behind it, which turns an unreadable token into a loop
+    with no way out.
 
     **A here-document body is not read** (#780). A token counts only where
     the command as written AND the command with its bodies taken out both
-    carry it, the rule `hooks/tokens.py#given` keeps for the commit gate
-    since #773. A body is text a command only carries, so a
-    `[shared-tree-ok]` written in one passed a switch nobody answered, and a
-    `[worktree-ok]` there lowered the single-stream deny to an ask. The AND
-    is what keeps the second read from finding more than the first: taking a
-    body out can let the splitter finish a command it gave up on, and a
-    token only that read finds is one the command as written never offered.
+    carry it. A body is text a command only carries, so a `[shared-tree-ok]`
+    written in one passed a switch nobody answered, and a `[worktree-ok]`
+    there lowered the single-stream deny to an ask.
+
+    Every one of those rules is `hooks/tokens.py#given`'s, the one reader of
+    a consent token (#868): this guard, the commit gate and the old spelling
+    handed to the git hooks split a command one way. Where `hooks/cmdline.py`
+    cannot load, or the body read raises for any other reason, the frozen
+    reader's `drop_heredoc_bodies` finds the bodies instead, handed to
+    `given` as its fallback: falling back to the command as written would
+    bring #780 back whenever that module is broken, and reading no token at
+    all would leave the single-stream creation deny with no way past (`plan.md`
+    G and H of work item 1791163981). Where `hooks/tokens.py` itself did not
+    load, no token is read, and the cost is the prompt the token would have
+    spared.
     """
-
-    # A closing parenthesis rides on the last word of a segment, so a token
-    # written at the end of `(git worktree add ../wt f [worktree-ok])` arrived
-    # here with a `)` on it and matched nothing. The judgment read strips a
-    # subshell opener, so that command now classifies — and creation is the
-    # one verdict in this guard with no `ask` behind it, which turns an
-    # unreadable token into a loop with no way out rather than one more
-    # prompt. Widening a CONSENT read is the safe direction; the judgment
-    # read is where a stray parenthesis must not decide anything.
-    def carries(text):
-        segments, _clean = _tokenize(text)
-        return any(
-            tok == token or tok.strip("()") == token
-            for toks in segments
-            for tok in toks
-        )
-
-    return carries(command) and carries(_without_bodies(command))
-
-
-def _without_bodies(command: str) -> str:
-    """COMMAND with its here-document bodies taken out and its comments kept,
-    for `has_token`.
-
-    `tokens.without_bodies`, the body reader every consent read shares
-    (#773). It imports `hooks/cmdline.py` when it runs, so where that module
-    cannot load, or where the read raises for any other reason, the frozen
-    reader's `drop_heredoc_bodies` finds the bodies instead, the one
-    `_judgment_text` already uses. Falling back to the command as written
-    would bring #780 back whenever that module is broken, and reading no
-    token at all would leave the single-stream creation deny, which has no
-    `ask` behind it, with no way past (`plan.md` G and H of work item
-    1791163981)."""
-    if tokens is not None:
-        try:
-            return tokens.without_bodies(command)
-        except (Exception, SystemExit):
-            pass
-    return cmdline.drop_heredoc_bodies(command)
+    if tokens is None:
+        return False
+    return token in tokens.given(command, cmdline.drop_heredoc_bodies)
 
 
 # The characters that make ONE segment do something besides run its command
@@ -591,62 +531,6 @@ def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
             return False
         seen = True
     return seen
-
-
-def judgeable(tokens, where: str, cwd: str):
-    """(shell directory, git directory) this segment's verdict is about.
-
-    Two destinations fall back to the session's own directory, which is this
-    guard's answer from before it could read a `cd` at all:
-
-      - one the reader could not compute (a variable, a glob, a subshell);
-      - one that reads cleanly and holds no repository.
-
-    The second was missed, and it is the more common of the two. `cd
-    /no/such/dir ; git switch x` leaves the shell exactly where it started —
-    `;` runs what follows whether the `cd` worked or not — so the switch
-    happens in the session's own tree, which is the tree another session may
-    be sitting in. Judging the destination sent the guard to `if not top:
-    sys.exit(0)` and it said nothing at all.
-
-    The commit gate STOPS on a target like this (`names_a_directory` in
-    `hooks/commit-review-gate.py`) and this guard falls back instead. The two
-    protect different things: a commit nobody judged is a commit nobody
-    reviewed, while a guard that goes silent leaves a shared tree unguarded,
-    and `worktree-guard-spec.md` §Unknowns resolve conservatively puts the
-    cost of a wrong deny at one prompt against a wrong allow breaking another
-    session's tree.
-
-    A `git -C` that names no repository is NOT this case and keeps today's
-    silence: git refuses that command itself, so no tree is touched.
-
-    Which is why the segment's own `-C` is composed BEFORE the fallback is
-    considered, and not after. Deciding first threw the destination away and
-    then resolved a RELATIVE `-C` against the session directory instead:
-    `cd ~/projects && git -C myrepo switch main` turned a real target
-    repository into a path that does not exist, and the guard exited at
-    `if not top` having said nothing. Returning both directories is what lets
-    the caller classify against the tree it is about to judge.
-    """
-    here = cwd if isinstance(where, cmdline.Unresolved) else where
-    target = segment_cwd(tokens, here)
-    if here == cwd or repo_paths(target)[0]:
-        return here, target
-    return cwd, segment_cwd(tokens, cwd)
-
-
-def segment_cwd(tokens, cwd: str) -> str:
-    """`cwd` with this segment's own `git -C` applied, or `cwd` unchanged.
-
-    Takes the token list the walk produced -- the same one `shape_of` read.
-    `main()` asks this for the `-C` target of the segment whose shape it just
-    read, so reading both from one tokenization is what keeps the verdict and
-    the tree it is about in agreement.
-    """
-    parsed = parse_git(tokens)
-    if not parsed:
-        return cwd
-    return apply_chdir(cwd, parsed[2])
 
 
 def ancestors(pid: int):
@@ -1211,7 +1095,9 @@ def sessions_in_tree(top: str, own_session_id: str = ""):
     conservative behaviour.
     """
     # `pgrep -x claude` was observed to silently miss live sessions on macOS,
-    # so enumerate with ps and match the executable basename ourselves.
+    # so enumerate with ps and match the executable basename ourselves, by
+    # the one test the lease writer and the commit gate's lease route use
+    # (`hooksession.is_claude`, #868).
     try:
         r = subprocess.run(
             ["ps", "-axo", "pid=,comm="],
@@ -1225,7 +1111,7 @@ def sessions_in_tree(top: str, own_session_id: str = ""):
             if not line:
                 continue
             num, _, comm = line.partition(" ")
-            if os.path.basename(comm.strip()) == "claude":
+            if hooksession.is_claude(comm):
                 pids.add(int(num))
     except Exception:
         return [], [], False
@@ -2114,6 +2000,50 @@ BODY_DEPTH = 32
 # The openers of a substitution, for the text test alone.
 _OPENERS = ("$(", "`", "<(", ">(")
 
+# A brace expansion bash and zsh perform before the command runs (#856), read
+# so that it errs toward stopping: a `{`, later a `,` or a `..`, later a `}`.
+# No word boundary and no nesting is read, so a signed sequence (`{+1..3}`),
+# a nested brace, a brace bash would refuse and whitespace inside a
+# substitution (`{git,$(: x)}`, which bash makes `git`) all count. Rounds 4
+# and 5 of work item 1791384157 each found a narrower test missing what bash
+# expands, because the text had been reshaped before the test read it: a
+# quote deleted outright put a `$` against a `{` (`$''{g..g}it`), and the
+# splitter cut a brace in two at a substitution's whitespace. The direction
+# is the guard's: a brace it cannot tell about is a stop where the tree
+# matters, and what this costs is named in `docs/worktree-guard-spec.md` §A.
+#
+# `_unquoted_brace` asks it of the command's text with every quoted span and
+# escape standing in as a space; a segment asks it of its words joined, which
+# is the same text with the quotes off, once the command's text holds one.
+_BRACE = re.compile(r"\{.*?(?:,|\.\.).*?\}", re.S)
+
+
+def _unquoted_brace(text) -> bool:
+    """Whether TEXT, a judgment text, holds a brace expansion outside every
+    quoted span and escape, which is where the shell expands one.
+
+    The frozen splitter has taken the quotes off a word before the guard reads
+    it, so `git commit -m '{a,b}'` and `git rebase {a,b}` arrive as the same
+    words, and the quoting is read off the text instead, by the spans
+    `hooks/tokens.py#is_plain` takes out (`tokens.QUOTED_SPANS`). The question
+    is the command's, not a segment's: a quoted brace in one git segment and
+    an unquoted one anywhere else on the line read as unquoted in both, which
+    costs a stop where the tree matters. Where `hooks/tokens.py` did not load,
+    every brace reads as unquoted, so a broken reader costs a stop and never a
+    silence.
+
+    Each quoted span (`'…'`, `"…"`, `$'…'`, `$"…"`) and each escape stands in
+    as one space, never as nothing: deleted, the `$` of `$''{g..g}it` met the
+    `{` (round 5 of work item 1791384157, yellow 1). Then the one exception:
+    a `${` whose span holds no brace, `,` or `..` is a parameter expansion
+    (`${HOME}`, `${x:- }`) and stands in as a space too. `${a,}` holds a `,`
+    and stays, a deliberate over-stop."""
+    if tokens is None:
+        return bool(_BRACE.search(text or ""))
+    bare = re.sub(r"\$?(?:" + tokens.QUOTED_SPANS.pattern + ")", " ", text or "")
+    bare = re.sub(r"\$\{(?:[^{},.]|\.(?!\.))*\}", " ", bare)
+    return bool(_BRACE.search(bare))
+
 
 class Finding(tuple):
     """One unrecognised shape: (kind, words, detail).
@@ -2243,10 +2173,13 @@ def _rebase_names_a_branch(args) -> bool:
     takes only spelled whole, and it takes any unambiguous prefix of a long
     option: `--ro` and `--roo` are `--root`, while `--r` is ambiguous and git
     refuses it. `--root` is the one option of `git rebase -h` that changes how
-    many words name a branch, and it is read off the words bash hands git, so
-    `--root>/dev/null` is `--root` too. An option taking a value counts its
-    value as a word, as above (git 2.50.1; #854, round 3 of work item
-    1791270162, yellow 1)."""
+    many words name a branch, and it is read off the words once their
+    redirections are off (`_plain_words`), so `--root>/dev/null` is `--root`
+    too. Those are the words bash hands git except where a word holds a brace
+    expansion, which bash makes other words of first (`--ro{,}` is `--ro
+    --ro`); such a segment is unrecognised before this is asked (#856). An
+    option taking a value counts its value as a word, as above (git 2.50.1;
+    #854, round 3 of work item 1791270162, yellow 1)."""
     words = _plain_words(args)
     end = next(
         (i for i, w in enumerate(words) if w in ("--", "--end-of-options")),
@@ -2258,14 +2191,25 @@ def _rebase_names_a_branch(args) -> bool:
     return len(plain) >= (1 if root else 2)
 
 
-def _git_finding(tokens, parsed):
-    """(shape, finding) for a segment the frozen reading reads as git."""
+def _git_finding(tokens, parsed, braced=False):
+    """(shape, finding) for a segment the frozen reading reads as git.
+
+    BRACED is whether the command the segment comes from holds an unquoted
+    brace expansion (`_unquoted_brace`). Where it does and one of the
+    segment's words holds one, the words the frozen reading read are not the
+    words git reads, so the segment is unrecognised whatever it reads as
+    (#856, the owner's answer (c) of 2026-10-08): `git rebase
+    {main,feature/x}` is `git rebase main feature/x` to git, and `git
+    worktree {add,} ../wt f` a creation. A switch and a creation keep their
+    own rules."""
     sub, args, _chdirs = parsed
     words = _spoken(tokens)
     if cmdline.adds_a_worktree(tokens):
         return "creation", None
     if sub == "switch":
         return "switch", None
+    if braced and _BRACE.search(" ".join(tokens)):
+        return "unrecognised", Finding("brace", words)
     hidden = _hidden_mover(sub, args)
     if hidden:
         return "unrecognised", Finding("redirection", words, hidden)
@@ -2339,31 +2283,44 @@ def _hidden_in(tokens):
     return None
 
 
-def _segment_finding(tokens):
-    """(shape, finding) for one segment; (None, None) where there is none."""
+def _segment_finding(tokens, braced=False):
+    """(shape, finding) for one segment; (None, None) where there is none.
+
+    A brace in any word of a segment the frozen reading reads as no git is
+    the brace shape too, on the test `_git_finding` uses for a git segment
+    (the reframe of work item 1791384157 after round 3). Nothing about the
+    brace is read: not what bash makes of it, and not where it stands. Rounds
+    1-3 each read a little more of that (the command word's alternatives,
+    every word up to the command word, a runner's operand) and each round
+    found the next spelling bash builds `git` from (`{env,} git switch x`,
+    `2>&1 {git,} switch x`), so the guard stops on the brace instead, as on
+    every shape it does not recognise."""
     parsed = parse_git(tokens)
     if parsed:
-        return _git_finding(tokens, parsed)
+        return _git_finding(tokens, parsed, braced)
+    if braced and _BRACE.search(" ".join(tokens)):
+        return "unrecognised", Finding("brace", _spoken(tokens))
     finding = _hidden_in(tokens)
     return ("unrecognised", finding) if finding else (None, None)
 
 
-def shape_of(tokens):
+def shape_of(tokens, braced=False):
     """ "listed", "switch", "creation", "unrecognised" or None for one segment
     of the frozen walk (`spec.md` In 1 of work item 1791270162).
 
     A segment the frozen reading reads as git is listed where its subcommand
     is in `LEAVES_THE_TREE`, or is a `checkout` with a path after `--`, or a
     `worktree` that adds none; a switch where its subcommand is `switch`; a
-    creation where it adds a worktree; and unrecognised otherwise. A segment
-    it does not read as git is unrecognised where it hands a shell a string
+    creation where it adds a worktree; and unrecognised otherwise, or where
+    BRACED and one of its words holds a brace expansion (#856). A segment it
+    does not read as git is unrecognised where it hands a shell a string
     holding `git` or hides a git from the frozen reading, and None otherwise.
     A substitution body is read at the command's level, where its quoting is
     still there to read (`_command_findings`)."""
-    return _segment_finding(tokens)[0]
+    return _segment_finding(tokens, braced)[0]
 
 
-def _merged_findings(items):
+def _merged_findings(items, braced=False):
     """[(first, finding, tokens)] for a git a redirection's `&` cut out of its
     own segment (`2>&1 git switch x`), read whole by `merged_view`.
 
@@ -2384,6 +2341,8 @@ def _merged_findings(items):
     add ../wt b` is `git worktree` to the frozen reading and a creation to
     bash. `git status &>/dev/null` is listed either way.
 
+    BRACED is the command's `_unquoted_brace`, as `_git_finding` reads it.
+
     Where `hooks/cmdline.py` did not load, or a reader in it raises, the cut
     is the finding (`_cut_unread`)."""
     if wide is None:
@@ -2394,13 +2353,16 @@ def _merged_findings(items):
             frozen = [(p, parse_git(items[p][1])) for p in parts]
             frozen = [(p, parsed) for p, parsed in frozen if parsed]
             if frozen:
-                if any(_git_finding(items[p][1], f)[0] != "listed" for p, f in frozen):
+                if any(
+                    _git_finding(items[p][1], f, braced)[0] != "listed"
+                    for p, f in frozen
+                ):
                     continue
                 # The group's subcommand is the listed part's own, so the
                 # whole can only differ by the word the cut took: a switch or
                 # a creation would have been one before the cut too.
                 parsed = wide.parse_git(toks)
-                finding = _git_finding(toks, parsed)[1] if parsed else None
+                finding = _git_finding(toks, parsed, braced)[1] if parsed else None
                 if finding is not None:
                     out.append((parts[0], finding, toks))
                 continue
@@ -2460,7 +2422,11 @@ def _command_findings(text, clean, depth=0):
             if inner is not None:
                 found.append(Finding("body", " ".join(body.split()), inner))
                 break
-    if not clean and _holds_git(text):
+    # A brace counts there too, read off the raw text: the quoting the
+    # splitter could not close is the quoting `_unquoted_brace` reads, so an
+    # ANSI-C `$'…\'…'` beside `{g..g}it switch x` hid the brace (round 4 of
+    # work item 1791384157, white 4).
+    if not clean and (_holds_git(text) or _BRACE.search(text)):
         found.append(Finding("untokenizable", " ".join(text.split())))
     return found
 
@@ -2475,24 +2441,31 @@ def _first_finding_in(body, depth):
         return Finding("unread", " ".join(body.split()))
     text = _judgment_text(body)
     items, clean = _tokenize_with_separators(text)
+    # The body's own quoting decides its braces (#856): a body is read where
+    # its quotes are still there to read.
+    braced = _unquoted_brace(text)
     for _sep, tokens in items:
-        shape, finding = _segment_finding(tokens)
+        shape, finding = _segment_finding(tokens, braced)
         if shape in ("switch", "creation"):
             return Finding(shape, _spoken(tokens))
         if finding is not None:
             return finding
-    for _first, finding, _tokens in _merged_findings(items):
+    for _first, finding, _tokens in _merged_findings(items, braced):
         return finding
+    # A brace the text holds and no segment's words hold, as `main` reads it.
+    if braced and not any(_BRACE.search(" ".join(t)) for _sep, t in items):
+        return Finding("brace", " ".join(text.split()))
     for finding in _command_findings(text, clean, depth):
         return finding
     return None
 
 
-def _finding_tree(tokens, where, cwd):
+def _finding_tree(tokens, wheres, cwd):
     """The directory an unrecognised shape's verdict is about.
 
-    `judgeable`'s, which composes the segment's own `-C` as the frozen
-    reading reads it. A git only the wider reader reads (`2>/dev/null git -C
+    `worktree_consent.place`'s, which places the segment at the first of the
+    frozen walk's directories WHERES and composes the segment's own `-C` as
+    the frozen reading reads it. A git only the wider reader reads (`2>/dev/null git -C
     W switch x`) carries a `-C` the frozen reading cannot see, so the wider
     reading's is composed the same way: the shape is judged in `W`, where it
     runs, not in the tree it was typed from. A body or an untokenizable
@@ -2503,7 +2476,7 @@ def _finding_tree(tokens, where, cwd):
     §*Known limits*; round 1 of work item 1791270162, yellow 5)."""
     if tokens is None:
         return cwd
-    here, target = judgeable(tokens, where, cwd)
+    here, target = worktree_consent.place(tokens, wheres, cwd)
     if parse_git(tokens) is None and wide is not None:
         try:
             parsed = _wide_git(tokens)
@@ -2512,6 +2485,37 @@ def _finding_tree(tokens, where, cwd):
         if parsed and parsed[2]:
             return apply_chdir(here, parsed[2])
     return target
+
+
+def _finding_trees(finding, tokens, wheres, cwd):
+    """Every directory an unrecognised shape's verdict is about.
+
+    `_finding_tree`'s one, and for a brace segment also every tree its `-C
+    <dir>` word pairs name: each pair alone, and the pairs composed in order
+    as git composes them, onto the directory the segment is placed in.
+    `{git,} -C W switch x`, `{env,} git -C W switch x` and `git {,} -C W
+    switch x` are judged in the session's tree AND in `W`, and `{git,} -C ..
+    -C W switch x` in `../W`, because which word bash makes the command or
+    the subcommand of is the thing the guard does not read, in a segment the
+    frozen reading reads as git or not (the reframe of work item 1791384157,
+    In 5, S20; round 4, yellow 1: `git {,} -C W` is git to the frozen reading
+    with `{,}` for its subcommand, so its `-C` was never composed). More
+    trees is the stopping direction. The pair is two plain words, `-C` and
+    the word after it, the way `cmdline_base.parse_git` reads a git
+    segment's `-C`; a glued `-C<dir>` is read by neither. A `-C` a brace
+    hides (`{git,} {-C,} W switch x`) is not read, the named limit a string
+    handed to a shell already has."""
+    trees = [_finding_tree(tokens, wheres, cwd)]
+    if tokens is None or getattr(finding, "kind", None) != "brace":
+        return trees
+    here, _target = worktree_consent.place(tokens, wheres, cwd)
+    chdirs = []
+    for at, word in enumerate(tokens[:-1]):
+        if word == "-C":
+            chdirs.append(tokens[at + 1])
+            trees.append(apply_chdir(here, [tokens[at + 1]]))
+            trees.append(apply_chdir(here, list(chdirs)))
+    return trees
 
 
 def _sessions(top, session_id, seen):
@@ -2631,6 +2635,25 @@ def _described(finding):
                 "2>/dev/null`.",
                 "리다이렉션은 명령의 단어들 뒤에 쓰세요. 예: `git <subcommand> … "
                 "2>/dev/null`.",
+            ),
+        )
+    if kind == "brace":
+        return (
+            tr(
+                "a word holding a brace expansion (`{a,b}`, `{1..3}`), which the "
+                "shell turns into other words before the command runs, so this "
+                "guard cannot tell which command that is",
+                "중괄호 확장(`{a,b}`, `{1..3}`)이 든 단어이며, 셸은 명령이 실행되기 "
+                "전에 이를 다른 단어들로 바꾸므로 이 guard 는 어떤 명령인지 알 수 "
+                "없습니다",
+            ),
+            tr(
+                "Write the words out as the shell would make them, as in `git "
+                "rebase main feature/x` for `git rebase {main,feature/x}`, or quote "
+                "the braces where they are meant literally.",
+                "셸이 만들 단어를 직접 풀어 쓰세요. 예: `git rebase {main,feature/x}` "
+                "대신 `git rebase main feature/x`. 중괄호를 글자 그대로 쓰려면 "
+                "따옴표로 감싸세요.",
             ),
         )
     if kind == "string":
@@ -2984,39 +3007,50 @@ def main():
     # unrecognised shape on the line for the stop's text (`shape_of`). Each
     # kind is read from the frozen reading's words alone, so a listed shape
     # costs no spawn: the tree is read for the first of a kind, in its
-    # segment's first directory, as the switch's always was.
+    # segment's first directory, as the switch's always was. Whether the
+    # command holds an unquoted brace expansion is read once, off its text,
+    # because the frozen words carry no quotes (#856, `_unquoted_brace`).
     judged = _judgment_text(command)
     items, clean = _tokenize_with_separators(judged)
     walked = cmdline.walk_directories(items, cwd)
+    braced = _unquoted_brace(judged)
     switch_at = None
     creation_at = None
     unrecognised = []
     for index, (tokens, wheres) in enumerate(walked):
-        shape, finding = _segment_finding(tokens)
+        shape, finding = _segment_finding(tokens, braced)
         if shape not in ("switch", "creation") and finding is None:
             continue
-        where = wheres[0] if wheres else cwd
+        # Placed by `worktree_consent.place`, the one placement the consent
+        # writer files a creation by (#868).
         if shape == "switch":
             if switch_at is None:
-                switch_at = judgeable(tokens, where, cwd)[1]
+                switch_at = worktree_consent.place(tokens, wheres, cwd)[1]
         elif shape == "creation":
             if creation_at is None:
-                creation_at = judgeable(tokens, where, cwd)[1]
+                creation_at = worktree_consent.place(tokens, wheres, cwd)[1]
         else:
-            unrecognised.append((index, finding, tokens, where))
+            unrecognised.append((index, finding, tokens, wheres))
     # A cut group is placed by its own words, from the directory its first
     # part runs in (`_merged_findings`).
-    for first, finding, tokens in _merged_findings(items):
-        wheres = walked[first][1]
-        unrecognised.append((first, finding, tokens, wheres[0] if wheres else cwd))
+    for first, finding, tokens in _merged_findings(items, braced):
+        unrecognised.append((first, finding, tokens, walked[first][1]))
     # A substitution body and an untokenizable command belong to no one
     # segment, so they are judged in the session's own tree: the fallback
     # #686 gives a directory the walk cannot place, and the stand-in the
     # commit gate judges a body's commit against (`_unresolved_base`).
     unrecognised += [
-        (len(walked), finding, None, cwd)
-        for finding in _command_findings(judged, clean)
+        (len(walked), finding, None, ()) for finding in _command_findings(judged, clean)
     ]
+    # The brace test reads the text, so a brace no one segment's words hold
+    # (a brace group holding a comma, a brace the splitter cut at a `;`
+    # inside a substitution) is the command's, judged where a body is: the
+    # test may stop more than bash expands, never less (round 5 of work item
+    # 1791384157).
+    if braced and not any(_BRACE.search(" ".join(t)) for t, _wheres in walked):
+        unrecognised.append(
+            (len(walked), Finding("brace", " ".join(judged.split())), None, ())
+        )
     unrecognised.sort(key=lambda found: found[0])
 
     # The stop of `spec.md` In 3, taken before the ladder because it stops
@@ -3037,18 +3071,21 @@ def main():
     seen = {}
     placed = set()
     trees = []
-    for _index, _found, tokens, where in unrecognised:
-        at = _finding_tree(tokens, where, cwd)
-        if at in placed:
-            continue
-        placed.add(at)
-        at_top = repo_paths(at)[0]
-        if at_top and at_top not in [top for top, _state in trees]:
-            matters, active, idle, reliable, entries = tree_matters(
-                at_top, session_id, at, seen
-            )
-            if matters:
-                trees.append((at_top, (active, idle, reliable, entries)))
+    # A brace segment, git or not, is judged in more than one tree
+    # (`_finding_trees`); the finding is listed once, and each tree is looked
+    # up once like any other.
+    for _index, found, tokens, wheres in unrecognised:
+        for at in _finding_trees(found, tokens, wheres, cwd):
+            if at in placed:
+                continue
+            placed.add(at)
+            at_top = repo_paths(at)[0]
+            if at_top and at_top not in [top for top, _state in trees]:
+                matters, active, idle, reliable, entries = tree_matters(
+                    at_top, session_id, at, seen
+                )
+                if matters:
+                    trees.append((at_top, (active, idle, reliable, entries)))
     if trees:
         stop_unrecognised(
             [found[1] for found in unrecognised],
@@ -3087,7 +3124,7 @@ def main():
     # on the machine.
     if not top:
         # The guard's OTHER silent exit, and it hides the same escape as the
-        # one at the end of the switch ladder. `judgeable` already falls back
+        # one at the end of the switch ladder. `worktree_consent.place` falls back
         # to the session's own directory, so `top` is empty only when the
         # SHELL is outside any repository -- and a `git -C <repo> worktree
         # add` later in the same command is not. Executed: with the shell in

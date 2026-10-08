@@ -19,6 +19,7 @@ import subprocess
 import sys
 import time
 
+import pytest
 from conftest import load_hook_module
 
 wg = load_hook_module("worktree-guard.py", "wg_lease")
@@ -319,44 +320,154 @@ def stub_process_tree(monkeypatch, start, tree):
     monkeypatch.setattr(sl.subprocess, "run", fake_run)
 
 
-def test_owner_pid_walks_past_the_shell(monkeypatch):
+def test_the_session_pid_walks_past_the_shell(monkeypatch):
     """The immediate parent is the shell that spawned the hook — measured here,
     /bin/zsh, with claude two levels up. Recording getppid() would name a
     process that dies constantly, and every dead shell would retire a live
-    session's lease."""
+    session's lease. The lease writer's own walk (`owner_pid`) left with #868;
+    it asks `hooks/hooksession.py#claude_pid`, the reader the commit gate's
+    lease route asks too."""
+    import hooksession
+
     stub_process_tree(monkeypatch, 100, {100: (50, "/bin/zsh"), 50: (1, "claude")})
-    assert sl.owner_pid() == 50
+    assert hooksession.claude_pid() == 50
 
 
-def test_owner_pid_is_none_without_a_claude_ancestor(monkeypatch):
+def test_the_session_pid_is_none_without_a_claude_ancestor(monkeypatch):
     """An extension host is not named `claude`. No pid is recorded, so the
     guard reads the lease as unattributable rather than as an exited session."""
+    import hooksession
+
     stub_process_tree(monkeypatch, 100, {100: (50, "/bin/zsh"), 50: (1, "code")})
-    assert sl.owner_pid() is None
+    assert hooksession.claude_pid() is None
 
 
-def run_main_in_process(repo, monkeypatch, session):
+@pytest.mark.parametrize("comm", ["/x/bin/claude", "claude-host"])
+def test_the_lease_records_the_process_the_hook_reads_back(repo, monkeypatch, comm):
+    """S4 of work item 1791384157 (#868). The pid the lease writer records is
+    the one the commit gate's lease route looks for (`claude_ancestor`), by
+    one test of a process's name: its basename is `claude`. At `5623d728` the
+    writer took any comm holding `claude`, so a `claude-host` ancestor was
+    recorded, and no reader ever matched that lease. Red there on
+    `claude-host`."""
+    import hooksession
+
+    stub_process_tree(monkeypatch, 100, {100: (50, "/bin/zsh"), 50: (1, comm)})
+    rec = run_main_in_process(repo, monkeypatch, "sess-one-test")
+    assert rec.get("pid") == hooksession.claude_ancestor(), (comm, rec)
+    assert hooksession.is_claude(comm) is (comm == "/x/bin/claude")
+
+
+def test_the_guard_counts_the_sessions_the_one_test_names(tmp_path, monkeypatch):
+    """S4 of work item 1791384157, the guard's half: its count of other
+    sessions tests each process's name with `hooksession.is_claude`, so a
+    `claude-host` in the tree is not a session and `/x/bin/claude` is. A break
+    reading any name holding `claude` survived every guard case until this
+    one."""
+    import types
+
+    top = str(tmp_path)
+    table = "10 /x/bin/claude\n20 /x/bin/claude\n30 claude-host\n"
+    monkeypatch.setattr(
+        wg.subprocess, "run", lambda *a, **k: types.SimpleNamespace(stdout=table)
+    )
+    monkeypatch.setattr(wg, "ancestors", lambda pid: {10})
+    monkeypatch.setattr(wg, "proc_cwd", lambda pid: top)
+    monkeypatch.setattr(wg, "tty_idle_minutes", lambda pid: 0.5)
+    monkeypatch.setattr(wg, "transcript_idle_minutes", lambda *a: None)
+    monkeypatch.setattr(wg, "dead_session_ids", lambda top: set())
+    monkeypatch.setattr(wg, "fresh_leases", lambda *a: ([], []))
+    monkeypatch.setattr(wg, "host_app", lambda pid: "")
+    active, idle, reliable = wg.sessions_in_tree(top, "me")
+    assert reliable and not idle
+    assert [entry[0] for entry in active] == [20], active
+
+
+def test_the_lease_records_the_pid_the_harness_exports(repo, monkeypatch):
+    """S5 of work item 1791384157. Where the environment carries
+    `CLAUDE_PID`, an observed value, the lease records it, even where the walk
+    finds no process named `claude` (an extension host). Red at `5623d728`,
+    where the lease recorded no pid."""
+    monkeypatch.setenv("CLAUDE_PID", "4242")
+    # The variable is read as this session's only beside this session's id
+    # (round 1 of work item 1791384157, yellow 4).
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "sess-exported")
+    stub_process_tree(monkeypatch, 100, {100: (1, "code")})
+    rec = run_main_in_process(repo, monkeypatch, "sess-exported")
+    assert rec["pid"] == 4242, rec
+
+
+@pytest.mark.parametrize("payload", [None, ""])
+@pytest.mark.parametrize("environment", [None, ""])
+def test_a_pid_beside_no_session_id_on_either_side_is_not_recorded(
+    repo, monkeypatch, environment, payload
+):
+    """Round 2 of work item 1791384157, white 4, built as round 3's white 4
+    asked: both absences, on both sides. `None` removes the environment
+    variable and leaves the payload's `session_id` key out; `""` sets each
+    empty. Where neither side names a session the two absences matched, and
+    the lease `pid-<ppid>` recorded the inherited 4242. A missing id names no
+    session, so the walk answers. `[None-None]` and `[-]` red with
+    `hooks/session-lease.py` at `e0c5a191` (`phases/phase-8.md`)."""
+    monkeypatch.setenv("CLAUDE_PID", "4242")
+    if environment is None:
+        monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    else:
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", environment)
+    stub_process_tree(monkeypatch, 100, {100: (50, "/bin/zsh"), 50: (1, "claude")})
+    rec = run_main_in_process(repo, monkeypatch, payload, filed="pid-100")
+    assert rec["pid"] == 50, rec
+
+
+@pytest.mark.parametrize("outer", ["the-outer-session", None])
+def test_a_pid_exported_for_another_session_is_not_recorded(repo, monkeypatch, outer):
+    """Round 1 of work item 1791384157, yellow 4. A `claude` started from
+    another session's Bash inherits that session's `CLAUDE_PID`, and a hook
+    the harness gives no variable of its own would record it in the inner
+    session's lease, which no reader of the inner session matches. Where the
+    environment's session id is not the payload's, absent included, the lease
+    records the walk's answer, as before #868. Red at `1680ea76`, where it
+    recorded 4242."""
+    monkeypatch.setenv("CLAUDE_PID", "4242")
+    if outer is None:
+        monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    else:
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", outer)
+    stub_process_tree(monkeypatch, 100, {100: (50, "/bin/zsh"), 50: (1, "claude")})
+    rec = run_main_in_process(repo, monkeypatch, "sess-inner")
+    assert rec["pid"] == 50, rec
+
+
+@pytest.mark.parametrize("value", ["", "x", "0", "1", "-5"])
+def test_an_exported_pid_that_names_no_process_falls_back_to_the_walk(
+    monkeypatch, value
+):
+    """S5 of work item 1791384157, the other side: a value that is not a pid
+    above 1 is not read, and the walk answers as it did."""
+    import hooksession
+
+    stub_process_tree(monkeypatch, 100, {100: (50, "/bin/zsh"), 50: (1, "claude")})
+    assert hooksession.claude_pid({"CLAUDE_PID": value}) == 50, value
+
+
+def run_main_in_process(repo, monkeypatch, session, filed=None):
     """main() with stdin stubbed, so the wiring — not just owner_pid() — is
     under test. A version that recorded getppid() passes every test that only
-    calls owner_pid() directly."""
+    calls owner_pid() directly. FILED is the lease's file name where it is not
+    SESSION (`pid-<ppid>` for a payload with no session id). A SESSION of
+    None leaves the `session_id` key out of the payload."""
     import io
 
-    monkeypatch.setattr(
-        sl.sys,
-        "stdin",
-        io.StringIO(
-            json.dumps(
-                {
-                    "tool_name": "Bash",
-                    "session_id": session,
-                    "tool_input": {"command": "ls"},
-                    "cwd": str(repo),
-                }
-            )
-        ),
-    )
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "ls"},
+        "cwd": str(repo),
+    }
+    if session is not None:
+        payload["session_id"] = session
+    monkeypatch.setattr(sl.sys, "stdin", io.StringIO(json.dumps(payload)))
     sl.main()
-    with open(os.path.join(lease_dir(repo), session), encoding="utf-8") as f:
+    with open(os.path.join(lease_dir(repo), filed or session), encoding="utf-8") as f:
         return json.load(f)
 
 
