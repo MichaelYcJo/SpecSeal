@@ -246,6 +246,9 @@ LISTS_A_FIXTURE = {
     "tests/test_the_root_migrates_itself.py#test_a_mark_git_does_not_track_is_not_a_mark": 1,
     "tests/test_chain_check_at_the_pull_request.py#test_a_symbolic_link_cannot_stand_in_for_the_last_round": 1,
     "tests/test_chain_check_at_the_pull_request.py#test_a_clean_copy_in_the_working_tree_cannot_hide_a_committed_failure": 1,
+    # #860: `ls-tree` over the fixture's own commit, to assert git quotes the
+    # name the case wrote; no path in it is opened.
+    "tests/test_the_fixes_close_the_record.py#test_a_path_git_would_quote_is_read_as_the_path_it_is": 1,
 }
 
 # One call per scope everywhere today. Spelled as a map rather than as "one

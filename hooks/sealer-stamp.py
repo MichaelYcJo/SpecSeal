@@ -33,15 +33,12 @@ checkout; a `cwd` in a linked worktree costs one `rev-parse` first.
 `systemMessage` longer than `seal_stamp.MESSAGE_LIMIT` characters to a file
 and shows a preview of it, which is how every stamp from #666 to #717 reached
 the owner. So the message printed is `seal_stamp.fitted`'s: as many of the
-oldest pending blocks as fit `MESSAGE_BUDGET` together with their disc, each
-at the highest rung the others leave room for — its file's own scale, then
-down `SCALE_LADDER`, one rung since #832. The rest stay pending for the next
-`Stop`, and only one block that does not fit with its disc alone is drawn
-without it. A stamp may therefore be drawn without its disc, or at a later
-`Stop`, but never smaller: since #832 the disc is one size at every scale,
-so a rung below the file's `scale` draws the same stamp. No file is claimed
-without its stamp being printed. The file's
-`scale` is not rewritten: it records what the gate was asked for.
+oldest pending blocks as fit `MESSAGE_BUDGET` together with their disc. The
+rest stay pending for the next `Stop`, and only one block that does not fit
+with its disc alone is drawn without it. A stamp may therefore be drawn
+without its disc, or at a later `Stop`, but never smaller: the disc has one
+size. No file is claimed without its stamp being printed. The `scale` a file
+carries is read as nothing.
 
 **Claim before print.** Each file is rendered, then renamed to `.drawn.json`
 (`seal_stamp.claim`), and only a file this process renamed is printed. Two
@@ -120,12 +117,11 @@ def drawings(stamp, directory):
     hook the INSTALLED plugin ships, so a format one side does not know is an
     ordinary state, not only a hand-written file.
 
-    A block is `(label, rows, scale)`, which `seal_stamp.fitted` draws (#717).
-    It is still drawn whole here, at the file's own scale, before the claim:
-    that is what proves the file draws at all. The rungs `fitted` may step
-    down to are inside the band the file's scale has just passed, and the
-    last draws no disc and checks no scale, so a block drawn here cannot
-    fail there.
+    A block is `(label, rows)`, which `seal_stamp.fitted` draws (#717). It
+    is still drawn whole here, with its disc, before the claim: that is what
+    proves the file draws at all. The one rung `fitted` may step down to
+    draws the same rows with no disc, so a block drawn here cannot fail
+    there.
 
     Every file is drawn before any is claimed, and only the oldest files
     one message carries are claimed (`seal_stamp.admitted`, the owner's rule
@@ -136,8 +132,8 @@ def drawings(stamp, directory):
     for path in stamp.pending(directory):
         try:
             values = stamp.read_values(path)
-            block = (stamp.label(values), values["rows"], values["scale"])
-            stamp.stamp(values["rows"], values["scale"], shape=False)
+            block = (stamp.label(values), values["rows"])
+            stamp.stamp(values["rows"], shape=False)
         except Exception:
             continue
         ready.append((path, block))

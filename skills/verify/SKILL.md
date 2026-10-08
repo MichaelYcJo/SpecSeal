@@ -517,17 +517,19 @@ about to run it a second time after the change.
   the record cannot say the file passed. A session of the base that
   stopped part-way reads the same way: its record holds no `end` line,
   because the process died, which plain pytest does on a test that calls
-  `os._exit`, or its recorder stopped writing; or its `end` line
-  shows an exit other than 0, 1 or 5, as a `KeyboardInterrupt` or
-  `pytest.exit()` in a test and xdist under `-x` give. It is a question about the
+  `os._exit`, or its recorder stopped writing; or its `end` line names a
+  stop pytest made, which an interrupt, any `pytest.exit()`, `-x`,
+  `--maxfail` and a plugin's stop all leave, or an exit outside 0, 1 and 5.
+  So does a base whose record holds a line that did not parse as the
+  recorder's, which the gate counts and passes over. It is a question about the
   file, not a finding either way; open the kept `suite-at-base.txt` and the
   `records/` beside it, and run the file at the base by hand before calling
   it either of the two above.
   A test with no file of its own is in no list at all, nor is a failed
   collection of the whole session or a report a plugin built without its
   path; the failure form says how many there were. Nor, where a session at
-  `HEAD` stopped part-way, is the test it stopped in; the failure form
-  counts those sessions too.
+  `HEAD` stopped part-way, is the test it stopped in, nor a test named on a
+  line of the record that did not parse; the failure form counts both too.
   `templates/config.md` §*Choosing a value — the criterion*, rule 3, says
   which rows the gate cannot measure and how a row earns the measured word.
 

@@ -160,21 +160,44 @@ def close_round(repo, number, target, start, end):
     return commit(repo, f"close round {number}")
 
 
-def check(repo, monkeypatch, capsys, arm=True):
+def merge(repo, message, *heads):
+    """A `--no-ff` merge of `heads` into whatever is checked out."""
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "merge",
+        "-q",
+        "--no-ff",
+        "-m",
+        message,
+        *heads,
+    )
+    return git(repo, "rev-parse", "HEAD").stdout.strip()
+
+
+def check(repo, monkeypatch, capsys, arm=True, head_ref=None):
+    """`head_ref` is the branch a workflow names in `GITHUB_HEAD_REF`, for a
+    merge ref whose base already holds the declaration, where the diff
+    against the base adds no `routing.md` to find it by."""
     mod = load()
     if not arm:
         monkeypatch.setattr(mod, "fragment_left_behind", lambda *a, **k: ([], []))
     for name in ("GITHUB_EVENT_PATH", "GITHUB_HEAD_REF", "GITHUB_ACTIONS"):
         monkeypatch.delenv(name, raising=False)
+    if head_ref is not None:
+        monkeypatch.setenv("GITHUB_HEAD_REF", head_ref)
     code = mod.main(["--baseline", "base", "--root", str(repo)])
     return code, capsys.readouterr().out
 
 
-def judged(repo, monkeypatch, capsys):
+def judged(repo, monkeypatch, capsys, head_ref=None):
     """The check's code and output — and S8: the code is the one the same tree
     has with the arm removed, whatever the arm printed."""
-    code, out = check(repo, monkeypatch, capsys)
-    without, _ = check(repo, monkeypatch, capsys, arm=False)
+    code, out = check(repo, monkeypatch, capsys, head_ref=head_ref)
+    without, _ = check(repo, monkeypatch, capsys, arm=False, head_ref=head_ref)
     assert code == without, (
         f"the arm moved the exit status from {without} to {code}. It prints "
         f"and never refuses — a stop in an unattended run for a fragment "
@@ -455,10 +478,12 @@ def ci_merge_ref(repo):
 def test_the_ci_merge_ref_names_the_items_commit_and_not_the_siblings(
     repo, monkeypatch, capsys, sibling_landed
 ):
-    """Round 1's 🔴 1. From CI's merge ref the first-parent walk is the
-    base's: it read a sibling's squash as *after the last round* and never
-    reached the item's own fix. The walk starts at the parent that descends
-    from round 1's target, so CI names what a branch checkout names."""
+    """Round 1's 🔴 1 of #797, and S8 of #860. From CI's merge ref the
+    first-parent walk was the base's: it read a sibling's squash as *after
+    the last round* and never reached the item's own fix. The walk is the
+    commits that descend from round 1's target, and the sibling's descends
+    from it never, so CI names what a branch checkout names with no case of
+    its own for the merge ref."""
     target = built(repo)
     start = open_round(repo, 1, target)
     fix = change(repo, "hooks/x.py", message="fix")
@@ -479,44 +504,164 @@ def test_the_ci_merge_ref_names_the_items_commit_and_not_the_siblings(
         assert sibling[:7] not in line, line
 
 
-def test_a_merge_on_the_branch_keeps_the_branch_as_the_tip(repo, monkeypatch, capsys):
-    """The other side of `walk_tip`: a merge whose FIRST parent descends from
-    round 1's target is the branch integrating something, so the walk stays
-    on the branch. Starting it at the merged-in side instead would lose the
-    branch's own fix."""
+def test_a_topic_merged_into_the_branch_names_the_branchs_fix_and_the_topics_commit(
+    repo, monkeypatch, capsys
+):
+    """S9 of #860, its first half. A topic cut from the branch after round 1's
+    target and merged back in is the item's own history, whichever parent of
+    the merge it sits behind. The first-parent walk read the branch's fix and
+    never the topic's behaviour commit; the walk over the commits that
+    descend from the target reads both."""
     target = built(repo)
     start = open_round(repo, 1, target)
     git(repo, "switch", "-qc", "side")
-    change(repo, "hooks/side.py", message="a topic commit")
+    side = change(repo, "hooks/side.py", message="a topic commit")
     git(repo, "switch", "-q", "feature")
     fix = change(repo, "hooks/x.py", message="fix")
     close_round(repo, 1, target, start, fix)
-    git(
-        repo,
-        "-c",
-        "user.email=e@example.com",
-        "-c",
-        "user.name=e",
-        "merge",
-        "-q",
-        "--no-ff",
-        "-m",
-        "merge the topic",
-        "side",
-    )
+    merge(repo, "merge the topic", "side")
 
     _code, out = judged(repo, monkeypatch, capsys)
     line = notice(out)
     assert line is not None, out
-    assert fix[:7] in line, line
+    assert f"`{fix[:7]}` (round 1's fix range" in line, line
+    assert f"`{side[:7]}` (outside every round's fix range" in line, (
+        f"the topic's behaviour commit descends from round 1's target and was "
+        f"not named:\n{line}"
+    )
 
 
-def test_of_several_merged_heads_the_one_descending_from_round_one_is_the_tip(
+@pytest.mark.parametrize("fragment_after_the_merge", [True, False])
+def test_a_fragment_change_clears_exactly_the_commits_it_descends_from(
+    repo, monkeypatch, capsys, fragment_after_the_merge
+):
+    """S9 of #860, its second half. A commit is named when no own commit that
+    changed the fragment descends from it. The fragment brought along on the
+    main line after the topic is merged clears the topic's commit; brought
+    along on the main line before the merge, it does not, because the topic's
+    commit is not in its history — and no tie-break between two commits
+    neither of which descends from the other decides it."""
+    target = built(repo)
+    open_round(repo, 1, target)
+    git(repo, "switch", "-qc", "side")
+    side = change(repo, "hooks/side.py", message="a topic commit")
+    git(repo, "switch", "-q", "feature")
+    fix = change(repo, "hooks/x.py", message="fix")
+    if fragment_after_the_merge:
+        merge(repo, "merge the topic", "side")
+        change(repo, FRAGMENT, message="the fragment, brought along")
+    else:
+        change(repo, FRAGMENT, message="the fragment, brought along")
+        merge(repo, "merge the topic", "side")
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    line = notice(out)
+    if fragment_after_the_merge:
+        assert line is None, out
+        return
+    assert line is not None, f"the topic's commit was cleared:\n{out}"
+    assert side[:7] in line, line
+    assert fix[:7] not in line, (
+        f"the fix is in the fragment commit's history and was named:\n{line}"
+    )
+
+
+def test_a_fragment_brought_along_on_each_of_two_lines_clears_both(
     repo, monkeypatch, capsys
 ):
-    """`walk_tip` asks each later parent, not the second alone: a merge of
-    the base, an unrelated head and the branch starts the walk at the branch,
-    never at the unrelated head."""
+    """S9 of #860, with a fragment change on each of two lines of history.
+    Each line's behaviour commit is cleared by its own line's fragment
+    commit, and neither fragment commit descends from the other — so the
+    descent is asked of every fragment commit, not of the newest alone."""
+    target = built(repo)
+    open_round(repo, 1, target)
+    git(repo, "switch", "-qc", "side")
+    change(repo, "hooks/side.py", message="a topic commit")
+    change(repo, FRAGMENT, message="the topic brings the fragment along")
+    git(repo, "switch", "-q", "feature")
+    change(repo, "hooks/x.py", message="fix")
+    change(repo, FRAGMENT, message="the main line brings it along")
+    # Both lines appended to the fragment; the conflict is the fragment's
+    # text and nothing this reads, so the main line's side of it is kept.
+    merge(repo, "merge the topic", "-X", "ours", "side")
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    assert notice(out) is None, out
+
+
+def test_the_notice_reads_the_range_its_head_gives_it(repo, monkeypatch, capsys):
+    """S17 of #860, round 3's shape D. The base merges the branch at round 1's
+    target, a behaviour commit lands on the base, and the branch adds its own
+    without merging the base. The notice reads `<target>..HEAD` wherever it
+    runs: a branch checkout's HEAD does not reach the base's commit, and CI's
+    merge ref does, so CI names that commit too. `docs/the-record-layout.md`
+    §*A commit after the build brings its changelog fragment along* states
+    that input; the arm still never moves the exit status (`judged`). Both
+    checkouts in one case: the branch's half alone is a straight line no
+    mutation of `own_commits` turns red.
+
+    The merge ref's run names the branch in `GITHUB_HEAD_REF`, as a workflow
+    does: the base already holds the declaration here, so the diff against
+    it adds no `routing.md` to find one by."""
+    target = built(repo)
+    open_round(repo, 1, target)
+    git(repo, "switch", "-q", "base")
+    merge(repo, "the base merges the branch", "feature")
+    on_base = change(repo, "hooks/sibling.py", message="a commit on the base")
+    git(repo, "switch", "-q", "feature")
+    own = change(repo, "hooks/x.py", message="the branch's own commit")
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    line = notice(out)
+    assert line is not None, out
+    assert f"`{own[:7]}` (after the last round" in line, line
+    assert on_base[:7] not in line, line
+
+    ci_merge_ref(repo)
+    _code, out = judged(repo, monkeypatch, capsys, head_ref="feature")
+    line = notice(out)
+    assert line is not None, out
+    assert f"`{own[:7]}` (after the last round" in line, line
+    assert f"`{on_base[:7]}` (after the last round" in line, line
+
+
+def test_a_branch_rebuilt_on_the_base_names_its_own_commits_and_not_the_siblings(
+    repo, monkeypatch, capsys
+):
+    """S7, #805's shape. The branch is reset to the base and its old tip
+    merged in, so the merge's FIRST parent is the base, and one more own
+    commit lands on top. HEAD is no merge, so the walk that read HEAD's
+    parent order went down the base: it named a sibling's squash and missed
+    the item's own lagging fix. Descent from round 1's target separates the
+    two whatever the parent order."""
+    target = built(repo)
+    start = open_round(repo, 1, target)
+    fix = change(repo, "hooks/x.py", message="a lagging fix")
+    close_round(repo, 1, target, start, fix)
+    old = git(repo, "rev-parse", "feature").stdout.strip()
+    git(repo, "switch", "-q", "base")
+    sibling = change(repo, "hooks/sibling.py", message="a sibling's squash")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "reset", "-q", "--hard", "base")
+    merge(repo, "the old branch, merged onto the base", old)
+    own = change(repo, "hooks/z.py", message="one more own commit")
+
+    _code, out = judged(repo, monkeypatch, capsys)
+    line = notice(out)
+    assert line is not None, out
+    assert sibling[:7] not in line, (
+        f"a sibling's squash on the base was named as the item's:\n{line}"
+    )
+    assert f"`{fix[:7]}` (round 1's fix range" in line, line
+    assert f"`{own[:7]}` (after the last round" in line, line
+
+
+def test_of_several_merged_heads_only_the_commits_descending_from_round_one_are_named(
+    repo, monkeypatch, capsys
+):
+    """S8 of #860. An octopus of the base, an unrelated head and the branch:
+    the branch's fix descends from round 1's target and the unrelated head's
+    commit does not, whichever parent each sits behind."""
     target = built(repo)
     start = open_round(repo, 1, target)
     fix = change(repo, "hooks/x.py", message="fix")
