@@ -27,6 +27,11 @@ Two readers of a range walked it by the shape of its merges and read another wor
 
 **Measured on #860's own range, after the build.** `99bcad40..092004bb` resolves in this clone. Its 5 own commits are 856aeeec, 56e98860, bab19faa, d6faf419 and 092004bb. `touched` reads 9 paths where the two ends' diff lists 74. In those 9 paths, `measure` finds 13 units added between the ends, and the per-unit filter keeps 2, both in `tests/test_the_seal_is_taken_once_by_the_sealer.py`. Over the two ends' `.py` paths, the reading before this work finds 113 added units; the record it wrote named 111, one per name. `spec.md`'s 22 was a count of top-level names `git diff` adds in that file, which is a different reading of the same fact. Executed by a probe that wrote no record and was deleted.
 
+**The merge of `release/v0.21.0` after #837 squashed in as 279a580b.** Two files conflicted, and both items' behaviour stands:
+
+- `skills/code-review/scripts/chain_check.py`: both sides added new functions at the same place, this item's `paths_of` and #837's `notes_of` and `carried_notes`. All three are kept, in that order, and no line of either side changed.
+- `tests/test_the_rules_have_one_owner.py`: both items added a rule numbered 17. #837's rule, *a note closes once, at the run's end*, keeps 17, because it reached the release branch first. This item's rule is now 18, with its owner, sentence and carriers unchanged. The guard's docstring and the ledger row S12, S14, S16 now say rule 18. The phase records keep "rule 17", the number the rule had when they were written.
+
 ## Not verified
 
 | Item | Who must answer |

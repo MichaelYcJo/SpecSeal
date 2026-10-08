@@ -268,14 +268,17 @@ Severity names carry the required action, not just a rank:
 ```
 🔴 blocks merge     — spec violation or defect; fix before merge
 🟡 fix or justify   — a defect the release would ship: the tool does something wrong, or tells a person something wrong; fix or justify
-⬜ note             — reads badly while the behaviour and the fact stay right; fixed in passing or not at all, never counted by Needs a fix
+⬜ note             — reads badly while the behaviour and the fact stay right; carried open and closed once at the run's end, never counted by Needs a fix
 🟢 pass             — verified equivalent (different implementation, same behavior, is a pass)
 ❓ out of verified scope — could not judge; never silently counted as pass
 ```
 
 The line between 🟡 and ⬜ is *would the release ship a defect*. Half of the
 last branch's 53 🟡 were true sentences about prose, and each cost a fix pass
-and a reader; `Needs a fix` counts 🔴 and 🟡 only.
+and a reader; `Needs a fix` counts 🔴 and 🟡 only. A ⬜ takes no row in a
+round's fix table and is not reported again by a later round:
+`skills/code-review/orchestration.md` §*A note closes once, at the run's
+end* owns that rule.
 
 **Number the findings 1..N — the id is a bare integer.** The marker may lead
 it (`🔴 1`, `⬜ 13`); nothing else may. `R2-1`, `1-1`, `1b` and `A2` are

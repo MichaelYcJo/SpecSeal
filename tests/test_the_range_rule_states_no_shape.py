@@ -19,7 +19,7 @@ passes it, and a true sentence that needs a listed word is refused. What
 keeps a shape out of the prose is the rule in the home and review; this
 module keeps the sentences the rounds found from coming back.
 
-`rule 17` of `tests/test_the_rules_have_one_owner.py` checks that each
+`rule 18` of `tests/test_the_rules_have_one_owner.py` checks that each
 carrier names the home; it held green through rounds 2 and 3 while four
 carriers restated the rule by shape beside the link. Seen red with round 3's
 🟡 2 sentence pasted back into the home.

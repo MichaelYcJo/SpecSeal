@@ -131,6 +131,10 @@ REFRAME_OWNER = (
     "`skills/code-review/orchestration.md` §*A fix of a fix twice sends the "
     "work item back to its framer* owns that rule"
 )
+NOTES_OWNER = (
+    "`skills/code-review/orchestration.md` §*A note closes once, at the "
+    "run's end* owns that rule"
+)
 
 
 def read(*parts):
@@ -331,19 +335,38 @@ RULES = {
             IMPLEMENT: REFRAME_OWNER,
         },
     ),
-    # A seventeenth, from #860 and #805. Two readers walked a range by its
+    # A seventeenth, from #837. A ⬜ took a row in every round's fix table,
+    # and closed `fixed` it commissioned a reader for a sentence: five of them
+    # spent #822's one reopening. The owner is the orchestrator's half of the
+    # review skill, for the reason rule 16's is: `docs/review-chain-spec.md`
+    # stands at its line ceiling. WHAT IT PINS: the owner's headline sentence
+    # and each carrier naming the section. The behaviour is pinned by
+    # `tests/test_a_note_closes_once_at_the_runs_end.py`.
+    "17 a note closes once, at the run's end": (
+        ORCH,
+        "A ⬜ commissions nothing before the run ends, and closes once at its end.",
+        {
+            SKILL: NOTES_OWNER,
+            WARDEN: NOTES_OWNER,
+            SMITH: NOTES_OWNER,
+            TEMPLATE: NOTES_OWNER,
+            IMPLEMENT: NOTES_OWNER,
+        },
+    ),
+    # An eighteenth, from #860 and #805. Two readers walked a range by its
     # shape -- the two ends' diff, HEAD's first parent -- and both read
-    # another work item's commits that a merge brought in as this one's. The owner is
-    # the document that already owns the fragment rule one of them serves,
-    # because `docs/round-record-spec.md` stands under its line ceiling.
-    # WHAT IT PINS: the owner's headline sentence, which since the reframe
-    # after round 3 is the test `own_commits` runs, and each carrier naming
-    # the section; the readers are pinned by
+    # another work item's commits that a merge brought in as this one's. The
+    # owner is the document that already owns the fragment rule one of them
+    # serves, because `docs/round-record-spec.md` stands under its line
+    # ceiling. WHAT IT PINS: the owner's headline sentence, which since the
+    # reframe after round 3 is the test `own_commits` runs, and each carrier
+    # naming the section; the readers are pinned by
     # `tests/test_a_range_owns_what_git_lists_for_it.py`,
     # `tests/test_a_fragment_left_behind_is_named.py` and
     # `tests/test_the_fixes_close_the_record.py`, and the carriers' stating
     # no shape beside the link by `tests/test_the_range_rule_states_no_shape.py`.
-    "17 a range owns the commits that descend from its start": (
+    # It was rule 17 on its branch until #837's rule took that number first.
+    "18 a range owns the commits that descend from its start": (
         RECORD_LAYOUT,
         "A range `a..b` owns exactly the commits `git log --ancestry-path "
         "--no-merges a..b` lists.",

@@ -455,8 +455,9 @@ def test_a_finding_the_report_already_closed_does_not_land(repo):
 
 @pytest.mark.parametrize("mark", ["⬜", "🟢", "❓"])
 def test_a_finding_whose_severity_commissions_nothing_does_not_land(repo, mark):
-    """A ⬜ is fixed in passing or not at all, and 🟢 and ❓ commission
-    nothing: a row carrying one is open in the table and still owes no fix,
+    """A ⬜ is carried open and closed once at the run's end (#837), and 🟢
+    and ❓ commission nothing: a row carrying one is open in the table and
+    still owes no fix,
     so it is no fix of a fix however it sits inside `u`."""
     declared(repo)
     _code, _out, _text, a = a_round(repo, 1, ROUND_1)
