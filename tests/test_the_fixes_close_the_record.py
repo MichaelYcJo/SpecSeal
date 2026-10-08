@@ -145,6 +145,31 @@ def close(repo, n, fixes, rng, extra=()):
     return r.returncode, r.stdout + r.stderr, record
 
 
+def generator_run(repo, command, *args):
+    """Run another `round_record.py` subcommand on the fixture's work item;
+    asserts exit 0 and returns its output."""
+    r = subprocess.run(
+        [
+            sys.executable,
+            GENERATOR,
+            command,
+            "--item",
+            str(repo / ITEM),
+            *args,
+            "--baseline",
+            "base",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
+    )
+    out = r.stdout + r.stderr
+    assert r.returncode == 0, out
+    return out
+
+
 def test_a_directory_at_the_record_path_is_refused_as_a_directory(repo):
     """The second member of ⬜ 6's class, in `close` rather than `report_path`.
 
@@ -931,32 +956,44 @@ def test_a_correction_closed_answered_lands_on_no_fixes_to_check(repo):
     chain): a ⬜ row located in a record closes `answered` with `corrected
     at <sha>`, which is no fix word, so the cell reads `no fixes to check`
     and the check judged as READY exits 0 -- where `fixed <sha>` on the same
-    row leaves `nobody` beside a checked `Pass` and exits 1."""
+    row leaves `nobody` beside a checked `Pass` and exits 1.
+
+    Through `notes` since #837, which is where a ⬜ closes: `close` refuses a
+    row for one, and the record `new` wrote already reads `no fixes to
+    check`, because an open note commissions no reader. The note closes once,
+    at the run's end, at the correction commit `--at` names, and the broad
+    gate's cell is then written by `seal`."""
     note = "| ⬜ 1 | F1 counts three where four are excused | `seal/ledger.md` | open | read |\n"
-    a = round_one(repo, verdicts=note)
+    round_one(repo, verdicts=note)
+    chain = check_module()
+    first = read_record(repo, 1)
+    assert fields(first)["Fixes checked by"] == chain.NO_FIXES, first
+    assert "- [ ] Pass" in first, "an open note leaves `Pass` unticked"
     write(repo, "README.md", "# the ledger row corrected\n")
     b = commit(repo, "the correction")
-    # `--broad-gate` is passed because this case runs the check judged as
+    table = repo.parent / "notes-1.md"
+    table.write_text(
+        "## Fixes\n\n| Round | # | Verdict | Commit or grounds |\n|---|---|---|---|\n"
+        "| round-1 | 1 | corrected | |\n",
+        encoding="utf-8",
+    )
+    out = generator_run(repo, "notes", "--fixes", str(table), "--at", b)
+    record = read_record(repo, 1)
+    assert fields(record)["Fixes checked by"] == chain.NO_FIXES, out
+    assert "- [x] Pass" in record
+    cells = verdict_cells(record)[0]
+    assert cells[3] == "answered", cells
+    assert cells[4] == f"corrected at {b[:8]}; read", cells
+    commit(repo, "round 1's note closed")
+    # The broad gate's cell, because this case runs the check judged as
     # READY, and at a ready pull request `chain_check` reads that cell on the
     # last record (#295): a generated record says `not yet` until the one
     # full-suite run happens, and `not yet` there is a refusal of its own.
     # The value is `b`, the correction commit, because the broad gate runs
     # AFTER the fixes — a SHA the record's `Target SHA` descends from would
     # fail as the run spent before the round it was meant to seal.
-    _, out, record = close(
-        repo,
-        1,
-        fix_table(f"| 1 | answered | corrected at {b[:7]} |\n"),
-        f"{a}..{b}",
-        extra=("--broad-gate", f"{b[:7]} against base"),
-    )
-    chain = check_module()
-    assert fields(record)["Fixes checked by"] == chain.NO_FIXES, out
-    assert "- [x] Pass" in record
-    cells = verdict_cells(record)[0]
-    assert cells[3] == "answered", cells
-    assert cells[4] == f"corrected at {b[:7]}; read", cells
-    commit(repo, "round 1 closed")
+    generator_run(repo, "seal", "--broad-gate", f"{b[:7]} against base")
+    commit(repo, "sealed")
     code, out = check_tree(repo)
     assert "judged as a ready pull request" in out, out
     assert code == 0, out

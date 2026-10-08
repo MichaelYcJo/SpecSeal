@@ -123,6 +123,10 @@ REFRAME_OWNER = (
     "`skills/code-review/orchestration.md` §*A fix of a fix twice sends the "
     "work item back to its framer* owns that rule"
 )
+NOTES_OWNER = (
+    "`skills/code-review/orchestration.md` §*A note closes once, at the "
+    "run's end* owns that rule"
+)
 
 
 def read(*parts):
@@ -321,6 +325,24 @@ RULES = {
             FRAMER: REFRAME_OWNER,
             WARDEN: REFRAME_OWNER,
             IMPLEMENT: REFRAME_OWNER,
+        },
+    ),
+    # A seventeenth, from #837. A ⬜ took a row in every round's fix table,
+    # and closed `fixed` it commissioned a reader for a sentence: five of them
+    # spent #822's one reopening. The owner is the orchestrator's half of the
+    # review skill, for the reason rule 16's is: `docs/review-chain-spec.md`
+    # stands at its line ceiling. WHAT IT PINS: the owner's headline sentence
+    # and each carrier naming the section. The behaviour is pinned by
+    # `tests/test_a_note_closes_once_at_the_runs_end.py`.
+    "17 a note closes once, at the run's end": (
+        ORCH,
+        "A ⬜ commissions nothing before the run ends, and closes once at its end.",
+        {
+            SKILL: NOTES_OWNER,
+            WARDEN: NOTES_OWNER,
+            SMITH: NOTES_OWNER,
+            TEMPLATE: NOTES_OWNER,
+            IMPLEMENT: NOTES_OWNER,
         },
     ),
 }

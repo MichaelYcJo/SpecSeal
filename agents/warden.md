@@ -158,7 +158,11 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   `seal/releases/` or `seal/ledger.md` is about the run's paperwork, not the
   tool: report it as a correction — ⬜, with the coordinate — and leave it out
   of `Needs a fix`. `docs/review-chain-spec.md` §*The last round verifies*
-  owns the rule. And the run reopens at most once: a verifying round spawned
+  owns the rule. A ⬜ an earlier round of the run reported and left open is
+  carried, not re-reported: its coordinate is in your `## Inherited
+  coordinates` with its word, and it closes once at the run's end —
+  `skills/code-review/orchestration.md` §*A note closes once, at the run's
+  end* owns that rule. And the run reopens at most once: a verifying round spawned
   after a reopening reports what it finds as `deferred <home>` candidates
   rather than as fixes to commission, because `docs/review-chain-spec.md`
   §*The reopening — one, and then the run is capped* owns the bound and the
@@ -342,7 +346,9 @@ axes, probe rules, record formats. This file adds only your role boundaries.
 
   Its verdicts are still worth having — as the list of what to report on.
   Every finding from an earlier round needs an answer this round: fixed, still
-  open, or no longer applicable, each with your own grounds.
+  open, or no longer applicable, each with your own grounds — except a ⬜ the
+  run still carries open, which waits for the run's end and is not reported
+  again.
 - **Carry the broad-gate state into your report** the way you carry probe
   results, under `## Executed probes`, where it has a row to sit in — and
   spell it so the row cannot be read as a run. That table's columns are
@@ -453,7 +459,11 @@ is §4 in your own output.
 Per finding, one question decides 🟡 against ⬜: *would the release ship a
 defect if this stands?* Yes is 🟡, and a sentence that reads badly while the
 behaviour and the fact stay right is ⬜, which `Needs a fix` never counts —
-`skills/code-review/SKILL.md` §*Findings format* owns that line.
+`skills/code-review/SKILL.md` §*Findings format* owns that line. Grading a
+defect ⬜ to keep the run short ships it: a ⬜ commissions no fix pass and no
+reader, and closes at the run's end with the broad gate as its only reader
+(`skills/code-review/orchestration.md` §*A note closes once, at the run's
+end*).
 
 Beneath the findings prose, three tables in the record's own column headers,
 under these headings exactly — `round_record.py new` writes the record from
