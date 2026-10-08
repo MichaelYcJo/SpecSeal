@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 878 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `24cfb66f8f52be855bcf1fe8379ae887c401e37f..fadd8270b309f73581a8edfb2399a61d9f85c5f1`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Fix of a fix | first — 🟡 1 at skills/code-review/scripts/chain_check.py#own_commits, a unit round-1's fixes changed |
 | Needs a fix | yes — 🟡 1 (the fix's limit sentences are wider than `own_commits` in two shapes the probes measured) and 🟡 2 (four shipped carriers still state the limit-free claim) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,10 +25,10 @@ Verifying round 2 of round 1's fixes: d2b76587..27920e58 (e6fc73f9, 27920e58), p
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The fix's two limit sentences are wider than `own_commits`: a base that merged an item commit older than `a` owns no later base commit, and a topic forked before `a` that merged `a` owns its fix; the same wording is in two docstrings round 1's fixes changed, three ledger rows, `overview.md` and `phases/phase-1.md` | `docs/the-record-layout.md:148`, `skills/code-review/scripts/chain_check.py#own_commits` | open | executed: probe A2 gave `['f2']` with no sibling, probe B2 gave `['topic-fix']` and `['topic.py']` |
-| 🟡 2 | Four shipped carriers still say a merge of the base brings nothing into the surface: `orchestration.md:369`, `docs/round-record-spec.md:693`, the `fix_pass_units` docstring and the `touched` docstring | `skills/code-review/orchestration.md:370` | open | executed: probe A, where `touched` read `sib.py` and `fix_pass_units` listed the sibling's unit; read: the four sentences, none qualified and none in round 1's list |
-| ⬜ 3 | The changelog fragment states the limit-free claim twice, and the fix table says it states none | `seal/specs/1791384160-a-fix-range-is-its-own-commits-across-a-merge/changelog.md:13` | open | read against probe A; a correction, since the file is under `seal/specs/` |
-| ⬜ 4 | Five ledger rows state the limit-free claim: `S1, S2, S3`, `S4`, `S6`, `S12`, `Corrected · A1` | `seal/ledger/1791384160-a-fix-range-is-its-own-commits-across-a-merge.md:11` | open | read; a correction, since the file is under `seal/ledger/` |
+| 🟡 1 | The fix's two limit sentences are wider than `own_commits`: a base that merged an item commit older than `a` owns no later base commit, and a topic forked before `a` that merged `a` owns its fix; the same wording is in two docstrings round 1's fixes changed, three ledger rows, `overview.md` and `phases/phase-1.md` | `docs/the-record-layout.md:148`, `skills/code-review/scripts/chain_check.py#own_commits` | **fixed** `fb5ba994` | fixed at fb5ba994 — the home's ownership paragraph and limit paragraph, and the `own_commits` and `fragment_left_behind` docstrings, state the ancestry test with probes A, A2 and B2's shapes as examples; executed: probe A2 gave `['f2']` with no sibling, probe B2 gave `['topic-fix']` and `['topic.py']` |
+| 🟡 2 | Four shipped carriers still say a merge of the base brings nothing into the surface: `orchestration.md:369`, `docs/round-record-spec.md:693`, the `fix_pass_units` docstring and the `touched` docstring | `skills/code-review/orchestration.md:370` | **fixed** `fb5ba994` | fixed at fb5ba994 — `skills/code-review/orchestration.md` §*And name the fix surface*, `docs/round-record-spec.md` §*A fix of a fix*, and the `fix_pass_units` and `touched` docstrings state the same test; `close`'s `fixed` refusal now names "a commit a merge brought in that was not made on top of" the start, and S6's case pins the words; executed: probe A, where `touched` read `sib.py` and `fix_pass_units` listed the sibling's unit; read: the four sentences, none qualified and none in round 1's list |
+| ⬜ 3 | The changelog fragment states the limit-free claim twice, and the fix table says it states none | `seal/specs/1791384160-a-fix-range-is-its-own-commits-across-a-merge/changelog.md:13` | answered | corrected at fadd8270: `changelog.md` states the ancestry rule for `close` and the notice, and the `fixed` refusal as a commit not made on top of the start; read against probe A; a correction, since the file is under `seal/specs/` |
+| ⬜ 4 | Five ledger rows state the limit-free claim: `S1, S2, S3`, `S4`, `S6`, `S12`, `Corrected · A1` | `seal/ledger/1791384160-a-fix-range-is-its-own-commits-across-a-merge.md:11` | answered | corrected at fadd8270: the ledger rows S7–S9, S12 (both), `Corrected · S2, S3, S4, S6`, S1–S3, S4, S6 and `Corrected · A1` state the ancestry test, and `evidence-check --reverify` re-anchored S12's §*A fix of a fix* coordinate; `overview.md` and `phases/phase-1.md` carry the same correction; read; a correction, since the file is under `seal/ledger/` |
 | 🟢 | round 1's blocking finding is closed — the S10 case is classified, and CI is green on every leg | `tests/test_a_shrunken_corpus_declines_to_judge.py:248` | confirmed | executed: `gh pr checks 878` at 1923d204, 11 of 11 pass; the eight modules in the clone, exit 0, 435 passed |
 | 🟢 | round 1's finding 2 is closed at the coordinates it named — the home and the five listed places carry the limit | `docs/the-record-layout.md:121` | confirmed | read; executed: probes A and B reproduce the two shapes the home names. The class continues as this round's findings 1 and 2 |
 | 🟢 | round 1's notes 3, 4 and 5 stand as answered | `skills/code-review/scripts/round_record.py:2402` | confirmed | read: the grounds in the fixes file hold against the code at 1923d204 |
