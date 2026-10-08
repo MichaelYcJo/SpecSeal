@@ -234,7 +234,8 @@ does not read stands or is filed.
 `round-record seal` refuses while a note of the run is open, and
 `chain_check.py` holds the rule at the pull request: a ⬜ closed on a fix
 word is an error for a work item begun at or after `1791384163` — one past
-0.21.0's batch, whose rounds ran under 0.20.0's `close` — and a notice before
+the batch #837 was framed in, whose rounds ran under the previous `close` —
+and a notice before
 it, and a ⬜ still open on a record of the run is an error at a ready
 pull request and a notice on a draft.
 

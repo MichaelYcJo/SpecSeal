@@ -851,10 +851,11 @@ REFRAME_EXIT = (
 NOTE = "\N{WHITE LARGE SQUARE}"
 # Where a note closed on a fix word becomes an error, as the unix second in a
 # work item's directory name. NOT the id of the work item that added the rule,
-# which is what the other cutoffs use: 0.21.0's items were framed in one
-# sitting, 1791384152 through 1791384162, and each runs its rounds under the
-# installed 0.20.0 `close`, which demands a fix-table row for a ⬜ and admits
-# `fixed` -- #858's round 1 closed three that way before this rule landed. One
+# which is what the other cutoffs use: the release batch #837 shipped in was
+# framed in one sitting, 1791384152 through 1791384162, and each item of it
+# runs its rounds under the installed 0.20.0 `close`, which demands a
+# fix-table row for a ⬜ and admits `fixed` -- #858's round 1 closed three
+# that way before this rule landed. One
 # past the batch, so the first records held to it are written under it (round
 # 1's 🟡 2 of #837). The reasoning is otherwise `STRICT_FROM`'s. Measured
 # 2026-10-07: 35 ⬜ rows of 14 committed records closed `fixed` before it, and
