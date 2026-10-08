@@ -88,6 +88,9 @@ def test_a_bare_symbol_in_a_suffix_no_rule_names_is_refused_with_the_remedy(repo
     assert unit.places == [] and unit.refused == NO_RULE, unit.refused
     assert ec.resolve_unit("svc.rb", '"def render"', RUBY) == ([(1, 3)], False)
     assert ec.resolve_unit("svc.rb", '"def render"', RUBY).refused is None
+    # A refused suffix yields no units, so the rename scan and `--migrate`
+    # name nothing there: `render(` here would match the brace rule's opener.
+    assert ec.file_units("svc.rb", "def render(x)\n  1\nend\n") == []
     bare = ec.resolve_unit("bin/tool", "main", "main() {\n  x\n}\n").refused
     assert bare == "no bounding rule for a file with no suffix; " + (
         "anchor a quoted line instead"
@@ -221,6 +224,25 @@ def test_every_caller_reads_the_refusal_from_resolve_unit_and_derives_none():
         ("region_lines", found["rider_check"]["region_lines"]),
     ]:
         assert ".refused" in source, f"{name} drops the refusal"
+
+
+def test_a_citation_of_a_released_row_by_a_bare_symbol_is_refused(tmp_path):
+    """`read_citation` is the fourth caller, and the one the frame did not
+    list: a citing row's first coordinate names a section of a released
+    ledger file. A bare symbol there names no heading, and the line says so
+    rather than calling the section gone."""
+    body = "# 0.3.0\n\n## Rows\n\n| R1 · claim | `a.py#f@00000000` |\n"
+    released = tmp_path / "seal" / "releases"
+    released.mkdir(parents=True)
+    (released / "0.3.0.md").write_text(body, encoding="utf-8")
+    cite = ec.ANCHOR_RE.search('`seal/releases/0.3.0.md#Rows>"| R1 · claim"@0000abcd`')
+
+    def load(path):
+        return "id", (path, body, ec.gfm_lines(body), {5: None})
+
+    verdict, at = ec.read_citation(cite, "Re-read", str(tmp_path), {}, None, load)
+    assert verdict.status == "BROKEN" and at is None, verdict
+    assert verdict.detail == ec.resolve_unit("x.md", "Rows", body).refused, verdict
 
 
 def test_the_rider_check_prints_the_checkers_refusal():
