@@ -128,7 +128,9 @@ ASSUMED_RATIO = 3.2
 
 BASELINE_AGENT = "general-purpose"
 
-HEADING = re.compile(r"^#{2,3} ")
+# The heading levels a section is cut at; whether a line IS a heading is the
+# one rule's, `unverified_check.py#heading_level` (#867).
+SECTION_LEVELS = (2, 3)
 AGENT_ID = re.compile(r"\bagentId:\s*([0-9a-f]+)")
 
 
@@ -272,7 +274,12 @@ def heading_starts(text):
     The lines are the reader's too, `gfm_lines` with their ends kept (#664),
     so the offsets still sum to the file. Split with `str.splitlines`, a `#`
     after a U+2028 or a form feed mid-line began a section no renderer
-    shows."""
+    shows.
+
+    Whether a line is a heading is the one rule's too,
+    `unverified_check.py#heading_level` (#867), asked for levels 2 and 3:
+    the pattern this kept, `^#{2,3} `, missed a heading indented up to three
+    spaces and one followed by a tab."""
     rule = _fence_rule()
     starts, offset, fence = [], 0, None
     for line in rule.gfm_lines(text, keepends=True):
@@ -281,7 +288,7 @@ def heading_starts(text):
                 fence = None
         elif (opened := rule.fence_opener(line)) is not None:
             fence = opened
-        elif HEADING.match(line):
+        elif rule.heading_level(line) in SECTION_LEVELS:
             starts.append(offset)
         offset += len(line)
     return starts

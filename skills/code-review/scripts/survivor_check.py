@@ -1155,12 +1155,16 @@ ROW_ID = re.compile(r"^\s*\|\s*([A-Z][A-Za-z]*\d+[a-z]?(?:-\d+)?)\s*·")
 
 def ledger_rows(lines, live_lines):
     """`[(line number, heading, row id or None, line)]` for the live table
-    rows of `lines`, 1-based, each under the last live heading above it."""
+    rows of `lines`, 1-based, each under the last live heading above it. A
+    heading is the one rule's, `unverified_check.py#heading_level` (#867):
+    `startswith("#")` read a `#NNN`-led line as one, so the rows below it
+    were filed under a heading that was prose."""
     out, heading = [], None
+    is_heading = reader().heading_level
     for number, (line, live) in enumerate(live_lines(lines), start=1):
         if not live:
             continue
-        if line.startswith("#"):
+        if is_heading(line) is not None:
             heading = line.strip()
         elif line.lstrip().startswith("|"):
             match = ROW_ID.match(line)

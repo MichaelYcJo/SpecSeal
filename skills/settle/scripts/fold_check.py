@@ -136,7 +136,6 @@ OVER_ENTRY = re.compile(
 WHOLE = re.compile(r"[0-9]+")
 OVER_SHAPE = "<path> frozen at <n> markers <12-hex digest> until <home>"
 
-HEADING = re.compile(r"^ {0,3}#{1,6}(?:[ \t]|$)")
 BOLD_OPENING = re.compile(r"^\*{2,3}[^*\s]")
 ENFORCED = "Enforced by: "
 NOTHING = "nothing — "
@@ -193,7 +192,9 @@ def numbered_statements(text):
     """`[(marker ids, [(1-based line number, live line)])]`, in document order.
 
     Consecutive marker lines are one group. A statement runs from its markers
-    to the next marker, the next heading or the end of the file."""
+    to the next marker, the next heading or the end of the file. A heading is
+    the one rule's, `unverified_check.py#heading_level` (#867), which this
+    module spelled again as a pattern of its own."""
     uc = reader()
     found = []
     current = None
@@ -212,7 +213,7 @@ def numbered_statements(text):
             previous_was_marker = True
             continue
         previous_was_marker = False
-        if HEADING.match(line):
+        if uc.heading_level(line) is not None:
             current = None
             continue
         if current is not None:

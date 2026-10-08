@@ -1235,19 +1235,24 @@ def field(rows, label):
     return None
 
 
-def heading_level(line):
-    """How many `#` open the line, or None where none does.
+_heading_reader = None
 
-    The reader's own test for a heading is `startswith("#")` (`headings` in
-    `unverified_check.py`), and this keeps it: a `#120` at column 0 is a
-    heading here exactly as it is there, because only a fence tells a
-    Markdown heading from a Python comment and `readable` has already
-    blanked the fences. What this adds is the DEPTH, which is the one thing a
-    section's end turns on.
-    """
-    if not line.startswith("#"):
-        return None
-    return len(line) - len(line.lstrip("#"))
+
+def heading_level(line):
+    """The level of the ATX heading LINE is, or None: the one spelling of a
+    markdown heading, `unverified_check.py#heading_level` (#867), loaded at
+    the first line asked. The lines it is asked of are `readable`'s, so a
+    fence has already been blanked.
+
+    It used to be `startswith("#")` with a depth, so a wrapped line
+    beginning `#120)` at column 0 was a level-1 heading and ended a
+    `## Verdicts` section above the rows under it — the permissive direction
+    on the one kind of record this checker exists for, since `open_blocking`
+    then saw no open 🔴 below that line."""
+    global _heading_reader
+    if _heading_reader is None:
+        _heading_reader = load(READER, "specseal_unverified_reader_for_headings")
+    return _heading_reader.heading_level(line)
 
 
 def section_end(lines, start):
