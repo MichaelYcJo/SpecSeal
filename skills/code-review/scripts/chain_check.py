@@ -1072,15 +1072,55 @@ def read_record(root, rel):
     the two -- the wrong direction for the only enforcement left.
 
     `--worktree` reads the file on disk instead, for a check run on a record
-    BEFORE its commit; CI never passes it (see `WORKTREE`).
+    BEFORE its commit; CI never passes it (see `WORKTREE`). It decodes the
+    bytes as the HEAD read does, replacing what is not UTF-8, so the two
+    modes read one file the same way and neither raises (#867 round 1,
+    🟡 5: a strict read raised `UnicodeDecodeError` out of the whole check).
+    `seal/config.md` is not read here: `config_at_head` reads it strictly,
+    because a config is a set of rows whose loss is a refusal, not a record.
     """
     if WORKTREE:
         try:
-            with open(os.path.join(root, *rel.split("/")), encoding="utf-8") as f:
+            with open(
+                os.path.join(root, *rel.split("/")), encoding="utf-8", errors="replace"
+            ) as f:
                 return f.read()
         except OSError:
             return None
     return git(root, "show", f"HEAD:{rel}")
+
+
+def config_at_head(root, rel, config):
+    """`(text, refusal)` for `seal/config.md` as this check reads a record —
+    HEAD's blob, or the file on disk under `--worktree` — told apart into
+    the states `hooks/config.py#config_text` tells apart (#867 round 1,
+    🟡 5): nothing there is `(None, None)`; a blob or file that will not read
+    as UTF-8 text, or a tree at that path, is `(None, CONFIG's sentence)`.
+    CONFIG is the loaded `hooks/config.py`. Before this the pact notices read
+    the config by `read_record`'s lenient decode at HEAD and raised under
+    `--worktree`."""
+    if WORKTREE:
+        return config.config_text(os.path.dirname(os.path.join(root, *rel.split("/"))))
+    spec = f"HEAD:{rel}"
+    kind = git(root, "cat-file", "-t", spec)
+    if kind is None:
+        return None, None
+    where = f"{rel} at HEAD"
+    if kind.strip() != "blob":
+        return None, config.unreadable_config(
+            where, OSError(0, f"a {kind.strip()} in git, not a file")
+        )
+    out = subprocess.run(
+        ["git", "-C", root, "cat-file", "blob", spec], capture_output=True
+    )
+    if out.returncode != 0:
+        return None, config.unreadable_config(
+            where, OSError(0, out.stderr.decode("utf-8", "replace").strip())
+        )
+    try:
+        return out.stdout.decode("utf-8"), None
+    except UnicodeDecodeError as undecodable:
+        return None, config.unreadable_config(where, undecodable)
 
 
 def round_records(routing, root, item):
@@ -4317,6 +4357,8 @@ def pact_notices(routing, root, declarations):
     home = routing.optin.HOME
     config_rel = f"{home}/config.md"
     pact_rel = f"{home}/{PACT_FILE}"
+    # Whether there is anything at the path; its rows are read strictly below,
+    # by `config_at_head`, once the reader is loaded.
     config_text = read_record(root, config_rel)
     pact_text = read_record(root, pact_rel)
     specs = []
@@ -4346,6 +4388,17 @@ def pact_notices(routing, root, declarations):
             cited.append((rel, match.group("name").lower()))
 
     notices = []
+    config_text, unreadable = config_at_head(root, config_rel, config)
+    if unreadable:
+        notices.append(
+            (
+                config_rel,
+                0,
+                f"the pact relationship was not read: {unreadable}. Nothing "
+                "about a pact moves this check's exit status, so this is a "
+                "notice",
+            )
+        )
     pacts, notify, refusals = config.pact_declaration(config_text or "")
     for written, _normalised, name in pacts:
         count = sum(1 for _rel, n in cited if n == name)
