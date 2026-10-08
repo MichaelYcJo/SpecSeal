@@ -19,6 +19,10 @@ release seal cannot give one cell two meanings.
 | The release seal's S10 fixture | spec silent / `**deferred** #13, #14` became two cells | changed | `#13, #14` is not a home `issue_of` reads as an issue, and keeping the case's three issues needs one per cell |
 | `landings`' flag | J3 names only `depth_two` as the wide reader's caller / `landings` reached `path_forms` through it with `paths_only=True` | `landings` calls `path_forms` directly | the flag chose between two readers, and one of them left |
 | A comment in `evidence_check.py` | spec silent / it named one of the five patterns as a second reader of the same shape | reworded | §12: the sentence was false once the pattern left |
+| The suite's pull request | spec silent; J4 says the population with no payload and no `gh` that answers now exits 1 / the suite is that population (logged out, #510), 176 cases failed | a stub `gh` in `tests/conftest.py` answers draft for every case, `gh_answers` picks another | the generator assumed draft for the suite before; a case about ready or unknown now says so, and no case reaches a live `gh` for the question |
+| How `gh` is run | J4: "the exact call `pull_request_is_ready` makes today" / the path `shutil.which` found, not the bare name | the found path | a `gh.cmd` on Windows is found by `which` and not by a process call naming `gh` |
+| `--sealing`'s reach | J4: "the `Broad gate` arm of the last record" / also the direct `broad-gate.md` home | both homes | the gate writes the cell into whichever home `seal` uses, and the draft payload excused both before |
+| The environment-leak case (W2) | a failure to re-pin / the judgment's source | the source | under `--sealing` the leaked payload fails nothing; the kept output still shows which pull request judged the fixture |
 | The panel's ASCII | spec silent / the home is ASCII-encoded in `rounds_rows`, not in the reader | in the panel | the letter twin maps only the owner's characters; the gate and the release seal want the home as written |
 
 ## Not verified
