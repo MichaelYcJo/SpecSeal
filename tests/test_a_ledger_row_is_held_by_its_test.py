@@ -360,6 +360,73 @@ def test_reverify_names_a_test_that_is_gone(repo):
     ) in out.stdout.splitlines(), out.stdout
 
 
+# --- S9 ------------------------------------------------------------------------
+
+HELD_OPTION = (
+    "  a claim a test holds can move onto it once instead: a `Corrected ·` row "
+    "citing the released row and naming that test in Code grounds, "
+    "`tests/test_x.py::test_y`, retires the row's hashes, and no later edit "
+    "drifts it (docs/the-evidence-ledger.md)"
+)
+
+
+def drifted_release(repo):
+    """A released row citing `handler`, the freeze declared, then `handler`
+    edited: a run of `--into` owes the row a `Re-read ·` row."""
+    (repo / "seal").mkdir(exist_ok=True)
+    (repo / "seal" / "config.md").write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n"
+        "| Ledger frozen from | 1 |\n",
+        encoding="utf-8",
+    )
+    row = f"| R1 · handler adds one | `src/service.py#handler@{handler_hash(repo)}` | read | 2026-01-01 | |"
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        f"## 0.1.0 — 2026-01-01\n\n### 1000000001-the-first-item\n\n{row}\n",
+        encoding="utf-8",
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x + 1", "x + 2"), encoding="utf-8"
+    )
+
+
+def test_into_names_the_test_row_once_where_it_wrote_a_re_read(repo):
+    """S9. `--into` cannot tell which of a row's grounds holds its claim, so
+    it names the other repair once, in its summary, and writes none of it."""
+    drifted_release(repo)
+    out = run(["--reverify", "--into", FRAGMENT, "--checked", "2026-10-08", "."], repo)
+    assert out.returncode == 0, out.stdout + out.stderr
+    lines = out.stdout.splitlines()
+    assert lines.count(HELD_OPTION) == 1, out.stdout
+    assert (
+        lines.index(HELD_OPTION)
+        == lines.index("1 citing row written · 0 released rows left") + 1
+    ), out.stdout
+    assert "Corrected" not in (repo / FRAGMENT).read_text(encoding="utf-8")
+    again = run(
+        ["--reverify", "--into", FRAGMENT, "--checked", "2026-10-08", "."], repo
+    )
+    assert again.returncode == 0, again.stdout
+    assert HELD_OPTION not in again.stdout.splitlines(), again.stdout
+
+
+def test_the_commit_advisor_names_the_test_row_as_a_repair():
+    """Q4 of this work item: the post-commit advisor carries its own repair
+    sentence for a broken row under the freeze, so it names the other form
+    too, rather than only the coordinates a correction carries."""
+    spec = importlib.util.spec_from_file_location(
+        "specseal_evidence_advisor_held",
+        os.path.join(ROOT, "hooks", "evidence-advisor.py"),
+    )
+    advisor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(advisor)
+    assert (
+        "— or, where a test holds the claim, names that test instead, "
+        "`tests/test_x.py::test_y`, and no later edit drifts it;"
+    ) in advisor.FROZEN_REPAIR, advisor.FROZEN_REPAIR
+
+
 # --- S11 -----------------------------------------------------------------------
 
 

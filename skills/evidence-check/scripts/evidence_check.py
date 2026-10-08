@@ -4522,6 +4522,15 @@ INTO_REPAIR = (
 )
 
 STALE_NOTHING = "no `Re-read ·` row was written for this row"
+# The other repair, printed once by a run that wrote a `Re-read ·` row (#836):
+# the run cannot tell which of a row's grounds holds its claim, so it names
+# the option rather than writing it.
+INTO_HELD = (
+    "  a claim a test holds can move onto it once instead: a `Corrected ·` row "
+    "citing the released row and naming that test in Code grounds, "
+    "`tests/test_x.py::test_y`, retires the row's hashes, and no later edit "
+    "drifts it (docs/the-evidence-ledger.md)"
+)
 
 
 def spanned(text):
@@ -4722,13 +4731,17 @@ def reverify_into(
     def report(landed):
         wrote = rows if rows and landed_at(landed, into) else []
         name = built_name(into, root) if wrote else ""
-        return [
-            f"  wrote {name}:{start + offset}  Re-read · {label}  citing {where}"
-            for offset, (where, label, _) in enumerate(wrote)
-        ] + [
-            f"{len(wrote)} citing row{'' if len(wrote) == 1 else 's'} written · "
-            f"{len(left)} released row{'' if len(left) == 1 else 's'} left"
-        ]
+        return (
+            [
+                f"  wrote {name}:{start + offset}  Re-read · {label}  citing {where}"
+                for offset, (where, label, _) in enumerate(wrote)
+            ]
+            + [
+                f"{len(wrote)} citing row{'' if len(wrote) == 1 else 's'} written · "
+                f"{len(left)} released row{'' if len(left) == 1 else 's'} left"
+            ]
+            + ([INTO_HELD] if wrote else [])
+        )
 
     told_now(told, report)
     for where, why in left:
