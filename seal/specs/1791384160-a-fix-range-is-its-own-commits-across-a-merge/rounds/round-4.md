@@ -7,15 +7,15 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 878 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `6445933a4845ccba449c37bf636df539b403ea3f..76de29c33fced53ec0b798f32f97a6c855c187bc`, 2 commits |
+| Contract changes | none |
+| New units | test_a_sentence_linking_the_home_uses_no_listed_word (depth 1) |
 | Fix of a fix | no |
 | Needs a fix | yes — 🟡 1 (the home says every reader of a range imports `own_commits`, and the `Fix range` count and the notice's clearing step do not) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,11 +25,11 @@ Round 4, the redesign's first finding round after the reframe of round 3. Its ta
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The home says every reader of a range in the two scripts imports `own_commits`; the `Fix range` count on both sides and the notice's clearing step read the range with their own `rev-list`, and the same section says the count reads it another way | `docs/the-record-layout.md:125` | open | read: `round_record.py:4503`, `chain_check.py:1992`, `chain_check.py:4623`, and the section's fourth paragraph |
-| ⬜ 2 | The owner sentence's gloss, "a non-merge commit that has `a` as an ancestor and that `b` reaches", includes `a` under git's reflexive ancestry, which the git command never lists | `docs/the-record-layout.md:122` | open | executed: `merge-base --is-ancestor T T` exits 0, `own_commits(T, HEAD)` omits `T`; read: `parse_range` uses the reflexive test |
-| ⬜ 3 | The guard's docstring says it keeps shapes out of the prose; three false sentences outside its list pass it, and it refused a true docstring row because it reads the four docstrings whole | `tests/test_the_range_rule_states_no_shape.py:10` | open | executed: three pastes into the home, 7 passed each; the restored "squashed away" row turns the docstring case red |
-| ⬜ 4 | The silent-state row the guard forced says round 1's target is gone once its branch merged; a merge commit keeps it, and the replaced "squashed away" was true | `skills/code-review/scripts/chain_check.py#fragment_left_behind` | open | read: `chain_check.py:4585`, `phases/phase-6.md` naming the rewording; behaviour unchanged |
-| ⬜ 5 | The fragment section's input sentence adds "which a branch checkout that has not merged the base does not hold", a shape clause outside the guard, and in #805's rebuilt history the branch holds those commits without merging the base | `docs/the-record-layout.md:102` | open | executed: the rebuilt branch and the merge ref both give `['S', 'f1', 'f2']`; true under the `git branch --merged` reading |
+| 🟡 1 | The home says every reader of a range in the two scripts imports `own_commits`; the `Fix range` count on both sides and the notice's clearing step read the range with their own `rev-list`, and the same section says the count reads it another way | `docs/the-record-layout.md:125` | **fixed** `f2d7d9ab` | fixed at f2d7d9ab — the home's clause "and every reader of a range in `round-record` and `chain-check` imports it" is dropped, as the paste-ready block does, and nothing replaces it; read: `round_record.py:4503`, `chain_check.py:1992`, `chain_check.py:4623`, and the section's fourth paragraph |
+| ⬜ 2 | The owner sentence's gloss, "a non-merge commit that has `a` as an ancestor and that `b` reaches", includes `a` under git's reflexive ancestry, which the git command never lists | `docs/the-record-layout.md:122` | **fixed** `f2d7d9ab` | fixed at f2d7d9ab — the owner sentence is the git command alone, without the gloss that included `a`; rule 17 pins the shorter sentence; executed: `merge-base --is-ancestor T T` exits 0, `own_commits(T, HEAD)` omits `T`; read: `parse_range` uses the reflexive test |
+| ⬜ 3 | The guard's docstring says it keeps shapes out of the prose; three false sentences outside its list pass it, and it refused a true docstring row because it reads the four docstrings whole | `tests/test_the_range_rule_states_no_shape.py:10` | **fixed** `f2d7d9ab` | fixed at f2d7d9ab — the guard's docstring says it is a word list: a shape stated in other words passes it, a true sentence that needs a listed word is refused, and review is what keeps shapes out; executed: three pastes into the home, 7 passed each; the restored "squashed away" row turns the docstring case red |
+| ⬜ 4 | The silent-state row the guard forced says round 1's target is gone once its branch merged; a merge commit keeps it, and the replaced "squashed away" was true | `skills/code-review/scripts/chain_check.py#fragment_left_behind` | **fixed** `f2d7d9ab` | fixed at f2d7d9ab — the silent-state row says "squashed away" again, and the guard reads the home's section and every sentence linking the home, each of the four docstrings through its own linking sentence; the same two checks remain, over a narrower text; read: `chain_check.py:4585`, `phases/phase-6.md` naming the rewording; behaviour unchanged |
+| ⬜ 5 | The fragment section's input sentence adds "which a branch checkout that has not merged the base does not hold", a shape clause outside the guard, and in #805's rebuilt history the branch holds those commits without merging the base | `docs/the-record-layout.md:102` | **fixed** `f2d7d9ab` | fixed at f2d7d9ab — the fragment section's input sentence drops "which a branch checkout that has not merged the base does not hold", as the paste-ready block does; executed: the rebuilt branch and the merge ref both give `['S', 'f1', 'f2']`; true under the `git branch --merged` reading |
 | 🟢 | round 3's finding 1 is closed — the fragment section states the notice's input instead of an equality, and S17's case pins both checkouts | `docs/the-record-layout.md:100` | confirmed | executed: the case is red with `--first-parent` added; read: the equality sentence is gone |
 | 🟢 | round 3's finding 2 is closed — the home states no example, and the shapes are cases | `tests/test_a_range_owns_what_git_lists_for_it.py` | confirmed | executed: the module passes, and every case is red under one of the two mutations |
 | 🟢 | round 3's finding 3 is closed — the `own_commits` docstring names the git command, the home and the shape module | `skills/code-review/scripts/chain_check.py#own_commits` | confirmed | read: the docstring; the guard's docstring case for it passes (executed) |
