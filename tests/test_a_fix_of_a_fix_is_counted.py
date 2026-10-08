@@ -173,9 +173,9 @@ def test_a_finding_inside_a_unit_the_fixes_changed_reads_first(repo):
 
 @pytest.mark.parametrize("location", ["`mod.py#u`", "`mod.py::u`"])
 def test_every_location_shape_that_carries_its_path_lands(repo, location):
-    """The path-carrying readings `location_units` makes beside `path:line`.
-    The two name-only readings it also makes (`` `u` ``, `` `u()` ``) land
-    nowhere since the reframe after round 3, and are S5's."""
+    """The path forms `path_forms` reads beside `path:line`, the one reading
+    of a `Location` (#866). A name with no path (`` `u` ``, `` `u()` ``)
+    lands nowhere since the reframe after round 3, and is S5's."""
     code, out, text, _ = two_rounds(repo, location)
     assert code != 2, out
     assert row(text).startswith("first — 🟡 1 at mod.py#u"), (row(text), out)

@@ -5100,9 +5100,9 @@ NOT_IN_TREE = "NAME NOT IN TREE"
 # The two delimiters of an HTML comment, as `claim_lines` scans for them.
 COMMENT_OPENER, COMMENT_CLOSER = "<!--", "-->"
 # A backticked identifier, with an optional call suffix — the shape a record
-# names a unit in. `round_record.py`'s `IDENTIFIER_RE` reads the same thing
-# for the fix surface; the two are separate because that one measures a diff
-# and this one reads prose, and folding them would give one pattern two jobs.
+# names a unit in. `round_record.py` read the same shape out of a `Location`
+# cell until #866, and reads only whole path forms there now (`path_forms`);
+# this one reads prose, which is a different job.
 RECORD_NAME_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
 # A backticked name written the way a coordinate is written, with no hash:
 # `path#name`, `path#name()` or `path#Class.method` (#508). `RECORD_NAME_RE`

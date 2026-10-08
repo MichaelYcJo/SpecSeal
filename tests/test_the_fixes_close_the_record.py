@@ -16,6 +16,7 @@ one in-tree caller and one test caller, and a unit called from tests alone,
 because that is the diff `Contract changes` has to name.
 """
 
+import inspect
 import re
 import shutil
 import subprocess
@@ -1571,26 +1572,18 @@ def two_rounds(repo, location, path="mod.py", others=()):
     [
         "`mod.py#helper`",
         "`mod.py:2`",
-        "`helper`",
         "`mod.py#helper@deadbee`",
         "`./mod.py#helper`",
-        "`helper()`",
-        "helper",
         "`mod.py::helper`",
         "`mod.py:2`, and the guard at `README.md`",
-        "`mod.py#other` and `#helper`",
     ],
     ids=[
         "path-unit",
         "path-line",
-        "identifier",
         "path-unit-hash",
         "dot-slash",
-        "identifier-call",
-        "bare",
         "double-colon",
         "prose-around-path-line",
-        "fragment-after-path",
     ],
 )
 def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
@@ -1601,11 +1594,10 @@ def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
     and it is refused naming the unit, the finding, and the record whose
     row names the parent -- with the exit the rule gives.
 
-    The last five forms are the ones round 1 of #161's own chain found
-    escaping (🟡 4): each closed with `helper_guard (depth 1)` until the
-    Location's path was resolved against the tree and `()` and `::`
-    were read. A bare name is resolved against every file the range
-    touched, at the range's start, that holds a unit of that name."""
+    Every form here carries its path, as `path_forms` reads a `Location`
+    (#866): the path resolved against the tree at the range's start, and
+    `@hash`, `./` and `::` read — the forms round 1 of #161's own chain
+    found escaping (🟡 4)."""
     a = two_rounds(repo, location)
     write(repo, "mod.py", MOD_CHANGED + GUARD)
     b = commit(repo, "round 2's fix")
@@ -1615,6 +1607,29 @@ def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
     assert "round-1.md" in out
     assert "depth 2" in out
     assert "deferred with a named answerer, or becomes an issue" in out
+
+
+@pytest.mark.parametrize(
+    "location",
+    ["`helper`", "`helper()`", "helper", "`mod.py#other` and `#helper`"],
+    ids=["identifier", "identifier-call", "bare", "fragment-after-path"],
+)
+def test_a_finding_located_by_a_name_with_no_path_places_nothing(repo, location):
+    """#866 S5. The depth walk reads a `Location` through `path_forms`, as
+    `landings` reads it for a fix of a fix, so a name with no path beside it
+    — backticked, called or bare, or a `#name` standing apart from its path
+    — places the finding nowhere, and the unit its fix adds is written at
+    depth 1. The walk used to resolve such a name against every file the
+    range touched, which read the cell a second way."""
+    a = two_rounds(repo, location)
+    write(repo, "mod.py", MOD_CHANGED + GUARD)
+    b = commit(repo, "round 2's fix")
+    _code, out, record = close(
+        repo, 2, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert "depth 2" not in out, out
+    assert "round-record: closed" in out, out
+    assert fields(record)["New units"] == "helper_guard (depth 1)", out
 
 
 # #30's measured shape, in one file: two findings, each located inside a
@@ -1860,6 +1875,25 @@ def test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one(repo):
     assert "round-record: closed" in out, out
     assert "no cell was written" not in out, out
     assert fields(record)["New units"] == "beta_guard (depth 1)", record
+
+
+def test_one_reader_places_a_finding_and_the_wide_one_is_gone():
+    """#866 S6. The wide `Location` reading and its five patterns left
+    `round_record.py`, and both questions about the cell — a fix of a fix and
+    the depth — read it through `path_forms`."""
+
+    generator = generator_module()
+    for gone in (
+        "location_units",
+        "LOCATION_UNIT_RE",
+        "LOCATION_LINE_RE",
+        "FRAGMENT_RE",
+        "IDENTIFIER_RE",
+        "BARE_IDENTIFIER_RE",
+    ):
+        assert not hasattr(generator, gone), gone
+    for reader in (generator.depth_two, generator.landings):
+        assert "path_forms(" in inspect.getsource(reader), reader.__name__
 
 
 def test_a_basename_resolves_to_the_one_tracked_file_that_ends_in_it(repo):

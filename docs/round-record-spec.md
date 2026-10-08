@@ -660,10 +660,10 @@ reading the `New units` surface is what looks at it. The declaration is per
 finding as well as per entry: a finding whose coordinates sit at two depths
 — one inside a unit an earlier round's fixes created, another not — is
 written as two findings, so each verdict carries one depth and the fix of
-one does not refuse the units the other's fix adds. `round_record.py close`
-keys its refusal on the finding's `Location` and names the finding whose
-fix added the unit, so a reviewer who did not split reads which finding to
-split next round (#366).
+one does not refuse the units the other's fix adds. `close` keys its refusal
+on the finding's `Location`, read as §*A fix of a fix* reads it (a name with
+no `.py` path places nothing), and names the finding whose fix added the
+unit, so a reviewer who did not split reads which finding to split (#366).
 
 One limit is recorded rather than parsed away, the mirror of the arrow's above:
 the comma that marks a crowded entry is found by substring, so a comma anywhere

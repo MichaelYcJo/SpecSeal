@@ -2460,9 +2460,9 @@ def landings(reader, root, target, keyed, previous):
     `keyed` is the report's verdict rows as `verdict_rows` keys them; the open
     ones are the rows `close` will demand a fix-table row for. `previous` is
     `(K-1, path)` of the record before this one, or None for round 1. Each
-    `Location` is resolved at THIS round's target through `location_units`
-    with `paths_only`, so only a code span or word that is wholly
-    `path:line`, `path#unit` or `path::unit` (`path_forms`) counts.
+    `Location` is resolved at THIS round's target through `path_forms`, so
+    only a code span or word that is wholly `path:line`, `path#unit` or
+    `path::unit` counts.
 
     Lands nowhere: a row whose severity commissions no fix
     (`COMMISSIONS_NOTHING`); a `#name` apart from its path, and a path that
@@ -2530,9 +2530,7 @@ def landings(reader, root, target, keyed, previous):
         # and its place written together. A name with no path, a `#name`
         # standing apart from its path, and a path that is the tail of a
         # longer token land nowhere — no prose is read to decide otherwise.
-        for rel, unit in location_units(
-            reader, root, target, location, tracked, paths_only=True
-        ):
+        for rel, unit in path_forms(reader, root, target, location, tracked):
             landing = (label, rel, unit, units.get((rel, unit)))
             if landing[3] is not None and landing not in found:
                 found.append(landing)
@@ -3064,22 +3062,9 @@ HEURISTIC_NOTE = "read by the diff-line heuristic and not by the AST"
 # definition, and every record and document a range touches would otherwise
 # be named as read for them (round 1 of #161's own chain, 🟡 5).
 PROSE_SUFFIXES = (".md", ".markdown", ".txt", ".rst")
-# The shapes a `Location` cell names a unit in: `path#unit` or `path::unit`,
-# either with `@hash` after, `path:line`, a backticked identifier with or
-# without `()`, and a cell that is a bare identifier. A path is resolved
-# against the tree at the range's start — exact, `./`-stripped, or the one
-# tracked path ending in `/<path>`, because records name
-# `chain_check.py#fix_surface` for a file three directories down (round 1
-# of #161's own chain, 🟡 4: the five forms after the first escaped).
-LOCATION_UNIT_RE = re.compile(r"([\w./-]+\.py)(?:#|::)([A-Za-z_]\w*)")
-LOCATION_LINE_RE = re.compile(r"([\w./-]+\.py):(\d+)")
-# A second unit named by its fragment alone after a path — `path#a` and
-# `#b` — the form round 1 of #161's own chain located its 🟡 4 in. The
-# fragment names a unit in the last path the cell resolved, or no file.
-FRAGMENT_RE = re.compile(r'(?<![\w./\-"#])#([A-Za-z_]\w*)')
-IDENTIFIER_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
-BARE_IDENTIFIER_RE = re.compile(r"^([A-Za-z_]\w*)(?:\(\))?$")
-# The three forms a fix-of-a-fix landing is read from (#823), matched against
+# The three forms a `Location` cell places a finding in, for a fix-of-a-fix
+# landing (#823) and for the depth walk (#866) alike -- the one reading of
+# that cell, through `path_forms` -- matched against
 # a WHOLE token and never searched for inside one: `path:line` (a range after
 # it allowed), `path#unit` and `path::unit` (a `()` and an `@hash` after it
 # allowed). A token is a code span's whole content, or a whitespace-separated
@@ -4212,54 +4197,20 @@ def resolve_path(rel, tracked):
     return ends[0] if len(ends) == 1 else None
 
 
-def location_units(reader, root, a, text, tracked, paths_only=False):
-    """[(path or None, unit)] the `Location` cell of a finding names.
-
-    Every path is resolved against `tracked`, the tree at `a` where the fix
-    started (`resolve_path`); one that resolves to nothing names no unit
-    here. A `path:line` is resolved to the top-level unit holding that line
-    at `a`. A backticked identifier, with or without `()`, or a cell that
-    is one bare identifier, names a unit and no file, and the caller finds
-    the file among the ones the range touched.
-
-    `paths_only` is `landings`' reading and not the depth walk's (round 4 of
-    #823): only a token that IS one of the three path forms (`PATH_FORM_RE`)
-    places a unit, its path and its unit or line written together. A fragment
-    borrowing the last path the cell resolved, a backticked or bare name, and
-    a path that is the tail of a longer token place nothing.
-    """
-    if paths_only:
-        return path_forms(reader, root, a, text, tracked)
-    visible = reader.visible(text)
-    out, last = [], None
-    for m in LOCATION_UNIT_RE.finditer(visible):
-        last = resolve_path(m.group(1), tracked)
-        if last is not None:
-            out.append((last, m.group(2)))
-    for m in FRAGMENT_RE.finditer(visible):
-        out.append((last, m.group(1)))
-    for m in LOCATION_LINE_RE.finditer(visible):
-        rel = resolve_path(m.group(1), tracked)
-        module = parse_module(reader.show(root, a, rel)) if rel is not None else None
-        unit = enclosing_unit(top_units(module), int(m.group(2))) if module else None
-        if unit:
-            out.append((rel, unit))
-    for m in IDENTIFIER_RE.finditer(visible):
-        out.append((None, m.group(1)))
-    m = BARE_IDENTIFIER_RE.match(visible)
-    if m:
-        out.append((None, m.group(1)))
-    return out
-
-
 def path_forms(reader, root, a, text, tracked):
     """[(path, unit)] for every token of the cell that is wholly a path form.
 
-    A token is a code span's whole content, or a word outside the spans with
-    `CLAUSE_END` stripped from its end; it counts only where `PATH_FORM_RE`
-    matches ALL of it, so a `.py` path that is a suffix of the token is not
-    read. The path resolves as `location_units` resolves one, and a line to
-    the top-level unit holding it at `a`.
+    The one reader of a `Location` cell (#866): `landings` reads a fix of a
+    fix through it and `depth_two` reads the depth through it, so the two
+    questions about one cell take one answer. A token is a code span's whole
+    content, or a word outside the spans with `CLAUSE_END` stripped from its
+    end; it counts only where `PATH_FORM_RE` matches ALL of it, so a `.py`
+    path that is a suffix of the token is not read. The path resolves against
+    `tracked`, the tree at `a` (`resolve_path`), and a line to the top-level
+    unit holding it at `a`. A name with no path beside it, backticked or
+    bare, a `#name` standing apart from its path, and a path that is the tail
+    of a longer token place nothing: no prose is read to decide which name in
+    a cell is the place.
     """
     visible = reader.visible(text)
     tokens = CODE_SPAN_RE.findall(visible) + CODE_SPAN_RE.sub(" ", visible).split()
@@ -4334,12 +4285,13 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     naming the unit, the finding, the record whose row names the parent,
     and the exit. Nothing has been written when this raises.
 
-    A Location that names a file is inside the unit only if that file
-    holds a top-level unit of that name at `a` — `at_a` is the range's
-    files parsed there, and a file the range did not touch has nothing
-    added to refuse. A Location that names no file is resolved against
-    every file the range touched that holds the unit at `a`, which is the
-    widest honest reading of a name with no path beside it.
+    A Location is read through `path_forms`, as `landings` reads it (#866):
+    only a token that is wholly `path:line`, `path#unit` or `path::unit`
+    places the finding, and a name with no path beside it places nothing,
+    so its fix is not a candidate here. A placed finding is inside the unit
+    only if its file holds a top-level unit of that name at `a` — `at_a` is
+    the range's files parsed there, and a file the range did not touch has
+    nothing added to refuse.
 
     The candidate scope is the finding's file, not every file changed by its
     fix. A regression case added in a separate test file is therefore not
@@ -4394,14 +4346,10 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
             continue
         _i, cells = rows[number]
         location = cells[LOCATION_COL] if len(cells) > LOCATION_COL else ""
-        for rel, unit in location_units(reader, root, a, location, tracked):
+        for rel, unit in path_forms(reader, root, a, location, tracked):
             if unit not in named:
                 continue
-            if rel is not None:
-                files = [rel] if unit in at_a.get(rel, {}) else []
-            else:
-                files = [f for f, units in at_a.items() if unit in units]
-            for f in files:
+            for f in [rel] if unit in at_a.get(rel, {}) else []:
                 for name in [n for r, n in added if r == f]:
                     candidates.setdefault((f, name), {})[number] = (
                         unit,
