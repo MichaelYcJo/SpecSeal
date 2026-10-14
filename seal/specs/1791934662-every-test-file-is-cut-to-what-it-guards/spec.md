@@ -10,7 +10,8 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 | `CLAUDE.md` §*The goal a design is chosen against* | Nothing here asks a person. A removal, a rebuilt file and a kept case are each proven by a run; a bound is a row CI reads |
 | `CONTRIBUTING.md` §*What a change to a gate must carry* | The one row this item adds (`slowest-job`) is a gate: its case seen red, the direction (it blocks more), a prompt budget of zero, a `Reads:` line per unit. A decision extracted into a pure function is a code change reviewed like any, with its battery red before and after |
 | `docs/the-reader-registry.md` §*Who declares*; §*A frame names what its work removes* | Every unit a batch adds to shipped code carries a `Reads:` line; `## Removes` below |
-| `docs/the-record-layout.md` §*A change writes fragments, never a shared file* | The changelog goes to this work item's fragment; no released file changes |
+| `docs/the-record-layout.md` §*A change writes fragments, never a shared file* | The changelog goes to this work item's fragment |
+| The owner's rule of 2026-10-14: **a rule has one source of truth, the test that holds it, whose docstring's first sentence states the rule it guards**; `bin/rules <doc>` (#944 phase 1, `.github/scripts/rules.py` at c04e759f) prints each section's `Enforced by:` targets with that sentence | Every test a batch rebuilds or keeps opens with the rule it guards, never a provenance note; a target a batch renames or deletes is re-pointed in the same pull request, or #944's `enforced-unresolved` row (ceiling 0, `seal/budgets.md` at c04e759f) fails it. #944 retires the released ledger, so no released ledger row is touched here |
 | #929's regrowth check as its smith is reworking it (the owner, 2026-10-14) | CI derives protection from the pull request's diff — mutants of the changed shipped lines, or of the units a tests-only pull request's tests exercise — one run per mutant, the killer set read, ≤ 5 minutes. No test carries a `Kills:` line. Read, not changed; #929's rows (`test-cases`, `test-lines`, the per-file rows) as it lands them |
 | #930's `seal/specs/1791876665-…/spec.md` §*The budgets* (661dc60b) | The ratchet; `ci-minutes:*` and the new `slowest-job` row lowered to the measured value in the pull request that lowers it |
 | #931's `test.yml` `durations` job (a8335041) | Each batch downloads its run's union (`gh run download <id> -n test-durations`) |
@@ -18,13 +19,11 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 | `skills/agent-contract/SKILL.md` §7, §15 | A battery run leaves nothing and is bounded by `--timeout`; a new case is seen red first |
 | `skills/implement/SKILL.md` §*3. The SDD file set* | Rows and shipped units change, which is the top rung |
 
-**On hold (the owner, 2026-10-14):** how released ledger rows that cite a deleted test id are handled. Each batch has one named step for it, *per the owner's ledger decision (pending)*, and nothing here costs or designs it.
-
 ## Scope
 
-**In.** The 180 test files #929's phases do not open, rebuilt or cut per shipped module so that the suite protects no less than today and a pull request waits no longer than a few minutes. Two strategies, chosen per file by measurement (`## The two strategies`): **rebuild** for a file that is heavy, redundant or whose regrowth proof would hold the check past 5 minutes — 65 files; **cut** per case under #929's criterion for a file already fast and thin — 115 files. Where a module's decision is tangled with git, filesystem or process calls, the batch first extracts it into a pure function in the shipped code. Every batch lowers its rows and commits its run's durations union, and records what left in one summary line. The whole item lands in 0.22.0.
+**In.** The 180 test files #929's phases do not open, rebuilt or cut per shipped module so that the suite protects no less than today and a pull request waits no longer than a few minutes. Two strategies, chosen per file by measurement (`## The two strategies`): **rebuild** for a file that is heavy, redundant or whose regrowth proof would hold the check past 5 minutes — 65 files; **cut** per case under #929's criterion for a file already fast and thin — 115 files. Where a module's decision is tangled with git, filesystem or process calls, the batch first extracts it into a pure function in the shipped code. Every test a batch rebuilds or keeps states the rule it guards in its first sentence. Every batch lowers its rows, commits its run's durations union, re-points the `Enforced by:` targets it moves, and records what left in one summary line. The whole item lands in 0.22.0.
 
-**Out, and whose.** #929's five files and mechanism; the strategy applied to #929's remaining phases (`questions.md` Q1, a row for its smith; its frame is not edited here). Prose-pinning cases (#923, #940, #941). Released-ledger handling (the owner, pending). Which legs run (item B). `.test_durations`' cadence (#931). The budget mechanism (#930). A suite-wide census job.
+**Out, and whose.** #929's five files and mechanism; the strategy applied to #929's remaining phases (`questions.md` Q1, a row for its smith; its frame is not edited here). Prose-pinning cases (#923, #940, #941). The released ledger (#944 retires it). Which legs run (item B). `.test_durations`' cadence (#931). The budget mechanism (#930). A suite-wide census job.
 
 ## What the remaining suite is
 
@@ -33,10 +32,10 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 | | Value |
 |---|---|
 | The suite | 13,914 cases · 185 files · 5,475 functions · 157,736 lines in `tests/test_*.py` (160,228 in `tests/*.py`) · 7,861 Windows seconds priced. Run 38487467049 (c98576a7): slowest job 12.3 min (Windows shard 3; shards 7.9–12.3), ubuntu 8.5 as one job, macOS shards 5.0–7.3 |
-| **The 180 remaining** | **8,850 cases · 5,071 functions · 142,559 lines · 5,316 s** · 3,591 released ledger citations of their ids (24 files with none) · 466 `Enforced by:` ids (79 files with none) · 45 files carry `skipif`/`pytest.skip` |
+| **The 180 remaining** | **8,850 cases · 5,071 functions · 142,559 lines · 5,316 s** · 466 `Enforced by:` ids in prose files name their cases (79 files with none) · 45 files carry `skipif`/`pytest.skip` |
 | Prose-pinning (#929's measure, errs over) | 998 functions · 1,470 cases · 31 files over half prose. Own: 7,380 cases · 4,073 functions |
-| **Rebuild set, 65 files** | 5,978 cases · 2,432 functions · 80,721 lines · **4,441 s** · 2,062 ledger citations · 259 `Enforced by:` ids. Of them the fourteen heavy files: 2,085 cases · 1,086 functions · 36,604 lines · 2,702 s · 949 citations |
-| **Cut set, 115 files** | 2,872 cases · 1,641 functions · 61,838 lines · 876 s · 1,529 citations · 207 ids |
+| **Rebuild set, 65 files** | 5,978 cases · 2,432 functions · 80,721 lines · **4,441 s** · 259 `Enforced by:` ids. Of them the fourteen heavy files: 2,085 cases · 1,086 functions · 36,604 lines · 2,702 s · 89 ids |
+| **Cut set, 115 files** | 2,872 cases · 1,641 functions · 61,838 lines · 876 s · 207 ids |
 | How two heavy files are built (`executed`, `ast`) | `test_chain_check_at_the_pull_request.py`: 148 functions, 138 take the `repo` fixture (a git repository each), 138 spawn, 38 call a module unit directly and 27 of those call `git`; `chain_check.py` has 93 units, 72 of them pure. `test_the_fixes_close_the_record.py`: 96 functions, 88 take `repo`, 75 spawn, 83 go through `fix_table` and 70 through `close`, which run `round_record.py` as a process; `round_record.py` has 105 units, 79 pure. Each case builds a repository and runs a script to test a decision over a record's text |
 | Tangled decisions (`executed`, errs over: a unit that reads a file then decides counts) | units with I/O and ≥ 3 branches: `chain_check.py` 13 · `round_record.py` 13 · `evidence_check.py` 15 · `seal.py` 15 · `broad_gate.py` 12 · `worktree-guard.py` 12 · `survivor_check.py` 7 · `unverified_check.py` 6 · `commit-review-gate.py` 4 · `session_cost.py` 4 · `config.py` 3 · `worktree_consent.py` 2 · `optin.py` 2 · `gate.py` 1 · `review-history-guard.py` 1 · `cmdline.py` 0 · `issue_claims_check.py` 0 — 110 |
 | The port list (`executed`, errs over: a docstring or name citing `#NN`, a round, a platform, CRLF, quoting, locale, `env`, `PATH`, a symlink, encoding) | 597 of the fourteen files' 1,086 functions; per file in `## Targets` |
@@ -49,15 +48,15 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 1. **Baseline.** The module's mutant battery — one mutant per sentence of the module its tests name, bounded by `--timeout` — is run once against the **old** files that load the module. The set of mutants killed is the baseline, committed in `phases/phase-N.md` with each mutant's killers.
 2. **Reference.** The old file's cases that encode a real bug of a platform, a path, CRLF, shell quoting or the environment — the port list, read case by case from the measured list, which errs over — are ported, one each.
 3. **Extraction.** Where a decision the tests need is tangled with git, filesystem or process calls, the batch extracts it into a pure function in the shipped module (inputs in, verdict out), with a `Reads:` line, the caller left thin; the module's battery is red before and after, so the behaviour is unchanged. The frame names the modules (`## What the remaining suite is`); the phase names the units.
-4. **New tests, per unit**: the decision as a pure function over an input → output table, and one end-to-end case per real path — git, hooks, filesystem, process. A thin old case that alone kills a mutant stays as it is.
-5. **Non-inferiority, then deletion.** The new file kills every mutant the baseline killed; a miss gets a case. Only then is the old content deleted, at the same path. One summary line per batch — what left, why, the baseline's kill count before and after — in the changelog fragment or the phase record; no per-function record. `Enforced by:` lines naming a deleted id are re-pointed in the same pull request. Released ledger rows citing a deleted id: the batch's named step, per the owner's ledger decision (pending).
+4. **New tests, per unit**: the decision as a pure function over an input → output table, and one end-to-end case per real path — git, hooks, filesystem, process. Every test's docstring opens with the rule it guards, as a sentence a document can print through `bin/rules` ("A branch switch in a tree another session holds is denied."), never a provenance note ("S6 of #860."); a kept thin case that alone kills a mutant gets that sentence too.
+5. **Non-inferiority, then deletion.** The new file kills every mutant the baseline killed; a miss gets a case. Only then is the old content deleted, at the same path. One summary line per batch — what left, why, the baseline's kill count before and after — in the changelog fragment or the phase record; no per-function record. Every `Enforced by:` target the batch renamed or deleted is re-pointed in the same pull request, which `enforced-unresolved` at 0 holds.
 6. **Proof on the run.** The regrowth check derives the mutants from the pull request's diff — the units the new tests exercise — and runs each once, reading the killer set, under 5 minutes by the file's seconds target.
 
-**Cut** — the file is fast and thin: #929's criterion unchanged, a case removed only where the file without it still kills every mutant it killed; one summary line per batch.
+**Cut** — the file is fast and thin: #929's criterion unchanged, a case removed only where the file without it still kills every mutant it killed; every kept case's first sentence states its rule; `Enforced by:` targets re-pointed; one summary line per batch.
 
 ## Targets
 
-**Bounds every pull request of this item meets.** The regrowth check ≤ 5 minutes. No `pytest` job slower than the previous pull request's slowest: `ci-minutes:*` lowered to the measured leg after each cut, and a new row **`slowest-job`** — the longest `pytest` job's minutes on the run, read by the `budgets` job beside `ci-minutes:*`, one-sided — lowered the same way. End of item: `slowest-job` ≤ 5 min.
+**Bounds every pull request of this item meets.** The regrowth check ≤ 5 minutes. No `pytest` job slower than the previous pull request's slowest: `ci-minutes:*` lowered to the measured leg after each cut, and a new row **`slowest-job`** — the longest `pytest` job's minutes on the run, read by the `budgets` job beside `ci-minutes:*`, one-sided — lowered the same way. `enforced-unresolved` at 0. End of item: `slowest-job` ≤ 5 min.
 
 **The path there**, in Windows seconds (`executed` today; the rest estimated and re-set by each phase's record): 7,861 today → ≈ 6,497 after #929 (the commit-gate and sealer files' own figures, the enumerations at half) → ≈ 2,549 after this item: the fourteen heavy files 2,702 → ≤ 253, the 51 other rebuilt files 1,739 → ≤ 370, the 115 cut files 876 → ≈ 745. Scaled on run 38487467049, the slowest Windows shard 12.3 → ≈ 4.0 min, ubuntu 8.5 → 2.8, macOS 7.3 → 2.4.
 
@@ -80,7 +79,7 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 | `test_unverified_rows_close.py` | 198 · 117 | 47.0 | ≤ 4 | 41 |
 | `test_the_records_can_be_carried_out_and_in.py` | 96 · 78 | 53.7 | ≤ 7 | 19 |
 
-**Rows at the item's end**, against #929's end values, each re-set by the ratchet from the batch's table: `test-cases` ≤ 10,500 → **≤ 8,000** (the rebuild set's 5,978 cases to about half, the cut set by shape twins, bare functions and a tenth); `test-lines` ≤ 150,000 → **≤ 125,000**; `suite-seconds` → ≈ 2,550; `slow-file:*` empty of this item's files; `ci-minutes:*` and `slowest-job` at the measured end.
+**Rows at the item's end**, against #929's end values, each re-set by the ratchet from the batch's table: `test-cases` ≤ 10,500 → **≤ 8,000** (the rebuild set's 5,978 cases to about half, the cut set by shape twins, bare functions and a tenth); `test-lines` ≤ 150,000 → **≤ 125,000**; `suite-seconds` → ≈ 2,550; `slow-file:*` empty of this item's files; `ci-minutes:*` and `slowest-job` at the measured end; `enforced-unresolved` 0 throughout.
 
 ## User scenarios & acceptance *(mandatory)*
 
@@ -97,15 +96,15 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 | S9 the rows move | any batch | `test-cases`, `test-lines`, the per-file rows, `slow-file:*`, `ci-minutes:*`, `slowest-job` lowered; the union committed; `budget_check.py` exit 0 |
 | S10 every pull request fits | any batch's run | regrowth check ≤ 5 min; no `pytest` job slower than the previous pull request's slowest |
 | S11 what left is recorded once | any batch | one summary line (what left, why, kills before and after) in the changelog fragment or the phase record; no per-function row |
-| S12 the docs follow | a deleted id an `Enforced by:` line names | the line re-pointed; `tests/test_a_folded_statement_names_what_enforces_it.py` green |
-| S13 the ledger step is named, not done | any batch | the phase record names the step and its method, *per the owner's ledger decision (pending)* |
+| S12 every test states its rule first | a test the batch rebuilt or kept | its docstring's first sentence is the rule it guards, not a provenance note; `bin/rules <doc>` prints it under each section that names the test; the phase record lists the kept tests whose sentence it rewrote |
+| S13 every moved target is re-pointed | an `Enforced by:` target the batch renamed or deleted | re-pointed in the same pull request; `enforced-unresolved` 0; `tests/test_a_folded_statement_names_what_enforces_it.py` green |
 | S14 prose pins move with the text | a prose-pinning function | not removed; listed for #923 |
 | S15 a cut file is cut by #929's criterion | a file in the cut set | the table: every mutant red before and after; a bare function removed on its run |
 | S16 nothing asks a person | the whole change | no `AskUserQuestion`, no prompt |
 
 ## Data & interfaces
 
-`seal/budgets.md`: one row `slowest-job` (minutes, one-sided, gate) with its measurer in `budget_check.py` reading the run's `pytest` jobs as `ci-minutes:*` does; its case seen red. Per batch: rebuilt test files at their old paths, cut files, extracted pure functions in the shipped modules named above; ceilings lowered; `.test_durations` from the run's `test-durations` artifact; `Enforced by:` lines re-pointed in place; `changelog.md` here with the batch's summary line; `phases/phase-N.md` with the baseline table, the port list, the path inventory and the ledger step named.
+`seal/budgets.md`: one row `slowest-job` (minutes, one-sided, gate) with its measurer in `budget_check.py` reading the run's `pytest` jobs as `ci-minutes:*` does; its case seen red. Per batch: rebuilt test files at their old paths, cut files, extracted pure functions in the shipped modules named above, every test's first sentence a rule; ceilings lowered; `.test_durations` from the run's `test-durations` artifact; `Enforced by:` lines re-pointed in place; `changelog.md` here with the batch's summary line; `phases/phase-N.md` with the baseline table, the port list, the path inventory and the rewritten-sentence list.
 
 ## Removes
 
