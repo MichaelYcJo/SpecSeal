@@ -104,6 +104,18 @@ deletes a shipped section, which this one does not. The question is the
 orchestrator's (hand-back); the hygiene step fails at the pull request until
 it is answered.
 
+**Every outside citation resolves by heading, and one names a table that
+left.** All sixteen headings stand, so each `§` from `hooks/`, `tests/`,
+`skills/implement/orchestration.md` and the READMEs names a section that is
+there (`read`), and the bold leads they cite (*Which commands reach these
+rows*, rule 4, *Under the press*) are kept. `hooks/worktree_consent.py`'s
+`automation_answered` docstring says §*Creation consent* "holds the table",
+and the consent tables were folded into prose. The one-word repair was made
+and taken back: it drifts `automation_answered`, which six more released
+families anchor (0.15.5 A1, 0.15.6 W3, 0.16.0 E20, 0.21.0 S8 and S12,
+0.21.1 S12), for a docstring this item does not otherwise own. It waits with
+the ledger decision.
+
 **`tests/test_release_hygiene.py#VERSIONS_OF_ANOTHER_PRODUCT` exempts
 `("docs/worktree-guard-spec.md", "2.54.0")`, and the doc named no `2.54.0`
 before this phase either.** Not this item's; left as found.
