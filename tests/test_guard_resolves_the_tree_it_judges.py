@@ -1392,7 +1392,10 @@ def test_the_guard_policy_says_which_shapes_reach_the_rows_and_who_reads_the_sto
         "and meets the rows above on the retry, and no person is asked.",
         "so the stop is a `deny` whoever is at the keyboard.",
         "The consent record is never read for the stop",
-        "**The failure direction.** The guard stops more than it did",
+        # Re-pointed by work item 1791934661 (#941), which states the rule
+        # without comparing it to the guard before it.
+        "**The failure direction.** Every unrecognised shape stops where the "
+        "tree matters",
         # Round 1 of work item 1791270162: red 1 and red 3, absent at
         # `4de95fa7`.
         "A `git switch` on the same line makes the stop a `deny` whoever is "
@@ -1416,8 +1419,13 @@ def test_the_guard_policy_says_nothing_is_read_past_the_base():
     readings left, and §*Known limits* holds the new limits and none of the
     removed ones. Red against the policy as it stood at `9c03ae85`."""
     text = _policy_text()
-    assert "Nothing is read past the base's words since #826" in text
-    assert "left with #826" in text
+    # Re-pointed by work item 1791934661 (#941): the policy states the rule
+    # and the one question §A asks, not which readings left and when.
+    assert "Nothing is read past the frozen base's words" in text
+    assert (
+        "**§A asks one question of every git: is this command known to leave "
+        "the branch where it is?**"
+    ) in text
     for limit in (
         "A git subcommand this repository never ran",
         "A creation only a hidden spelling holds",
