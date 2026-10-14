@@ -193,24 +193,6 @@ def test_the_count_survives_as_a_ceiling_in_the_wording_the_cap_already_uses():
     )
 
 
-def test_the_two_releases_are_cited_without_a_version_number():
-    """The evidence is what makes the rule a description rather than a
-    proposal, and both releases are at or above the running version, so the
-    citation is prose and the paragraph says why."""
-    # Lower-cased on both sides: the first citation opens a sentence, so
-    # pinning it as written would pin where the sentence break falls too.
-    doc = flat(OWNER).lower()
-    for citation in (
-        "the release that shipped the framer",
-        "the release that replaced the deleted checklist with a gate",
-    ):
-        assert citation in doc, f"{OWNER} no longer cites {citation!r}"
-    assert "named rather than numbered on purpose" in doc, (
-        "without this note a later author, for whom both numbers have become "
-        "history, replaces the descriptions with numbers and is right to"
-    )
-
-
 def test_the_rule_says_what_it_does_not_change():
     """Three clauses in one place, so a reader does not have to assemble them
     from a milestone table and a label section."""

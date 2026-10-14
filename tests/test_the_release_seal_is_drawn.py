@@ -969,10 +969,10 @@ def test_the_release_tail_says_the_seal_is_a_second_act_that_never_fails_it():
     bullet = text.split("**The release note publishes itself.**", 1)[1].split(
         "- **", 1
     )[0]
-    assert "**Then the release's seal is attached** (#718)" in bullet
+    assert "**Then the release's seal is attached.**" in bullet
     assert (
         "draws the owner's seal from `.github/scripts/release-seal.svg` with "
-        "`rsvg-convert`, which the job installs (#832)" in bullet
+        "`rsvg-convert`, which the job installs" in bullet
     )
     assert "letter" not in bullet
     assert "runs only when this run created the release" in bullet

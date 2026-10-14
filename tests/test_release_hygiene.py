@@ -264,9 +264,9 @@ def timers_in(rel, text, running, shipped=frozenset()):
     ones `shipped` names.
 
     Answers `(line number, token)` pairs. Below `running` is history and is
-    kept: `docs/issues-and-milestones.md` says in so many words that *the
-    branch `release/v0.3.0` shipped as 0.2.0*, and a rule that cannot state
-    that fact is refusing history rather than catching a timer. That case is
+    kept: a document saying *the branch `release/v0.3.0` shipped as 0.2.0*
+    states a fact, and a rule that cannot state that fact is refusing history
+    rather than catching a timer. That case is
     what decides against widening to every version this repository has ever
     shipped (#179's second candidate).
 
@@ -620,9 +620,8 @@ RUNNING_IN_THE_FIXTURES = "0.8.3"
 def test_a_version_below_the_running_one_is_history_and_is_kept():
     """The case that decides against refusing every version ever shipped.
 
-    `docs/issues-and-milestones.md` explains how to tell which release an
-    issue shipped in by saying that *the branch `release/v0.3.0` shipped as
-    0.2.0*. Both numbers are real, both are below the running version, and a
+    A document telling which release an issue shipped in can say *the branch
+    `release/v0.3.0` shipped as 0.2.0*. Both numbers are real, both are below the running version, and a
     rule that refuses them is refusing the repository's own history — which
     is #179's second candidate and why it was not taken.
     """
@@ -1841,7 +1840,7 @@ def test_the_document_says_where_an_issue_actually_closes():
         "the cause is stated with the wrong branch named as default, which "
         "inverts the whole rule while every other sentence still reads true"
     )
-    assert "left no LINK either, though the mention survives" in doc, (
+    assert "leaves no LINK either, though the mention survives" in doc, (
         "the link half went, or came back as the overstatement round 1 "
         "measured false: `closingIssuesReferences` is `[]` and no `connected` "
         "event exists, but the CROSS-REFERENCE does survive -- opening #88 "
@@ -1906,11 +1905,6 @@ def test_the_document_says_where_an_issue_actually_closes():
         "sequence got the old answer and stopped -- and then wrote no "
         "`Closes #N` for the workflow to read"
     )
-    for pr in ("#37", "#38", "#39"):
-        assert pr in doc, (
-            f"{pr} is gone — a rule with no incident behind it is prose, and "
-            "these three are what the rule was written from"
-        )
     pointer = " ".join(read_text("CONTRIBUTING.md").split())
     assert "which issues a release closes" in pointer, (
         "CONTRIBUTING's release section stopped naming this among what "

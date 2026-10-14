@@ -1,227 +1,94 @@
 # Release checklist
 
 The sequence in `docs/branch-and-release.md`, as the list to work down on the
-day. That document says why each step exists; this one says what to type and
-what to look at before the next step, in the order the failures arrived. Every
-line here was bought by a release that re-learned it.
-
-`X.Y.Z` is the release. Nothing below names a real version, because
-`tests/test_release_hygiene.py` refuses a loaded document that names the one
-running.
+day. `X.Y.Z` is the release.
 
 ## 0. Before starting
 
-- [ ] Every work item of the release is squash-merged into `release/vX.Y.Z`
-      and its pull request's CI was green **at the commit that merged**. A
-      merge pressed while a later push was still on its way takes the earlier
-      commit; the corrections then need a pull request of their own.
-- [ ] **Squash the work items back to back. A squash no longer makes the
-      others red.** `unverified_check` resolves its baseline to
-      `git merge-base <the base ref> HEAD`, so a work item squashed into the
-      release branch after a sibling forked is not that sibling's removal
-      (#272). Nothing has to be merged into a stale branch for that reason and
-      nothing has to be re-gated. Merge the release branch in only when a
-      branch actually needs something the release branch holds; the squash
-      discards the merge commit either way. A ledger file that conflicts at
-      that merge is resolved as `docs/the-evidence-ledger.md` §*A correction a
-      merge dropped* says, and `evidence-check` runs after the resolution.
-      **Never rebase a work item's branch, for any reason** — every round
-      record names its branch's commits by `Target SHA`, a rebase orphans
-      them, and that is the class this repository has a patch release about. That rule
-      predates the baseline repair and outlives it; it used to be written
-      here as a footnote to a workaround, which is the wrong place for a
-      standing rule.
-      What the old footing cost, so the paragraph is not simply gone: on the
-      release that found it, three of four branches each paid a release-branch
-      merge, a re-run broad gate, a re-pushed pull request and a conflict in
-      the release checklist every branch ticked a box in, and the cost was
-      roughly quadratic in the items a release carries. That last cost is not
-      payable any more — the shared checklist is gone (#351), the third file
-      cured of being written by every branch.
-- [ ] **The milestone `release: X.Y.Z` holds what this release is actually
-      carrying, and nothing else.** Every open issue in it that is not
-      shipping moves to another milestone now — a release-planning act that
-      needs no code and costs a handful of edits. Leave it and the release
-      pull request goes red at step 5: `release_completeness_check.py`
-      refuses while the milestone claims an open issue the release branch does
-      not carry, and names each one. That is the check working, and the moment
-      it fires is the worst moment to do the planning. This is what
-      `docs/flow.md` used to ask as *is everything in*; the file is gone
-      (#351) and the question is the machine's now.
-- [ ] No other Claude session is working in this checkout, and the editor is
-      not about to pull. An IDE pull once switched the checkout to the release
-      branch between two commands, and the preparation commit landed there.
-      `git status -sb` after every `switch` is the cheap check.
-- [ ] **Refresh `.test_durations` now, so the file prices every case this
-      release carries.** Cut a branch from `release/vX.Y.Z`, put `test.yml`
-      into the measuring shape `CONTRIBUTING.md` §*Running the checks* writes
-      out, push it, and run `gh workflow run test.yml --ref <that branch>`:
-      the Windows job runs the whole suite as one job and uploads the file.
-      Download it, make its line ends LF, commit it in the preparation commit,
-      and delete the measuring branch. When the release pull request's run
-      finishes, read its macOS shards' times and set their `timeout` again by
-      the rule beside the values, as `CONTRIBUTING.md` §*Running the checks*
-      says after a refresh; a value the rule leaves where it is needs no
-      commit. A release that skips this box is caught later by
-      `test_the_durations_file_prices_the_suite` in
-      `tests/test_the_windows_leg_runs_in_shards_that_make_the_whole.py`, on
-      whichever pull request takes the suite past one unpriced case in twenty,
-      and that session runs the recipe mid-cycle (#874).
+- [ ] Every work item is squash-merged into `release/vX.Y.Z`, its pull
+      request's CI green **at the commit that merged**.
+- [ ] **Squash the work items back to back.** `unverified_check` compares
+      against `git merge-base <the base ref> HEAD`, so a sibling squashed
+      after a branch forked is not that branch's removal. A ledger conflict
+      at a merge of the release branch is resolved as
+      `docs/the-evidence-ledger.md` §*A correction a merge dropped* says.
+      **Never rebase a work item's branch**: its round records name its
+      commits by `Target SHA`.
+- [ ] **The milestone `release: X.Y.Z` holds what this release carries, and
+      nothing else**, or `release_completeness_check.py` refuses the release
+      pull request at step 5.
+- [ ] No other session works in this checkout; `git status -sb` after every
+      `switch`.
+- [ ] **`.test_durations` is refreshed** by the recipe in `CONTRIBUTING.md`
+      §*Running the checks*, from a branch cut from `release/vX.Y.Z`, into
+      the preparation commit.
 
 ## 1. The preparation branch
 
 ```bash
 git fetch origin
 git switch -c chore/the-fragments-become-X.Y.Z origin/release/vX.Y.Z
-git status -sb          # the branch you asked for, tracking the release
+git status -sb
 ```
-
-The `release/*` ruleset takes no direct push, so the preparation commit needs
-this branch and a squash merge like any other work.
 
 ## 2. Gather, fold, bump
 
 <!-- specs/1788326734-the-ledger-fragments-are-never-gathered -->
 **The preparation commit gathers the changelog fragments and folds the ledger
-fragments, both.**
+fragments, both**, after the dry runs are read.
 
 ```bash
 python3 .github/scripts/gather_changelog.py --dry-run --version X.Y.Z
 python3 .github/scripts/fold_ledger.py --dry-run --version X.Y.Z
-```
-
-Read them. Then:
-
-```bash
 python3 .github/scripts/gather_changelog.py --version X.Y.Z
 python3 .github/scripts/fold_ledger.py --version X.Y.Z
 sed -i '' 's/"version": "A.B.C"/"version": "X.Y.Z"/' .claude-plugin/plugin.json
 git add -A changelog/ CHANGELOG.md seal/ .claude-plugin/plugin.json
 ```
 
-The gather writes a new file, the release's own `changelog/X.Y.Z.md`, and
-heads the index `CHANGELOG.md` with its line (#728); the fold removes the
-fragments it moved. Both are staged before §3 runs anything, because the
-suite lists files with `git ls-files`, which reads the index: an untracked
-release file and an unstaged removal are a tree the listing does not
-describe.
-
-The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
-row; that is a review that never drained, not a release problem, and the
-row's work item is where it is closed.
+Stage it before §3: the suite lists files with `git ls-files`. The fold
+refuses while any `seal/specs/<id>/evidence-todo.md` has an open row, a
+review that never drained.
 Enforced by: tests/test_the_ledger_fragments_fold_at_release.py::test_check_fails_while_a_fragment_is_left, tests/test_the_ledger_fragments_fold_at_release.py::test_the_release_pull_request_runs_the_check, .github/workflows/hygiene.yml
 
 <!-- specs/1790208593-the-fold-writes-each-release-to-its-own-file -->
-**The fold writes the release's own file, and never an older one.** Since
-#547 the fold writes `seal/releases/X.Y.Z.md` and never `seal/ledger.md`,
-which keeps the notation and the rows from before the fragments and stops
-growing. It had reached 2,736 lines, and every re-stamp's diff and every
-conflict's hunks landed in it. A one-time `--split` moved the releases folded
-into it before #547 into their own files at the release that shipped #547,
-and was retired by #715, because the one act left to it was writing
-`seal/ledger.md`. A released file is not edited after its release, so the
-fold refuses a `--version` older than the newest release file and writes
-nothing; a second fold for the newest version still joins its file.
-`--check` refuses a `seal/ledger.md` that heads a release again, and says to
-move the section into its release's file in the change that wrote it. A
-fragment that begins with its own marker line is folded with one marker, and
-`--check` refuses a work item marked twice across the ledger files: twenty
-stood twice when #553 measured it. The split did not remove the same-row
-conflict two branches meet when each re-stamps one row; #715 removed it,
-because a re-read is now a row in the branch's own fragment.
+**The fold writes the release's own file, and never an older one.** It
+refuses a `--version` older than the newest `seal/releases/` file, and
+`--check` refuses a `seal/ledger.md` that heads a release or a work item
+marked twice.
 Enforced by: .github/scripts/fold_ledger.py::main, tests/test_release_hygiene.py, tests/test_the_ledger_fragments_fold_at_release.py::test_a_fold_into_an_older_release_is_refused_and_writes_nothing
 
 <!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
 <!-- specs/1790206437-a-second-fold-writes-a-second-heading -->
-**A second gather for the same version appends into its section.** The
-release pull request going red and a fragment landing after this step is the
-ordinary shape, and the gather used to write a second `## X.Y.Z` heading for
-it (#289) — one release's entries split across two sections that read as two
-releases. Run the same command again: the new entries join the existing
-section, the section keeps the first gather's date, and
-`tests/test_release_hygiene.py` refuses a file that heads a version twice.
-The fold answers the same way (#540): a second `fold_ledger.py --version
-X.Y.Z` joins the release's file, `seal/releases/X.Y.Z.md`, and keeps its
-date; `fold_ledger.py --check` refuses a release file that heads a version
-twice or is not named for the version it heads, and the same hygiene module
-refuses the ledger as it refuses the changelog.
+**A second gather or fold for the same version joins its section and keeps
+its date**, so a fragment landing after this step is one more run; a file
+heading a version twice is refused.
 Enforced by: tests/test_release_hygiene.py, .github/scripts/fold_ledger.py::insert
 
 ## 2b. Settle what the release leaves behind — by hand, and not in that commit
 
-**First, the process record. This part is never skipped.**
+**First, the process record. This part is never skipped.** `settle`, then
+`settle --retire-process`, which removes the process record of every work item
+already on `main`; no check reads that part after its release. It is a pull
+request of its own, its commit carrying `: '[no-review]';` in front
+(`skills/settle/SKILL.md` §*The process record leaves first, fold or no fold*).
 
-```bash
-settle
-settle --retire-process
-```
-
-The first command ends with what the second would take. The second removes
-`rounds/`, `phases/`, `survivors.md` and the files written only for a pull
-request from every work item already on `main`, which is every release before
-this one, and leaves `routing.md` and the SDD set for the fold below. No
-check reads that part after its release, and removing it judges nothing, so
-it runs on every release, including one that skips the fold. What the SDD set
-still cites of it is read at the release tag. It is a branch and a
-pull request of its own, as the fold is, and it is not a work item either: its
-commit carries `: '[no-review]';` in front of the command. It exits 1 when a
-guard keeps an item: close an open todo row in a pull request of its own
-first, and answer an anchored ledger row as the fold does.
-`skills/settle/SKILL.md` §*The process record leaves first, fold or no fold*
-is its procedure.
-
-**Then the fold.** `settle` names the released work items whose `spec.md`
-no `docs/` policy has absorbed yet, grouped by the file their ledger rows
-anchor in. Read it, write one standing statement per segment into `docs/`,
-and hold what you wrote to the fold's two rules:
-
-```bash
-fold-check
-```
-
-It reads this repository's cutoff and ceiling from `seal/config.md` and names
-every statement out of shape and every document over the ceiling. Fix what it
-names while the specs are still on disk, and then:
-
-```bash
-settle --retire
-```
-
-**This is a separate branch and a separate pull request from step 2.** Writing
-policy prose is a judgment act, and step 2 is two dry runs somebody reads
-followed by one mechanical commit; a release that stops for a person to write
-documentation is a release that stops. Nothing fails a build for an unsettled
-work item, so the honest answer on a busy release is to skip the fold and run
-it on its own later. The process record's removal above is not part of what
-is skipped, because it waits on no judgment.
-
-`skills/settle/SKILL.md` is the procedure. **A fold is not a work item**: it
-opens no directory under `seal/specs/`, the routing question is not asked for
-it, every commit carries `: '[no-review]';` in front of the command, and its
-pull request is where the prose is judged. It owes an answer for every check
-in this repository carrying a population floor over `seal/specs/`, and for
-every ledger row `settle` names as anchored. It owes no `survivors.md` row:
-the survivor sweep leaves a retired directory out of its range.
+**Then the fold**: one standing statement into `docs/` per segment `settle`
+names, `fold-check` until it names nothing, then `settle --retire`. **This is a
+separate branch and a separate pull request from step 2**, because policy prose
+is a judgment act; a busy release skips it. **A fold is not a work item**: no
+`seal/specs/` directory, and `: '[no-review]';` before each commit.
 
 ## 3. Verify before committing — all of it, here
 
-The preparation commit is the first time a fragment's prose is read by the
-tests that scan the release files under `changelog/`, and the first time
-`seal/ledger/` is empty. Both found something the first time. So the whole
-gate runs on this tree, and every exit code is read directly rather than
-through a `| tail`.
+**The whole gate runs here, every exit code read directly.**
 
 <!-- specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep -->
 **A sweep that walks a git listing judges what remains instead of stopping at
 the first tracked file the disk lacks, and a case whose verdict needs the
-whole corpus says so.** This is also a tree where git lists tracked files the
-disk does not have: the fold removes each fragment and nothing has staged the
-removal yet. So a count line reading `… passed, N skipped` with reasons naming
-paths is that state rather than something to debug. A fold alone produces no
-skipped case, because the paths it removes are under `seal/ledger/` and no
-such case reads a corpus that reaches there; one appears when the tree is also
-mid-edit somewhere a check like that reads, under `docs/`, `skills/`,
-`templates/`, `tests/` or a shipped `.py`.
+whole corpus says so.** With fold removals unstaged, `N skipped` with reasons
+naming paths is that state, not a defect.
+Enforced by: tests/test_a_shrunken_corpus_declines_to_judge.py::test_no_scope_in_the_suite_lists_paths_from_git_without_a_guard, tests/test_a_shrunken_corpus_declines_to_judge.py::test_declining_raises_the_skip_carrying_that_reason
 
 ```bash
 python3 .github/scripts/gather_changelog.py --check
@@ -230,28 +97,18 @@ python3 skills/evidence-check/scripts/evidence_check.py --strict .
 uvx ruff check . && uvx ruff format --check .
 bin/test -q
 python3 skills/verify/scripts/unverified_check.py --baseline origin/main seal/specs/
-git fetch origin '+refs/pull/*/head:refs/remotes/pull/*/head'
+git fetch origin '+refs/pull/*/head:refs/remotes/pull/*/head'   # chain_check needs it
 python3 skills/code-review/scripts/chain_check.py --baseline origin/main
 ```
 
-What each one has caught, so a failure is recognised rather than debugged:
-
-| Check | What it found at a release |
+| Check | What its failure means here |
 |---|---|
-| `evidence-check --strict` | rows anchored on units the preparation edited read as drifted. Where `seal/config.md` declares `Ledger frozen from`, as this repository does, re-read every row citing them, write the re-reads with `--reverify --into seal/ledger/<unix-seconds>-fold.md --checked <date>`, and fold that fragment with a second `fold_ledger.py --version X.Y.Z` in the same commit, which joins the release's file; plain `--reverify` writes no released file and exits 1 naming each row. Without the row, `--reverify --checked <date>` narrowed with `--ledger` to the files read, in the same commit. The total can drop across a fold: two fragments citing one coordinate identically fold into one row, and the unique-anchor count is what stays equal |
-| the full suite | a gathered entry prescribed a `git mv` whose destination nothing creates; a layout test asserted `seal/ledger/` exists, and git keeps no empty directory once the fold removes the last fragment |
-| `test_no_loaded_file_names_a_version_at_or_above_the_running_one` | living prose that named the release by number the moment it became the running one. Since #179 it also names one written *ahead* of the release, which used to be green until the day it shipped — a document had carried an unshipped version for three releases that way. Records of a moment are listed in the test; everything else is reworded to name the change, or to the illustrative version the test's own message points at. Since #363 a version this repository has *tagged* is history and may be named — the shipped set is read from the root's `v*` tags, never from this file, because this commit writes the heading and the bump together and the version being cut is the timer |
-| `chain_check --baseline origin/main` | exit 1 in a checkout that never fetched `refs/pull/*/head` — the fetch line above is the fix, not a lost commit. CI fetches it itself |
-
-Enforced by: tests/test_a_shrunken_corpus_declines_to_judge.py::test_no_scope_in_the_suite_lists_paths_from_git_without_a_guard, tests/test_a_shrunken_corpus_declines_to_judge.py::test_declining_raises_the_skip_carrying_that_reason
+| `evidence-check --strict` | rows anchored on what the preparation edited drifted: write their re-reads with `--reverify --into seal/ledger/<unix-seconds>-fold.md --checked <date>` and fold them with a second `fold_ledger.py --version X.Y.Z` in the same commit |
 
 ## 4. Commit, push, open the first pull request
 
-The commit belongs to no work item — it is the routing question's
-`no work item` answer (`skills/implement/orchestration.md` §*Question 1*),
-the class #517 settled for the fold, declared rather than stepped around —
-and that answer's recorded form is the waiver in front of each command, in
-quotes:
+The commit is the routing question's `no work item` answer
+(`skills/implement/orchestration.md` §*Question 1*), so it carries the waiver:
 
 ```bash
 : '[no-review]'; git commit -m "chore: release X.Y.Z — <what the fragments say>"
@@ -260,15 +117,9 @@ gh pr create --base release/vX.Y.Z --head chore/the-fragments-become-X.Y.Z \
   --title "chore: release X.Y.Z — <the same line>" --body-file <file>
 ```
 
-The title's count of fragments is the count `--version` gathered, not the count
-`--check` reports: the latter includes every fragment of every earlier release.
-
-- [ ] **Wait for CI on the pull request head before pressing *Squash and
-      merge*.** Read `gh pr checks <n>` and compare the head SHA to the one
-      just pushed.
-- [ ] A body edit goes through `gh api -X PATCH repos/<owner>/<repo>/pulls/<n>
-      -F body=@<file>`; `gh pr edit` fails on a deprecated Projects query in
-      some `gh` versions and leaves the body unchanged without saying so.
+- [ ] CI is green on the pushed head SHA before *Squash and merge*. A body
+      edit goes through `gh api -X PATCH repos/<owner>/<repo>/pulls/<n>
+      -F body=@<file>`, because `gh pr edit` can fail silently.
 
 ## 5. The release pull request
 
@@ -277,47 +128,25 @@ gh pr create --base main --head release/vX.Y.Z \
   --title "release: X.Y.Z — <the symptoms the release answers>" --body-file <file>
 ```
 
-Its hygiene checks fail until step 4 is squashed in, by design. Then they go
-green without a push. Press ***Create a merge commit***, never squash: the
-review records name the release branch's commits by `Target SHA`, and a
-squash discards them.
+It goes green once step 4 is squashed in. Press ***Create a merge commit***.
 
 ### What a release pull request is not the right range for
 
 <!-- specs/1788890000-the-survivor-step-runs-on-a-range-no-fix-pass-wrote -->
 **The survivor check's unit is a fix pass's range, and a release is not
-one.** A pull request into the default branch carries the union of every work
-item the release holds, so one item's removed wording is scored against
-another item's prose — and each of those items was already checked at its own
-pull request. The release that shipped the check found this the only way it
-could be found, by failing its own release pull request with 72 places
-reported and not one of them a survivor of the range that removed the
-wording. So the step passes on that base and **prints why**: a job-level skip
-reads as *did not run*, and that is the state where the next reader deletes a
-guard nobody can explain.
+one**, so the step passes on that base and **prints why**: a silent skip
+reads as *did not run*.
 Enforced by: tests/test_a_corrected_sentence_survives_elsewhere.py::test_the_workflow_step_skips_a_release_range_and_says_why, .github/workflows/hygiene.yml
 
 <!-- specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer -->
-**A loaded file naming a version at or above the running one is a timer.** A
-document that names a version which does not exist yet goes red on the commit
-that writes it rather than on the release that ships it, so the refusal
-covers every version at or above the running one rather than the running one
-alone — less the versions this repository has tagged, because from the
-preparation commit until the next bump the running version is one that has
-already shipped, and a tag is what says so (#363). Three exemptions, each
-argued where the rule is: the illustrative version this repository already
-writes, records of a moment under `docs/experiments/`, and a version
-belonging to another product.
+**A loaded file naming a version at or above the running one, and not
+tagged, is a timer**, red on the commit that writes it. The exemptions are
+argued in the test.
 Enforced by: tests/test_release_hygiene.py::test_no_loaded_file_names_a_version_at_or_above_the_running_one
 
 <!-- specs/1789919879-the-outside-contributor-has-no-procedure -->
-**A contributor whose base is wrong is told the base is wrong.** The
-procedure a contributor needs is the first thing in the contributing guide,
-not the fourth: which branch to base on and how to find it, what they do, and
-what they are not asked to do. A pull request template carries the
-base-branch fact itself rather than only a link, because its whole advantage
-is that it reaches somebody who opened no document — and the refusal message
-of the check that fires on a wrong base says which fact is wrong.
+**A contributor whose base is wrong is told the base is wrong**, by the
+guide's first section, the pull request template and the refusal itself.
 Enforced by: tests/test_the_release_check_watches_what_ships.py::test_the_refusal_names_the_wrong_base_as_one_of_the_two_causes, tests/test_the_contributor_has_a_procedure.py::test_the_procedure_is_the_first_section_of_the_guide
 
 ## 6. After the merge
@@ -327,125 +156,51 @@ git tag vX.Y.Z <merge commit> && git push origin vX.Y.Z
 git describe --tags     # names the release, not "<tag>-N-g<sha>"
 ```
 
-The version hook reads tags and nothing else; an untagged release is one no
-installed session is ever told about.
-
-**This section used to stop here, and that is what #386 measured.** Two acts
-come after the tag, and neither was written down anywhere: publishing the
-release note, which three consecutive releases skipped, and telling the plugin
-directory, which had no step at all because until 2026-09-16 there was no
-directory to tell. Both are boxes now. The first carries the command that
-answers it; the second carries the command that reads what a script can and
-names the page that answers the rest — a box a reader cannot act on is the
-same defect one layer up.
-
-```bash
-gh release view vX.Y.Z                              # did the note publish
-python3 .github/scripts/plugin_directory_check.py   # what the marketplace files hold
-```
-
+**Two acts follow the tag, each a box**: the first runs the command that
+answers it, the second reads what a script can and names the page that
+answers the rest.
 - [ ] **A GitHub Release exists at `vX.Y.Z`** — `gh release view vX.Y.Z`.
-      The tag push fires `.github/workflows/publish-release.yml`, which
-      publishes it from the release's file step 2 already gathered, with
-      the title taken from the `release: X.Y.Z — <symptoms>` line step 5
-      prescribes. **This box confirms the workflow fired; it is not where the
-      note gets written.** Nothing there means the job went red or never ran,
-      and `gh run list --workflow publish-release.yml` says which. The job
-      fails for a tag whose release file, `changelog/X.Y.Z.md`, is not there
-      or carries no section for it, which is step 2 not having happened; for
-      a `v*` tag that is not `vX.Y.Z`; and when a `gh` call it makes fails.
-      A missing title line is not one of them — it falls back to the tag
-      name. The note opens with a summary of the release's pull requests
-      and a `### 🙌 Thanks to` line for each outside contributor, over the
-      section folded; where the job
-      log says the pull requests could not be listed, the note went out as
-      the section alone, which one `gh release edit` repairs. After the
-      note, the same workflow's `seal` job attaches `seal.png` and puts it
-      where the glance table stood (#718). Where the note still shows the
-      table, the `seal` job's log says why on a `::warning::` line: the
-      suite at the tag did not pass, `rsvg-convert` was not installed or
-      could not draw the SVG (#832), a `gh` call failed, or the glance
-      table was not in the note as generated -- edited before the job
-      reached it, published without one, or the pull requests moved
-      between the two lists. That job never fails the release.
-      To draw one by hand, from a checkout at the tag on a machine with
-      `rsvg-convert`, run the suite with the broad gate's recorder loaded —
-      `PYTHONPATH="$PWD/skills/verify/scripts/pytest_record"`,
-      `PYTEST_ADDOPTS='-p specseal_pytest_record'`, and
-      `SPECSEAL_RECORD_DIR` and `SPECSEAL_RECORD_KEY` naming a directory
-      that exists and a key you choose — then run
-      `DRY_RUN=1 python3 .github/scripts/release_seal.py` with `TAG`,
-      `REPO`, `SUITE_RECORDS` (that directory) and `SUITE_KEY` (that key)
-      set; attach the PNG it names with
+      **This box confirms the workflow fired; it is not where the note gets
+      written.** If none, `gh run list --workflow publish-release.yml` says
+      whether the job went red or never ran. After the note, the same
+      workflow's `seal` job attaches `seal.png` in place of the glance table;
+      where the table still shows, its log says why on a `::warning::` line:
+      the suite at the tag did not pass, `rsvg-convert` was not installed or
+      could not draw the SVG, a `gh` call failed, or the table was edited,
+      published without one, or the pull requests moved between the two
+      lists. That job never fails the release. By hand, from a checkout at the
+      tag on a machine with `rsvg-convert`: run the suite with the broad
+      gate's recorder loaded as the workflow loads it, then
+      `DRY_RUN=1 python3 .github/scripts/release_seal.py` with `TAG`, `REPO`,
+      `SUITE_RECORDS` and `SUITE_KEY`; attach the PNG with
       `gh release upload`, then apply the note it prints with
       `gh release edit --notes-file`.
 - [ ] **The marketplace files and the directory's page have been read** —
-      `python3 .github/scripts/plugin_directory_check.py`. It reads the two
-      marketplace files on GitHub and says, per file, whether this plugin has
-      an entry, which commit the entry pins, and whether that commit is an
-      ancestor of `main`. **It reports and never fails**, deliberately: the
-      files sync on somebody else's schedule, one of the two once went
-      twenty-eight days without a commit, and a red nobody can act on is what
-      `CLAUDE.md`'s first goal is against. Those files are not the directory,
-      the catalog people browse inside Claude, and the directory is readable
-      from nowhere a script can reach, so the command ends by saying it was
-      not read and printing the address of the page that answers. A portal
-      listing is answered on the portal's Submissions page, with its status
-      and the version that is live. It picks up each new version from its
-      tracked branch without a resubmission, and a version that passes goes
-      live by the listing's publish setting, which by default waits for
-      somebody to select Publish (`claude.com/docs/plugins/submit`, §*Publish
-      a passing version*). A Console listing is answered on the Console
-      page. SpecSeal's listing is a Console listing, by the repository owner's
-      reading of the Console page on 2026-10-07, and a Console listing takes
-      no new version until a person moves it to the portal
-      (`claude.com/docs/directory/publish`, §*Move an earlier submission to
-      the developer portal*), so no release reaches the directory through it
-      until then. Whether it shows up at all is what a search for SpecSeal
-      inside Claude answers.
-
-<!-- specs/1788789330-the-update-notice-names-the-expensive-move -->
-**A notice telling somebody an update landed names the move it costs them.**
-An installed copy is what a session loads, so an update that has landed on
-disk is not an update that is in force until the session reloads — and
-reloading is the expensive part, not the install. Every place this repository
-tells a user what to do after an update names the reload command, says what a
-reload was measured to do, and says what nobody has measured about it. A
-session-start hook writes into a session and cannot type into one, so running
-it for the user is not on offer, and a notice that leaves the cost out reads
-as though there were none.
-
-The close-issues workflow has already run by now. It fires when `main` moves,
-which is the merge above rather than anything you do here, and it reads the
-**pull request bodies** the release carries — every `Closes #N` a feature
-pull request wrote, acted on at last, because GitHub reads a closing keyword
-only for a pull request whose base is the default branch. It does not read
-the changelog section. This paragraph said the opposite of both halves until
-#359, which is how a sentence nobody could act on survived for several
-releases.
+      `python3 .github/scripts/plugin_directory_check.py`. **It reports and
+      never fails**: the files sync on somebody else's schedule, and one once
+      went twenty-eight days without a commit. The directory is readable from
+      nowhere a script can reach. A portal listing is answered on its
+      Submissions page and takes each version from its branch without a
+      resubmission, live by its publish setting. A Console listing is
+      answered on the Console page. SpecSeal's listing is a Console listing,
+      by the repository owner's reading of the Console page on 2026-10-07,
+      and takes no new version until moved to the portal
+      (`claude.com/docs/directory/publish`).
 
 - [ ] **Every issue the run named is closed** — `gh run list --workflow
-      close-issues-on-release.yml --limit 1`, then the job log. The run
-      attempts every issue and falls back to the REST route where `gh issue
-      close` is refused (#536); a red job is one where both routes refused an
-      issue, and its last lines name each one with both errors. Repair it
-      from a clone that has both commits, with the run's own inputs:
+      close-issues-on-release.yml --limit 1`. A red job names each issue both
+      routes refused; re-run it with the run's inputs (`DRY_RUN=1` prints the
+      plan):
 
       ```bash
       BEFORE=<github.event.before> AFTER=<github.event.after> REPO=<owner>/<repo> \
         python3 .github/scripts/close_issues_on_release.py
       ```
+- [ ] The `merged: X.Y.Z` labels stay, and the next release branch is cut
+      from `main`.
 
-      It skips what is already closed and reaches the rest; `DRY_RUN=1` in
-      front of it prints the plan and writes nothing.
-
-Leave the `merged: X.Y.Z` labels where they are. They accumulate, one per
-release, and that is deliberate: deleting a label deletes it from every issue
-that ever carried it, which falsifies the record the label was created to
-leave.
-
-- [ ] Local `release/vX.Y.Z` and `main` fast-forwarded; the preparation
-      branch deleted or left, either is fine.
-- [ ] The next release branch is cut from `main`, not from this one.
-
+<!-- specs/1788789330-the-update-notice-names-the-expensive-move -->
+**A notice telling somebody an update landed names the move it costs them**:
+the reload, without which the update is not in force, what it is measured to
+do, and what nobody has measured.
 Enforced by: tests/test_version_check.py::test_the_warning_names_the_cheap_move_before_the_expensive_one, tests/test_version_check.py::test_the_warning_names_both_commands_in_order

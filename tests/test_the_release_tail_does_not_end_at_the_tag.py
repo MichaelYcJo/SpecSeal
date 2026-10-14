@@ -243,7 +243,7 @@ def squash_rule():
     text = read(BRANCHING)
     start = text.index("**What breaks when the last row is squashed**")
     rest = text[start:]
-    end = rest.index("**This is enforced, and it was not always.**")
+    end = rest.index("**Two rulesets enforce the method**")
     return flat(rest[:end])
 
 

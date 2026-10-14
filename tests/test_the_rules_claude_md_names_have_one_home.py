@@ -51,8 +51,8 @@ RULES = {
             "| a feature branch | `release/vX.Y.Z` | **squash** | *Squash and merge* |",
             "Pick the other one and something downstream stops resolving, so "
             "this table is the whole rule and the paragraphs below are why.",
-            "A hotfix was squashed in once, and it cost nothing only because no "
-            "rider stamp and no round record named its commits",
+            "The last two rows are one rule: **anything reaching `main` is a "
+            "merge commit.**",
         ),
     ),
     "identifiers": (

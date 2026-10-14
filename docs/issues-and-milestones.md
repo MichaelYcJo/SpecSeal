@@ -2,17 +2,11 @@
 
 What the issue tracker's fields mean here, and which of them anything reads.
 
-Every other mechanism in this repository has a document that owns it —
-`branch-and-release.md` owns the merge rules, `review-chain-spec.md` owns the
-cap, `worktree-guard-spec.md` owns the guard. The tracker had none, and its
-conventions lived in the shape of the data plus one sentence inside a design
-record. This is that document.
-
 ## A milestone answers *when*, and takes three shapes
 
 <!-- specs/1789172128-a-release-is-sized-by-a-count-and-cut-by-urgency -->
-**A milestone answers *when* and never a release's size, which is decided by
-what has to be in effect before the next work item starts.**
+**A milestone answers *when* and never a release's size, which is decided by what
+has to be in effect before the next work item starts.**
 
 | Prefix | Holds | Ends |
 |---|---|---|
@@ -20,373 +14,185 @@ what has to be in effect before the next work item starts.**
 | `backlog:` | work with no release yet, bucketed by area | closed when the area is empty |
 | `log:` | **not work** — a record that is kept rather than finished | never closed |
 
-`release:` milestones carry the version's release date as their due date, and
-are closed when the release reaches `main`. An open milestone with a past due
-date reads as overdue, which is the tracker's way of saying a release shipped
-and nobody closed its milestone.
+A `release:` milestone carries the release date as its due date and closes when the
+release reaches `main`, so one open past its due date is a shipped release nobody
+closed.
 
 **A release is sized by what has to be in effect before the next work item
-starts, and not by a count.** One change that decides how the next ticket runs
-is a release on its own. The release that shipped the framer carried a single
-work item, because the agent that writes a frame had to exist before anything
-was framed; the release that replaced the deleted checklist with a gate carried
-two, because the next work item had to start with the replacement already in
-effect. Neither of them was cut short of a target.
+starts, and not by a count.** One change that decides how the next ticket runs is
+a release on its own.
 
 **Three or four is a ceiling, not a target.** It is as much as one section can
-describe while a reader still comes away knowing what the release is about, and
-it says nothing about when to stop under it. The count is in work items rather
-than in ticket numbers because a run that reaches either bound files what it
-could not close, and one branch's leftovers arrive as several ticket numbers
-that a reader counts as several releases' worth of work. Size a ticket set
-that will be one branch as one item. 0.8.3 shipped three of eight, and
-carrying five forward was the call rather than the failure.
-
-**The two releases above are named rather than numbered on purpose.** Both sat
-at or above the running version when this was written, and
-`test_no_loaded_file_names_a_version_at_or_above_the_running_one` refused a
-loaded file that named either — the same rule that keeps the number
-illustrative in **A rolling log is titled after the version it rolled from**
-below. The release files under `changelog/` turn either description back
-into a number in one grep. Since #363 a version this repository has tagged
-is history to that rule, so the one that had shipped could be numbered now;
-the citations stay prose because a description reads the same on every
-release and a number here would be one more line to re-read at each.
+describe, and it says nothing about when to stop under it. It counts work items,
+not tickets, because one branch's leftovers arrive as several tickets.
 
 **What the criterion does not change.** It decides a release's size and nothing
-else. A `release:` milestone is still the pool a release is cut from rather than
-the release itself, `backlog:` below is still the unscheduled pool, and nothing
-schedules from either — the one thing that reads a milestone checks a cut
-release against its pool and never decides what goes into one.
+else: a `release:` milestone is still the pool a release is cut from, `backlog:`
+is still the unscheduled pool, and nothing schedules from either.
 
-`backlog:` is the unscheduled pool, and an issue leaves it in one act: the
-milestone changes. It used to be two, the second being a line in a checklist
-every branch appended to; that file is gone and what it carried is here and
-on the tracker (#351). **A scheduled release milestone's description states
-the release's purpose and the grounds for the order its issues sit in**, and
-grounds belonging to one ticket sit on that ticket. So "what is in 1.2.3, and
-why in that order" is answered without opening a file. The number is
-illustrative, for the reason
-**A rolling log is titled after the version it rolled from** gives below.
-It named a real unshipped release here for three of them (#179).
+**An issue leaves `backlog:` in one act: its milestone changes.** A scheduled
+release milestone's description states its purpose and the grounds for its order,
+so "what is in 1.2.3, and why" needs no file; the number is illustrative, for the
+reason **A rolling log is titled after the version it rolled from** gives below.
 
-`log:` is the shape that surprises people, and there is one of it:
-`log: measurement`. What it holds are not tasks. `#51` is the durable
-performance ledger whose body is the current state, and the open
-`flow-measurement` issue is this version's rolling log. Neither has a done
-condition, so neither closes, so the milestone does not either.
+**`log:` holds what is not work: `log: measurement`.** `#51` is the durable
+performance ledger and the open `flow-measurement` issue this version's rolling
+log; neither has a done condition, so neither they nor the milestone close.
 Enforced by: tests/test_a_release_is_sized_by_a_criterion.py::test_the_rule_states_the_criterion_and_not_the_count, tests/test_a_release_is_sized_by_a_criterion.py::test_one_document_states_a_releases_size
 
 ## A label answers *what it is about*, and survives the move
 
-GitHub gives an issue one milestone. That field is spent on *when*, so a
-concern that outlives a schedule needs a label instead: `measurement` is
-carried by `#51`, by the rolling log, and by the scheduled work that came out
-of them, whichever milestone each one sits in. Query the concern by label and
-the release by milestone; neither substitutes for the other.
+**A concern that outlives a schedule is a label**, because an issue's one
+milestone is spent on *when*: `measurement` is carried by `#51`, the rolling log
+and their work, whatever their milestones.
 
-**`from-review` marks an issue a review round filed.** A round that hands a
-finding to the tracker puts it on the new issue, and nothing reads the label —
-what it is for is one query. `--label from-review --state all` beside
-`--state closed` gives the share of filed findings anybody went on to act on,
-and that share is why the filing decision is a ladder rather than a reflex:
-on 2026-09-22 the label carried 89 issues, 43 of them closed — 48% — with 23
-of the 46 still open opened inside one three-day window, the one issue that
-run filed excluded. **Quote the date with the number.** The label set moves,
-so a share written without its as-of date goes false quietly and a reader
-re-taking the query cannot tell which of the two changed. A measurement whose
-key is undocumented is not repeatable either, which is the whole of why the
-label is written down here.
-`docs/review-chain-spec.md` §*Where a leftover goes — the ladder, and why a
-new issue is not the default* owns where a filed finding goes; this section
-owns what the label means.
+**`from-review` marks an issue a review round filed**, for one query:
+`--label from-review --state all` beside `--state closed` is the share of filed
+findings acted on. **Quote the date with the number**; the label set moves.
+`docs/review-chain-spec.md` §*Where a leftover goes — the ladder, and why a new
+issue is not the default* owns where a filed finding goes.
 
 <!-- specs/1788661274-the-roll-names-the-next-version-by-guessing -->
 <!-- specs/1788486395-the-roll-opens-the-next-log-with-no-body -->
-**`flow-measurement` is a label that is not an index.** It is a lookup key,
-and it carries an invariant: *exactly one open at a time*.
-`.github/scripts/roll_flow_measurement_issue.py` closes the current one and
-opens the next on a push to `main`, and **only where a new version has
-shipped** since the open log opened; it fails loudly on zero or on two
-rather than guessing which is current. The workflow fires on every push to
-the default branch, so a push that moved no version — a re-run of the job,
-or a merge that shipped nothing — rolls nothing and says so in the job log.
-**A log rolled with no comment on it is said so in three places** — the
-close comment on the old log, the new log's body, and the job's output —
-and the release ships anyway (#198): the count is read off the list call
-the roll already makes, so a release is never held for bookkeeping about a
-release, and a count the listing could not answer rolls exactly as before
-and says the count was unreadable.
-`skills/verify/SKILL.md` finds the log to post a segment's measurement to by
-that key. Reading `--label flow-measurement --state all` finds the rolling
-logs and misses `#51`; reading `--label measurement` finds everything and
-answers no lookup.
+**`flow-measurement` is a label that is not an index.** It is a lookup key with an
+invariant: *exactly one open at a time*.
+`.github/scripts/roll_flow_measurement_issue.py` closes the current one and opens
+the next on a push to `main`, **only where a new version has shipped** since the
+open log opened, and fails loudly on zero or two.
+A push that moved no version rolls nothing and says so. **A log rolled with no
+comment on it is said so** in the close comment, the new body and the job output,
+and the release ships anyway. `skills/verify/SKILL.md` finds the log by that key;
+`--label measurement` would also find `#51`.
 Enforced by: tests/test_a_release_rolls_the_flow_measurement_issue.py::test_two_open_issues_fails_loudly_without_retrying, tests/test_a_release_rolls_the_flow_measurement_issue.py::test_a_push_that_shipped_no_new_version_rolls_nothing
 
 <!-- specs/1788844200-the-refusal-text-is-unobserved-and-an-uppercase-v-is-invisible -->
-**A rolling log is titled after the version it rolled from**, in the form
-`chore: flow measurement — after 1.2.3`. That log opened at the 1.2.3
-release, holds the measurements taken since, and is closed by whatever ships
-next. The number here is illustrative on purpose: a real version written
-into a loaded file is what
-`test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses —
-at or above the running one and not yet tagged, whether that is the version
-being cut or one still ahead of it — and this paragraph would go red the day
-it named one. **A version below the running one, or one this repository has
-tagged, is history and is kept.** That half is not a detail: it is what lets
-this document say further down which release an issue shipped in, and a
-rule that refused every version this repository has ever shipped would have
-refused that sentence too. The tagged half is #363's: the preparation commit
-bumps the running version, so until the next bump the running version is one
-that has already shipped, and a tag — never the changelog, whose heading
-lands in the bump's own commit — is what says it did.
-The version in it is a fact rather than a prediction:
-`docs/branch-and-release.md` says whether the next number is a minor or a
-patch is known at the end and not at the cut, so at the moment the roll runs
-the next version is the one thing nobody can name.
+**A rolling log is titled after the version it rolled from**:
+`chore: flow measurement — after 1.2.3` opened at the 1.2.3 release and closes when
+the next one ships. The number is illustrative because
+`test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses a real
+version at or above the running one, not yet tagged. **A version below the running
+one, or one this repository has tagged, is history and is kept**: after the
+preparation commit's bump the running version has shipped, and a tag says so.
+The title names a fact, because the next number is known only at the end
+(`docs/branch-and-release.md`).
 
-**A title that does not begin with `chore: flow measurement — after ` was
-written before that convention, or by hand, and the roll reads it as due.**
-The whole of that prefix is what the roll writes, and the whole of it is what
-the roll requires, from the first character of the title. A title carrying
-those words somewhere inside it — `docs: explain flow measurement — after
-1.2.3` — is not one of these logs, and reading a version out of it would
-leave that log never due. Titles written before this convention were named
-for the version they were predicted to be *for*, which is how a patch
-release came to close a log titled for a minor that had not shipped — #155
-carries the measurement, and no real version is named here for the reason
-above. They are **not rewritten**: a retitle would falsify every comment
-that cites them. A title the roll
-cannot read as its own is due rather than silent, so the first release after
-each one rolls it and the older convention retires itself.
+**A title that does not begin with `chore: flow measurement — after ` was written
+before that convention, or by hand, and the roll reads it as due.** The roll
+requires the whole prefix from the first character, so
+`docs: explain flow measurement — after 1.2.3` is not a log. An older title names
+the version it was predicted to be *for* and is **not rewritten**, since a retitle
+falsifies every comment citing it.
 
 **`size: now` says this ticket has to be in effect before the next work item
-starts.** It is where the sizing judgment above is written down, so the next
-release is cut without re-reading every open issue body. Two states and no
-more: a ticket carries it or it does not, and not carrying it means the ticket
-rides the next release that happens to carry it. There is no second level and
-no scale, because the sizing question has two answers and a taxonomy with four
-levels is one nobody maintains.
+starts.** It records the sizing judgment so the next cut re-reads no issue. Two
+states: without it, a ticket rides the next release that happens to carry it.
 
-**The prefix is what keeps it inside the rule this section opens with.** A
-label answers *what it is about*, and this one is about sizing — a concern that
-outlives every schedule, since every release is sized. What the release spends
-is the value, `now`, and not the subject. Two states means the subject never
-appears on the tracker carrying a second value, so a spent label is removed
-whole rather than re-valued — what outlives the schedule is the question the
-prefix names, not a label anybody is holding. So the subject sits in the prefix and
-the verdict in the value, which is the shape `chain: capped` already has here,
-and the section needs no second exception: `flow-measurement` above stays the
-one label that is not a topic at all. A bare `now` was the name proposed, and
-it is not the name — standing alone it is a schedule answer with no subject,
-and it reads as the ordinary adverb this document itself uses.
+**The subject sits in the prefix and the verdict in the value**, as in
+`chain: capped`, so a spent label is removed whole; `flow-measurement` stays the
+one label that is not a topic. `chain: reframed` marks a run whose fix passes went
+back to the framer, and nothing reads it (`skills/code-review/orchestration.md`
+§*A fix of a fix twice sends the work item back to its framer*).
 
-`chain: reframed` takes the same shape beside `chain: capped`: the pull request
-of a run whose fix passes stopped and went back to the framer, and nothing
-reads it (`skills/code-review/orchestration.md` §*A fix of a fix twice sends
-the work item back to its framer*).
-
-**Nothing schedules from this label** — no workflow, no check and no script
-reads it to decide what happens next — so a stale one costs a reader a wrong
-answer about what has to go next and costs no automation anything.
+**Nothing schedules from this label**, so a stale one costs a reader a wrong
+answer and no automation anything.
 
 **One thing reads it, and only to spend it.**
-`.github/workflows/close-issues-on-release.yml` removes `size: now` from each
-issue it closes when the release reaches `main`. That is the moment this
-section already named, and until #450 nothing acted on it: the sentence said
-the label comes off then and that nothing enforced it, which is the same shape
-as the closing keyword nobody read — an answer written down with no reader.
-The removal rides the close rather than preceding it, so a label write that
-fails cannot cost an issue its close.
+`.github/workflows/close-issues-on-release.yml` removes `size: now` from each issue
+it closes when the release reaches `main`, after the close, so a failed label
+write cannot cost an issue its close.
 
 **The judgment is made at filing, and again when an issue moves milestone.**
-Those are the two moments somebody is already reading the body, which is the
-whole argument for the label: the reading is cheap while it is happening
-anyway and expensive when it has to be repeated from scratch at a cut. A
-ticket filed without it is not a ticket judged *not now* — it is one nobody
-has judged, and the absence reads the same either way, which is the price of
-two states.
+Somebody is reading the body then. A ticket filed without it is unjudged, which
+reads the same as *not now*.
 
 **No sweep of the standing backlog is owed, and none should be done.** The
-argument above is that the judgment is cheap at filing and expensive in a
-batch; a sweep is the batch, performed once, by the very party the label
-exists to spare. The label earns its keep on tickets filed from here on, and
-an old ticket gets one the next time somebody opens it for another reason.
-This is written down because the obvious first move after creating a label is
-to apply it everywhere, and doing that here would pay the whole cost the
-section is trying to avoid, in one sitting, for answers that go stale.
-**`merged: X.Y.Z` goes on earlier inside that same release**, at the squash
-onto the release branch — §*A label says a ticket is already in, before the
-release ships* is that mechanism, and the gap between the two moments is
-exactly the interval that section exists to fill. It answers *is this in yet*
-while the release is being assembled; this one is spent only once the work is
-out. A label is the right home for the judgment for exactly that reason: it
-makes the answer durable without making it a gate anybody has to satisfy.
+judgment is cheap at filing; a sweep is the batch, performed once, by the very
+party the label exists to spare. An old ticket gets it when somebody next opens it.
 
-**What it does not decide is which release the ticket lands in.** The criterion
-answers *now or not now*; ordinary scheduling answers the rest, and a ticket
-without the label can still be the next thing somebody picks up.
+**`merged: X.Y.Z` goes on earlier**, at the squash onto the release branch
+(§*A label says a ticket is already in, before the release ships*), and answers
+*is this in yet*. Neither label decides which release a ticket lands in.
 Enforced by: tests/test_a_release_rolls_the_flow_measurement_issue.py::test_the_title_the_roll_writes_is_the_title_the_next_roll_reads, tests/test_a_release_rolls_the_flow_measurement_issue.py::test_rolled_from_reads_only_the_title_the_roll_itself_writes
 
 ## Closing one of these by hand breaks the next release
 
-The invariant above is what makes `log: measurement` dangerous to tidy. A
-milestone holding two issues that never close looks exactly like a milestone
-somebody abandoned. **Closing the open `flow-measurement` issue leaves zero
-open, and the next release fails on it** — which is the loud failure working
-as designed, at the worst possible moment.
-
-If a `log:` issue has been closed, reopen it rather than opening a new one:
-two open ones fail the same check from the other side.
+**Closing the open `flow-measurement` issue leaves zero open, and the next release
+fails on it.** Reopen a closed `log:` issue rather than opening a new one: two
+open ones fail the same check.
 
 ## One thing reads a milestone, and it can stop a release
 
-This section said *nothing automated reads a milestone* until #359, and for
-as long as that was true a wrong milestone cost a person a wrong answer to
-"what is in this version" and cost no automation anything. It is not true any
-more, and the cost moved.
+**`.github/scripts/release_completeness_check.py` refuses the release while its
+milestone holds an open issue the release branch does not carry**, naming each,
+on the pull request from `release/vX.Y.Z` into `main`;
+`docs/release-checklist.md` step 0 is where that is fixed. It reads what the
+release carries from the closing keywords of the bodies its squash subjects'
+`(#N)` name, with `.github/scripts/close_issues_on_release.py`'s readers,
+imported. `skills/implement/orchestration.md` §*Orchestrator: the order inside a
+ticket* says the same from the ticket's side.
 
-`.github/scripts/release_completeness_check.py` runs on a pull request from
-`release/vX.Y.Z` into `main` and reads the milestone `release: X.Y.Z`. It
-**refuses the release** while that milestone holds an open issue the release
-branch does not carry, and names each one. So a milestone left holding next
-quarter's work does not produce a wrong answer any more, it produces a red
-release pull request — at the moment the release is being cut, which is the
-worst moment to do the scheduling it is asking for.
-`docs/release-checklist.md` step 0 is where that act belongs — the box asking
-whether the milestone holds what the release is carrying, which is inside
-step 0 and so is ticked before any of the release's cost is paid.
-
-What the gate compares the milestone against is still the pull request body.
-It reads the release branch's own commit subjects, takes the `(#N)` a squash
-writes, fetches those bodies, and collects what their closing keywords name —
-the same readers `.github/scripts/close_issues_on_release.py` uses to close
-them when the release reaches `main`, imported rather than copied.
-`skills/implement/orchestration.md` §*Orchestrator: the order inside a
-ticket* says the same thing from the ticket's side.
-
-**A missing `Closes #N` still costs an issue that stays open forever, and now
-something reports it.** An issue nobody claimed is in the milestone and never
-enters what the release carries, so it is indistinguishable from work that
-was never built — and the release is refused until somebody either writes the
-keyword, or moves the issue, or builds it. That is a louder failure than the
-silence it replaces, and it lands on the release rather than on the work item
-that caused it.
+**A missing `Closes #N` leaves an issue in the milestone that never enters what
+the release carries**, and the release is refused until somebody writes the
+keyword, moves the issue, or builds it.
 
 ## A label says a ticket is already in, before the release ships
 
 <!-- specs/1789108681-a-merged-ticket-looks-unstarted-until-the-release-ships -->
-**An issue a pull request into a release branch claimed carries
-`merged: X.Y.Z` before the release ships.**
-An issue's state does not move until `main` moves, and `main` moves once per
-release. So for the length of a release a finished work item and one nobody
-has started look identical on the tracker, and for a while the only thing
-that told them apart was a bullet in a checklist that has since been deleted
-(#351).
+**An issue a pull request into a release branch claimed carries `merged: X.Y.Z`
+before the release ships**, because an issue's state moves only when `main` does.
+`.github/scripts/label_merged_on_release_branch.py` runs on a push to `release/*`
+and labels every issue the arriving pull requests claimed, creating the label the
+first time.
 
-`.github/scripts/label_merged_on_release_branch.py` runs on a push to
-`release/*` and puts `merged: X.Y.Z` on every issue the arriving pull
-requests claimed, creating the label the first time. One query answers *what
-is already in* — `gh issue list --milestone "release: X.Y.Z"`, and the merged
-ones carry the label.
-
-Three things about it are worth knowing before anyone tidies it.
-
-- **It never closes anything.** An issue closed at the release-branch merge
-  is closed for something nobody has received; the close stays on `main`.
-- **The labels accumulate and are never removed**, one per release. Deleting
-  one deletes it from every issue that ever carried it, which falsifies the
-  record it was created to leave.
-- **A label is a cache and the commits are the truth.** The gate above
-  recomputes what the release carries from the branch itself and never asks
-  the labels, so a label write that failed cannot block a release. It does
-  compare the two and says which way they disagree: a label naming a release
-  the issue is not in **fails**, because that is always a hand-edit or a
-  squash subject that lost its `(#N)` and one command repairs it, while a
-  missing label only **reports**, because a release must not be held for a
-  failure of the signal rather than of its contents.
+- **It never closes anything.** The close stays on `main`.
+- **The labels accumulate and are never removed.** Deleting one deletes it from
+  every issue that ever carried it, which falsifies the record it was created to
+  leave.
+- **A label is a cache and the commits are the truth.** The gate above never asks
+  the labels, so a failed write cannot block a release. A label naming a release
+  the issue is not in **fails**, being a hand-edit or a lost `(#N)`; a missing
+  label only **reports**.
 
 Enforced by: tests/test_a_merged_ticket_says_so_on_the_tracker.py::test_it_labels_the_issue_the_keyword_named_and_nothing_else, tests/test_a_merged_ticket_says_so_on_the_tracker.py::test_the_trigger_is_a_push_to_a_release_branch_and_nothing_else
 
 ## A keyword claims the one number after it
 
 <!-- specs/1788844400-a-body-naming-two-issues-claims-one -->
-**A closing keyword claims the one number after it.**
-`Closes #153 and #150` claims #153. The second number carries no keyword of
-its own, so nothing reads it as a claim — not GitHub, and not the script
-above, whose own comment says `Closes #1, #2` is not read as two either. PR
-#162 wrote that sentence; the 0.8.0 release acted on #153 alone, and #150
-stayed open until somebody dealt with it by hand.
-
-**Write the keyword in front of every number**: `closes #153 and closes #150`.
-
-The hygiene workflow reports the split on every pull request —
-`.github/scripts/issue_claims_check.py` prints every issue the body claims,
-every one it merely mentions, and a warning for any sentence that claims one
-number and names another beside it. It reports and never fails, so the
-correction is the author's to make while the pull request is open. A body
-quoting the failing shape inside a fence or a code span, the way this section
-does, is not an instance of it.
-
-The prose around those spans keeps its keywords out for the same reason. A
-past-tense narrative keyword is still a keyword, so the opening paragraph of
-this section says a release *acted on* one number rather than using the verb
-this section is about, and a sentence that used it with a second number beside
-it would earn the warning like any body.
+**A closing keyword claims the one number after it.** `Closes #1 and #2` claims
+the first issue, and neither GitHub nor the closer reads `Closes #1, #2` as two.
+**Write the keyword in front of every number**: `closes #1 and closes #2`.
+`.github/scripts/issue_claims_check.py` reports the split on every pull request
+and never fails. A body quoting the failing shape in a fence or a code span, as
+this section does, is not an instance of it; the prose around them keeps its
+keywords out, past tense included.
 Enforced by: tests/test_a_body_naming_two_issues_claims_one.py::test_the_sentence_that_lost_an_issue, tests/test_a_body_naming_two_issues_claims_one.py::test_the_two_lists_say_what_closes_and_what_does_not
 
 <!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
-**A keyword inside a fence or a code span claims nothing, whatever the fence
-or the span is made of.** A fence opens with backticks or tildes at any
-indent and closes on its own delimiter; a span is one backtick or two. The
-closer used to mask a backtick fence at column 0 and a one-backtick span
-alone, so a keyword quoted in a tilde fence, in a fence indented under a list
-item or in a double-backtick span was read as a claim (#266). Masking more
-closes fewer, and that is the safe direction: an issue left open is visible
-and a re-run reaches it, while a wrong close is a false record. Two shapes are
-still read as claims, each pinned by a case so a later widening is a
-deliberate red: a four-space indented block, because this repository's pull
-request bodies indent a bullet's continuation that way and masking it would
-drop a real `Closes #N`, and an HTML comment, because whether GitHub reads a
-keyword inside one is unmeasured. `.github/scripts/issue_claims_check.py`
-imports the closer's two patterns rather than spelling its own, so the check
-and the closer read one body the same way.
+**A keyword inside a fence or a code span claims nothing, whatever the fence or
+the span is made of.** A fence opens with backticks or tildes at any indent; a
+span is one backtick or two. Masking more closes fewer, the safe direction. Two
+shapes are still read as claims, each pinned by a case: a four-space indented
+block, which pull request bodies here use for a bullet's continuation, and an HTML
+comment, whose reading by GitHub is unmeasured. `issue_claims_check.py` imports
+the closer's two patterns.
 Enforced by: tests/test_release_hygiene.py
 
 ## An issue is its body and its comments together
 
-Corrections, measurements and improvements land as comments, and the question
-a reader is answering — *what does this ticket now ask for* — is answered by
-reading all of them and then judging. That is how the tickets here have
-actually been used, and a rule that told people to read the body alone would
-be describing a different repository.
+**An issue is read whole, and its body owes the reader no reconciling.** A body
+that contradicts a comment is fixed by consolidating it once the design settles,
+or by opening it with `> **Update <date>.**` naming what has moved, when the
+original is worth keeping.
 
-What the body owes in return is that nobody has to **reconcile** it. A body
-that contradicts a comment leaves the reader to work out which is current,
-which is the cost this section exists to keep down. Two ways to pay it, and
-which one fits depends on whether the original text is worth keeping:
-
-- **Consolidate the body**, once the design is settled. The comments stay and
-  are still part of the issue; what goes away is the need to cross-check four
-  places to learn what the ticket asks for. #136 is the worked example.
-- **Leave the body and open it with `> **Update <date>.**`**, naming what has
-  moved since it was written. #30 is the worked example: the original design
-  is preserved and the block says which two things below it have changed.
-
-The exception is an issue that is a **ledger rather than a ticket** — `#51`
-and the rolling `flow-measurement` log. There the body IS the current state
-and is maintained: a better baseline replaces the table, an observation that
-gets an answer is rewritten where it stands, and the comments are the evidence
-a change was made on rather than the answer. `#51`'s own body says so at the
-top, because the distinction is not guessable from the outside.
+**An issue that is a ledger rather than a ticket keeps its body as the current
+state** — `#51` and the rolling `flow-measurement` log: a better baseline replaces
+the table, an answered observation is rewritten in place, and `#51`'s body says
+so at the top.
 
 ## An issue is titled like a commit
 
-Same prefix vocabulary as commits and pull requests — `feat:`, `fix:`,
-`docs:`, `chore:`, `test:`, `refactor:`, `perf:` — and the subject is the
-**symptom**, not the classification.
-`skills/commit-pr-convention/SKILL.md` is the authority for the vocabulary;
-this is only the note that issues use it too.
+**An issue takes the commit prefix vocabulary, and its subject is the symptom, not
+the classification** (`skills/commit-pr-convention/SKILL.md`).
 
 ```
 good   chore: the round cap is a ceiling and has been spent like a budget
@@ -395,13 +201,7 @@ bad    Round cap improvements
 
 ## Reconstructing a missing milestone
 
-The signal is the tag, not the branch. For a closed issue with no milestone,
-find the pull request whose body names it with `Closes #N`, take that pull
-request's merge commit, and read the **first tag that contains it** — that is
-the release it shipped in.
-
-A branch name is not that signal and has been wrong here: the branch
-`release/v0.3.0` shipped as 0.2.0, and its own release pull request says so
-in its title. Where no pull request names the issue at all, the close date
-against `CHANGELOG.md`'s release dates is what is left, and it is a guess
-rather than a reading.
+**The signal is the tag, not the branch.** For a closed issue with no milestone,
+read the **first tag that contains** the merge commit of the pull request whose
+body names it with `Closes #N`; a release branch can ship under another number.
+Where no pull request names it, its close date is a guess, not a reading.

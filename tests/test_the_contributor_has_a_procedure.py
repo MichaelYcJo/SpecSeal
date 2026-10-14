@@ -208,15 +208,13 @@ def test_no_contributor_facing_surface_names_a_concrete_release_branch(surface):
 # `tracked` — and not a list of its own that would rot the way the four did.
 RELEASE_BRANCH = re.compile(r"release/v\d+\.\d+\.\d+")
 
-# A concrete name that is history rather than a timer: a dated measurement, a
-# branch that shipped under another version, and a merge the correction
-# checker's own history walk found. Each is the sentence that carries the
-# name, whitespace-collapsed, so the name is allowed where that sentence
-# stands and nowhere else in the file — the shape `test_release_hygiene.py`
-# gives *the branch `release/v0.3.0` shipped as 0.2.0*.
+# A concrete name that is history rather than a timer: a dated measurement and
+# a merge the correction checker's own history walk found. Each is the
+# sentence that carries the name, whitespace-collapsed, so the name is allowed
+# where that sentence stands and nowhere else in the file — the shape
+# `test_release_hygiene.py` gives *the branch `release/v0.3.0` shipped as 0.2.0*.
 RELEASE_BRANCH_HISTORY = {
     "agents/smith.md": "measurement was taken at `release/v0.9.3`",
-    "docs/issues-and-milestones.md": "the branch `release/v0.3.0` shipped as 0.2.0",
     "skills/evidence-check/scripts/correction_check.py": (
         "opening it showed correct work: `release/v0.9.3` re-anchored a row"
     ),
@@ -260,8 +258,8 @@ def test_the_widened_pin_reads_a_file_the_four_surfaces_never_held(tmp_path):
         tmp_path / "tree",
         {
             "skills/x/SKILL.md": "Run `x --range origin/release/v1.2.3...HEAD`.\n",
-            "docs/issues-and-milestones.md": (
-                "Here the branch `release/v0.3.0` shipped as 0.2.0, once.\n"
+            "agents/smith.md": (
+                "Here the measurement was taken at `release/v0.9.3`, once.\n"
             ),
         },
     )

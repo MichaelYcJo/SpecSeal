@@ -245,7 +245,6 @@ BASELINE = {
     ("docs/commit-review-gate-spec.md", "docs/the-commit-gate-inside-git.md"): 11,
     ("docs/commit-review-gate-spec.md", "docs/the-review-and-parity-arms.md"): 11,
     ("docs/commit-review-gate-spec.md", "skills/agent-contract/SKILL.md"): 14,
-    ("docs/issues-and-milestones.md", "docs/release-checklist.md"): 2,
     ("docs/measuring-a-run.md", "docs/the-agent-set.md"): 11,
     ("docs/measuring-a-run.md", "docs/the-broad-gate.md"): 11,
     ("docs/measuring-a-run.md", "docs/the-evidence-ledger.md"): 11,
