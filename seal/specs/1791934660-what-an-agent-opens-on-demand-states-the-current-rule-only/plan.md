@@ -6,6 +6,8 @@ the gate. -->
 
 Approved 2026-10-14 by the repository owner, when `smith` was spawned.
 
+**Decided after framing, to fold into this frame before the next smith spawns:** the owner's decisions on #940, issuecomment-6161373021 (branch issue-number rule), issuecomment-6162036112 (approval line alone), issuecomment-6162351561 (CLAUDE.md selection rule). Until they are folded, a smith reads them there.
+
 The owner set the proof's cadence on 2026-10-14: each phase runs the behaviour cases mapped to the rules it changed, and each agent's full suite runs once at the item's end. Revised in place the same day by the framer, before the build, under the owner's one-source rule and #944's removal of the ledger and the survivor sweep (`spec.md`'s opening).
 
 ## Summary
