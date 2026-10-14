@@ -1,0 +1,24 @@
+# every test file is cut to what it guards — questions for the planner
+
+<!-- seal/specs/<unix-epoch-seconds>-<slug>/questions.md — decisions only a human can make,
+extracted so nothing ships on a silent assumption. -->
+
+**Judgments the ticket left open that the tree answered** — listed so nobody reopens them; the grounds are in `spec.md` and `plan.md` §*Alternatives considered*.
+
+- Which milestone item C takes (#929's Q2): the owner put #942 in `release: 0.22.0` on 2026-10-14 (the issue; `routing.md`). What remains open is only which phases land there (Q1).
+- The batch unit is the module a file loads, not its size or its fixtures: 4–5 of 8 sampled mutations survive a single file against a module other files also load, so a file's survivors are the module's to read (alternatives B, C).
+- Removal stays within a file under #929's criterion; the module's battery decides what is planted. The method is #929's and is not redesigned here; a disagreement is Q2.
+- A prose-pinning function gets its `Kills:` line here (the document's path, the literal the assertion holds; #929 S5) and is never removed or re-pointed here (#923's boundary); otherwise a mixed file never leaves the list (alternative F).
+- The bound on a batch's `cases` job is the Windows leg's median wait, 42 minutes, so the proof adds no wait; a batch over it splits by file.
+- The fourteen files whose proof alone costs ≥ 30 ubuntu-minutes are named in `plan.md` phase 10 with their minutes rather than deferred silently (alternatives E, G).
+
+| # | Question | Who can answer | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|---|
+| Q1 | Which phases of `plan.md` land in 0.22.0. The 166 light files (phases 1–9: 6,765 cases, 105,955 lines, 527 ubuntu-minutes of proof over ~19 pull requests) fit the release's shape; the 14 heavy files (phase 10: 2,085 cases, 36,604 lines, 1,554 minutes, 31–394 each) do not fit under the 42-minute bound at #929's two-run proof, and `unguarded-files` ends at 14 without them | a person — the repository owner, before phase 10 opens, not before the build | (a) phases 1–9 and 11 in 0.22.0, phase 10 in 0.22.1 as its own item citing this one: the release ships with 14 files on the list, named; (b) everything in 0.22.0 at #929's proof: each heavy pull request waits 0.5–6.5 h on CI and the item adds ~26 h of ubuntu; (c) everything in 0.22.0 once Q2's answer halves or shards the proof: 0.22.0 waits on #929's smith | (a); the build proceeds through phase 9 under every option | ⬜ |
+| Q2 | The `cases` job's cost on a file whose every function gains a `Kills:` line: (i) one run per function under its mutation, read for the killer set — red, and the set is the function's own ids — in place of the with-and-without pair; (ii) a matrix over functions for a pull request lining more than N; (iii) whether a function whose only difference from the base is its docstring is a changed function. This frame assumes two runs, no shards, and yes | the work — #929's phase 2, its smith; a disagreement with #929's spec, not a redesign of it | (i) halves phase 10's 1,554 minutes; (ii) cuts its wait by the shard count; (iii) `no` would make the lining free and the proof a sentence in a hand-back, which #929 refuses | two runs, no shards, yes; `spec.md` §*Batches, order, and what each proves* holds the batches to the bound | ⬜ |
+| Q3 | The ubuntu seconds of one file run against its Windows price. 0.23 (the suite's median minutes, 9.9/42.4) is assumed per file; a spawn-heavy file may run slower on ubuntu than its share | a measurement — phase 1's `cases` job summary, four files | — | 0.23; the bound and phase 10's list re-set from phase 1's figure | ⬜ |
+| Q4 | Each module's battery — one mutation per sentence the kept files name — and which survivors get a case; the counts re-set the rows | the work — each phase's table, run before any case leaves | — | the targets in `spec.md` §*Targets*, re-set from the table with the reason | ⬜ |
+| Q5 | Whether `mutation-check`'s killer count sees a collection error: the frame's parse read `FAILED` lines and recorded three red mutations with no killer | a measurement — phase 1, one run with `-rfE` beside `-rf` | — | the table reads `-rfE`; a collection error names the file as the killer | ⬜ |
+| Q6 | For each opened file, which functions it lined but left to #923 (prose pins), and whether #923's phase that moves a sentence re-points the line in the same commit | the work — each phase's record here; #923's phases for the re-pointing | — | listed per phase; #923 re-points, because `case_check.py` reads the line when the function changes and the sentence move is what changes it | ⬜ |
+
+One row waits on a person, and it does not block the build: Q1 is needed before phase 10 opens, and phases 1–9 run under every option. The three kinds are the template's.
