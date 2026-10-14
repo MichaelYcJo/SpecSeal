@@ -309,6 +309,8 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
     a string, a NUL in the path -- are handled here, and `consent` catches
     whatever else might, because `hooks/dispatch.py` skips a gate that raises
     and the guard's deny would become no decision at all.
+
+    Reads: observed — this session's transcript, the harness's JSONL, its `AskUserQuestion` results; unknown refused
     """
     path = transcript_for(session, transcript_path)
     if not path:

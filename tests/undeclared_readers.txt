@@ -639,7 +639,6 @@ hooks/worktree_consent.py#_clone_of@76893ae0
 hooks/worktree_consent.py#_content@881f3efd
 hooks/worktree_consent.py#_routing_answer@a85b5f62
 hooks/worktree_consent.py#_routing_preset@85b623f0
-hooks/worktree_consent.py#automation_answered@13e31995
 hooks/worktree_consent.py#consent@754e5d51
 hooks/worktree_consent.py#consent_path@262343b7
 hooks/worktree_consent.py#creation_directory@be60497e
