@@ -4,7 +4,9 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
-Approved 2026-10-14 by the repository owner, when `smith` was spawned. The owner set the proof's cadence on 2026-10-14: each phase runs the behaviour cases mapped to the rules it changed, and each agent's full suite runs once at the item's end. Revised in place the same day by the framer under the owner's reader criterion, after phases 1, 6 and 8 (`spec.md`'s opening).
+Approved 2026-10-14 by the repository owner, when `smith` was spawned.
+
+The owner set the proof's cadence on 2026-10-14: each phase runs the behaviour cases mapped to the rules it changed, and each agent's full suite runs once at the item's end. Revised in place the same day by the framer under the owner's reader criterion, after phases 1, 6 and 8 (`spec.md`'s opening).
 
 ## Summary
 
