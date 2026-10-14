@@ -650,48 +650,37 @@ def test_the_record_no_longer_says_the_checks_would_refuse(parts, wrong):
     assert "red forever" in text or "영원히 빨간불" in text, "/".join(parts)
 
 
-@pytest.mark.parametrize(
-    "parts, decided, left_open",
-    [
-        (
-            ("docs", "one-root-by-lifetime.md"),
-            "## Decided after the thread",
-            "## Decisions left open",
-        ),
-        (
-            ("docs", "one-root-by-lifetime.ko.md"),
-            "## 스레드 뒤에 정해진 것",
-            "## 결정을 남겨 둔 것",
-        ),
-    ],
-)
-def test_the_scratch_row_moved_from_left_open_to_decided(parts, decided, left_open):
-    text = read(*parts)
-    assert "specseal-scratch" in section(text, decided, 2), "/".join(parts)
-    assert "scratch" not in section(text, left_open, 2), "/".join(parts)
+# Re-pointed by work item 1791934661 (#941): the design record's dated
+# decision table left, and each rule it held is stated in the section that
+# owns its subject — the opt-out with the opt-in, the rest with first setup.
+OPT_IN = {
+    "docs/one-root-by-lifetime.md": (
+        "## The opt-in signal is the root itself, wherever the mode put it"
+    ),
+    "docs/one-root-by-lifetime.ko.md": (
+        "## 옵트인 신호는 루트 자체다, 모드가 정한 자리에 있는"
+    ),
+}
+FIRST_SETUP = {
+    "docs/one-root-by-lifetime.md": "## What first setup asks",
+    "docs/one-root-by-lifetime.ko.md": "## 처음 설정에서 무엇을 묻는가",
+}
 
 
-@pytest.mark.parametrize(
-    "parts, decided",
-    [
-        (("docs", "one-root-by-lifetime.md"), "## Decided after the thread"),
-        (("docs", "one-root-by-lifetime.ko.md"), "## 스레드 뒤에 정해진 것"),
-    ],
-)
-def test_the_decided_table_carries_this_work_items_rows(parts, decided):
-    body = section(read(*parts), decided, 2)
-    rows = [line for line in body.splitlines() if line.startswith("| ")]
-    for needle in (
-        "templates/hygiene.yml",
-        COMMON_DIR,
-        "AskUserQuestion",
-        "specseal-scratch",
-    ):
-        assert any(needle in row for row in rows), (
-            f"{'/'.join(parts)}: no row names {needle}"
-        )
-    stamp = [row for row in rows if re.search(r"stamp|스탬프|표시", row)]
-    assert stamp, f"{'/'.join(parts)}: the migration hook's stamp rule has no row"
+@pytest.mark.parametrize("path", sorted(OPT_IN))
+def test_the_scratch_opt_out_is_stated_with_the_opt_in(path):
+    text = read(*path.split("/"))
+    assert "specseal-scratch" in section(text, OPT_IN[path], 2), path
+
+
+@pytest.mark.parametrize("path", sorted(FIRST_SETUP))
+def test_first_setup_states_what_each_answer_creates_and_installs(path):
+    body = flat(section(read(*path.split("/")), FIRST_SETUP[path], 2))
+    for needle in ("templates/hygiene.yml", COMMON_DIR, "AskUserQuestion"):
+        assert needle in body, f"{path}: first setup does not name {needle}"
+    assert re.search(r"stamp|스탬프|표시", body), (
+        f"{path}: the migration hook's stamp rule is not stated"
+    )
 
 
 # --- #151: the route that actually happens, and the state it leaves ---------

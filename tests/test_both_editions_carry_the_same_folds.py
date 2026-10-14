@@ -4,8 +4,7 @@
 with its English one, and a mirror drifts one edit at a time. It did: the
 first fold (#504) wrote a section and ten fold markers into
 `docs/one-root-by-lifetime.md` and nothing into its Korean edition, and
-nothing noticed, because the only pin compared one section's cell count
-(`tests/test_settle_reads_before_it_removes.py#test_both_editions_took_the_same_decisions`).
+nothing noticed, because the only pin compared one section's cell count.
 
 The two editions are prose in two languages, so nothing here compares
 sentences. What is language-neutral is the outline and the markers: the

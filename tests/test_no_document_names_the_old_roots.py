@@ -6,11 +6,9 @@ A session follows the first path it reads. Every shipped text now says
 sends that session to write a file nothing reads — the silence every gate
 gives the old layout is what makes the miss invisible.
 
-Three kinds of mention keep the old name on purpose, and each is listed
+Two kinds of mention keep the old name on purpose, and each is listed
 below with its reason, so the allowlist cannot grow without one:
 
-  - the design record and its Korean twin, which name both trees because
-    the move is what they are about;
   - a marker or a retired key, which is read by a script or kept as
     history — the `<!-- specs/<id> -->` text in the changelog and the ledger,
     the `.specseal/handoff/PR-<n>/` directory that was never created;
@@ -54,9 +52,6 @@ SCANNED = (
 )
 SUFFIXES = (".md", ".yml", ".sh")
 
-# Whole files that name both trees because the move is their subject.
-DESIGN_RECORD = {"docs/one-root-by-lifetime.md", "docs/one-root-by-lifetime.ko.md"}
-
 # A line carrying one of these keeps the old name on purpose. Each entry is
 # checked to still occur somewhere, so a reason cannot outlive its line.
 KEEP = {
@@ -83,7 +78,7 @@ def tracked(root=ROOT):
     carries why the second half is returned rather than dropped.
     """
     out = git_listing(root, "ls-files", *SCANNED)
-    listed = [rel for rel in out if rel.endswith(SUFFIXES) and rel not in DESIGN_RECORD]
+    listed = [rel for rel in out if rel.endswith(SUFFIXES)]
     return on_disk(root, listed)
 
 

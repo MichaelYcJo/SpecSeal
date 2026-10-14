@@ -1378,9 +1378,9 @@ def test_the_seal_readme_says_the_step_exists(parts):
 
 def test_the_implement_skill_names_the_one_writer_of_docs():
     """G6. The layout table said `docs/` is *never created here*, and that
-    sentence stopped being true the moment `settle` wrote there —
-    `docs/one-root-by-lifetime.md` §*Decided after the thread* listed it as a
-    sentence to correct before the step existed to correct it."""
+    sentence stopped being true the moment `settle` wrote there;
+    `docs/one-root-by-lifetime.md` §*What "spec" means after this* names
+    `settle` as the one writer that folds into `docs/`."""
     text = document("skills", "implement", "SKILL.md")
     assert "never created here" not in text, (
         "the layout table still says `docs/` is never created here"
@@ -1397,94 +1397,6 @@ def test_the_handoff_protocol_separates_the_two_deadlines():
     text = document("docs", "review-handoff-protocol.md")
     assert "Outliving the merge is not outliving the release" in text
     assert "It is deleted eventually, and that is a different deadline." in text
-
-
-@pytest.mark.parametrize(
-    "parts, heading",
-    [
-        (("docs", "one-root-by-lifetime.md"), "## Decided when `settle` was built"),
-        (("docs", "one-root-by-lifetime.ko.md"), "## `settle` 을 만들면서 정해진 것"),
-    ],
-)
-def test_the_design_record_takes_the_later_decision_as_a_dated_section(parts, heading):
-    """`tests/test_no_document_names_the_old_roots.py#DESIGN_RECORD`
-    classifies this document as a record of a moment, and a record of a moment
-    is not rewritten. The shape it already uses for a later decision is a
-    dated section, and both editions take one."""
-    text = document(*parts)
-    assert heading in text, f"{'/'.join(parts)} carries no dated section for #458"
-    assert "2026-09-22" in text
-    assert "2026-09-02" in text, (
-        "the dated section no longer says which text it is leaving alone"
-    )
-
-
-@pytest.mark.parametrize(
-    "parts, heading",
-    [
-        (
-            ("docs", "one-root-by-lifetime.md"),
-            "## Decided when the fold stopped being a work item (2026-09-23)",
-        ),
-        (
-            ("docs", "one-root-by-lifetime.ko.md"),
-            "## fold 가 작업 항목이 아니게 되면서 정해진 것 (2026-09-23)",
-        ),
-    ],
-)
-def test_the_design_record_takes_d1_as_a_dated_section(parts, heading):
-    """#517's D1 overturns the 2026-09-22 row that made the fold its own work
-    item, and a record of a moment takes the overturning as a new dated
-    section rather than an edit to the row."""
-    text = document(*parts)
-    assert heading in text, f"{'/'.join(parts)} carries no dated section for #517"
-    later = text.split(heading, 1)[1]
-    assert "2026-09-02" in later and "2026-09-22" in later, (
-        "the new section does not say which two records it leaves alone"
-    )
-    assert "[no-review]" in later
-
-
-DATED_SECTIONS = (
-    ("## Decided when `settle` was built", "## `settle` 을 만들면서 정해진 것"),
-    (
-        "## Decided when the fold stopped being a work item",
-        "## fold 가 작업 항목이 아니게 되면서 정해진 것",
-    ),
-    # #729: the process record leaves after its release, without the fold.
-    (
-        "## Decided when the process record stopped waiting for the fold",
-        "## 과정의 기록이 fold 를 기다리지 않게 되면서 정해진 것",
-    ),
-)
-
-
-def section(flat_text, heading):
-    """A dated section of a flattened document, from its heading to the next."""
-    rest = flat_text.split(heading, 1)[1]
-    return rest.split(" ## ", 1)[0]
-
-
-def test_both_editions_took_the_same_decisions():
-    """`CONTRIBUTING.md` requires the two editions to move together, and a
-    mirror drifts one edit at a time. The rows are prose in two languages, so
-    what is compared is that each edition's section has as many rows as the
-    other's."""
-    en = document("docs", "one-root-by-lifetime.md")
-    ko = document("docs", "one-root-by-lifetime.ko.md")
-    # Each section is read up to the next `## ` heading, so a later dated
-    # section is compared with its own twin rather than counted into this
-    # one's (#517 added the second).
-    for en_heading, ko_heading in DATED_SECTIONS:
-        sections = (section(en, en_heading), section(ko, ko_heading))
-        rows = tuple(s.count("|---|---|---|") for s in sections)
-        assert rows == (1, 1), (en_heading, rows)
-        counted = tuple(s.count(" | ") for s in sections)
-        assert counted[0] == counted[1], (
-            f"{en_heading}: the English section holds {counted[0]} cells and "
-            f"the Korean {counted[1]} — one edition took a decision the other "
-            "did not"
-        )
 
 
 # --- what the plugin says it ships -----------------------------------------

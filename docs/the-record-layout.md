@@ -178,7 +178,7 @@ a work item that finds one wrong corrects it.
 | `docs/commit-review-gate-spec.md` | how the gates are registered, what the PreToolUse reading of a commit decides where git cannot, and what the review-history guard and the implementer mark say |
 | `docs/issues-and-milestones.md` | what the issue tracker's fields mean here, and which of them anything reads |
 | `docs/measuring-a-run.md` | what a segment of a run measures, and where the reading goes |
-| `docs/one-root-by-lifetime.md` and its `.ko.md` edition | the design 0.4.0 started from: one root, laid out by lifetime |
+| `docs/one-root-by-lifetime.md` and its `.ko.md` edition | the plugin's one root: its two places, the opt-in, the first-setup question, and each part's lifetime |
 | `docs/release-checklist.md` | what to type on the day of a release, in order |
 | `docs/review-chain-spec.md` | the cycle contract of the review skills, and the review run's bound and end |
 | `docs/review-handoff-protocol.md` | the file convention for handing review work between sessions |
