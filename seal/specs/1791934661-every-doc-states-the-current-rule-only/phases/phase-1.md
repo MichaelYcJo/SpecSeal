@@ -56,10 +56,11 @@ every heading, so `evidence-check --strict` finds 0 BROKEN.
 `evidence-check --reverify` without `--into` (`executed`, writes nothing here)
 names 18 released rows left for this file, one per family root, because most
 of the 79 are earlier `Re-read ·` rows of the same families, and a 19th for
-the `BASELINE` entry this phase removed. So the deferred step writes 19 rows,
-not 79. `--strict` exits 2 and the lenient run 1 on these alone (80 drifted
-coordinates, 0 broken). The roots, with this phase's reading of each claim
-against the new text (`read`; nothing written):
+the `BASELINE` entry this phase removed. `--strict` exits 2 and the lenient
+run 1 on these alone (80 drifted coordinates, 0 broken). **Resolution: they
+are not re-read or corrected — #944 retires the released ledger files.** The
+roots, with this phase's reading of each claim against the new text (`read`;
+nothing written):
 
 | Root row | Drifted coordinates | Reading |
 |---|---|---|
@@ -93,32 +94,20 @@ since #826*, *left with #826*); each pin now holds the sentence that states
 the rule, and each was seen red through `mutation-check` with that sentence
 broken in the doc (`executed`, three `red`). No literal was dropped.
 
-**`survivor-check` as hygiene runs it reports 410 places, and none is a
-defect** (`executed`, exit 1, range `origin/release/v0.22.0...HEAD`). They
-are hook docstrings (121), other work items' records (120), released ledger
-rows (79), tests (77), other docs (9), the READMEs (3) and one skill, each
-carrying wording this rewrite compressed or removed while the rule stands.
-`survivors.md` is not written: 410 per-place rows contradict the one-summary
-instruction, and the `| Range | Grounds |` row is defined for a range that
-deletes a shipped section, which this one does not. The question is the
-orchestrator's (hand-back); the hygiene step fails at the pull request until
-it is answered.
+**Survivor sweep: retired by #944.**
 
 **Every outside citation resolves by heading, and one names a table that
 left.** All sixteen headings stand, so each `§` from `hooks/`, `tests/`,
 `skills/implement/orchestration.md` and the READMEs names a section that is
 there (`read`), and the bold leads they cite (*Which commands reach these
 rows*, rule 4, *Under the press*) are kept. `hooks/worktree_consent.py`'s
-`automation_answered` docstring says §*Creation consent* "holds the table",
-and the consent tables were folded into prose. The one-word repair was made
-and taken back: it drifts `automation_answered`, which six more released
-families anchor (0.15.5 A1, 0.15.6 W3, 0.16.0 E20, 0.21.0 S8 and S12,
-0.21.1 S12), for a docstring this item does not otherwise own. It waits with
-the ledger decision.
+`automation_answered` docstring said §*Creation consent* "holds the table",
+and the consent tables were folded into prose; it says the section "states
+it" now (`d134d586`).
 
-**`tests/test_release_hygiene.py#VERSIONS_OF_ANOTHER_PRODUCT` exempts
+**`tests/test_release_hygiene.py#VERSIONS_OF_ANOTHER_PRODUCT` exempted
 `("docs/worktree-guard-spec.md", "2.54.0")`, and the doc named no `2.54.0`
-before this phase either.** Not this item's; left as found.
+before this phase either.** The dead entry is removed (`bbe41914`).
 
 **What left the doc, in one summary.** The provenance of each rule — the
 issue, round and work item that produced it — and every measurement: the
