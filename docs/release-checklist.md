@@ -111,7 +111,7 @@ The commit is the routing question's `no work item` answer
 (`skills/implement/orchestration.md` §*Question 1*), so it carries the waiver:
 
 ```bash
-: '[no-review]'; git commit -m "chore: release X.Y.Z — <what the fragments say>"
+: '[no-review]'; git commit -m "chore: release X.Y.Z — <the fragments --version gathered>"
 git push -u origin chore/the-fragments-become-X.Y.Z
 gh pr create --base release/vX.Y.Z --head chore/the-fragments-become-X.Y.Z \
   --title "chore: release X.Y.Z — <the same line>" --body-file <file>
@@ -128,7 +128,7 @@ gh pr create --base main --head release/vX.Y.Z \
   --title "release: X.Y.Z — <the symptoms the release answers>" --body-file <file>
 ```
 
-It goes green once step 4 is squashed in. Press ***Create a merge commit***.
+Green once step 4 is in. Press ***Create a merge commit***.
 
 ### What a release pull request is not the right range for
 
