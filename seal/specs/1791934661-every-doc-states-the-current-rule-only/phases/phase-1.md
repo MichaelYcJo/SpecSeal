@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | the commit that adds this record; the rewrite is `0de2d55a`, `aa9e06bc`, `6a8712ad` |
+| Commit | not closed — the build ends at the commit that adds this record (the rewrite is `0de2d55a`, `aa9e06bc`, `6a8712ad`); the phase closes once its released rows are answered and its budget rows written at the rebase, so `plan.md`'s Status cell stays empty |
 | Ran by | specseal:smith on Opus 5.5 |
 
 ## What this phase was asked
