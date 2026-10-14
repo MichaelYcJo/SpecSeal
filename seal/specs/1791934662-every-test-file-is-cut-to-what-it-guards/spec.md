@@ -7,88 +7,105 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 
 | Policy clause | What it fixes for this work |
 |---|---|
-| `CLAUDE.md` §*The goal a design is chosen against* | Nothing here asks a person. Every removal is proven by a run (`mutation-check`), every kept case by the `cases` job, every row by `budget_check.py` |
-| `CONTRIBUTING.md` §*What a change to a gate must carry* | No gate is added. Each batch changes what three gates measure (the rows, the frozen list, `.test_durations`) and a case it plants is seen red first (`skills/agent-contract/SKILL.md` §15) |
-| `docs/the-evidence-ledger.md` §*A claim held by a test*; §*A released row is read again in the branch's fragment*; `docs/the-record-layout.md` §*A change writes fragments, never a shared file* | A removed function a released row cites gets a `Corrected ·` row, a moved one a `Re-read ·` row, in `seal/ledger/1791934662-….md`; the changelog goes to the fragment; no released file changes |
-| `docs/the-reader-registry.md` §*A frame names what its work removes* | `## Removes` below; a removal a phase makes that the frame did not name is a divergence in `overview.md` |
-| #929's `seal/specs/1791876666-…/spec.md` §*A case names what it guards*, §*The removal criterion*, §*The regrowth check*, §*Rows for seal/budgets.md* (cc4ab070) | The method, applied unchanged: one `Kills:` line per function; a removal is proven by a mutation table and never judged; `case_check.py` proves a new or changed function; `tests/unguarded-files.txt` only shrinks; the five rows. Where this item wants the method different it writes a row in `questions.md` for #929's smith |
-| #930's `seal/specs/1791876665-…/spec.md` §*The budgets* (661dc60b) | The ratchet: `measured ≤ ceiling ≤ measured × (1 + slack)`; a lowering lands in the same pull request as the cut |
-| #931's `test.yml` `durations` job (a8335041) | A cut pull request downloads its run's union (`gh run download <id> -n test-durations`) and commits it, so `suite-seconds` and `slow-file:*` fall with the cut |
-| #923's `seal/specs/1791933022-…/spec.md` §*The boundary with #929* (6969c487) | A case that asserts on this tree's prose moves with the text and is not removed or re-pointed here |
-| `skills/implement/SKILL.md` §*3. The SDD file set* | The rows' ceilings and the frozen list are values a contributor is limited by, which is the top rung |
+| `CLAUDE.md` §*The goal a design is chosen against* | Nothing here asks a person. A removal, a rebuilt file and a kept case are each proven by a run; a bound is a row CI reads |
+| `CONTRIBUTING.md` §*What a change to a gate must carry* | The one row this item adds (`slowest-job`) is a gate: its case seen red, the direction (it blocks more), a prompt budget of zero, a `Reads:` line per unit. A decision extracted into a pure function is a code change reviewed like any, with its battery red before and after |
+| `docs/the-evidence-ledger.md` §*A claim held by a test*; §*A released row is read again in the branch's fragment*; `docs/the-record-layout.md` §*A change writes fragments, never a shared file* | Every released row citing a test id a batch removes or renames gets one `Corrected ·` row in `seal/ledger/1791934662-….md`, naming the new case; one row per citation, never a bulk pass; no released file changes |
+| `docs/the-reader-registry.md` §*Who declares*; §*A frame names what its work removes* | Every unit a batch adds to shipped code carries a `Reads:` line; `## Removes` below |
+| #929's `seal/specs/1791876666-…/spec.md` §*A case names what it guards*, §*The regrowth check*, §*Rows for seal/budgets.md* (cc4ab070) | The `Kills:` line, `case_check.py`, `tests/unguarded-files.txt` and the five rows, read not changed; the proof model this item assumes is its Q2 (i), one run per function reading the killer set, which the orchestrator passes to #929's smith as the default |
+| #930's `seal/specs/1791876665-…/spec.md` §*The budgets* (661dc60b) | The ratchet; `ci-minutes:*` and the new `slowest-job` row lowered to the measured value in the pull request that lowers it |
+| #931's `test.yml` `durations` job (a8335041) | Each batch downloads its run's union (`gh run download <id> -n test-durations`) |
+| #923's `seal/specs/1791933022-…/spec.md` §*The boundary with #929* (6969c487) | A case asserting on this tree's prose is lined here and never removed or re-pointed here |
+| `skills/agent-contract/SKILL.md` §7, §15 | A battery run leaves nothing and is bounded by `--timeout`; a new case is seen red first |
+| `skills/implement/SKILL.md` §*3. The SDD file set* | Rows, a list and shipped units change, which is the top rung |
 
 ## Scope
 
-**In.** Every test file #929's phases do not open — 180 of 185 — cut to the cases that guard something, in batches, each batch one pull request into `release/v0.22.0`: the module's mutation battery before and after, the removals the table proves, a case where the battery shows a sentence unguarded, a `Kills:` line on every kept function, the batch's files off `tests/unguarded-files.txt`, the rows lowered, the union `.test_durations` downloaded, the ledger and `Enforced by:` lines re-pointed. Coverage, read as the mutants killed, does not drop: every mutation red before a batch is red after it.
+**In.** The 180 test files #929's phases do not open, rebuilt or cut per shipped module so that the suite protects no less than today and a pull request waits no longer than a few minutes. Two strategies, chosen per file by measurement (`## The two strategies`): **rebuild** for a file that is heavy, redundant or whose proof alone would hold the `cases` job past 5 minutes — 65 files; **cut** per case under #929's criterion for a file already fast and thin — 115 files. Where a module's decision is tangled with git, filesystem or process calls, the batch first extracts it into a pure function in the shipped code. Every kept or new function carries a `Kills:` line; every batch leaves `tests/unguarded-files.txt`, lowers its rows and commits its run's durations union. The whole item lands in 0.22.0 (the owner, 2026-10-14).
 
-**Out, and whose.** #929's five files and its mechanism (`case_check.py`, the `Kills:` grammar, the list, the rows' measurers, the 249 byte-identical helper twins): read, not changed. A prose-pinning case (#923's measure, below): it gets its `Kills:` line here, because a file cannot leave the list without one and #929 S5 already makes a `.md` path legal, and it is never removed or re-pointed here; each phase lists what it left. Which legs run on a pull request (item B). `.test_durations`' cadence (#931). The budget mechanism (#930). A suite-wide census job (#929 alternative E). `conftest.py`'s helper consolidation (#929 phase 4).
+**Out, and whose.** #929's five files and mechanism; the strategy applied to #929's remaining phases (`questions.md` Q1, a row for its smith; its frame is not edited here). Prose-pinning cases' removal or re-pointing (#923, #940, #941). Which legs run (item B). `.test_durations`' cadence (#931). The budget mechanism (#930). A suite-wide census job.
 
 ## What the remaining suite is
 
-`executed` 2026-10-14 at f35e1f57 (`origin/release/v0.22.0` + `routing.md`) on macOS arm64; commands in `plan.md` §*Technical context*. #929's numbers are at fcd735bc, 203 ids lower.
+`executed` 2026-10-14 at f35e1f57 on macOS arm64; commands in `plan.md` §*Technical context*.
 
 | | Value |
 |---|---|
-| The suite | 13,914 cases in 185 files (`--collect-only`, 6.1 s); 5,475 test functions; 157,736 lines in `tests/test_*.py`, 160,228 in `tests/*.py`; `.test_durations` prices 13,482 at 7,861 Windows seconds |
-| #929's five files | 5,064 cases · 15,177 lines · 2,545 s |
-| **The 180 remaining** | **8,850 cases · 5,071 functions · 142,559 lines · 5,316 s** · 3,591 released ledger mentions of their units (24 files with none) · 466 `Enforced by:` node ids in prose files (79 files with none) · 45 files carry `skipif`/`pytest.skip` |
-| Prose-pinning, by #929's measure (errs over) | 998 functions, 1,470 cases; 31 files are over half prose. **This item's own: 7,380 cases, 4,073 functions** |
-| Shape | 20 files at ≥ 3 cases per function hold 2,380 own cases in 391 functions, 15,232 lines, 597 s; the 160 others hold 5,000 own cases in 3,682 functions, 127,327 lines, 4,719 s |
-| Duplication proxies | 389 functions share a body shape with another in the same file (names and constants normalised; a different measure from #929's byte twins); 24 functions hold no `assert` (errs over on a helper that asserts) |
-| The proof's cost | A `Kills:` line on a kept function makes it a changed function to `case_check.py`, which runs its file twice. Σ own functions × Windows seconds × 0.23 × 2 = **2,082 ubuntu-minutes** over the 180 files (1,041 at one run); 150 files under 10 min each (5,203 cases, 80,995 lines, 189 min together), 16 at 10–30 (1,562 · 24,960 · 338), **14 at ≥ 30 min hold 1,554 of the 2,082** (2,085 cases, 36,604 lines). 0.23 is the suite's ubuntu/Windows median ratio (9.9/42.4), the one figure here nobody measured per file (`questions.md` Q3) |
+| The suite | 13,914 cases · 185 files · 5,475 functions · 157,736 lines in `tests/test_*.py` (160,228 in `tests/*.py`) · 7,861 Windows seconds priced. Run 38487467049 (c98576a7): slowest job 12.3 min (Windows shard 3; shards 7.9–12.3), ubuntu 8.5 as one job, macOS shards 5.0–7.3 |
+| **The 180 remaining** | **8,850 cases · 5,071 functions · 142,559 lines · 5,316 s** · 3,591 released ledger citations of their ids (24 files with none) · 466 `Enforced by:` ids (79 files with none) · 45 files carry `skipif`/`pytest.skip` |
+| Prose-pinning (#929's measure, errs over) | 998 functions · 1,470 cases · 31 files over half prose. Own: 7,380 cases · 4,073 functions |
+| **Rebuild set, 65 files** | 5,978 cases · 2,432 functions · 80,721 lines · **4,441 s** · 2,062 ledger citations · 259 `Enforced by:` ids. Of them the fourteen heavy files: 2,085 cases · 1,086 functions · 36,604 lines · 2,702 s · 949 citations |
+| **Cut set, 115 files** | 2,872 cases · 1,641 functions · 61,838 lines · 876 s · 1,529 citations · 207 ids |
+| How two heavy files are built (`executed`, `ast`) | `test_chain_check_at_the_pull_request.py`: 148 functions, 138 take the `repo` fixture (a git repository each), 138 spawn, 38 call a module unit directly and 27 of those call `git`; `chain_check.py` has 93 units, 72 of them pure. `test_the_fixes_close_the_record.py`: 96 functions, 88 take `repo`, 75 spawn, 83 go through `fix_table` and 70 through `close`, which run `round_record.py` as a process; `round_record.py` has 105 units, 79 pure. Each case builds a repository and runs a script to test a decision over a record's text |
+| Tangled decisions (`executed`, errs over: a unit that reads a file then decides counts) | units with I/O and ≥ 3 branches: `chain_check.py` 13 · `round_record.py` 13 · `evidence_check.py` 15 · `seal.py` 15 · `broad_gate.py` 12 · `worktree-guard.py` 12 · `survivor_check.py` 7 · `unverified_check.py` 6 · `commit-review-gate.py` 4 · `session_cost.py` 4 · `config.py` 3 · `worktree_consent.py` 2 · `optin.py` 2 · `gate.py` 1 · `review-history-guard.py` 1 · `cmdline.py` 0 · `issue_claims_check.py` 0 — 110 |
+| The port list (`executed`, errs over: a docstring or name citing `#NN`, a round, a platform, CRLF, quoting, locale, `env`, `PATH`, a symlink, encoding) | 597 of the fourteen files' 1,086 functions; per file in `## Targets` |
+| Sample of five files, operator-swap mutants (`executed`) | every killed mutant had ≥ 3 killers, median 10–15 or the whole file; no sampled mutant had one killer; 4–5 of 8 survive one file against a module other files also load. A battery is a module's; a single file's survivors are not its own |
 
-**What a sample of five files shows** (`bin/mutation-check`, operator-swap mutations spread over the module, the file run under `bin/test <file> -q -rf`; the module restored and `git status` clean after each table):
+## The two strategies
 
-| File · module | Ran | Red · killers each | Survived |
-|---|---|---|---|
-| `test_one_heredoc_shape_is_read_exactly.py` (131 cases) · `hooks/one_heredoc.py` | 5 | 5 · 4, 13, 14, 15, 15 | 0 |
-| `test_the_mode_question_is_asked_once.py` (180) · `skills/implement/scripts/seal.py` | 8 | 3 · 12, 12, 3 | 5 |
-| `test_the_pull_request_language_is_the_repositorys.py` (124) · `hooks/config.py` | 8 | 4 · 11, 10, and two by collection error | 4 |
-| `test_a_record_states_what_the_tree_has.py` (130) · `skills/evidence-check/scripts/evidence_check.py` | 8 | 3 · 129, 129, 3 | 5 |
-| `test_the_hooks_hide_what_a_renderer_hides.py` (129) · `hooks/blocks.py` | 5 of 8 | 5 · 14, 10, 3, 6, one by collection error | 0; the sixth (`break`→`continue` in `#walk`) loops and the run was ended |
+**Rebuild** — the file is heavy (≥ 60 Windows s), parametrized (≥ 3 cases a function), twinned (≥ 20 % of its functions share a body shape), or its lining alone would run the `cases` job past 5 minutes at one run a function. Per shipped module, in this order, each step in the phase record:
 
-No sampled mutation had one killer, in a parametrized file or in a one-case-per-function file, so the duplication is not confined to the fan-out files. Four or five of eight mutations survive a single file against a module that other files also load, so a file's survivors are read against the module's files before a case is planted. **How the ranking errs:** an operator swap is coarser than a hand-named sentence (#929 phase 1's m2 had 5 killers), so killer counts here read high; the killer parse reads `FAILED` lines, so a collection error is red with no killer named; the prose measure errs over; the shape-twin measure errs over.
+1. **Baseline.** The module's mutant battery — one mutant per sentence of the module its tests name, bounded by `--timeout` — is run once against the **old** files that load the module. The set of mutants killed is the baseline, committed in `phases/phase-N.md` with each mutant's killers.
+2. **Reference.** The old file's cases that encode a real bug of a platform, a path, CRLF, shell quoting or the environment — the port list, read case by case from the measured list, which errs over — are ported, one each, with their `Kills:` line.
+3. **Extraction.** Where a decision the tests need is tangled with git, filesystem or process calls, the batch extracts it into a pure function in the shipped module (inputs in, verdict out), with a `Reads:` line, the caller left thin; the module's battery is red before and after, so the behaviour is unchanged. The frame names the modules (`## What the remaining suite is`); the phase names the units.
+4. **New tests, per unit**: the decision as a pure function over an input → output table, and one end-to-end case per real path — git, hooks, filesystem, process. Every function carries a `Kills:` line. A thin old case that alone kills a mutant stays as it is.
+5. **Non-inferiority, then deletion.** The new file kills every mutant the baseline killed; a miss gets a case. Only then is the old content deleted. The new tests live at the old path, so every citation is re-pointed by unit, one `Corrected ·` row each, and every `Enforced by:` line in the same pull request.
+6. **Proof on the run.** The `cases` job proves each new function at one run a function on the fast file; under 5 minutes by the file's seconds target.
 
-## Batches, order, and what each proves
-
-A **batch is the files whose first-named module is the same shipped module** (`plan.md` §*Technical context* says how it was read), one pull request each. The module's battery — one mutation per sentence the kept files' `Kills:` lines or docstrings name, with a `--timeout` on every run — is run over every file that loads the module, before and after. Removal is within a file under #929's criterion; planting is decided by the module's table. **Order:** the shape proven on one small family first, then families by lines removed per pull request; a file whose own proof costs ≥ 30 ubuntu-minutes at #929's two-run model is held back to one phase of its own (`plan.md` phase 10). **Bound:** a batch's `cases` job stays under the Windows leg's median wait of 42 minutes, measured on its run; a batch over it is split by file before the next opens.
+**Cut** — the file is fast and thin: #929's criterion unchanged, a case removed only where the file without it still kills every mutant it killed, every kept function lined.
 
 ## Targets
 
-Against #929's end values; each ceiling is re-set from the batch's table where the table shows less, under the ratchet.
+**Bounds every pull request of this item meets.** The `cases` job ≤ 5 minutes (`questions.md` Q1 asks #929's smith for the job's `timeout-minutes` and the message *restructure: test the decision directly*). No `pytest` job slower than the previous pull request's slowest: `ci-minutes:*` lowered to the measured leg after each cut, and a new row **`slowest-job`** — the longest `pytest` job's minutes on the run, read by the `budgets` job beside `ci-minutes:*`, one-sided — lowered the same way. End of item: `slowest-job` ≤ 5 min.
 
-| Row | #929's end | This item's end | Basis |
-|---|---|---|---|
-| `test-cases` | ≤ 10,500 | ≤ 8,700 | −1,190 from the 20 fan-out files at phase 1's −51 %; −650 from the 160 others: half the 364 shape twins, the 23 bare functions, a tenth of 3,682 functions |
-| `test-lines` | ≤ 150,000 | ≤ 133,500 | −2,500 (fan-out rows at ~2 lines each) −14,000 (~570 functions at ~25 lines) |
-| `unguarded-files` | ≤ 175 | 0, or the count phase 10 leaves to 0.22.1 (`questions.md` Q1: 14) | every file this item opens leaves the list |
-| `test-cases:<file>` · `test-lines:<file>` | the listed files | each ≤ its table's count | 4 remaining files at ≥ 200 cases, 14 at ≥ 2,000 lines |
-| `suite-seconds` · `slow-file:*` | #930's | fall by the removed seconds, ≈ −870 s of 5,316 | the union each batch downloads |
+**The path there**, in Windows seconds (`executed` today; the rest estimated and re-set by each phase's record): 7,861 today → ≈ 6,497 after #929 (the commit-gate and sealer files' own figures, the enumerations at half) → ≈ 2,549 after this item: the fourteen heavy files 2,702 → ≤ 253, the 51 other rebuilt files 1,739 → ≤ 370, the 115 cut files 876 → ≈ 745. Scaled on run 38487467049, the slowest Windows shard 12.3 → ≈ 4.0 min, ubuntu 8.5 → 2.8, macOS 7.3 → 2.4.
+
+**Per-file seconds targets for the fourteen** — the smaller of ten end-to-end paths at today's per-case price plus one second, and what keeps the `cases` job under 5 minutes at half today's functions; re-set from the phase's path inventory (Q4):
+
+| File | Cases · functions | Today s | Target s | Port list |
+|---|---|---|---|---|
+| `test_chain_check_at_the_pull_request.py` | 186 · 148 | 374.9 | ≤ 19 | 59 |
+| `test_the_fixes_close_the_record.py` | 119 · 96 | 482.1 | ≤ 38 | 62 |
+| `test_a_released_row_is_read_again_in_a_fragment.py` | 464 · 120 | 216.6 | ≤ 6 | 65 |
+| `test_a_corrected_sentence_survives_elsewhere.py` | 177 · 145 | 293.0 | ≤ 18 | 82 |
+| `test_the_record_is_generated.py` | 131 · 118 | 188.0 | ≤ 15 | 51 |
+| `test_the_record_is_held_to_the_floor_and_the_depth.py` | 86 · 65 | 165.4 | ≤ 20 | 22 |
+| `test_the_guard_asks_once_per_session.py` | 103 · 88 | 97.9 | ≤ 11 | 24 |
+| `test_settle_reads_before_it_removes.py` | 132 · 106 | 106.6 | ≤ 9 | 50 |
+| `test_a_row_points_by_content.py` | 200 · 135 | 58.6 | ≤ 4 | 70 |
+| `test_a_record_precedes_the_fixes_it_commissions.py` | 56 · 53 | 161.1 | ≤ 30 | 19 |
+| `test_a_fix_of_a_fix_is_counted.py` | 61 · 22 | 331.0 | ≤ 55 | 13 |
+| `test_the_last_rounds_fixes_are_checked.py` | 76 · 55 | 125.6 | ≤ 18 | 20 |
+| `test_unverified_rows_close.py` | 198 · 117 | 47.0 | ≤ 4 | 41 |
+| `test_the_records_can_be_carried_out_and_in.py` | 96 · 78 | 53.7 | ≤ 7 | 19 |
+
+**Rows at the item's end**, against #929's end values, each re-set by the ratchet from the batch's table: `test-cases` ≤ 10,500 → **≤ 8,000** (the rebuild set's 5,978 cases to about half, the cut set by shape twins, bare functions and a tenth); `test-lines` ≤ 150,000 → **≤ 125,000**; `unguarded-files` ≤ 175 → **0**; `suite-seconds` → ≈ 2,550; `slow-file:*` empty of this item's files; `ci-minutes:*` and `slowest-job` at the measured end.
 
 ## User scenarios & acceptance *(mandatory)*
 
 | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|
-| S1 the shape on one batch | phase 1's four files: cases, lines, seconds, the table before and after, the `cases` job's minutes | `phases/phase-1.md`; every mutation red before and after, the killers that are not removed cases unchanged |
-| S2 the battery is the module's | a mutation one file survives | run over every file loading the module before a case is planted; the table names the file that kills it or the case planted |
-| S3 nothing protects less | each batch's table | every mutation red before is red after; a survivor gets one case, seen red first; the suite may grow by it |
-| S4 every kept function declares | a batch's files | every function carries a `Kills:` line; the files leave `tests/unguarded-files.txt`; `unguarded-files` lowered in the same pull request; `case_check.py` exit 0 on the run |
-| S5 the rows move with the cut | a batch lands | `test-cases`, `test-lines`, the per-file rows, `slow-file:*` lowered; the union downloaded where the batch removes a twentieth of the seconds; `budget_check.py` exit 0; `test_the_durations_file_prices_the_suite` green |
-| S6 prose pins move with the text | a prose-pinning function in an opened file | its `Kills:` line names the document and the literal; it is not removed; the phase record lists it for #923 |
-| S7 the ledger and the docs follow | a removed or changed function a released row or an `Enforced by:` line names | `Corrected ·` or `Re-read ·` row in the fragment; the `Enforced by:` line names a remaining killer; `evidence-check --strict .` exit 0; `tests/test_a_folded_statement_names_what_enforces_it.py` green |
-| S8 a bare case leaves on its run | a function asserting nothing | removed on that showing, named in the table |
-| S9 the proof fits the run | a batch's `cases` job | under 42 minutes on the pull request's run, or the batch is split by file |
-| S10 a heavy file is named, not deferred silently | the 14 files at ≥ 30 min | each in `plan.md` phase 10 with its minutes; `questions.md` Q1 says which milestone |
-| S11 nothing asks a person | the whole change | no `AskUserQuestion`, no prompt, no box |
-| S12 the records are compact | each phase record | the table, the lists (removed · planted · left to #923) and the numbers; no narrative |
+| S1 the shape on one module | phase 1's `hooks/cmdline.py` batch: baseline, port list, new tests, deletion, the cut of its two thin files, the `slowest-job` row | `phases/phase-1.md` with cases, lines, seconds, the `cases` job's minutes and the slowest job before and after |
+| S2 the baseline is taken once from the old tests | a module's battery against the old files | the killed set and each mutant's killers in the phase record, before any file changes |
+| S3 nothing protects less | the new file against the baseline | every baseline mutant red; a miss gets a case seen red first |
+| S4 regressions are ported | the file's port list | each case ported with its `Kills:` line, or named with why no mutant and no platform needs it |
+| S5 a tangled decision is extracted first | a module in the tangled list | the pure function with its `Reads:` line; the module's battery red before and after the extraction commit |
+| S6 one end-to-end case per real path | the new file | the phase's path inventory: each path (git, hooks, filesystem, process) with its one case |
+| S7 the file meets its seconds | a rebuilt file | ≤ its target in the run's durations, or the inventory's figure with the reason |
+| S8 every function declares and the file leaves the list | any batch | `Kills:` on every function; the files out of `tests/unguarded-files.txt`; `case_check.py` exit 0 |
+| S9 the rows move | any batch | `test-cases`, `test-lines`, the per-file rows, `slow-file:*`, `ci-minutes:*`, `slowest-job` lowered; the union committed; `budget_check.py` exit 0 |
+| S10 every pull request fits | any batch's run | `cases` job ≤ 5 min; no `pytest` job slower than the previous pull request's slowest |
+| S11 the ledger and the docs follow, row by row | a cited id removed or renamed | one `Corrected ·` row per citation naming the new case; `Enforced by:` re-pointed; `evidence-check --strict .` exit 0; `tests/test_a_folded_statement_names_what_enforces_it.py` green |
+| S12 prose pins move with the text | a prose-pinning function | lined, not removed; listed for #923 |
+| S13 a cut file is cut by #929's criterion | a file in the cut set | the table: every mutant red before and after; a bare function removed on its run |
+| S14 nothing asks a person | the whole change | no `AskUserQuestion`, no prompt |
 
 ## Data & interfaces
 
-No new script. Per batch: the test files cut and lined; rows out of `tests/unguarded-files.txt`; ceilings lowered in `seal/budgets.md`; `.test_durations` replaced by the run's `test-durations` artifact; `Corrected ·` and `Re-read ·` rows in `seal/ledger/1791934662-every-test-file-is-cut-to-what-it-guards.md`; `Enforced by:` lines re-pointed in place; `changelog.md` in this directory; `phases/phase-N.md` with the table and the three lists.
+`seal/budgets.md`: one row `slowest-job` (minutes, one-sided, gate) with its measurer in `budget_check.py` reading the run's `pytest` jobs as `ci-minutes:*` does; its case seen red. Per batch: rebuilt test files at their old paths, cut files, extracted pure functions in the shipped modules named above; rows out of `tests/unguarded-files.txt`; ceilings lowered; `.test_durations` from the run's `test-durations` artifact; `Corrected ·` rows in `seal/ledger/1791934662-every-test-file-is-cut-to-what-it-guards.md`; `Enforced by:` lines re-pointed in place; `changelog.md` here; `phases/phase-N.md` with the baseline table, the port list, the path inventory and the three lists (removed · ported · left to #923).
 
 ## Removes
 
-nothing — the frame names no unit: which cases leave is each batch's mutation table, so every removed function is a divergence row in `overview.md` with its `Corrected ·` ledger row where a released row cites it, as `docs/the-reader-registry.md` §*A frame names what its work removes* has it and as #929's frame does.
+nothing — the frame names no unit: a rebuilt file keeps its path and the functions that leave it are each batch's baseline table, so every removed function is a divergence row in `overview.md` citing that table, with its `Corrected ·` ledger row where a released row cites it, as `docs/the-reader-registry.md` §*A frame names what its work removes* has it and as #929's frame does.
 
 ## Open questions → questions.md
 
