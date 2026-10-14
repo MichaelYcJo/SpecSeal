@@ -39,9 +39,6 @@ No question tool, no switch option, one text for every switch form; a plain
 retry meets the same refusal. The press moves no other verdict.
 Enforced by: tests/test_the_guard_asks_once_per_session.py::test_under_the_press_the_dirty_row_is_a_deny_to_the_model, tests/test_the_guard_asks_once_per_session.py::test_the_token_does_not_reach_the_dirty_row_under_the_press_either, tests/test_the_guard_asks_once_per_session.py::test_a_compound_stash_and_switch_meets_the_deny, tests/test_the_guard_asks_once_per_session.py::test_the_plain_retry_meets_todays_rows, tests/test_the_guard_asks_once_per_session.py::test_the_ways_on_pass_the_guard, tests/test_the_guard_asks_once_per_session.py::test_a_creation_on_the_dirty_line_is_stopped_with_it, tests/test_the_guard_asks_once_per_session.py::test_the_press_is_read_from_the_sessions_own_root, tests/test_the_guard_asks_once_per_session.py::test_one_text_for_every_switch_form, tests/test_worktree_guard.py::test_the_dirty_tree_row_names_what_was_measured
 
-A command that also creates a worktree is judged in either order (§Creation
-consent, *So the creation is judged between the ladder's two halves*).
-
 **Which commands reach these rows.** The guard does not predict whether a
 command switches a branch. It reads each git segment of the frozen reading
 (§*Which tree*) as one of three shapes, from its words alone:
@@ -116,8 +113,9 @@ their own, so a count would steer it into the parent's tree.
 **With consent the path is silent, never an allow; without it, it asks, once
 per session**: consent answers the creation half, not the agent.
 
-**It reads no token, because it has no command line**: a prompt is prose the
-model writes, so its verdict does not depend on the prompt.
+**It reads no token, because it has no command line**: a prompt the model
+writes that documents `[worktree-ok]` would switch the guard off, so the
+verdict does not depend on the prompt.
 Enforced by: tests/test_worktree_guard.py::test_an_isolated_agent_asks_without_counting_sessions, tests/test_worktree_guard.py::test_the_agent_verdict_does_not_depend_on_the_prompt
 
 ## Creation consent — the first creation is the question, not every one
@@ -449,7 +447,8 @@ switch: the frozen splitter cuts it at its `&`. The other is a cut git inside an
 
 **`LEAVES_THE_TREE` holds only subcommands this repository's recorded runs
 hold.** A git subcommand this repository never ran stops where the tree matters
-until a release adds it; `test_no_listed_form_moves_head_under_git` runs one
+until a release adds it, and under the press it cannot be rewritten, so the
+reason names the list. `test_no_listed_form_moves_head_under_git` runs one
 form per row against git.
 
 **A creation only a hidden spelling holds** (`git 2>&1 worktree add …`) **is
