@@ -72,7 +72,8 @@ restore <path>`, the git alone, `git -C <dir>`, `git commit -F <file>`).
 
 **The stop has two readers.** Under the press it is a `deny` to the model,
 which rewrites in the plain spelling and meets the rows above on the retry, and
-no person is asked. Otherwise it is an `ask`, except where another session is
+no person is asked. In a dirty, IDLE or unusable tree that retry meets the
+press's deny. Otherwise it is an `ask`, except where another session is
 ACTIVE: row 1 denies a branch-form `checkout` with nobody asked, so the stop is
 a `deny` whoever is at the keyboard.
 
@@ -80,8 +81,8 @@ a `deny` whoever is at the keyboard.
 judged first. A `git switch` on the same line makes the stop a `deny` whoever is
 at the keyboard. The consent record is never read for the stop.
 
-**Each shape is judged in the tree its segment names**, an `&`-cut or
-redirected git by its own `-C`. Every tree on the line is read before the stop
+**Each shape is judged in the tree its segment names**, first one first and
+each tree once, an `&`-cut or redirected git by its own `-C`. Every tree on the line is read before the stop
 is taken: one ACTIVE tree makes it a `deny` describing the ACTIVE trees alone,
 and otherwise the reason names each tree that matters and why. A reason that
 describes one tree calls it "this tree", whichever tree it is.
@@ -154,7 +155,8 @@ is `[worktree-ok]`'s standing under another name.
    phrases are exactly `automation`, `per axis` and `no work item`
    (`skills/implement/orchestration.md` §*Question 1 — single-select*), answered
    with the label `automation` verbatim, so a typed `Other` is not consent. A
-   `multiSelect` question is skipped. A leading phrase is the label casefolded
+   `multiSelect` question is skipped, so the boxes neither give nor take back
+   the press. A leading phrase is the label casefolded
    and cut at the first ` (`, ` —` or ` -` (`automation (Recommended)`).
 4. **The same clone**: the result entry's own `cwd` resolves to the same common
    git directory as the creation's repository.
@@ -268,9 +270,8 @@ switch's choice rows decide nothing about a creation on the same line.
 to its basename: one budget would let a creation spend a switch's answer. The
 marker, written by `PreToolUse`, means *the question was put*, never consent.
 
-**An unwritable marker counts as already asked**: one missed question beats a
-deny nothing can get past. Every later attempt, and every one without a session
-id, gets the fallback `ask`.
+**An unwritable marker counts as already asked**, since a missed question beats
+an endless deny; a later attempt, or one with no session id, gets the `ask`.
 
 **Under the press all four choice sites deny on every attempt; the switch's
 two name the split into a worktree as the way on where its creation is
@@ -312,8 +313,8 @@ row**: it is not another session's consent, and the dirty row asks otherwise.
 **A token is an audit trail, not an authorization**: nothing verifies who typed
 it, the standing `[no-review]` has.
 
-Never guarded: file restores, every non-`add` worktree subcommand, and sessions
-in linked worktrees (already isolated).
+Never guarded: file restores, non-`add` worktree subcommands, and sessions in
+linked worktrees (already isolated).
 
 ## Declared work streams — leases beat every heuristic
 
@@ -378,9 +379,8 @@ read past the frozen base's words: a shape is its subcommand and, for
 `checkout`, `worktree` and `stash`, one deciding word; no name is looked up.
 The guard and the consent writer read through `hooks/cmdline_base.py`, that
 commit's `hooks/cmdline.py` byte for byte, and choose no segment, slot or
-directory through `hooks/cmdline.py`. The guard takes one answer, the first
-switch, creation and directory, so a wider reading would put first a failed
-`cd` or a skipped `||` branch.
+directory through `hooks/cmdline.py`: the guard takes one answer, which a
+wider reading could make a failed `cd`.
 
 **The guard asks `hooks/cmdline.py` only what the frozen reading does not read
 as git** — a shell's string, an `eval`, a substitution body, a git behind a
@@ -411,15 +411,14 @@ git runs*). `tests/test_the_frozen_reading_never_grows.py` pins
 `tests/test_guard_resolves_the_tree_it_judges.py` holds the base's answers.
 
 **The advice follows the same tree**: a command a reason gives carries `git -C
-<root>` where the shell is elsewhere, and the note's `git restore` always,
-since its paths are root-relative.
+<root>` where the shell is elsewhere, and the note's root-relative `git
+restore` always.
 
 **Two destinations fall back to the session's own directory**: one that cannot
 be computed (a variable, a glob, a subshell, a bare `cd -`), and one that holds
 **no repository**, since `cd /no/such/dir ; git switch x` switches where the
 shell started. A `git -C` naming no repository is silent: git refuses it. The
-commit gate stops there instead, because an unjudged commit is an unreviewed
-one.
+commit gate stops there instead: an unjudged commit is unreviewed.
 
 ## Known limits
 
@@ -500,4 +499,4 @@ rows' deny**, bounded by the reason's text (work item 1791781864,
 every session of the project active.
 
 **tty atime also refreshes on in-turn stdin reads**, so the prompt says
-"terminal input/output"; either way the session is live.
+"terminal input/output"; either way it is live.
