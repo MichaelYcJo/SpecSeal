@@ -279,7 +279,7 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
     the question and its options and never which one was pressed. That is the
     whole difference from `[worktree-ok]` and from a `routing.md` the model
     wrote itself, and it is why the answer stands beside the record as
-    consent. `docs/worktree-guard-spec.md` §*Creation consent* holds the table.
+    consent. `docs/worktree-guard-spec.md` §*Creation consent* states it.
 
     Four conditions, and every way of failing one is False, which is the
     guard's behaviour before this reader existed:
