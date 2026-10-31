@@ -42,6 +42,8 @@ RECORD_LINES = (
 # a case, and what the value may be. A copied value is exempt.
 COPIED = {
     "item": r".+?",
+    # The path of the round record the case was cut from, in its layout.
+    "report": r".+?",
     "branch": r".+?",
     "base_ref": r".+?",
     "base": r"[0-9a-f]+",
@@ -195,6 +197,7 @@ def test_a_word_in_the_generators_text_is_refused_and_one_it_copied_is_not(
     target = {
         "item": "1-a-work-item",
         "n": 2,
+        "report": "seal/threads/1-a-work-item/trail/rounds/round-2.md",
         "branch": "feat/a-branch",
         "target": "a" * 40,
         "base": "b" * 40,

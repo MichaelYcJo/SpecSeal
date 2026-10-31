@@ -1050,9 +1050,11 @@ OLD_NAME_RECORDS = (
 # A replayed or seeded eval case holds a run at a recorded commit, so its
 # bytes are the record (`evals/README.md`).
 RECORDED_CASE = re.compile(r"^evals/behaviour/[^/]+/(?:replay|seeded)-")
-# The replay and seeded cases' generators read round records at the 0.22.x
-# layout every committed case was cut from, each such line exempted at the
-# generator, and their cases build those records.
+# The replay and seeded cases' generators read round records in both layouts
+# a release has kept them in, the one before 0.23.0 that every committed case
+# was cut from among them, spelt once and exempted at
+# `evals/scripts/replay_targets.py#LAYOUTS`, and their cases build records in
+# both.
 KEPT_FILES = (
     "tests/evals/test_replay_targets.py",
     "tests/evals/test_seed_defects.py",

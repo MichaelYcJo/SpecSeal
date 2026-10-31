@@ -53,16 +53,29 @@ def seeded_round_1(target):
     )
 
 
-def shipped_item(tmp_path, monkeypatch, first=seeded_round_1, second=True, crlf=False):
+# The two layouts a release has kept its round records in, as `(the
+# directory a work item's directory stands in, the directory of its round
+# records under it)`.
+LAYOUTS = [("seal/specs", "rounds"), ("seal/threads", "trail/rounds")]
+
+
+def shipped_item(
+    tmp_path,
+    monkeypatch,
+    first=seeded_round_1,
+    second=True,
+    crlf=False,
+    layout=LAYOUTS[0],
+):
     """A repository that shipped one work item, with `rt` reading it: a base
     holding the check of a grammar with no `evidence:` row, a branch of a
     code commit and a records commit, and the branch squashed onto the base
     with round 1, FIRST of the target, and round 2 where SECOND is set,
-    added as a shipped squash commit holds them. No `main` ref but the
-    local branch exists, so the squash's first parent stands for the base
-    round 1 names. Every file is written with LF line ends and stored as
-    written, `a.py` with CRLF where CRLF is set. `({name: commit}, its
-    path)`."""
+    added as a shipped squash commit holds them, in LAYOUT. No `main` ref
+    but the local branch exists, so the squash's first parent stands for
+    the base round 1 names. Every file is written with LF line ends and
+    stored as written, `a.py` with CRLF where CRLF is set. `({name:
+    commit}, its path)`."""
     rt = load_script("seed_defects").rt
     repo = tmp_path / "shipped"
     repo.mkdir()
@@ -98,7 +111,8 @@ def shipped_item(tmp_path, monkeypatch, first=seeded_round_1, second=True, crlf=
     git("commit", "-qm", "base")
     commits = {"base": git("rev-parse", "HEAD")}
     git("checkout", "-q", "-b", SEEDED_BRANCH)
-    spec = f"seal/specs/{SEEDED_ITEM}"
+    home, rounds = layout
+    spec = f"{home}/{SEEDED_ITEM}"
     put(
         f"{spec}/routing.md",
         f"| Axis | Answer |\n|---|---|\n| Branch | {SEEDED_BRANCH} |\n",
@@ -115,9 +129,9 @@ def shipped_item(tmp_path, monkeypatch, first=seeded_round_1, second=True, crlf=
     commits["target"] = git("rev-parse", "HEAD")
     git("checkout", "-q", "main")
     git("merge", "-q", "--squash", SEEDED_BRANCH)
-    put(f"{spec}/rounds/round-1.md", first(commits["target"]))
+    put(f"{spec}/{rounds}/round-1.md", first(commits["target"]))
     if second:
-        put(f"{spec}/rounds/round-2.md", LABELLED_ROUND_2)
+        put(f"{spec}/{rounds}/round-2.md", LABELLED_ROUND_2)
     git("add", "-A")
     git("commit", "-qm", "feat: a shipped item (#1)")
     commits["squash"] = git("rev-parse", "HEAD")
@@ -202,16 +216,21 @@ class Test_seed:
 
 
 class Test_target_of:
+    @pytest.mark.parametrize("layout", LAYOUTS, ids=["specs", "threads"])
     def test_accepts_a_shipped_commit_and_builds_its_case_on_round_1s_target(
-        self, tmp_path, monkeypatch
+        self, tmp_path, monkeypatch, layout
     ):
         """Guards S8: a seeded case is the tree the shipped item's round 1
         reviewed, not the squash commit. Its scaffold fetches round 1's target
         and base, removes no file, and after the amend expires the reflog,
         removes `FETCH_HEAD` and prunes what nothing reaches. Its prompt names
-        HEAD and round 1's base, and no commit of the tree without the seed."""
+        HEAD and round 1's base, and no commit of the tree without the seed.
+        A work item in either layout a release has kept its records in is
+        found by the `routing.md` the commit adds, and the report is written
+        in its layout (#1150); the reader of one layout left a thread-layout
+        item out as adding no work item."""
         sd = load_script("seed_defects")
-        commits, _repo = shipped_item(tmp_path, monkeypatch)
+        commits, _repo = shipped_item(tmp_path, monkeypatch, layout=layout)
         t, why = sd.target_of(commits["squash"])
         assert why == "", why
         assert (t["target"], t["base"], t["base_ref"], t["branch"]) == (
@@ -239,17 +258,22 @@ class Test_target_of:
         assert f"on branch `{SEEDED_BRANCH}` at HEAD" in prompt
         assert f"the base is `{commits['base']}`" in prompt
         assert commits["target"] not in prompt and commits["squash"] not in prompt
+        report = f"{layout[0]}/{SEEDED_ITEM}/{layout[1]}/round-1.md"
+        assert f"Write the report to `{report}`" in prompt
+        assert f"run `cat {report}` once" in prompt
 
+    @pytest.mark.parametrize("layout", LAYOUTS, ids=["specs", "threads"])
     def test_a_seeded_case_counts_round_1s_confirmed_fixes_as_truths(
-        self, tmp_path, monkeypatch
+        self, tmp_path, monkeypatch, layout
     ):
         """Guards S9: at round 1's target the tree holds the defects round 1
         found, so each finding round 1 closed fixed that round 2 confirmed is a
         `truth-` grader beside `truth-seeded`, and the seed lands on no line a
         truth's window accepts: `f`'s line is in finding 1's window, so the
-        seed goes to `g`."""
+        seed goes to `g`. Round 2 is read in round 1's layout, either of the
+        two (#1150)."""
         sd = load_script("seed_defects")
-        commits, _repo = shipped_item(tmp_path, monkeypatch)
+        commits, _repo = shipped_item(tmp_path, monkeypatch, layout=layout)
         t, _why = sd.target_of(commits["squash"])
         assert (t["path"], t["line"], t["new"]) == ("a.py", 40, "    return b == 2")
         truths = {
@@ -299,8 +323,17 @@ class Test_target_of:
                 "| Axis | Answer |\n|---|---|\n| Branch | feat/2-an-unreviewed-item |\n",
                 "holds no round 1 record",
             ),
+            (
+                "seal/threads/1790000002-an-unreviewed-item/routing.md",
+                "| Axis | Answer |\n|---|---|\n| Branch | feat/2-an-unreviewed-item |\n",
+                "holds no round 1 record",
+            ),
         ],
-        ids=["adds-no-work-item", "holds-no-round-1-record"],
+        ids=[
+            "adds-no-work-item",
+            "holds-no-round-1-record",
+            "holds-no-round-1-record-in-the-thread-layout",
+        ],
     )
     def test_refuses_a_squashed_pull_request_with_no_round_1_to_seed(
         self, tmp_path, monkeypatch, rel, text, why
@@ -331,10 +364,124 @@ class Test_module:
             sd, "shipped", lambda _tags: ["aaaaaaaa1111", "bbbbbbbb2222"]
         )
         monkeypatch.setattr(sd.rt, "git", lambda *_a, **_k: "")
-        kept, left = sd.targets(["v1.0.0"], {"aaaaaaaa"})
-        assert kept == []
+        kept, left, held = sd.targets(["v1.0.0"], {"aaaaaaaa"})
+        assert (kept, held) == ([], 0)
         assert left == [("aaaaaaaa1111", "not a squashed pull request")]
         assert len(sd.targets(["v1.0.0"])[1]) == 2
+
+    def test_says_so_and_exits_1_where_no_commit_holds_a_round_1_record(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Guards #1150's silent read on the seeded side: over commits none of
+        which holds a round 1 record in either layout, the run still prints
+        each commit's `left out:` line, then names both layouts and the tags
+        on stderr and exits 1. Seen red against its exit 0, where the
+        thread-layout item read as adding no work item."""
+        sd = load_script("seed_defects")
+        repo, _base = based_repo(tmp_path, monkeypatch)
+        write(repo, "b.py", "x = 2\n")
+        bump = commit_everything_as_e(repo, "chore: a bump (#2)")
+        write(
+            repo,
+            "seal/threads/1790000003-an-unreviewed-item/routing.md",
+            "| Axis | Answer |\n|---|---|\n| Branch | feat/3-an-unreviewed-item |\n",
+        )
+        item = commit_everything_as_e(repo, "feat: an unreviewed item (#3)")
+        monkeypatch.setattr(sd.rt, "last_tags", lambda count=2: ["v1.1.0", "v1.0.0"])
+        monkeypatch.setattr(sd, "shipped", lambda _tags: [item, bump])
+        assert sd.main(["--list"]) == 1
+        said = capsys.readouterr()
+        assert said.out == (
+            f"{item[:8]} left out: holds no round 1 record\n"
+            f"{bump[:8]} left out: adds 0 work items' routing.md\n"
+        )
+        assert said.err == (
+            "seed_defects: no shipped commit read at v1.1.0, v1.0.0 holds a round 1 "
+            "record in `seal/specs/<item>/rounds/` or "
+            "`seal/threads/<item>/trail/rounds/`\n"
+        )
+        # One commit that holds a round 1 record is a read, whatever its case.
+        commits, _repo = shipped_item(tmp_path, monkeypatch, layout=LAYOUTS[1])
+        monkeypatch.setattr(sd, "shipped", lambda _tags: [commits["squash"]])
+        assert sd.main(["--list"]) == 0
+        assert capsys.readouterr().err == ""
+
+    def test_names_each_named_case_no_shipped_commit_answers_with_its_reason(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Guards `--case` answering a name as `replay_targets.py` answers it
+        (#1150): a name no listed line answers, or without `--list` no
+        written case, is said on stderr with why, and the run exits 1, where
+        it said nothing and `--list` exited 0 while another named commit held
+        a round 1 record. A name a kept or a `left out:` line answers is said
+        there alone, and a run that read no round 1 record still says that
+        after the names. Seen red against that silence. The reason for a
+        name no commit read answers says what the run read, and not that no
+        release shipped the commit (round 2's finding 1); seen red against
+        that reason. A name is read only in a case's form, `seeded-` and
+        eight lower-case hex digits, and any other name is answered with
+        that form: the bare digits of a commit the run listed, and a full
+        SHA, were told no shipped commit read had them (round 3's finding
+        1); seen red against that reason. A name given twice is one name,
+        where the run that wrote its case exited 1 saying nothing; seen red
+        against that exit 1."""
+        sd = load_script("seed_defects")
+        commits, repo = shipped_item(tmp_path, monkeypatch)
+        write(repo, "b.py", "x = 2\n")
+        bump = commit_everything_as_e(repo, "chore: a bump (#2)")
+        monkeypatch.setattr(sd.rt, "last_tags", lambda count=2: ["v1.1.0", "v1.0.0"])
+        monkeypatch.setattr(sd, "shipped", lambda _tags: [commits["squash"], bump])
+        monkeypatch.setattr(sd.rt, "origin_url", lambda: "https://example.com/x/y.git")
+        kept = f"seeded-{commits['squash'][:8]}"
+        gone = f"seeded-{bump[:8]}"
+        nothing = "seeded-12345678"
+        unshipped = (
+            "seed_defects: seeded-12345678 not written: no shipped commit read "
+            "has 12345678 as its first eight digits\n"
+        )
+
+        def case(*names, run=("--list",)):
+            return sd.main([*run, *[x for n in names for x in ("--case", n)]])
+
+        assert case(kept, gone, nothing) == 1
+        said = capsys.readouterr()
+        assert said.out.splitlines()[1:] == [
+            f"{bump[:8]} left out: adds 0 work items' routing.md"
+        ]
+        assert said.err == unshipped
+        assert case(kept, gone) == 0
+        assert capsys.readouterr().err == ""
+        form = (
+            " not written: a case is named seeded-<a shipped commit's first "
+            "eight hex digits, in lower case>\n"
+        )
+        sha = commits["squash"]
+        bare = kept.removeprefix("seeded-")
+        assert case(kept, f"seeded-{sha}", bare) == 1
+        said = capsys.readouterr()
+        assert said.out.startswith(f"{bare} a.py:"), said.out
+        assert said.err == f"seed_defects: seeded-{sha}{form}seed_defects: {bare}{form}"
+        out = ("--out", str(tmp_path / "out"))
+        assert case(kept, kept, run=out) == 0
+        assert capsys.readouterr().err == ""
+        assert case(kept, gone, nothing, run=out) == 1
+        said = capsys.readouterr()
+        assert said.out.startswith(f"{kept}: a.py#g, "), said.out
+        assert said.err == (
+            f"seed_defects: {gone} not written: adds 0 work items' routing.md\n"
+            + unshipped
+        )
+        empty = (
+            "seed_defects: no shipped commit read at v1.1.0, v1.0.0 holds a round 1 "
+            "record in `seal/specs/<item>/rounds/` or "
+            "`seal/threads/<item>/trail/rounds/`\n"
+        )
+        assert case(nothing) == 1
+        assert capsys.readouterr().err == unshipped + empty
+        assert case(nothing, run=out) == 1
+        assert capsys.readouterr().err == unshipped + empty
+        assert case(bare, run=out) == 1
+        assert capsys.readouterr().err == f"seed_defects: {bare}{form}" + empty
 
     def test_the_replay_and_seeded_generators_read_the_entries_too(
         self, tmp_path, monkeypatch
@@ -353,6 +500,7 @@ class Test_module:
         t = {
             "item": "1791382684-every-reader-and-record-is-inventoried",
             "n": 2,
+            "report": "seal/threads/1791382684-a/trail/rounds/round-2.md",
             "target": "HEAD",
             "truths": [{"k": 1, "finding": "f", "pattern": TRUTH}],
         }
@@ -364,6 +512,7 @@ class Test_module:
             "commit": "279a580b" + "0" * 32,
             "item": "1791384154-a-records-finding-closes-once-at-the-runs-end",
             "n": 1,
+            "report": "seal/threads/1791384154-a/trail/rounds/round-1.md",
             "target": "HEAD",
             "truths": [],
             "path": "a.py",

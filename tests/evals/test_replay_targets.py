@@ -3,8 +3,9 @@
 The replay generator writes a behaviour case from a review round this
 repository already ran: the target the round reviewed, and a `truth-`
 grader for each finding the next round confirmed fixed. These cases pin
-which findings count as truths, how a labelled record is read by the
-grammar of the commit that wrote it, and the line window a truth accepts.
+which findings count as truths, how a labelled record and a record in
+`seal` blocks are each read by the check of the commit that wrote it, and
+the line window a truth accepts.
 `test_a_named_case_is_read_at_every_release_tag` holds the seeded
 generator too, because both read the release tags through this module.
 
@@ -31,10 +32,9 @@ def load_script(name):
     return module
 
 
-# The last release whose check reads a round record in labelled lines. Every
-# record a replay reads stands in them, and this tree's check reads `seal`
-# blocks from #1198 on, so a case that needs a commit's check to accept one
-# takes that release's check.
+# The last release whose check reads a round record in labelled lines. This
+# tree's check reads `seal` blocks from #1198 on, so a case that needs a
+# commit's check to accept a labelled record takes that release's check.
 LABELLED_AT = "v0.26.0"
 
 
@@ -51,6 +51,18 @@ def labelled_check_files():
         if shown.returncode == 0:
             found[rel] = shown.stdout
     assert found, f"this clone holds no `{LABELLED_AT}` tag to take its check from"
+    return found
+
+
+def tree_check_files():
+    """`{path: text}` for each of `replay_targets.CHECK_FILES` this tree
+    holds: a check that reads a round record's `seal` blocks."""
+    found = {}
+    for rel in load_script("replay_targets").CHECK_FILES:
+        path = os.path.join(ROOT, *rel.split("/"))
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as f:
+                found[rel] = f.read()
     return found
 
 
@@ -103,6 +115,177 @@ holds.
 confirms: round-3#1
 another round's.
 """
+
+# The two records above in `seal` blocks, as `templates/records/sdd-round.md`
+# lays a record out since #1198.
+BLOCK_ROUND_1 = """# i — review round 1
+
+```seal
+target: 1a2b3c4 against main
+```
+
+## Findings
+
+### 1. a fixed defect
+
+```seal
+severity: must
+location: `src/a.py:12`, `docs/a.md`
+evidence: read `src/a.py:12`
+```
+
+why it matters.
+
+```seal
+verdict: fixed abc1234
+answer: fixed
+```
+
+### 2. a finding that does not hold
+
+```seal
+severity: should
+location: `src/b.py:3`
+evidence: executed `git grep -n b -- src`
+```
+
+```seal
+verdict: rejected
+answer: it holds
+```
+
+## Confirmations
+
+```seal
+confirms: none
+```
+a claim of the frame that matched.
+"""
+
+BLOCK_ROUND_2 = """# i — review round 2
+
+```seal
+target: 2b3c4d5, fixes 1a2b3c4..2b3c4d5
+```
+
+## Findings
+
+## Confirmations
+
+```seal
+confirms: round-1#1
+```
+holds.
+
+```seal
+confirms: round-1#2
+```
+holds.
+
+```seal
+confirms: round-3#1
+```
+another round's.
+"""
+
+# One work item in each layout a release has kept its round records in, as
+# `(item, its directory, the directory of its round records, its branch)`.
+SPECS_ITEM = (
+    "1791000001-a-specs-item",
+    "seal/specs/1791000001-a-specs-item",
+    "rounds",
+    "feat/1-a-specs-item",
+)
+THREADS_ITEM = (
+    "1792000001-a-threads-item",
+    "seal/threads/1792000001-a-threads-item",
+    "trail/rounds",
+    "feat/2-a-threads-item",
+)
+
+
+def two_layouts(
+    tmp_path,
+    monkeypatch,
+    rt,
+    check=labelled_check_files,
+    rounds=(LABELLED_ROUND_1, LABELLED_ROUND_2),
+):
+    """A repository whose tag `v1.0.0` holds `SPECS_ITEM`'s rounds 1 and 2
+    and whose tag `v1.1.0` holds `THREADS_ITEM`'s, each pair in its own
+    layout, as ROUNDS gives their text, with the check files CHECK gives
+    committed before either: labelled lines and the check of `LABELLED_AT`
+    by default. Round 1 of each reviewed the commit that added its
+    `routing.md`, against the base, and closed finding 1 fixed; round 2
+    confirms it. Neither pair stands in the working tree. RT reads the
+    repository. `{name: commit}`."""
+    repo = tmp_path / "layouts"
+    repo.mkdir()
+    who = ["-c", "user.name=x", "-c", "user.email=x@example.com"]
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(repo), *who, *args],
+            check=True,
+            capture_output=True,
+            encoding="utf-8",
+        ).stdout.strip()
+
+    def put(rel, text):
+        path = repo / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    git("init", "-q")
+    for rel, said in check().items():
+        put(rel, said)
+    put("src/a.py", "x = 1\n")
+    git("add", "-A")
+    git("commit", "-qm", "base")
+    commits = {"base": git("rev-parse", "HEAD")}
+    first_round, second_round = rounds
+    for (item, home, held, branch), tag in (
+        (SPECS_ITEM, "v1.0.0"),
+        (THREADS_ITEM, "v1.1.0"),
+    ):
+        put(
+            f"{home}/routing.md",
+            f"| Axis | Answer |\n|---|---|\n| Branch | {branch} |\n",
+        )
+        git("add", "-A")
+        git("commit", "-qm", f"routing of {item}")
+        commits[item] = git("rev-parse", "HEAD")
+        first = first_round.replace("# i ", f"# {item} ").replace(
+            "1a2b3c4 against main", f"{commits[item]} against {commits['base']}"
+        )
+        put(f"{home}/{held}/round-1.md", first)
+        put(
+            f"{home}/{held}/round-2.md",
+            second_round.replace("# i ", f"# {item} "),
+        )
+        git("add", "-A")
+        git("commit", "-qm", f"rounds of {item}")
+        git("tag", tag)
+        git("rm", "-rq", home)
+        git("commit", "-qm", f"settled {item}")
+    monkeypatch.setattr(rt, "ROOT", str(repo))
+    return commits
+
+
+def tagged_repo(tmp_path, monkeypatch, rt):
+    """A repository holding no round record in either layout, its one commit
+    tagged `v1.0.0` and `v1.1.0`, with RT reading it."""
+    repo = tmp_path / "empty"
+    repo.mkdir()
+    who = ["-c", "user.name=x", "-c", "user.email=x@example.com"]
+    for args in (
+        ["init", "-q"],
+        ["commit", "-q", "--allow-empty", "-m", "base"],
+        ["tag", "v1.0.0"],
+        ["tag", "v1.1.0"],
+    ):
+        subprocess.run(["git", "-C", str(repo), *who, *args], check=True)
+    monkeypatch.setattr(rt, "ROOT", str(repo))
 
 
 class Test_confirmed:
@@ -339,13 +522,14 @@ class Test_module:
         that wrote it, so a round written before the `evidence:` row still
         confirms the fix it names, and the replay keeps the target."""
         rt = load_script("replay_targets")
-        two = "seal/specs/i/rounds/round-2.md"
+        two = "seal/threads/i/trail/rounds/round-2.md"
+        _specs, threads = rt.LAYOUTS
         monkeypatch.setattr(
             rt,
             "records",
             lambda _tags, _items=None: {
-                ("i", 1): LABELLED_ROUND_1,
-                ("i", 2): LABELLED_ROUND_2,
+                ("i", 1): (threads, LABELLED_ROUND_1),
+                ("i", 2): (threads, LABELLED_ROUND_2),
             },
         )
         monkeypatch.setattr(rt, "written_at", lambda rel, _tags: f"at {rel}")
@@ -408,26 +592,289 @@ class Test_module:
     def test_records_read_only_the_named_items(self, monkeypatch, tmp_path):
         """Guards `--case`'s reach over every release tag: only the named work
         items' records are read, so reading all tags costs one listing a tag and
-        a `git show` per named record, never one per record in the history."""
+        a `git show` per named record, never one per record in the history.
+        Each record comes with the layout it was read in, from the working
+        tree and from a tag, in both layouts a release has kept its records
+        in."""
         rt = load_script("replay_targets")
-        shown = []
+        listed, shown = [], []
+        for item in ("1793-c", "1794-d"):
+            rounds = tmp_path / "seal" / "threads" / item / "trail" / "rounds"
+            rounds.mkdir(parents=True)
+            (rounds / "round-1.md").write_text(f"the tree's {item}", encoding="utf-8")
 
         def git(*args, check=True):
             if args[0] == "ls-tree":
+                listed.append(args)
                 return (
                     "seal/specs/1791-a/rounds/round-1.md\n"
                     "seal/specs/1792-b/rounds/round-1.md\n"
+                    "seal/threads/1793-c/trail/rounds/round-1.md\n"
+                    "seal/threads/1795-e/trail/rounds/round-2.md\n"
                 )
             shown.append(args[1])
             return f"text of {args[1]}"
 
         monkeypatch.setattr(rt, "ROOT", str(tmp_path))
         monkeypatch.setattr(rt, "git", git)
-        found = rt.records(["v1.0.0"], {"1791"})
+        found = rt.records(["v1.0.0"], {"1791", "1793", "1795"})
+        specs, threads = rt.LAYOUTS
         assert found == {
-            ("1791-a", 1): "text of v1.0.0:seal/specs/1791-a/rounds/round-1.md"
+            ("1791-a", 1): (
+                specs,
+                "text of v1.0.0:seal/specs/1791-a/rounds/round-1.md",
+            ),
+            ("1793-c", 1): (threads, "the tree's 1793-c"),
+            ("1795-e", 2): (
+                threads,
+                "text of v1.0.0:seal/threads/1795-e/trail/rounds/round-2.md",
+            ),
         }
-        assert shown == ["v1.0.0:seal/specs/1791-a/rounds/round-1.md"]
+        assert listed == [
+            ("ls-tree", "-r", "--name-only", "v1.0.0", "seal/specs", "seal/threads")
+        ]
+        assert shown == [
+            "v1.0.0:seal/specs/1791-a/rounds/round-1.md",
+            "v1.0.0:seal/threads/1795-e/trail/rounds/round-2.md",
+        ]
+
+    def test_reads_a_round_record_in_either_layout_a_release_kept_it_in(
+        self, tmp_path, monkeypatch
+    ):
+        """Guards #1150: every release from 0.23.0 on keeps its round records
+        at `seal/threads/<id>/trail/rounds/`, and the generator read only the
+        layout before it, so `--list` over the last two tags printed nothing.
+        A record in either layout gives a target, the next round, `routing.md`
+        at the target and the report path each in the layout of the record
+        they derive from. Seen red against the reader of one layout, which
+        kept the `seal/specs/` item alone."""
+        rt = load_script("replay_targets")
+        commits = two_layouts(tmp_path, monkeypatch, rt)
+        kept, left = rt.targets(["v1.1.0", "v1.0.0"])
+        assert [
+            (
+                t["item"],
+                t["target"],
+                t["base"],
+                t["branch"],
+                [x["k"] for x in t["truths"]],
+            )
+            for t in kept
+        ] == [
+            (item, commits[item], commits["base"], branch, [1])
+            for item, _home, _rounds, branch in (SPECS_ITEM, THREADS_ITEM)
+        ]
+        assert left == [
+            (SPECS_ITEM[0], 2, "target 2b3c4d5 does not resolve"),
+            (THREADS_ITEM[0], 2, "target 2b3c4d5 does not resolve"),
+        ]
+        for t, (_item, home, rounds, _branch) in zip(
+            kept, (SPECS_ITEM, THREADS_ITEM), strict=True
+        ):
+            report = f"{home}/{rounds}/round-1.md"
+            assert f"Write the report to `{report}`" in rt.prompt(t)
+            assert f"run `cat {report}` once" in rt.prompt(t)
+
+    def test_reads_a_round_record_in_seal_blocks_by_the_check_that_wrote_it(
+        self, tmp_path, monkeypatch
+    ):
+        """Guards #1150's second half: from #1198 on a round record holds its
+        fields in `seal` blocks, and the generator read such a record as a
+        table, leaving each out as `Target SHA (none) does not resolve`. A
+        record whose blocks hold a round block is read through the check of
+        the commit that wrote it: its base is the round block's `target:`
+        value, a truth is a finding block's `location:` value whose close
+        block reads `fixed`, and the next round confirms it in a
+        confirmation block. Seen red against phase 1's reader, which left
+        both round 1 records out with that reason."""
+        rt = load_script("replay_targets")
+        commits = two_layouts(
+            tmp_path,
+            monkeypatch,
+            rt,
+            check=tree_check_files,
+            rounds=(BLOCK_ROUND_1, BLOCK_ROUND_2),
+        )
+        kept, left = rt.targets(["v1.1.0", "v1.0.0"])
+        assert [
+            (
+                t["item"],
+                t["target"],
+                t["base"],
+                t["base_ref"],
+                t["asked"],
+                [(x["k"], x["finding"], x["location"]) for x in t["truths"]],
+            )
+            for t in kept
+        ] == [
+            (
+                item,
+                commits[item],
+                commits["base"],
+                None,
+                "",
+                [(1, "a fixed defect", "`src/a.py:12`, `docs/a.md`")],
+            )
+            for item, _home, _rounds, _branch in (SPECS_ITEM, THREADS_ITEM)
+        ]
+        assert left == [
+            (SPECS_ITEM[0], 2, "target 2b3c4d5 does not resolve"),
+            (THREADS_ITEM[0], 2, "target 2b3c4d5 does not resolve"),
+        ]
+
+    def test_refuses_a_record_in_seal_blocks_the_check_refuses(self):
+        """Guards that a replay reads only what a pull request accepted, for
+        a record in `seal` blocks as for a labelled one: a record the check
+        refuses is left out naming the refusal, and a next record it refuses
+        confirms nothing. A record that holds a `seal` opener is judged as a
+        record in blocks and never read as a table, whether the parser reads
+        any of its blocks or refuses every one: its round block beside
+        finding blocks it reads, its round block alone, a fence that never
+        closes, or a fence the walk cannot place. A refusal that names no
+        opener leaves the record to the labelled and table readers. Seen red
+        against phase 1's reader for the first, and against phase 2's for
+        the other three, each of which gave `Target SHA (none) does not
+        resolve`; the last three are seen red against a reader that counts
+        every refusal, or a comment line, an unclosed fence or an unplaced
+        one of any info string."""
+        rt = load_script("replay_targets")
+        _specs, threads = rt.LAYOUTS
+        fence = "`" * 3
+        bad = BLOCK_ROUND_1.replace("against main", "against main and more")
+        head = "# i — review round 1\n\n"
+        tail = "\n## Findings\n\n## Confirmations\n"
+        refused = {
+            bad: (4, "`target: 1a2b3c4 against main and more` does not read"),
+            f"{head}{fence}seal\ntarget: 1a2b3c4 against main and more\n"
+            f"{fence}\n{tail}": (
+                4,
+                "`target: 1a2b3c4 against main and more` does not read",
+            ),
+            f"{head}{fence}seal\ntarget: 1a2b3c4 against main\n{tail}": (
+                0,
+                "no `## Findings` section",
+            ),
+            f"{head}<div>\n{fence}seal\ntarget: 1a2b3c4 against main\n"
+            f"{fence}\n{tail}": (4, "the walk cannot place this fence line"),
+        }
+        for text, (line, said) in refused.items():
+            t, why = rt.round_target(
+                "i", 1, text, BLOCK_ROUND_2, lambda _rel: None, layout=threads
+            )
+            assert t is None
+            assert why.startswith(
+                f"the check refuses the record at line {line}: {said}"
+            ), why
+        # A refusal that names no `seal` opener leaves the record to the
+        # other readers: a comment line, and a fence of another info string
+        # that never closes or that the walk cannot place.
+        commented = LABELLED_ROUND_1.replace(
+            "## Findings\n", "## Findings\n\n<!-- a template comment -->\n"
+        )
+        table = "| Target SHA | 1a2b3c4 |\n"
+        assert rt.judged_by(commented) is rt.labelled_round
+        assert rt.judged_by(f"{table}\n{fence}python\nx = 1\n") is None
+        assert rt.judged_by(f"{table}\n<div>\n{fence}text\nx\n{fence}\n") is None
+        worse = BLOCK_ROUND_2.replace("round-1#1\n", "round-1#1 and more\n")
+        assert rt.confirmed(BLOCK_ROUND_2, 1) == {1, 2}
+        assert rt.confirmed(worse, 1) == set()
+
+    def test_says_so_and_exits_1_where_it_reads_no_round_record(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Guards #1150's silent read: a run that found no round record in
+        either layout printed nothing and exited 0, which reads as "nothing
+        to do". It names both layouts and the tags it read on stderr, and
+        exits 1. Seen red against that exit 0."""
+        rt = load_script("replay_targets")
+        tagged_repo(tmp_path, monkeypatch, rt)
+        assert rt.main(["--list"]) == 1
+        said = capsys.readouterr()
+        assert said.out == ""
+        assert said.err == (
+            "replay_targets: no round record in `seal/specs/<item>/rounds/` or "
+            "`seal/threads/<item>/trail/rounds/`, in the working tree or at "
+            "v1.1.0, v1.0.0\n"
+        )
+
+    def test_names_each_named_case_it_did_not_write_with_its_reason(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Guards `--case` on a name no written case answers: the run named
+        nothing and exited 1, so a reader could not tell a record left out
+        from a record never read. Each such name is said on stderr with the
+        reason `round_target` gave, or that no record of its work item, or
+        of that round, was read. Seen red against the silent exit 1. A name
+        given twice is one name, where the run that wrote its case exited 1
+        saying nothing; seen red against that exit 1."""
+        rt = load_script("replay_targets")
+        tagged_repo(tmp_path, monkeypatch, rt)
+        monkeypatch.setattr(rt, "origin_url", lambda: "https://example.com/x/y.git")
+        assert rt.main(["--case", "replay-1-r1"]) == 1
+        assert capsys.readouterr().err == (
+            "replay_targets: replay-1-r1 not written: no record of its work item "
+            "was read\n"
+        )
+        two_layouts(tmp_path, monkeypatch, rt)
+        names = ["replay-1792000001-r2", "replay-1792000001-r5"]
+        assert rt.main([x for name in names for x in ("--case", name)]) == 1
+        assert capsys.readouterr().err == (
+            "replay_targets: replay-1792000001-r2 not written: target 2b3c4d5 "
+            "does not resolve\n"
+            "replay_targets: replay-1792000001-r5 not written: no round 5 record "
+            "of its work item was read\n"
+        )
+        kept = ["--case", "replay-1792000001-r1"]
+        assert rt.main(["--out", str(tmp_path / "out"), *kept, *kept]) == 0
+        assert capsys.readouterr().err == ""
+
+    def test_names_each_named_case_no_listed_line_answers_with_its_reason(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Guards `--list` with `--case`: the list returned before the names
+        no written case answers were said, so a name no record answered
+        printed nothing and exited 0, where `seed_defects.py` says on the
+        same input that it read nothing and exits 1. A name no listed line
+        answers is said on stderr as `--case` says it, and the run exits 1;
+        a name a kept or a `left out:` line answers is said there alone.
+        Seen red against that exit 0. A name is read only in a case's form,
+        and any other name is answered with that form: a listed round named
+        without `replay-` was told no record of that round was read (round
+        3 of #1150); seen red against that reason."""
+        rt = load_script("replay_targets")
+        tagged_repo(tmp_path, monkeypatch, rt)
+        assert rt.main(["--list", "--case", "replay-1-r1"]) == 1
+        said = capsys.readouterr()
+        assert said.out == ""
+        assert said.err == (
+            "replay_targets: replay-1-r1 not written: no record of its work item "
+            "was read\n"
+        )
+        two_layouts(tmp_path, monkeypatch, rt)
+        names = ["replay-1792000001-r2", "replay-1792000001-r5"]
+        assert rt.main(["--list", *[x for n in names for x in ("--case", n)]]) == 1
+        said = capsys.readouterr()
+        assert said.out.splitlines()[1:] == [
+            "1792000001-a-threads-item r2  left out: target 2b3c4d5 does not resolve"
+        ]
+        assert said.err == (
+            "replay_targets: replay-1792000001-r5 not written: no round 5 record "
+            "of its work item was read\n"
+        )
+        listed = ["replay-1792000001-r1", names[0]]
+        assert rt.main(["--list", *[x for n in listed for x in ("--case", n)]]) == 0
+        assert capsys.readouterr().err == ""
+        # A name out of a case's form is read as none, here the round listed
+        # above without `replay-` and its work item without a round.
+        other = ["1792000001-r1", "replay-1792000001"]
+        assert rt.main(["--list", *[x for n in other for x in ("--case", n)]]) == 1
+        said = capsys.readouterr()
+        assert said.out == ""
+        assert said.err == "".join(
+            f"replay_targets: {n} not written: a case is named "
+            "replay-<the work item's epoch>-r<the round>\n"
+            for n in other
+        )
 
     @pytest.mark.parametrize(
         "blocks",
@@ -493,9 +940,14 @@ class Test_module:
         module = load_script(script)
         rt = module if script == "replay_targets" else module.rt
         calls = []
+        # One round read and left out, so `--list` has a read to list.
+        if script == "replay_targets":
+            read = ([], [("1-i", 1, "left out")])
+        else:
+            read = ([], [("c" * 40, "left out")], 1)
         monkeypatch.setattr(rt, "last_tags", lambda count=2: calls.append(count) or [])
         monkeypatch.setattr(
-            module, "targets", lambda tags, only=None: calls.append(only) or ([], [])
+            module, "targets", lambda tags, only=None: calls.append(only) or read
         )
         monkeypatch.setattr(rt, "origin_url", lambda: "https://example.com/x/y.git")
         assert module.main(["--case", name]) == 1
@@ -513,6 +965,7 @@ class Test_module:
         t = {
             "item": "1-i",
             "n": 2,
+            "report": "seal/threads/1-i/trail/rounds/round-2.md",
             "branch": "b",
             "target": "t" * 40,
             "base": "a" * 40,

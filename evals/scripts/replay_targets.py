@@ -7,8 +7,20 @@ every finding the round closed `fixed` that the next round confirmed
 closed, and every truth `recurred_truths.json` adds for the case or widens
 (`truths_with`, which the other two generators read too); each is a
 `truth-` grader over the `location:` lines of the round record the proofer
-writes today. A record comes in one of two shapes:
+writes today. A record comes in one of three shapes, decided in this order
+by this tree's readers:
 
+  blocks     the record since #1198, which holds a `seal` block, one
+             `hooks/lib/fields.py` reads or refuses (`blocked`), judged and
+             read by
+             `chain_check.py#round_of` and `#round_read` of the commit that
+             last wrote it, so no line of a block is read by a pattern of
+             this file. The commit and the base are its round block's
+             `target:` value, a finding is a `### <n>. ` section whose
+             finding block gives its `location:` value and whose close block
+             reads `verdict: fixed <commit>`, and the next round confirms it
+             in a block reading `confirms: round-<N>#<n>`. It carries no
+             asked paragraph, so the prompt carries none
   labelled   0.22.0's record (`docs/the-review-record.md` *The round
              record*), judged by the `chain_check.py` of the commit that
              last wrote it and its lines read by that commit's reader
@@ -27,10 +39,18 @@ writes today. A record comes in one of two shapes:
              numbered red or yellow row, and a green row naming it
 
 Round records come from the working tree and from the last two release
-tags (`git show <tag>:<the record's path>`, in the layout `RECORD` names);
-`--case` reads
-every release tag, so a committed case still regenerates after the release
-that moved its records out of the last two.
+tags (`git show <tag>:<the record's path>`), in either of the two layouts
+`LAYOUTS` names: the one before 0.23.0 and the thread layout since. The
+next round's record, `routing.md` at the target and the report path the
+case's prompt and graders name are each taken from the layout of the
+record they derive from. `--case` reads every release tag, so a committed
+case still regenerates after the release that moved its records out of the
+last two. A run that reads no round record in either layout says so on
+stderr, and `--case` names there each name it did not write and why;
+with `--list`, each name no line it lists answers. `--case` reads a name
+only in a case's form, `CASE_NAME`: a name of any other form is read as
+no work item's, and its reason is the form a case's name takes. A name
+given twice is one name.
 
 Usage:
   replay_targets.py --list                 every round with truth, and why
@@ -43,8 +63,9 @@ Usage:
                                            (`replay-<id>-rN`), from any
                                            release tag; repeatable
 
-Exit codes: 0 written or listed · 1 fewer targets than --count, or a
-named case no release tag's records hold · 2 the arguments were unusable.
+Exit codes: 0 written or listed · 1 fewer targets than --count, a named
+case not written, or with --list not listed, or no round record in either
+layout · 2 the arguments were unusable.
 """
 
 import argparse
@@ -59,6 +80,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import typing
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import behaviour
@@ -67,10 +89,59 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT = os.path.join(ROOT, "evals", "behaviour", "proofer")
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
 SHA = re.compile(r"[0-9a-f]{7,40}")
-# The layout every round record a committed case was cut from stands in:
-# each tag this reads was cut before the plugin was renamed AgenticSeal.
-# exempt from old_names: the 0.22.x layout of the records its cases come from
-RECORD = re.compile(r"seal/specs/(?P<item>[^/]+)/rounds/round-(?P<n>\d+)\.md")
+
+
+class Layout(typing.NamedTuple):
+    """One layout a release has kept its round records in: ROOT is the
+    directory every work item's directory stands in, and ROUNDS the
+    directory under a work item's that holds its round records."""
+
+    root: str
+    rounds: str
+
+    def record(self, item, n):
+        """The path of ITEM's round N record."""
+        return f"{self.root}/{item}/{self.rounds}/round-{n}.md"
+
+    def routing(self, item):
+        """The path of ITEM's `routing.md`."""
+        return f"{self.root}/{item}/routing.md"
+
+    def named(self):
+        """The directory of a work item's round records, `<item>` standing
+        for the work item, as a message names it."""
+        return f"`{self.root}/<item>/{self.rounds}/`"
+
+    def round_of(self, path):
+        """`(item, n)` where PATH is a round record of this layout, else
+        None."""
+        m = re.fullmatch(
+            rf"{re.escape(self.root)}/(?P<item>[^/]+)/{re.escape(self.rounds)}"
+            r"/round-(?P<n>\d+)\.md",
+            path,
+        )
+        return (m["item"], int(m["n"])) if m else None
+
+    def routed(self, path):
+        """The work item whose `routing.md` PATH is in this layout, else
+        None."""
+        m = re.fullmatch(rf"{re.escape(self.root)}/(?P<item>[^/]+)/routing\.md", path)
+        return m["item"] if m else None
+
+
+# The two layouts a release has kept its round records in, the only place
+# either is spelt: the one before 0.23.0, which every committed case was cut
+# from, and the thread layout every release from 0.23.0 on holds. No release
+# tag holds both, and no work item stands in both.
+LAYOUTS = (
+    # exempt from old_names: the layout of the round records before 0.23.0
+    Layout("seal/specs", "rounds"),
+    Layout("seal/threads", "trail/rounds"),
+)
+# A case's name as `case_name` gives it, the one form `--case` reads a name
+# in, and what `--case` says of a name of any other form.
+CASE_NAME = re.compile(r"replay-(?P<epoch>[0-9]+)-r(?P<n>[1-9][0-9]*)")
+NAMED = "a case is named replay-<the work item's epoch>-r<the round>"
 FINDING = re.compile(r"^(?P<marker>🔴|🟡) (?P<k>\d+)$")
 CONFIRMS = re.compile(
     r"round (?P<n>\d+)'s (?:blocking )?(?:finding|🟡|🔴) (?P<k>\d+) is closed"
@@ -84,9 +155,11 @@ LOCATION = re.compile(
     r"`(?P<path>[\w./-]+\.\w+)(?::(?P<line>\d+)(?:[-\N{EN DASH}]\d+)?|#(?P<unit>[\w.]+))?`"
 )
 # The two labels of 0.22.0's record a replay reads a value from, the level of
-# its finding heading, and the verdict word a truth needs. Every record a
-# replay reads stands in labelled lines, and this tree's check reads a round
-# record's `seal` blocks since #1198, so these are this file's own.
+# its finding heading, and the verdict word a truth needs. This tree's check
+# reads a round record's `seal` blocks since #1198 and carries no reader of a
+# labelled line, so these are this file's own; a record in blocks gives its
+# values through its commit's `round_read`, and `FIXED` is the word a
+# finding's verdict opens with in either.
 TARGET_LABEL = "target:"
 LOCATION_LABEL = "location:"
 FINDING_LEVEL = 3
@@ -127,35 +200,36 @@ def last_tags(count=2):
 
 
 def records(tags, items=None):
-    """`{(item, n): text}` for every round record in the working tree and at
-    TAGS, the tree read first and a tag's copy of the same round skipped.
-    Where ITEMS is given, only the work items whose `<epoch>` prefix it
+    """`{(item, n): (layout, text)}` for every round record in the working
+    tree and at TAGS, in either of `LAYOUTS`, the tree read first and a tag's
+    copy of the same round skipped; LAYOUT is the one the record was read
+    in. Where ITEMS is given, only the work items whose `<epoch>` prefix it
     names are read.
 
-    A path outside the record shape is skipped."""
+    A path outside every layout's record shape is skipped."""
 
     def wanted(item):
         return items is None or item.split("-")[0] in items
 
     found = {}
-    specs = os.path.join(ROOT, "seal", "specs")
-    for item in sorted(os.listdir(specs)) if os.path.isdir(specs) else []:
-        rounds = os.path.join(specs, item, "rounds")
-        if not wanted(item) or not os.path.isdir(rounds):
-            continue
-        for name in sorted(os.listdir(rounds)):
-            # exempt from old_names: the 0.22.x layout of the records its cases come from
-            m = RECORD.fullmatch(f"seal/specs/{item}/rounds/{name}")
-            if m:
-                with open(os.path.join(rounds, name), encoding="utf-8") as f:
-                    found[(item, int(m["n"]))] = f.read()
+    for layout in LAYOUTS:
+        root = os.path.join(ROOT, *layout.root.split("/"))
+        for item in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+            rounds = os.path.join(root, item, *layout.rounds.split("/"))
+            if not wanted(item) or not os.path.isdir(rounds):
+                continue
+            for name in sorted(os.listdir(rounds)):
+                key = layout.round_of(f"{layout.root}/{item}/{layout.rounds}/{name}")
+                if key:
+                    with open(os.path.join(rounds, name), encoding="utf-8") as f:
+                        found[key] = (layout, f.read())
+    roots = [layout.root for layout in LAYOUTS]
     for tag in tags:
-        # exempt from old_names: the 0.22.x layout of the records its cases come from
-        for path in git("ls-tree", "-r", "--name-only", tag, "seal/specs").split("\n"):
-            m = RECORD.fullmatch(path)
-            key = (m["item"], int(m["n"])) if m else None
-            if key and wanted(key[0]) and key not in found:
-                found[key] = git("show", f"{tag}:{path}")
+        for path in git("ls-tree", "-r", "--name-only", tag, *roots).split("\n"):
+            for layout in LAYOUTS:
+                key = layout.round_of(path)
+                if key and wanted(key[0]) and key not in found:
+                    found[key] = (layout, git("show", f"{tag}:{path}"))
     return found
 
 
@@ -178,8 +252,8 @@ def load_check(path, name):
 def record_reader():
     """`(chain_check, its shared reader)`, `chain_check.py` beside this tree,
     loaded once: the check and reader of a record no commit wrote
-    (`checks_at`), and the reader `labelled` decides a record's shape
-    with."""
+    (`checks_at`), and the readers `blocked` and `labelled` decide a
+    record's shape with."""
     check = load_check(CHECK, "agentic_chain_check")
     return check, check.SHARED_READER
 
@@ -249,6 +323,31 @@ def checks_at(at):
     return CHECKS[blobs]
 
 
+def blocked(text):
+    """True for a record in `seal` blocks: one holding a `seal` opener,
+    which no labelled or table record carries, where this tree's
+    `hooks/lib/fields.py` reads a block or refuses one.
+
+    This tree's parser decides it, as `labelled` is decided, because the
+    shape is decided before any check judges the record. `read` answers for
+    every opener: a block it reads, a refusal inside the block it opened,
+    or a refusal at the opener's own line where the fence never closes or
+    the walk cannot place it. A refusal of another kind, a comment line or
+    an unclosed or unplaced fence of another info string, names no opener.
+    So a record whose every block the parser refuses is still judged by its
+    commit's check, which names the refusal, and is never read as a
+    table."""
+    check, _reader = record_reader()
+    fields = check.FIELDS
+    read = fields.read(text, fields.ROUND_RECORD)
+    lines = fields.blocks.gfm_lines(text or "")
+    return bool(read.blocks) or any(
+        why not in (fields.COMMENT_LINE, fields.UNCLOSED, fields.UNSURE)
+        or lines[line - 1] == fields.OPENER
+        for line, why in read.refusals
+    )
+
+
 def labelled(text):
     """True for a record in 0.22.0's labelled lines: one whose readable
     lines hold a `target:` line, which no table record carries.
@@ -297,8 +396,7 @@ def labelled_round(text, rel, n, at=None):
     judge, reader = checks_at(at)
     found, errors = judge.round_of(reader, text, rel, n)
     if errors:
-        _rel, line, why = errors[0]
-        return None, f"the check refuses the record at line {line}: {why}"
+        return None, refusal(errors)
     # The `target:` and `location:` values and where a finding ends are read
     # here, by `label_value` and the finding heading's level, since a
     # commit's check spells its helpers as that commit did and only its
@@ -332,6 +430,60 @@ def labelled_round(text, rel, n, at=None):
         "findings": rows,
         "confirms": confirms,
     }, ""
+
+
+def block_round(text, rel, n, at=None):
+    """`(round, why)` for record N in `seal` blocks, judged by
+    `chain_check.py#round_of` as commit AT holds it, the commit that wrote
+    the record (`written_at`), or this tree's where AT is None: `round` is
+    `labelled_round`'s, its values read from the blocks that commit's
+    `round_read` parsed, the `target:` value from its round block and each
+    finding's `location:` value from its finding block.
+
+    A record that check refuses is `(None, the first refusal)`."""
+    judge, reader = checks_at(at)
+    found, errors = judge.round_of(reader, text, rel, n)
+    if errors:
+        return None, refusal(errors)
+    parsed = judge.round_read(reader, text, rel)
+    fields = judge.FIELDS
+    located = {
+        first + 1: block.fields[fields.LOCATION].value
+        for k, (first, _stop) in enumerate(parsed.spans)
+        for block in parsed.inside[k]
+        if block.kind is fields.FINDING_BLOCK
+    }
+    rows = [
+        (
+            f.number,
+            f.heading.split(". ", 1)[1],
+            located[f.heading_line],
+            f.verdict[0] == FIXED,
+        )
+        for f in found.findings
+    ]
+    return {
+        "sha": found.target,
+        "value": parsed.round.fields[fields.TARGET].value,
+        "findings": rows,
+        "confirms": {reference for _line, reference in found.confirms},
+    }, ""
+
+
+def refusal(errors):
+    """Why a record a check refuses is left out: the first of ERRORS, the
+    check's `(path, line, why)` refusals in line order."""
+    _rel, line, why = errors[0]
+    return f"the check refuses the record at line {line}: {why}"
+
+
+def judged_by(text):
+    """The reader of record TEXT's shape whose check judges it,
+    `block_round` or `labelled_round`, in that order; None for a table,
+    which no check judges."""
+    if blocked(text):
+        return block_round
+    return labelled_round if labelled(text) else None
 
 
 def cells(line):
@@ -402,8 +554,8 @@ def base_of(paragraph, target, landed=None):
 
 
 def target_base(value, target, landed=None):
-    """`(base SHA, base ref or None)` a labelled record's `target:` VALUE
-    names for TARGET: a fix range `<a>..<b>`'s start, an `against <sha>`
+    """`(base SHA, base ref or None)` the `target:` VALUE of a labelled
+    record, or of a round block, names for TARGET: a fix range `<a>..<b>`'s start, an `against <sha>`
     commit, or `against <base>` read as the merge-base of TARGET and
     `origin/<base>` (`ref_base`, LANDED standing for a ref that no longer
     resolves); `("", None)` if none resolves."""
@@ -437,13 +589,14 @@ def findings(text):
 
 def confirmed(text, n, rel="the next round's record", at=None):
     """The finding numbers of round N a record confirms closed: its
-    `confirms: round-<N>#<n>` lines where it is labelled, its 🟢 rows where
-    it is a table.
+    `confirms: round-<N>#<n>` references where it is in blocks or labelled,
+    its 🟢 rows where it is a table.
 
-    A line or row that names no round N finding confirms nothing, and a
-    labelled record the check of AT refuses confirms nothing at all."""
-    if labelled(text):
-        read, _why = labelled_round(text, rel, n + 1, at)
+    A reference or row that names no round N finding confirms nothing, and
+    a record the check of AT refuses confirms nothing at all."""
+    judged = judged_by(text)
+    if judged:
+        read, _why = judged(text, rel, n + 1, at)
         return {k for r, k in read["confirms"] if r == n} if read else set()
     done = set()
     for line in text.split("\n"):
@@ -626,25 +779,28 @@ def truths_with(case, truths, target):
     return out
 
 
-def round_target(item, n, text, nxt, wrote, replay=True, landed=None):
+def round_target(item, n, text, nxt, wrote, replay=True, landed=None, *, layout):
     """`(target, "")` for round N of ITEM, or `(None, why)`. TEXT is the
-    round's record and NXT the next round's, or None where there is none.
-    WROTE maps a record's path to the commit whose check judges it: the
-    commit that wrote it (`written_at`), or None for this tree's check.
-    LANDED is the commit the work landed on, where the caller knows it
-    (`ref_base`). A target is `{"item", "n", "target", "base", "base_ref",
-    "branch", "asked", "truths", "size"}`, its truths each finding the
-    round closed `fixed` that the next round confirms, as `{"k", "finding",
-    "location", "pattern"}`.
+    round's record and NXT the next round's, or None where there is none,
+    both read in LAYOUT, which gives the path of each record and of
+    `routing.md` at the target. WROTE maps a record's path to the commit
+    whose check judges it: the commit that wrote it (`written_at`), or None
+    for this tree's check. LANDED is the commit the work landed on, where
+    the caller knows it (`ref_base`). A target is `{"item", "n", "report",
+    "target", "base", "base_ref", "branch", "asked", "truths", "size"}`,
+    REPORT the round's record path, which the case's report is written at,
+    and its truths each finding the round closed `fixed` that the next
+    round confirms, as `{"k", "finding", "location", "pattern"}`.
 
-    A round whose SHAs or branch do not resolve, or a labelled record the
-    check of the commit that wrote it refuses, is left out with the reason.
-    Where REPLAY is set, so is a round with no next round or with no
-    truth; `seed_defects.py` builds on a round with neither."""
-    # exempt from old_names: the 0.22.x layout of the records its cases come from
-    rel = f"seal/specs/{item}/rounds/round-{n}.md"
-    if labelled(text):
-        read, why = labelled_round(text, rel, n, wrote(rel))
+    A round whose SHAs or branch do not resolve, or a record in blocks or
+    labelled lines the check of the commit that wrote it refuses, is left
+    out with the reason. Where REPLAY is set, so is a round with no next
+    round or with no truth; `seed_defects.py` builds on a round with
+    neither."""
+    rel = layout.record(item, n)
+    judged = judged_by(text)
+    if judged:
+        read, why = judged(text, rel, n, wrote(rel))
         if read is None:
             return None, why
         sha, para, label = read["sha"], "", "target"
@@ -657,7 +813,7 @@ def round_target(item, n, text, nxt, wrote, replay=True, landed=None):
         return None, f"{label} {sha or '(none)'} does not resolve"
     if nxt is None and replay:
         return None, "no next round to confirm a fix"
-    if labelled(text):
+    if judged:
         base, base_ref = target_base(read["value"], sha, landed)
         names = "the target line"
     else:
@@ -665,13 +821,11 @@ def round_target(item, n, text, nxt, wrote, replay=True, landed=None):
         names = "the asked paragraph"
     if not base:
         return None, f"{names} names no base that resolves"
-    # exempt from old_names: the 0.22.x layout of the records its cases come from
-    routing = git("show", f"{sha}:seal/specs/{item}/routing.md", check=False)
+    routing = git("show", f"{sha}:{layout.routing(item)}", check=False)
     branch = field(routing, "Branch")
     if not branch:
         return None, "routing.md at the target names no branch"
-    # exempt from old_names: the 0.22.x layout of the records its cases come from
-    following = f"seal/specs/{item}/rounds/round-{n + 1}.md"
+    following = layout.record(item, n + 1)
     done = set() if nxt is None else confirmed(nxt, n, following, wrote(following))
     truths = []
     for k, finding, location, fixed in rows:
@@ -693,6 +847,7 @@ def round_target(item, n, text, nxt, wrote, replay=True, landed=None):
     return {
         "item": item,
         "n": n,
+        "report": rel,
         "target": git("rev-parse", sha).strip(),
         "base": base,
         "base_ref": base_ref,
@@ -709,13 +864,15 @@ def targets(tags, items=None):
     judged by `round_target`."""
     found = records(tags, items)
     kept, left = [], []
-    for (item, n), text in sorted(found.items()):
+    for (item, n), (layout, text) in sorted(found.items()):
+        _layout, nxt = found.get((item, n + 1), (layout, None))
         t, why = round_target(
             item,
             n,
             text,
-            found.get((item, n + 1)),
+            nxt,
             lambda rel: written_at(rel, tags),
+            layout=layout,
         )
         if t is None:
             left.append((item, n, why))
@@ -740,10 +897,10 @@ def origin_url():
 
 def prompt(t):
     """The case prompt: the orchestrator's one spawn, then the report read
-    back so the run's trace holds it. The round's asked paragraph ends the
-    spawn where its record carried one, and nothing does where it did not."""
-    # exempt from old_names: the 0.22.x layout of the tree the case rebuilds
-    report = f"seal/specs/{t['item']}/rounds/round-{t['n']}.md"
+    back so the run's trace holds it, at the path of the round's record.
+    The round's asked paragraph ends the spawn where its record carried
+    one, and nothing does where it did not."""
+    report = t["report"]
     base = f"`{t['base_ref']}` at `{t['base']}`" if t["base_ref"] else f"`{t['base']}`"
     asked = " ".join(t["asked"].split())
     asked = f" {asked}" if asked else ""
@@ -773,9 +930,9 @@ def scaffold(t, url):
 
 
 def graders(t):
-    """Reach, shape and truth graders for one target."""
-    # exempt from old_names: the 0.22.x layout of the tree the case rebuilds
-    report = f"seal/specs/{t['item']}/rounds/round-{t['n']}.md"
+    """Reach, shape and truth graders for one target, over the report at
+    the path of the round's record."""
+    report = t["report"]
     own = [
         (
             f"{truth['k']}",
@@ -795,11 +952,47 @@ def case_name(t):
     return f"replay-{t['item'].split('-')[0]}-r{t['n']}"
 
 
+def layouts_named():
+    """Both of `LAYOUTS`, as a message names them."""
+    return " or ".join(layout.named() for layout in LAYOUTS)
+
+
+def say_unanswered(names, answered, kept, left):
+    """Say on stderr each of `--case` NAMES that ANSWERED does not hold,
+    with why it was not written (`not_written`); how many there were."""
+    unanswered = [name for name in names if name not in answered]
+    for name in unanswered:
+        why = not_written(name, kept, left)
+        print(f"replay_targets: {name} not written: {why}", file=sys.stderr)
+    return len(unanswered)
+
+
+def not_written(name, kept, left):
+    """Why `--case` NAME was not written: for a name out of `CASE_NAME`'s
+    form, that form (`NAMED`), since `main` reads no such name; else the
+    reason `round_target` gave for its round, else that no record of its
+    round, or of its work item, was read among KEPT and LEFT."""
+    m = CASE_NAME.fullmatch(name)
+    if m is None:
+        return NAMED
+    for item, n, why in left:
+        if case_name({"item": item, "n": n}) == name:
+            return why
+    read = {t["item"] for t in kept} | {item for item, _n, _why in left}
+    if m["epoch"] in {item.split("-")[0] for item in read}:
+        return f"no round {m['n']} record of its work item was read"
+    return "no record of its work item was read"
+
+
 def main(argv=None):
     """Parse the arguments, then list or write. `--case` reads its work
     items' records at every release tag; the rest reads the last two.
 
-    An unusable argument is argparse's exit 2."""
+    A run that reads no round record says so on stderr and exits 1, and
+    `--case` reads only the names in `CASE_NAME`'s form, names on stderr
+    each name it did not write and why, or with `--list` each name no
+    listed line answers, and exits 1 where it named one. An unusable
+    argument is argparse's exit 2."""
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--list", action="store_true")
     p.add_argument("--count", type=int, default=4)
@@ -809,16 +1002,28 @@ def main(argv=None):
     p.add_argument("--timeout", type=int, default=2400)
     a = p.parse_args(argv)
     if a.case:
-        items = {name.removeprefix("replay-").rsplit("-r", 1)[0] for name in a.case}
+        items = {m["epoch"] for m in map(CASE_NAME.fullmatch, a.case) if m}
         kept, left = targets(last_tags(None), items)
     else:
-        kept, left = targets(last_tags())
+        tags = last_tags()
+        kept, left = targets(tags)
+        if not kept and not left:
+            where = ", ".join(tags) or "no release tag"
+            print(
+                f"replay_targets: no round record in {layouts_named()}, in the "
+                f"working tree or at {where}",
+                file=sys.stderr,
+            )
+            return 1
     if a.list:
         for t in sorted(kept, key=lambda t: t["size"]):
             print(f"{t['item']} r{t['n']}  {len(t['truths'])} truth  {t['size']} lines")
         for item, n, why in left:
             print(f"{item} r{n}  left out: {why}")
-        return 0
+        listed = {case_name(t) for t in kept} | {
+            case_name({"item": item, "n": n}) for item, n, _why in left
+        }
+        return 1 if say_unanswered(a.case, listed, kept, left) else 0
     chosen, items = [], set()
     for t in sorted(kept, key=lambda t: (t["size"], t["item"], t["n"])):
         if t["item"] not in items:
@@ -828,7 +1033,6 @@ def main(argv=None):
             break
     if a.case:
         chosen = [t for t in kept if case_name(t) in a.case]
-        a.count = len(a.case)
     url = origin_url()
     for t in chosen:
         name = case_name(t)
@@ -844,6 +1048,9 @@ def main(argv=None):
             model=a.model,
         )
         print(f"{name}: {len(t['truths'])} truth, {t['size']} lines")
+    unanswered = say_unanswered(a.case, {case_name(t) for t in chosen}, kept, left)
+    if a.case:
+        return 1 if unanswered else 0
     return 0 if len(chosen) == a.count else 1
 
 
